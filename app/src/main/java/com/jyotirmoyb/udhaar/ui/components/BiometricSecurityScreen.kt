@@ -71,11 +71,23 @@ fun BiometricSecurityScreen(
     var statusMessage by rememberSaveable { mutableStateOf<String?>(null) }
 
     val biometricAvailability = remember(context) {
-        val manager = BiometricManager.from(context)
-        manager.canAuthenticate(
-            BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                BiometricManager.Authenticators.DEVICE_CREDENTIAL
-        )
+        runCatching {
+            val manager = BiometricManager.from(context)
+            val strongOrCred = runCatching {
+                manager.canAuthenticate(
+                    BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                        BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                )
+            }.getOrDefault(BiometricManager.BIOMETRIC_ERROR_UNSUPPORTED)
+
+            if (strongOrCred == BiometricManager.BIOMETRIC_SUCCESS) {
+                strongOrCred
+            } else {
+                runCatching {
+                    manager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+                }.getOrDefault(BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE)
+            }
+        }.getOrDefault(BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE)
     }
 
     val isBiometricReady = biometricAvailability == BiometricManager.BIOMETRIC_SUCCESS
@@ -115,26 +127,28 @@ fun BiometricSecurityScreen(
             }
         }
 
-        val prompt = BiometricPrompt(activity, executor, callback)
-        val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Unlock Udhaar Ledger")
-            .setSubtitle("Authenticate with Biometric or Device Credential to view financial records")
-            .setAllowedAuthenticators(
-                BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                    BiometricManager.Authenticators.DEVICE_CREDENTIAL
-            )
-            .build()
-
         runCatching {
+            val prompt = BiometricPrompt(activity, executor, callback)
+            val promptInfo = runCatching {
+                BiometricPrompt.PromptInfo.Builder()
+                    .setTitle("Unlock Udhaar Ledger")
+                    .setSubtitle("Authenticate with Biometric or Device Credential to view financial records")
+                    .setAllowedAuthenticators(
+                        BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                            BiometricManager.Authenticators.DEVICE_CREDENTIAL
+                    )
+                    .build()
+            }.getOrElse {
+                BiometricPrompt.PromptInfo.Builder()
+                    .setTitle("Unlock Udhaar Ledger")
+                    .setSubtitle("Authenticate with Biometrics to view financial records")
+                    .setNegativeButtonText("Use App PIN")
+                    .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+                    .build()
+            }
             prompt.authenticate(promptInfo)
         }.onFailure {
             statusMessage = "Use your Security PIN below to unlock."
-        }
-    }
-
-    LaunchedEffect(isBiometricReady) {
-        if (isBiometricReady) {
-            triggerBiometricPrompt()
         }
     }
 

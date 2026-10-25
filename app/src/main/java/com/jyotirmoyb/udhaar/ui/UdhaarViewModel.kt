@@ -72,7 +72,7 @@ data class PreselectedPartyDraft(
 )
 
 data class UdhaarUiState(
-    val isAuthenticated: Boolean = false,
+    val isAuthenticated: Boolean = true,
     val activeScreen: ActiveScreen = ActiveScreen.DASHBOARD,
     val summaryCurrency: CurrencyType = CurrencyType.INR,
     val inrTotals: CurrencyLedgerTotals = CurrencyLedgerTotals(CurrencyType.INR),
@@ -105,7 +105,8 @@ data class UdhaarUiState(
 }
 
 private data class LocalUiFilterState(
-    val isAuthenticated: Boolean = false,
+    val hasUnlockedThisSession: Boolean = false,
+    val manualLockRequested: Boolean = false,
     val activeScreen: ActiveScreen = ActiveScreen.DASHBOARD,
     val summaryCurrency: CurrencyType? = null,
     val selectedFilter: LedgerFilter = LedgerFilter.ALL,
@@ -265,7 +266,8 @@ class UdhaarViewModel(
         } else {
             settings.enabledCurrencies.first()
         }
-        val unlocked = local.isAuthenticated || !settings.biometricLockEnabled
+        val requiresAuth = (settings.biometricLockEnabled && !local.hasUnlockedThisSession) || local.manualLockRequested
+        val unlocked = !requiresAuth
 
         UdhaarUiState(
             isAuthenticated = unlocked,
@@ -303,11 +305,21 @@ class UdhaarViewModel(
     )
 
     fun markAuthenticated() {
-        localState.update { it.copy(isAuthenticated = true) }
+        localState.update {
+            it.copy(
+                hasUnlockedThisSession = true,
+                manualLockRequested = false
+            )
+        }
     }
 
     fun lockApplicationNow() {
-        localState.update { it.copy(isAuthenticated = false) }
+        localState.update {
+            it.copy(
+                manualLockRequested = true,
+                showSettingsModal = false
+            )
+        }
     }
 
     fun switchMainTab(screen: ActiveScreen) {

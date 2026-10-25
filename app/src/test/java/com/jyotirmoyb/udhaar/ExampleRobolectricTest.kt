@@ -31,8 +31,17 @@ class ExampleRobolectricTest {
         val appName = context.getString(R.string.app_name)
         assertEquals("Udhaar", appName)
         assertEquals("com.jyotirmoyb.udhaar", BuildConfig.APPLICATION_ID)
-        assertEquals("1.1.0", BuildConfig.VERSION_NAME)
-        assertEquals(2, BuildConfig.VERSION_CODE)
+        assertEquals("4.0", BuildConfig.VERSION_NAME)
+        assertEquals(4, BuildConfig.VERSION_CODE)
+    }
+
+    @get:org.junit.Rule
+    val composeRule = androidx.compose.ui.test.junit4.createAndroidComposeRule<MainActivity>()
+
+    @Test
+    fun `mainActivity launches and renders dashboard UI without crashing`() {
+        composeRule.waitForIdle()
+        composeRule.onNode(androidx.compose.ui.test.hasText("UDHAAR")).assertExists()
     }
 
     @Test

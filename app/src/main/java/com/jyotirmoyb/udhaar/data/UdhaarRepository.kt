@@ -5,11 +5,13 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.jyotirmoyb.udhaar.ui.theme.AppThemeMode
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "udhaar_settings")
@@ -25,7 +27,7 @@ class UdhaarRepository(
         val INR_ENABLED = booleanPreferencesKey("inr_enabled")
         val NPR_ENABLED = booleanPreferencesKey("npr_enabled")
         val THEME_MODE = stringPreferencesKey("theme_mode")
-        val BIOMETRIC_LOCK_ENABLED = booleanPreferencesKey("biometric_lock_enabled")
+        val BIOMETRIC_LOCK_ENABLED = booleanPreferencesKey("app_lock_opt_in_enabled")
         val SECURITY_PIN = stringPreferencesKey("security_pin")
     }
 
@@ -33,7 +35,9 @@ class UdhaarRepository(
     val allTransactions: Flow<List<UdhaarTransaction>> = dao.getAllTransactions()
     val allPartialPayments: Flow<List<PartialPayment>> = dao.getAllPartialPayments()
 
-    val userSettings: Flow<UserSettings> = context?.dataStore?.data?.map { prefs ->
+    val userSettings: Flow<UserSettings> = context?.dataStore?.data
+        ?.catch { emit(emptyPreferences()) }
+        ?.map { prefs ->
         val inrEnabled = prefs[PrefKeys.INR_ENABLED] ?: true
         val nprEnabled = prefs[PrefKeys.NPR_ENABLED] ?: false // Disabled by default
         val safeInr = if (!inrEnabled && !nprEnabled) true else inrEnabled
@@ -56,7 +60,7 @@ class UdhaarRepository(
             inrEnabled = safeInr,
             nprEnabled = nprEnabled,
             themeMode = themeMode,
-            biometricLockEnabled = prefs[PrefKeys.BIOMETRIC_LOCK_ENABLED] ?: true,
+            biometricLockEnabled = prefs[PrefKeys.BIOMETRIC_LOCK_ENABLED] ?: false,
             securityPin = prefs[PrefKeys.SECURITY_PIN]?.takeIf { it.isNotBlank() } ?: "0000"
         )
     } ?: kotlinx.coroutines.flow.flowOf(UserSettings())

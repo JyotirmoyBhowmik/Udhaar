@@ -65,7 +65,9 @@ abstract class UdhaarDatabase : RoomDatabase() {
     companion object {
         private val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE partial_payments ADD COLUMN paymentMode TEXT NOT NULL DEFAULT 'CASH'")
+                runCatching {
+                    db.execSQL("ALTER TABLE partial_payments ADD COLUMN paymentMode TEXT NOT NULL DEFAULT 'CASH'")
+                }
             }
         }
 
@@ -81,6 +83,7 @@ abstract class UdhaarDatabase : RoomDatabase() {
                 )
                     .addMigrations(MIGRATION_2_3)
                     .fallbackToDestructiveMigration(true)
+                    .fallbackToDestructiveMigrationOnDowngrade(true)
                     .build()
                 INSTANCE = instance
                 instance

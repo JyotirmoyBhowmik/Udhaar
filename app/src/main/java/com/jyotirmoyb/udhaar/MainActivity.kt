@@ -39,7 +39,7 @@ import com.jyotirmoyb.udhaar.util.InterestCalculator
 import com.jyotirmoyb.udhaar.util.LedgerBackupManager
 import com.jyotirmoyb.udhaar.util.ThermalReceiptGenerator
 
-class MainActivity : FragmentActivity() {
+open class MainActivity : FragmentActivity() {
 
     private var pendingReminderTransactionId by mutableStateOf<Long?>(null)
 

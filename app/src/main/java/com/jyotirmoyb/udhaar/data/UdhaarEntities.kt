@@ -117,7 +117,7 @@ data class UserSettings(
     val inrEnabled: Boolean = true,
     val nprEnabled: Boolean = false, // Disabled by default per user specification
     val themeMode: AppThemeMode = AppThemeMode.MONOCHROME_LIGHT,
-    val biometricLockEnabled: Boolean = true,
+    val biometricLockEnabled: Boolean = false,
     val securityPin: String = "0000"
 ) {
     val enabledCurrencies: List<CurrencyType>
