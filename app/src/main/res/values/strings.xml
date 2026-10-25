@@ -1,0 +1,19 @@
+<resources>
+    <string name="app_name">Udhaar</string>
+    <string name="tagline_monochrome_ledger">MINIMALIST LOAN &amp; LEDGER</string>
+    <string name="total_to_receive">TOTAL TO RECEIVE (GIVEN)</string>
+    <string name="total_to_pay">TOTAL TO PAY (TAKEN)</string>
+    <string name="net_balance_label">NET POSITION</string>
+    <string name="search_placeholder">Search party, phone, or notes…</string>
+    <string name="add_udhaar_button">New Udhaar</string>
+    <string name="empty_ledger_title">No Ledger Records Found</string>
+    <string name="empty_ledger_subtitle">Tap + New Udhaar to record money given or taken in INR (₹) or NPR (रू).</string>
+    <string name="settings_title">Profile &amp; UPI Settings</string>
+    <string name="qr_modal_title">UPI Payment QR</string>
+    <string name="whatsapp_reminder_title">WhatsApp Reminder</string>
+    <string name="hide_exact_amount_label">Hide Exact Amount in Message</string>
+    <string name="send_whatsapp_button">Send via WhatsApp</string>
+    <string name="share_qr_button">Share QR Card</string>
+    <string name="save_record_button">Save Record</string>
+    <string name="pick_contact_desc">Pick from phone contacts</string>
+</resources>
