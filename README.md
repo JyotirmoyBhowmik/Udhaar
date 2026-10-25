@@ -97,30 +97,31 @@ Udhaar follows a utilitarian **Swiss-grid typographic aesthetic**:
 
 ### Package Structure
 ```
-com.example
+com.jyotirmoyb.udhaar
 ├── MainActivity.kt                  # FragmentActivity host, SAF launchers & Biometric gate
 ├── data/
 │   ├── UdhaarEntities.kt            # PartyEntity, UdhaarTransaction, PartialPayment & enums
 │   ├── UdhaarDao.kt                 # Reactive Flow queries & snapshot methods
-│   ├── UdhaarDatabase.kt            # Room database v2 & TypeConverters
+│   ├── UdhaarDatabase.kt            # Room database v3 & TypeConverters
 │   └── UdhaarRepository.kt          # Single source of truth (Room + DataStore)
 ├── notification/
 │   ├── ReminderReceiver.kt          # BroadcastReceiver for local settlement notifications
 │   └── ReminderScheduler.kt         # AlarmManager scheduling & cancellation
 ├── ui/
-│   ├── UdhaarViewModel.kt           # Ledger, People Directory, QR & Backup state management
+│   ├── UdhaarViewModel.kt           # Ledger, People Directory, QR, Receipt & Backup state
 │   ├── components/
 │   │   ├── BiometricSecurityScreen.kt # Fingerprint / Face Unlock & PIN screen
 │   │   ├── DashboardScreen.kt         # Ledger & People Directory tabs, summary card
 │   │   ├── PeopleDirectoryScreen.kt   # People Directory, Single-Party Khata & Party Modal
 │   │   ├── AddEditUdhaarScreen.kt     # Loan creation/editing with live interest preview
-│   │   └── ModalsAndSheets.kt         # Detail/Repayment, UPI QR, Share App, Settings & Admin
+│   │   └── ModalsAndSheets.kt         # Detail/Repayment, Receipt, UPI QR, Share App, Settings
 │   └── theme/
-│       ├── Color.kt                 # Strictly monochrome color tokens
+│       ├── Color.kt                 # Strictly monochrome & multi-theme color tokens
 │       ├── Type.kt                  # Space Grotesk, Inter & IBM Plex Mono typography
 │       └── Theme.kt                 # Monochrome Material 3 theme
 └── util/
     ├── InterestCalculator.kt        # Simple/Compound math, phone formatting & WA templates
+    ├── ThermalReceiptGenerator.kt   # Monochrome thermal statement receipt (PNG & PDF share)
     ├── UpiQrGenerator.kt            # ZXing QR generator & shareable PNG card builder
     └── LedgerBackupManager.kt       # JSON export/import for Full Ledger & Party Statements
 ```
@@ -131,7 +132,7 @@ com.example
 
 ### Building & Running Locally
 1. Ensure Android SDK 36 and JDK 11+ are configured.
-2. Build the debug APK:
+2. Build the debug or release APK (`Udhaar-v1.1.0-release.apk` / `Udhaar-v1.1.0-release.aab`):
    ```bash
    gradle assembleDebug
    ```
@@ -142,14 +143,15 @@ com.example
 
 ### Giving Other Users Access to the App & Ledger Records
 1. **Google Play Store Production vs. Internal/Closed Testing:**
-   - **Production Track:** Any user can install directly via `https://play.google.com/store/apps/details?id=com.aistudio.udhaar.kxmzqp`.
+   - **Production Track:** Any user can install directly via `https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar`.
    - **Internal / Closed Testing Track:** Add the user's Google account email to the authorized testers list in Google Play Console and share the Web Opt-In URL before they open the Play Store link.
 2. **In-App Play Store QR & WhatsApp Invite:**
    - Tap the **Share** icon in the top bar (or open **Settings -> Share / Give Access to Udhaar**).
    - Another person nearby can scan the monochrome Play Store QR code right off your screen, or you can tap **Share on WhatsApp** to send the direct Play Store link.
-3. **Offline JSON Ledger Backup & Single-Party Statement Transfer:**
+3. **Thermal Statement Receipts (PNG & PDF) & Offline JSON Ledger Backup:**
+   - **Thermal Statement Receipt:** On any Single Transaction Detail Sheet or Party Khata View, tap **Share Receipt / Statement (Image & PDF)** to render and share a monochrome thermal receipt via WhatsApp or Email.
    - **Full Ledger Backup:** Go to **Settings -> Offline Ledger Backup & Record Transfer (JSON)** and tap **Export JSON** (saves to device storage via Storage Access Framework) or **Share Backup** (shares via WhatsApp/email using `FileProvider`).
-   - **Single-Party Statement:** Open any person in **People Directory** and tap **Save Statement (JSON)** or **Share Statement**.
+   - **Single-Party Statement:** Open any person in **People Directory** and tap **Save Statement (JSON)** or **Share Backup (JSON)**.
    - **Restore / Import:** On any secondary device, open **Settings -> Import Ledger Backup (JSON)** and select the `.json` file to merge parties, loans, and repayment histories offline.
 
 ---
@@ -158,4 +160,4 @@ com.example
 
 - **Administrator & Lead Developer:** `Jyotirmoy Bhowmik`
 - **Admin Contact Email:** `admin@jyotirmoyb.com`
-- **In-App Support:** Navigate to **`Settings -> About & Support -> Contact Admin (admin@jyotirmoyb.com)`**, which triggers a pre-addressed `mailto:admin@jyotirmoyb.com` intent with the app version in the subject line (and automatically copies `admin@jyotirmoyb.com` to the clipboard as a fallback).
+- **In-App Support:** Navigate to **`Settings -> Admin & Support -> Contact Admin (admin@jyotirmoyb.com)`**, which triggers a pre-addressed `mailto:admin@jyotirmoyb.com` intent with `"Udhaar App Support (v1.1.0)"` in the subject line (and automatically copies `admin@jyotirmoyb.com` to the clipboard as a fallback).

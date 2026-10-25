@@ -6,4 +6,7 @@
     <cache-path
         name="shared_backups"
         path="backups/" />
+    <cache-path
+        name="shared_receipts"
+        path="receipts/" />
 </paths>

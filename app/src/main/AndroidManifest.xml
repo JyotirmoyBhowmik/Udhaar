@@ -16,7 +16,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
         <activity
-            android:name=".MainActivity"
+            android:name="com.jyotirmoyb.udhaar.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:label="@string/app_name"
@@ -24,12 +24,12 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
-                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.action.LAUNCHER" />
             </intent-filter>
         </activity>
 
         <receiver
-            android:name=".notification.ReminderReceiver"
+            android:name="com.jyotirmoyb.udhaar.notification.ReminderReceiver"
             android:exported="false" />
 
         <provider
