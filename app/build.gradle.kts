@@ -43,8 +43,8 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = true
-      isShrinkResources = true
+      isMinifyEnabled = false
+      isShrinkResources = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       // Do not remove or modify this signingConfig assignment. It is necessary for Android apps in
       // AI Studio.
@@ -68,35 +68,6 @@ android {
   dependenciesInfo {
     includeInApk = false
     includeInBundle = true
-  }
-}
-
-// Automatically produce Udhaar-v1.1.0-release.apk and Udhaar-v1.1.0-release.aab alongside standard outputs
-afterEvaluate {
-  val appVersion = android.defaultConfig.versionName ?: "1.1.0"
-  tasks.matching { it.name == "packageRelease" || it.name == "assembleRelease" }.configureEach {
-    doLast {
-      val releaseApkDir = layout.buildDirectory.dir("outputs/apk/release").get().asFile
-      if (releaseApkDir.exists()) {
-        releaseApkDir.walkTopDown()
-          .filter { it.isFile && it.extension == "apk" && !it.name.startsWith("Udhaar-v") }
-          .forEach { apkFile ->
-            apkFile.copyTo(File(apkFile.parentFile, "Udhaar-v${appVersion}-release.apk"), overwrite = true)
-          }
-      }
-    }
-  }
-  tasks.matching { it.name == "signReleaseBundle" || it.name == "bundleRelease" }.configureEach {
-    doLast {
-      val releaseBundleDir = layout.buildDirectory.dir("outputs/bundle/release").get().asFile
-      if (releaseBundleDir.exists()) {
-        releaseBundleDir.walkTopDown()
-          .filter { it.isFile && it.extension == "aab" && !it.name.startsWith("Udhaar-v") }
-          .forEach { aabFile ->
-            aabFile.copyTo(File(aabFile.parentFile, "Udhaar-v${appVersion}-release.aab"), overwrite = true)
-          }
-      }
-    }
   }
 }
 
