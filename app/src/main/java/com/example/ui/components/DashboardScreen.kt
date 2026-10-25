@@ -28,8 +28,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -55,9 +61,13 @@ import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.data.CurrencyType
 import com.example.data.LedgerFilter
+import com.example.data.PartyEntity
 import com.example.data.TransactionType
+import com.example.ui.ActiveScreen
 import com.example.ui.CurrencyLedgerTotals
+import com.example.ui.PartyKhataSummary
 import com.example.ui.UdhaarUiState
+import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.BorderGrey
 import com.example.ui.theme.MutedChipGrey
 import com.example.ui.theme.PureBlack
@@ -70,16 +80,28 @@ import com.example.util.InterestCalculator
 @Composable
 fun DashboardScreen(
     uiState: UdhaarUiState,
+    onSwitchTab: (ActiveScreen) -> Unit,
     onSelectSummaryCurrency: (CurrencyType) -> Unit,
+    onToggleCurrencyEnabled: (CurrencyType, Boolean) -> Unit,
+    onCycleTheme: () -> Unit,
     onSelectFilter: (LedgerFilter) -> Unit,
     onSearchQueryChange: (String) -> Unit,
+    onPeopleSearchQueryChange: (String) -> Unit,
     onAddUdhaarClick: () -> Unit,
+    onAddPartyClick: () -> Unit,
+    onPartyClick: (PartyKhataSummary) -> Unit,
+    onQuickAddLoanForParty: (PartyEntity) -> Unit,
     onTransactionClick: (CalculatedUdhaarSummary) -> Unit,
     onWhatsAppClick: (CalculatedUdhaarSummary) -> Unit,
     onTransactionQrClick: (CalculatedUdhaarSummary) -> Unit,
     onGlobalQrClick: () -> Unit,
+    onShareAppClick: () -> Unit,
+    onLockAppClick: () -> Unit,
     onSettingsClick: () -> Unit
 ) {
+    val isPeopleTab = uiState.activeScreen == ActiveScreen.PEOPLE_DIRECTORY
+    val enabledCurrencies = uiState.userSettings.enabledCurrencies
+
     Scaffold(
         contentWindowInsets = WindowInsets.safeDrawing,
         containerColor = PureWhite,
@@ -92,7 +114,7 @@ fun DashboardScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -103,56 +125,182 @@ fun DashboardScreen(
                             color = PureBlack
                         )
                         Text(
-                            text = stringResource(R.string.tagline_monochrome_ledger),
+                            text = "${uiState.userSettings.themeMode.label.uppercase()} • ${enabledCurrencies.joinToString("/") { it.code }}",
                             style = MaterialTheme.typography.labelSmall,
                             color = SecondaryInkGrey
                         )
                     }
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        OutlinedButton(
-                            onClick = onGlobalQrClick,
+                        if (uiState.userSettings.inrEnabled) {
+                            OutlinedButton(
+                                onClick = onGlobalQrClick,
+                                modifier = Modifier
+                                    .height(42.dp)
+                                    .testTag("global_upi_qr_button"),
+                                shape = RoundedCornerShape(4.dp),
+                                border = BorderStroke(1.dp, PureBlack),
+                                contentPadding = PaddingValues(horizontal = 10.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.QrCode2,
+                                    contentDescription = "Global UPI QR Code",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("QR", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+
+                        IconButton(
+                            onClick = onCycleTheme,
                             modifier = Modifier
-                                .height(48.dp)
-                                .testTag("global_upi_qr_button"),
-                            shape = RoundedCornerShape(4.dp),
-                            border = BorderStroke(1.dp, PureBlack),
-                            contentPadding = PaddingValues(horizontal = 12.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                                .size(42.dp)
+                                .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
+                                .testTag("cycle_theme_top_button")
                         ) {
                             Icon(
-                                imageVector = Icons.Default.QrCode2,
-                                contentDescription = "Global UPI QR Code",
+                                imageVector = Icons.Default.Palette,
+                                contentDescription = "Switch Theme (${uiState.userSettings.themeMode.label})",
+                                tint = PureBlack,
                                 modifier = Modifier.size(18.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("UPI QR", style = MaterialTheme.typography.labelMedium)
+                        }
+
+                        IconButton(
+                            onClick = onShareAppClick,
+                            modifier = Modifier
+                                .size(42.dp)
+                                .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
+                                .testTag("share_app_top_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "Share Udhaar App",
+                                tint = PureBlack,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = onLockAppClick,
+                            modifier = Modifier
+                                .size(42.dp)
+                                .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
+                                .testTag("lock_app_top_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = "Lock Udhaar App",
+                                tint = PureBlack,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
 
                         IconButton(
                             onClick = onSettingsClick,
                             modifier = Modifier
-                                .size(48.dp)
+                                .size(42.dp)
                                 .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
                                 .testTag("open_settings_button")
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Settings,
-                                contentDescription = "Profile and UPI Settings",
-                                tint = PureBlack
+                                contentDescription = "Profile, Currency, Theme and UPI Settings",
+                                tint = PureBlack,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
                 }
+
+                // Navigation Switcher: LEDGER vs PEOPLE DIRECTORY (KHATA)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val isLedger = uiState.activeScreen == ActiveScreen.DASHBOARD
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .border(
+                                width = if (isLedger) 1.5.dp else 1.dp,
+                                color = if (isLedger) PureBlack else BorderGrey,
+                                shape = RoundedCornerShape(4.dp)
+                            )
+                            .background(
+                                color = if (isLedger) PureBlack else PureWhite,
+                                shape = RoundedCornerShape(4.dp)
+                            )
+                            .clickable { onSwitchTab(ActiveScreen.DASHBOARD) }
+                            .testTag("nav_tab_ledger"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.ReceiptLong,
+                                contentDescription = null,
+                                tint = if (isLedger) PureWhite else PureBlack,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "LEDGER (${uiState.allCalculatedItems.size})",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isLedger) PureWhite else PureBlack
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .border(
+                                width = if (isPeopleTab) 1.5.dp else 1.dp,
+                                color = if (isPeopleTab) PureBlack else BorderGrey,
+                                shape = RoundedCornerShape(4.dp)
+                            )
+                            .background(
+                                color = if (isPeopleTab) PureBlack else PureWhite,
+                                shape = RoundedCornerShape(4.dp)
+                            )
+                            .clickable { onSwitchTab(ActiveScreen.PEOPLE_DIRECTORY) }
+                            .testTag("nav_tab_people_directory"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Group,
+                                contentDescription = null,
+                                tint = if (isPeopleTab) PureWhite else PureBlack,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "PEOPLE DIRECTORY (${uiState.partyKhataList.size})",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isPeopleTab) PureWhite else PureBlack
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
                 HorizontalDivider(color = BorderGrey, thickness = 1.dp)
             }
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onAddUdhaarClick,
+                onClick = if (isPeopleTab) onAddPartyClick else onAddUdhaarClick,
                 containerColor = PureBlack,
                 contentColor = PureWhite,
                 shape = RoundedCornerShape(4.dp),
@@ -165,12 +313,12 @@ fun DashboardScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Add,
+                        imageVector = if (isPeopleTab) Icons.Default.PersonAdd else Icons.Default.Add,
                         contentDescription = stringResource(R.string.add_udhaar_button)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "NEW UDHAAR",
+                        text = if (isPeopleTab) "NEW CONTACT" else "NEW UDHAAR",
                         style = MaterialTheme.typography.labelLarge,
                         color = PureWhite
                     )
@@ -184,86 +332,101 @@ fun DashboardScreen(
                 .padding(innerPadding),
             contentAlignment = Alignment.TopCenter
         ) {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .widthIn(max = 700.dp)
-                    .testTag("transactions_lazy_list"),
-                contentPadding = PaddingValues(
-                    start = 16.dp,
-                    end = 16.dp,
-                    top = 16.dp,
-                    bottom = 96.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Top Summary Card with INR | NPR Switcher
-                item {
-                    TopLedgerSummaryCard(
-                        selectedCurrency = uiState.summaryCurrency,
-                        totals = uiState.activeSummaryTotals,
-                        inrCount = uiState.inrTotals.activeGivenCount + uiState.inrTotals.activeTakenCount,
-                        nprCount = uiState.nprTotals.activeGivenCount + uiState.nprTotals.activeTakenCount,
-                        onSelectCurrency = onSelectSummaryCurrency
-                    )
-                }
-
-                // Search & Filter Controls
-                item {
-                    SearchAndFilterBar(
-                        searchQuery = uiState.searchQuery,
-                        selectedFilter = uiState.selectedFilter,
-                        onSearchQueryChange = onSearchQueryChange,
-                        onSelectFilter = onSelectFilter
-                    )
-                }
-
-                // Section Header with record count
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "LEDGER RECORDS (${uiState.filteredItems.size})",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = SecondaryInkGrey
+            if (isPeopleTab) {
+                PeopleDirectoryContent(
+                    partyKhataList = uiState.filteredPartyKhataList,
+                    enabledCurrencies = enabledCurrencies,
+                    searchQuery = uiState.peopleSearchQuery,
+                    onSearchQueryChange = onPeopleSearchQueryChange,
+                    onAddPartyClick = onAddPartyClick,
+                    onPartyClick = onPartyClick,
+                    onQuickAddLoanForParty = onQuickAddLoanForParty
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .widthIn(max = 700.dp)
+                        .testTag("transactions_lazy_list"),
+                    contentPadding = PaddingValues(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 16.dp,
+                        bottom = 96.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Top Summary Card with Enabled Currency Switcher & Quick Enable/Disable NPR/INR
+                    item {
+                        TopLedgerSummaryCard(
+                            selectedCurrency = uiState.summaryCurrency,
+                            enabledCurrencies = enabledCurrencies,
+                            totals = uiState.activeSummaryTotals,
+                            inrCount = uiState.inrTotals.activeGivenCount + uiState.inrTotals.activeTakenCount,
+                            nprCount = uiState.nprTotals.activeGivenCount + uiState.nprTotals.activeTakenCount,
+                            onSelectCurrency = onSelectSummaryCurrency,
+                            onToggleCurrencyEnabled = onToggleCurrencyEnabled
                         )
-                        if (uiState.userSettings.upiId.isNotBlank()) {
+                    }
+
+                    // Search & Filter Controls
+                    item {
+                        SearchAndFilterBar(
+                            searchQuery = uiState.searchQuery,
+                            selectedFilter = uiState.selectedFilter,
+                            enabledCurrencies = enabledCurrencies,
+                            onSearchQueryChange = onSearchQueryChange,
+                            onSelectFilter = onSelectFilter
+                        )
+                    }
+
+                    // Section Header with record count
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
-                                text = "VPA: ${uiState.userSettings.upiId}",
-                                style = MaterialTheme.typography.labelSmall,
+                                text = "LEDGER RECORDS (${uiState.filteredItems.size})",
+                                style = MaterialTheme.typography.labelMedium,
                                 color = SecondaryInkGrey
                             )
+                            if (uiState.userSettings.upiId.isNotBlank() && uiState.userSettings.inrEnabled) {
+                                Text(
+                                    text = "VPA: ${uiState.userSettings.upiId}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = SecondaryInkGrey
+                                )
+                            }
                         }
                     }
-                }
 
-                if (uiState.filteredItems.isEmpty()) {
-                    item {
-                        EmptyLedgerState(
-                            hasAnyTransactions = uiState.allCalculatedItems.isNotEmpty(),
-                            onAddClick = onAddUdhaarClick,
-                            onResetFilter = {
-                                onSelectFilter(LedgerFilter.ALL)
-                                onSearchQueryChange("")
-                            }
-                        )
-                    }
-                } else {
-                    items(
-                        items = uiState.filteredItems,
-                        key = { it.transaction.id }
-                    ) { summary ->
-                        TransactionCardItem(
-                            summary = summary,
-                            onCardClick = { onTransactionClick(summary) },
-                            onWhatsAppClick = { onWhatsAppClick(summary) },
-                            onQrClick = { onTransactionQrClick(summary) }
-                        )
+                    if (uiState.filteredItems.isEmpty()) {
+                        item {
+                            EmptyLedgerState(
+                                hasAnyTransactions = uiState.allCalculatedItems.isNotEmpty(),
+                                onAddClick = onAddUdhaarClick,
+                                onResetFilter = {
+                                    onSelectFilter(LedgerFilter.ALL)
+                                    onSearchQueryChange("")
+                                }
+                            )
+                        }
+                    } else {
+                        items(
+                            items = uiState.filteredItems,
+                            key = { it.transaction.id }
+                        ) { summary ->
+                            TransactionCardItem(
+                                summary = summary,
+                                onCardClick = { onTransactionClick(summary) },
+                                onWhatsAppClick = { onWhatsAppClick(summary) },
+                                onQrClick = { onTransactionQrClick(summary) }
+                            )
+                        }
                     }
                 }
             }
@@ -274,10 +437,12 @@ fun DashboardScreen(
 @Composable
 private fun TopLedgerSummaryCard(
     selectedCurrency: CurrencyType,
+    enabledCurrencies: List<CurrencyType>,
     totals: CurrencyLedgerTotals,
     inrCount: Int,
     nprCount: Int,
-    onSelectCurrency: (CurrencyType) -> Unit
+    onSelectCurrency: (CurrencyType) -> Unit,
+    onToggleCurrencyEnabled: (CurrencyType, Boolean) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -286,21 +451,22 @@ private fun TopLedgerSummaryCard(
             .background(PureWhite, RoundedCornerShape(4.dp))
             .testTag("top_summary_card")
     ) {
-        // Currency Switcher Header Bar (INR ₹ | NPR रू)
+        // Currency Switcher Header Bar (Respects enabledCurrencies; NPR is disabled by default)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(SubtleSurfaceGrey)
                 .padding(6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            CurrencyType.entries.forEach { curr ->
+            enabledCurrencies.forEach { curr ->
                 val isSelected = selectedCurrency == curr
                 val count = if (curr == CurrencyType.INR) inrCount else nprCount
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(44.dp)
+                        .height(42.dp)
                         .border(
                             width = 1.dp,
                             color = if (isSelected) PureBlack else BorderGrey,
@@ -322,11 +488,48 @@ private fun TopLedgerSummaryCard(
                     )
                 }
             }
+
+            // If NPR is disabled (default), show a subtle quick-enable button; if both enabled, allow disabling the secondary
+            if (CurrencyType.NPR !in enabledCurrencies) {
+                Box(
+                    modifier = Modifier
+                        .height(42.dp)
+                        .border(1.dp, BorderGrey, RoundedCornerShape(3.dp))
+                        .background(PureWhite, RoundedCornerShape(3.dp))
+                        .clickable { onToggleCurrencyEnabled(CurrencyType.NPR, true) }
+                        .padding(horizontal = 10.dp)
+                        .testTag("quick_enable_npr_button"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "+ ENABLE NPR (रू)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SecondaryInkGrey
+                    )
+                }
+            } else if (CurrencyType.INR !in enabledCurrencies) {
+                Box(
+                    modifier = Modifier
+                        .height(42.dp)
+                        .border(1.dp, BorderGrey, RoundedCornerShape(3.dp))
+                        .background(PureWhite, RoundedCornerShape(3.dp))
+                        .clickable { onToggleCurrencyEnabled(CurrencyType.INR, true) }
+                        .padding(horizontal = 10.dp)
+                        .testTag("quick_enable_inr_button"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "+ ENABLE INR (₹)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SecondaryInkGrey
+                    )
+                }
+            }
         }
 
         HorizontalDivider(color = PureBlack, thickness = 1.dp)
 
-        // Split Monochrome Card: Left = Black (Total to Receive / Given), Right = White (Total to Pay / Taken)
+        // Split Card: Left = Total to Receive (Given), Right = Total to Pay (Taken)
         Row(modifier = Modifier.fillMaxWidth()) {
             // Left Split: TOTAL TO RECEIVE (GIVEN)
             Column(
@@ -421,9 +624,18 @@ private fun TopLedgerSummaryCard(
 private fun SearchAndFilterBar(
     searchQuery: String,
     selectedFilter: LedgerFilter,
+    enabledCurrencies: List<CurrencyType>,
     onSearchQueryChange: (String) -> Unit,
     onSelectFilter: (LedgerFilter) -> Unit
 ) {
+    val visibleFilters = LedgerFilter.entries.filter { filter ->
+        when (filter) {
+            LedgerFilter.INR -> enabledCurrencies.size > 1 && CurrencyType.INR in enabledCurrencies
+            LedgerFilter.NPR -> enabledCurrencies.size > 1 && CurrencyType.NPR in enabledCurrencies
+            else -> true
+        }
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         OutlinedTextField(
             value = searchQuery,
@@ -473,7 +685,7 @@ private fun SearchAndFilterBar(
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            LedgerFilter.entries.forEach { filter ->
+            visibleFilters.forEach { filter ->
                 val isSelected = selectedFilter == filter
                 Box(
                     modifier = Modifier

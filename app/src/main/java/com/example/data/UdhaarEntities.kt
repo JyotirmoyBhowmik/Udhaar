@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.example.ui.theme.AppThemeMode
 
 enum class TransactionType(val label: String, val badgeLabel: String) {
     GIVEN("Given (Lent)", "GIVEN • TO RECEIVE"),
@@ -48,10 +49,24 @@ enum class LedgerFilter(val label: String) {
     SETTLED("Settled")
 }
 
+@Entity(tableName = "parties")
+data class PartyEntity(
+    @PrimaryKey(autoGenerate = true)
+    val partyId: Long = 0L,
+    val name: String,
+    val phoneNumber: String = "",
+    val upiId: String = "",
+    val email: String = "",
+    val tagOrNotes: String = "",
+    val preferredCurrency: CurrencyType = CurrencyType.INR,
+    val createdAtMillis: Long = System.currentTimeMillis()
+)
+
 @Entity(tableName = "udhaar_transactions")
 data class UdhaarTransaction(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0L,
+    val partyId: Long? = null,
     val transactionType: TransactionType = TransactionType.GIVEN,
     val partyName: String,
     val phoneNumber: String = "",
@@ -97,5 +112,17 @@ data class PartialPayment(
 data class UserSettings(
     val upiId: String = "",
     val payeeName: String = "",
-    val defaultCurrency: CurrencyType = CurrencyType.INR
-)
+    val defaultCurrency: CurrencyType = CurrencyType.INR,
+    val inrEnabled: Boolean = true,
+    val nprEnabled: Boolean = false, // Disabled by default per user specification
+    val themeMode: AppThemeMode = AppThemeMode.MONOCHROME_LIGHT,
+    val biometricLockEnabled: Boolean = true,
+    val securityPin: String = "0000"
+) {
+    val enabledCurrencies: List<CurrencyType>
+        get() = buildList {
+            if (inrEnabled) add(CurrencyType.INR)
+            if (nprEnabled) add(CurrencyType.NPR)
+            if (isEmpty()) add(CurrencyType.INR)
+        }
+}

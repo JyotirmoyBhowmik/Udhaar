@@ -1,40 +1,69 @@
 package com.example.ui.theme
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-
-private val MonochromeColorScheme = lightColorScheme(
-    primary = PureBlack,
-    onPrimary = PureWhite,
-    primaryContainer = PureBlack,
-    onPrimaryContainer = PureWhite,
-    secondary = SecondaryInkGrey,
-    onSecondary = PureWhite,
-    secondaryContainer = MutedChipGrey,
-    onSecondaryContainer = PureBlack,
-    tertiary = PureBlack,
-    onTertiary = PureWhite,
-    background = PureWhite,
-    onBackground = PureBlack,
-    surface = PureWhite,
-    onSurface = PureBlack,
-    surfaceVariant = SubtleSurfaceGrey,
-    onSurfaceVariant = SecondaryInkGrey,
-    outline = BorderGrey,
-    outlineVariant = BorderGrey,
-    error = PureBlack,
-    onError = PureWhite,
-    errorContainer = MutedChipGrey,
-    onErrorContainer = PureBlack
-)
+import androidx.compose.runtime.SideEffect
 
 @Composable
 fun UdhaarTheme(
+    themeMode: AppThemeMode = AppThemeMode.MONOCHROME_LIGHT,
     content: @Composable () -> Unit
 ) {
+    val palette = paletteForTheme(themeMode)
+    SideEffect {
+        activePaletteState = palette
+    }
+    // Also update synchronously for first composition pass
+    activePaletteState = palette
+
+    val colorScheme = if (themeMode == AppThemeMode.OBSIDIAN_DARK) {
+        darkColorScheme(
+            primary = palette.primaryInk,
+            onPrimary = palette.backgroundSurface,
+            primaryContainer = palette.primaryInk,
+            onPrimaryContainer = palette.backgroundSurface,
+            secondary = palette.secondaryInk,
+            onSecondary = palette.backgroundSurface,
+            secondaryContainer = palette.mutedChip,
+            onSecondaryContainer = palette.primaryInk,
+            tertiary = palette.primaryInk,
+            onTertiary = palette.backgroundSurface,
+            background = palette.backgroundSurface,
+            onBackground = palette.primaryInk,
+            surface = palette.backgroundSurface,
+            onSurface = palette.primaryInk,
+            surfaceVariant = palette.subtleSurface,
+            onSurfaceVariant = palette.secondaryInk,
+            outline = palette.borderStroke,
+            outlineVariant = palette.borderStroke
+        )
+    } else {
+        lightColorScheme(
+            primary = palette.primaryInk,
+            onPrimary = palette.backgroundSurface,
+            primaryContainer = palette.primaryInk,
+            onPrimaryContainer = palette.backgroundSurface,
+            secondary = palette.secondaryInk,
+            onSecondary = palette.backgroundSurface,
+            secondaryContainer = palette.mutedChip,
+            onSecondaryContainer = palette.primaryInk,
+            tertiary = palette.primaryInk,
+            onTertiary = palette.backgroundSurface,
+            background = palette.backgroundSurface,
+            onBackground = palette.primaryInk,
+            surface = palette.backgroundSurface,
+            onSurface = palette.primaryInk,
+            surfaceVariant = palette.subtleSurface,
+            onSurfaceVariant = palette.secondaryInk,
+            outline = palette.borderStroke,
+            outlineVariant = palette.borderStroke
+        )
+    }
+
     MaterialTheme(
-        colorScheme = MonochromeColorScheme,
+        colorScheme = colorScheme,
         typography = Typography,
         content = content
     )

@@ -94,7 +94,11 @@ import java.util.Calendar
 @Composable
 fun AddEditUdhaarScreen(
     initialTransaction: UdhaarTransaction?,
+    preselectedPartyDraft: com.example.ui.PreselectedPartyDraft? = null,
+    savedParties: List<com.example.data.PartyEntity> = emptyList(),
+    enabledCurrencies: List<CurrencyType> = listOf(CurrencyType.INR),
     defaultCurrency: CurrencyType,
+    onEnableCurrency: (CurrencyType) -> Unit = {},
     onSave: (UdhaarTransaction) -> Unit,
     onCancel: () -> Unit
 ) {
@@ -104,17 +108,24 @@ fun AddEditUdhaarScreen(
 
     val context = LocalContext.current
 
+    var selectedPartyId by rememberSaveable {
+        mutableStateOf<Long?>(initialTransaction?.partyId ?: preselectedPartyDraft?.partyId)
+    }
     var transactionType by rememberSaveable {
         mutableStateOf(initialTransaction?.transactionType ?: TransactionType.GIVEN)
     }
     var currency by rememberSaveable {
-        mutableStateOf(initialTransaction?.currency ?: defaultCurrency)
+        mutableStateOf(
+            initialTransaction?.currency
+                ?: preselectedPartyDraft?.preferredCurrency?.takeIf { it in enabledCurrencies }
+                ?: defaultCurrency
+        )
     }
     var partyName by rememberSaveable {
-        mutableStateOf(initialTransaction?.partyName ?: "")
+        mutableStateOf(initialTransaction?.partyName ?: preselectedPartyDraft?.name ?: "")
     }
     var phoneNumber by rememberSaveable {
-        mutableStateOf(initialTransaction?.phoneNumber ?: "")
+        mutableStateOf(initialTransaction?.phoneNumber ?: preselectedPartyDraft?.phoneNumber ?: "")
     }
     var principalText by rememberSaveable {
         mutableStateOf(
@@ -329,6 +340,7 @@ fun AddEditUdhaarScreen(
                             }
 
                             val record = (initialTransaction ?: UdhaarTransaction(partyName = "", principalAmount = principal)).copy(
+                                partyId = selectedPartyId,
                                 transactionType = transactionType,
                                 partyName = partyName.trim(),
                                 phoneNumber = phoneNumber.trim(),
@@ -423,7 +435,7 @@ fun AddEditUdhaarScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    CurrencyType.entries.forEach { curr ->
+                    enabledCurrencies.forEach { curr ->
                         val selected = currency == curr
                         MonochromeTogglePill(
                             text = curr.displayName,
@@ -434,10 +446,56 @@ fun AddEditUdhaarScreen(
                                 .testTag("currency_select_${curr.name.lowercase()}")
                         )
                     }
+                    if (CurrencyType.NPR !in enabledCurrencies) {
+                        MonochromeTogglePill(
+                            text = "+ Enable NPR (रू)",
+                            selected = false,
+                            onClick = {
+                                onEnableCurrency(CurrencyType.NPR)
+                                currency = CurrencyType.NPR
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("enable_npr_in_form_button")
+                        )
+                    } else if (CurrencyType.INR !in enabledCurrencies) {
+                        MonochromeTogglePill(
+                            text = "+ Enable INR (₹)",
+                            selected = false,
+                            onClick = {
+                                onEnableCurrency(CurrencyType.INR)
+                                currency = CurrencyType.INR
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("enable_inr_in_form_button")
+                        )
+                    }
                 }
 
                 // 2. Party / Contact Name & Phone Number
                 SectionHeader("2. PARTY / CONTACT DETAILS")
+                if (savedParties.isNotEmpty()) {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        savedParties.take(6).forEach { savedParty ->
+                            val isChosen = partyName.equals(savedParty.name, ignoreCase = true)
+                            MonochromeTogglePill(
+                                text = savedParty.name,
+                                selected = isChosen,
+                                onClick = {
+                                    selectedPartyId = savedParty.partyId.takeIf { it > 0L }
+                                    partyName = savedParty.name
+                                    phoneNumber = savedParty.phoneNumber
+                                    currency = savedParty.preferredCurrency
+                                }
+                            )
+                        }
+                    }
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,

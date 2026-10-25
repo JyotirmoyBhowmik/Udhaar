@@ -227,4 +227,22 @@ object InterestCalculator {
             else -> digitsOnly
         }
     }
+
+    /**
+     * Auto-sanitizes 10-digit phone numbers with +91 for INR or +977 for NPR.
+     */
+    fun formatPhoneWithCountryCode(rawPhone: String, currency: CurrencyType): String {
+        val trimmed = rawPhone.trim()
+        if (trimmed.isEmpty()) return ""
+        val digitsOnly = trimmed.filter { it.isDigit() }
+        if (digitsOnly.isEmpty()) return trimmed
+        return when {
+            trimmed.startsWith("+") -> "+$digitsOnly"
+            digitsOnly.length == 10 && currency == CurrencyType.INR -> "+91 $digitsOnly"
+            digitsOnly.length == 10 && currency == CurrencyType.NPR -> "+977 $digitsOnly"
+            digitsOnly.length == 12 && digitsOnly.startsWith("91") -> "+91 ${digitsOnly.substring(2)}"
+            digitsOnly.length == 13 && digitsOnly.startsWith("977") -> "+977 ${digitsOnly.substring(3)}"
+            else -> trimmed
+        }
+    }
 }

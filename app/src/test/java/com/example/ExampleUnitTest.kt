@@ -4,10 +4,16 @@ import com.example.data.CompoundFrequency
 import com.example.data.CurrencyType
 import com.example.data.InterestRatePeriod
 import com.example.data.InterestType
+import com.example.data.PartialPayment
+import com.example.data.PartyEntity
 import com.example.data.PaymentMode
 import com.example.data.TransactionType
 import com.example.data.UdhaarTransaction
+import com.example.data.UserSettings
+import com.example.ui.theme.AppThemeMode
+import com.example.ui.theme.paletteForTheme
 import com.example.util.InterestCalculator
+import com.example.util.LedgerBackupManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -91,4 +97,41 @@ class ExampleUnitTest {
         assertFalse(hiddenMsg.contains("₹5,000"))
         assertTrue(hiddenMsg.contains("Hello Sita Verma"))
     }
+
+    @Test
+    fun phoneFormatting_autoPrefixesCountryCodeForTenDigits() {
+        assertEquals("+91 9876543210", InterestCalculator.formatPhoneWithCountryCode("9876543210", CurrencyType.INR))
+        assertEquals("+977 9841234567", InterestCalculator.formatPhoneWithCountryCode("9841234567", CurrencyType.NPR))
+    }
+
+    @Test
+    fun userSettings_defaultsToInrEnabledAndNprDisabled() {
+        val defaultSettings = UserSettings()
+        assertTrue(defaultSettings.inrEnabled)
+        assertFalse(defaultSettings.nprEnabled)
+        assertEquals(listOf(CurrencyType.INR), defaultSettings.enabledCurrencies)
+
+        val bothEnabled = defaultSettings.copy(nprEnabled = true)
+        assertEquals(listOf(CurrencyType.INR, CurrencyType.NPR), bothEnabled.enabledCurrencies)
+    }
+
+    @Test
+    fun partyEntityAndAppThemes_workAsExpected() {
+        val party = PartyEntity(
+            partyId = 10L,
+            name = "Ramesh Sharma",
+            phoneNumber = "+91 9876543210",
+            upiId = "ramesh@upi",
+            email = "ramesh@example.com",
+            tagOrNotes = "Supplier",
+            preferredCurrency = CurrencyType.INR
+        )
+        assertEquals("Ramesh Sharma", party.name)
+        assertEquals("ramesh@upi", party.upiId)
+
+        assertEquals(4, AppThemeMode.entries.size)
+        assertTrue(paletteForTheme(AppThemeMode.MONOCHROME_LIGHT).primaryInk != paletteForTheme(AppThemeMode.OBSIDIAN_DARK).primaryInk)
+        assertTrue(paletteForTheme(AppThemeMode.PAPER_LEDGER).backgroundSurface != paletteForTheme(AppThemeMode.EMERALD_FINANCE).backgroundSurface)
+    }
 }
+

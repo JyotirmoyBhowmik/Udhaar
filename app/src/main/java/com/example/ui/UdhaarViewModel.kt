@@ -4,20 +4,19 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.data.CompoundFrequency
 import com.example.data.CurrencyType
-import com.example.data.InterestRatePeriod
-import com.example.data.InterestType
 import com.example.data.LedgerFilter
 import com.example.data.PartialPayment
-import com.example.data.PaymentMode
+import com.example.data.PartyEntity
 import com.example.data.TransactionType
 import com.example.data.UdhaarRepository
 import com.example.data.UdhaarTransaction
 import com.example.data.UserSettings
 import com.example.notification.ReminderScheduler
+import com.example.ui.theme.AppThemeMode
 import com.example.util.CalculatedUdhaarSummary
 import com.example.util.InterestCalculator
+import com.example.util.LedgerBackupManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -28,13 +27,17 @@ import kotlinx.coroutines.launch
 
 enum class ActiveScreen {
     DASHBOARD,
+    PEOPLE_DIRECTORY,
+    PARTY_DETAIL,
     ADD_EDIT
 }
 
 data class QrModalState(
     val transactionId: Long? = null,
     val partyName: String? = null,
-    val initialAmountInr: Double? = null
+    val initialAmountInr: Double? = null,
+    val customUpiId: String? = null,
+    val isPayToPartyMode: Boolean = false
 )
 
 data class CurrencyLedgerTotals(
@@ -47,37 +50,74 @@ data class CurrencyLedgerTotals(
     val netPosition: Double get() = totalToReceive - totalToPay
 }
 
+data class PartyKhataSummary(
+    val party: PartyEntity,
+    val transactions: List<CalculatedUdhaarSummary>,
+    val inrToReceive: Double,
+    val inrToPay: Double,
+    val nprToReceive: Double,
+    val nprToPay: Double
+) {
+    val inrNet: Double get() = inrToReceive - inrToPay
+    val nprNet: Double get() = nprToReceive - nprToPay
+    val activeLoanCount: Int get() = transactions.count { !it.transaction.isSettled }
+}
+
+data class PreselectedPartyDraft(
+    val partyId: Long?,
+    val name: String,
+    val phoneNumber: String,
+    val preferredCurrency: CurrencyType
+)
+
 data class UdhaarUiState(
+    val isAuthenticated: Boolean = false,
     val activeScreen: ActiveScreen = ActiveScreen.DASHBOARD,
     val summaryCurrency: CurrencyType = CurrencyType.INR,
     val inrTotals: CurrencyLedgerTotals = CurrencyLedgerTotals(CurrencyType.INR),
     val nprTotals: CurrencyLedgerTotals = CurrencyLedgerTotals(CurrencyType.NPR),
     val selectedFilter: LedgerFilter = LedgerFilter.ALL,
     val searchQuery: String = "",
+    val peopleSearchQuery: String = "",
     val allCalculatedItems: List<CalculatedUdhaarSummary> = emptyList(),
     val filteredItems: List<CalculatedUdhaarSummary> = emptyList(),
+    val allParties: List<PartyEntity> = emptyList(),
+    val partyKhataList: List<PartyKhataSummary> = emptyList(),
+    val filteredPartyKhataList: List<PartyKhataSummary> = emptyList(),
     val partialPaymentsByTx: Map<Long, List<PartialPayment>> = emptyMap(),
     val userSettings: UserSettings = UserSettings(),
     val editingTransaction: UdhaarTransaction? = null,
+    val preselectedPartyDraft: PreselectedPartyDraft? = null,
     val detailTransactionId: Long? = null,
     val whatsAppPreviewTransactionId: Long? = null,
     val qrModalState: QrModalState? = null,
-    val showSettingsModal: Boolean = false
+    val showSettingsModal: Boolean = false,
+    val showShareAppModal: Boolean = false,
+    val selectedPartyIdForSheet: Long? = null,
+    val editingParty: PartyEntity? = null,
+    val showAddEditPartyModal: Boolean = false
 ) {
     val activeSummaryTotals: CurrencyLedgerTotals
         get() = if (summaryCurrency == CurrencyType.INR) inrTotals else nprTotals
 }
 
 private data class LocalUiFilterState(
+    val isAuthenticated: Boolean = false,
     val activeScreen: ActiveScreen = ActiveScreen.DASHBOARD,
     val summaryCurrency: CurrencyType? = null,
     val selectedFilter: LedgerFilter = LedgerFilter.ALL,
     val searchQuery: String = "",
+    val peopleSearchQuery: String = "",
     val editingTransaction: UdhaarTransaction? = null,
+    val preselectedPartyDraft: PreselectedPartyDraft? = null,
     val detailTransactionId: Long? = null,
     val whatsAppPreviewTransactionId: Long? = null,
     val qrModalState: QrModalState? = null,
-    val showSettingsModal: Boolean = false
+    val showSettingsModal: Boolean = false,
+    val showShareAppModal: Boolean = false,
+    val selectedPartyIdForSheet: Long? = null,
+    val editingParty: PartyEntity? = null,
+    val showAddEditPartyModal: Boolean = false
 )
 
 class UdhaarViewModel(
@@ -88,15 +128,21 @@ class UdhaarViewModel(
     private val localState = MutableStateFlow(LocalUiFilterState())
 
     val uiState: StateFlow<UdhaarUiState> = combine(
+        repository.allParties,
         repository.allTransactions,
         repository.allPartialPayments,
         repository.userSettings,
         localState
-    ) { transactions, partialPayments, settings, local ->
+    ) { parties, transactions, partialPayments, settings, local ->
         val nowMillis = System.currentTimeMillis()
+        val enabledCurrencySet = settings.enabledCurrencies.toSet()
+
         val calculatedList = transactions.map { tx ->
             InterestCalculator.calculate(tx, nowMillis)
         }
+
+        // Filter visible ledger items to enabled currencies so disabled currencies stay hidden
+        val visibleCalculatedList = calculatedList.filter { it.transaction.currency in enabledCurrencySet }
 
         val activeInr = calculatedList.filter { !it.transaction.isSettled && it.transaction.currency == CurrencyType.INR }
         val inrTotals = CurrencyLedgerTotals(
@@ -121,7 +167,7 @@ class UdhaarViewModel(
         )
 
         val query = local.searchQuery.trim().lowercase()
-        val filtered = calculatedList.filter { item ->
+        val filtered = visibleCalculatedList.filter { item ->
             val tx = item.transaction
             val matchesFilter = when (local.selectedFilter) {
                 LedgerFilter.ALL -> true
@@ -143,25 +189,105 @@ class UdhaarViewModel(
             matchesFilter && matchesQuery
         }
 
+        // Build unified Party Khata Summaries
+        val savedPartiesByName = parties.associateBy { it.name.trim().lowercase() }.toMutableMap()
+        val syntheticParties = mutableListOf<PartyEntity>()
+        var syntheticIdCounter = -1L
+        for (calc in calculatedList) {
+            val key = calc.transaction.partyName.trim().lowercase()
+            if (key.isNotEmpty() && !savedPartiesByName.containsKey(key)) {
+                val synthetic = PartyEntity(
+                    partyId = syntheticIdCounter--,
+                    name = calc.transaction.partyName.trim(),
+                    phoneNumber = calc.transaction.phoneNumber,
+                    preferredCurrency = calc.transaction.currency,
+                    createdAtMillis = calc.transaction.createdAtMillis
+                )
+                savedPartiesByName[key] = synthetic
+                syntheticParties.add(synthetic)
+            }
+        }
+        val combinedParties = (parties + syntheticParties).sortedBy { it.name.lowercase() }
+
+        val khataList = combinedParties.map { party ->
+            val partyTxs = calculatedList.filter { item ->
+                ((party.partyId > 0L && item.transaction.partyId == party.partyId) ||
+                    item.transaction.partyName.trim().equals(party.name.trim(), ignoreCase = true)) &&
+                    item.transaction.currency in enabledCurrencySet
+            }
+            val activePartyTxs = partyTxs.filter { !it.transaction.isSettled }
+            val inrGiven = activePartyTxs.filter {
+                it.transaction.currency == CurrencyType.INR && it.transaction.transactionType == TransactionType.GIVEN
+            }.sumOf { it.netBalanceDue }
+            val inrTaken = activePartyTxs.filter {
+                it.transaction.currency == CurrencyType.INR && it.transaction.transactionType == TransactionType.TAKEN
+            }.sumOf { it.netBalanceDue }
+            val nprGiven = activePartyTxs.filter {
+                it.transaction.currency == CurrencyType.NPR && it.transaction.transactionType == TransactionType.GIVEN
+            }.sumOf { it.netBalanceDue }
+            val nprTaken = activePartyTxs.filter {
+                it.transaction.currency == CurrencyType.NPR && it.transaction.transactionType == TransactionType.TAKEN
+            }.sumOf { it.netBalanceDue }
+
+            PartyKhataSummary(
+                party = party,
+                transactions = partyTxs,
+                inrToReceive = inrGiven,
+                inrToPay = inrTaken,
+                nprToReceive = nprGiven,
+                nprToPay = nprTaken
+            )
+        }
+
+        val pQuery = local.peopleSearchQuery.trim().lowercase()
+        val filteredKhataList = if (pQuery.isEmpty()) {
+            khataList
+        } else {
+            khataList.filter { khata ->
+                val p = khata.party
+                p.name.lowercase().contains(pQuery) ||
+                    p.phoneNumber.lowercase().contains(pQuery) ||
+                    p.upiId.lowercase().contains(pQuery) ||
+                    p.email.lowercase().contains(pQuery) ||
+                    p.tagOrNotes.lowercase().contains(pQuery)
+            }
+        }
+
         val paymentsMap = partialPayments.groupBy { it.transactionId }
-        val effectiveSummaryCurrency = local.summaryCurrency ?: settings.defaultCurrency
+        val rawSummaryCurrency = local.summaryCurrency ?: settings.defaultCurrency
+        val effectiveSummaryCurrency = if (rawSummaryCurrency in enabledCurrencySet) {
+            rawSummaryCurrency
+        } else {
+            settings.enabledCurrencies.first()
+        }
+        val unlocked = local.isAuthenticated || !settings.biometricLockEnabled
 
         UdhaarUiState(
+            isAuthenticated = unlocked,
             activeScreen = local.activeScreen,
             summaryCurrency = effectiveSummaryCurrency,
             inrTotals = inrTotals,
             nprTotals = nprTotals,
             selectedFilter = local.selectedFilter,
             searchQuery = local.searchQuery,
-            allCalculatedItems = calculatedList,
+            peopleSearchQuery = local.peopleSearchQuery,
+            allCalculatedItems = visibleCalculatedList,
             filteredItems = filtered,
+            allParties = combinedParties,
+            partyKhataList = khataList,
+            filteredPartyKhataList = filteredKhataList,
             partialPaymentsByTx = paymentsMap,
             userSettings = settings,
             editingTransaction = local.editingTransaction,
+            preselectedPartyDraft = local.preselectedPartyDraft,
             detailTransactionId = local.detailTransactionId,
             whatsAppPreviewTransactionId = local.whatsAppPreviewTransactionId,
             qrModalState = local.qrModalState,
-            showSettingsModal = local.showSettingsModal
+            showSettingsModal = local.showSettingsModal,
+            showShareAppModal = local.showShareAppModal,
+            selectedPartyIdForSheet = local.selectedPartyIdForSheet,
+            editingParty = local.editingParty,
+            showAddEditPartyModal = local.showAddEditPartyModal
         )
     }.stateIn(
         scope = viewModelScope,
@@ -169,8 +295,32 @@ class UdhaarViewModel(
         initialValue = UdhaarUiState()
     )
 
+    fun markAuthenticated() {
+        localState.update { it.copy(isAuthenticated = true) }
+    }
+
+    fun lockApplicationNow() {
+        localState.update { it.copy(isAuthenticated = false) }
+    }
+
+    fun switchMainTab(screen: ActiveScreen) {
+        localState.update { it.copy(activeScreen = screen) }
+    }
+
     fun setSummaryCurrency(currency: CurrencyType) {
         localState.update { it.copy(summaryCurrency = currency) }
+    }
+
+    fun toggleCurrencyEnabled(currency: CurrencyType, enabled: Boolean) {
+        viewModelScope.launch {
+            repository.setCurrencyEnabled(currency, enabled)
+        }
+    }
+
+    fun cycleOrSelectTheme(themeMode: AppThemeMode) {
+        viewModelScope.launch {
+            repository.setThemeMode(themeMode)
+        }
     }
 
     fun setFilter(filter: LedgerFilter) {
@@ -181,11 +331,32 @@ class UdhaarViewModel(
         localState.update { it.copy(searchQuery = query) }
     }
 
+    fun setPeopleSearchQuery(query: String) {
+        localState.update { it.copy(peopleSearchQuery = query) }
+    }
+
     fun openAddTransaction() {
         localState.update {
             it.copy(
                 activeScreen = ActiveScreen.ADD_EDIT,
                 editingTransaction = null,
+                preselectedPartyDraft = null,
+                detailTransactionId = null
+            )
+        }
+    }
+
+    fun openAddTransactionForParty(party: PartyEntity) {
+        localState.update {
+            it.copy(
+                activeScreen = ActiveScreen.ADD_EDIT,
+                editingTransaction = null,
+                preselectedPartyDraft = PreselectedPartyDraft(
+                    partyId = party.partyId.takeIf { id -> id > 0L },
+                    name = party.name,
+                    phoneNumber = party.phoneNumber,
+                    preferredCurrency = party.preferredCurrency
+                ),
                 detailTransactionId = null
             )
         }
@@ -196,6 +367,7 @@ class UdhaarViewModel(
             it.copy(
                 activeScreen = ActiveScreen.ADD_EDIT,
                 editingTransaction = transaction,
+                preselectedPartyDraft = null,
                 detailTransactionId = null
             )
         }
@@ -203,13 +375,108 @@ class UdhaarViewModel(
 
     fun navigateBackToDashboard() {
         localState.update {
+            val targetScreen = if (it.selectedPartyIdForSheet != null) {
+                ActiveScreen.PARTY_DETAIL
+            } else {
+                ActiveScreen.DASHBOARD
+            }
             it.copy(
-                activeScreen = ActiveScreen.DASHBOARD,
-                editingTransaction = null
+                activeScreen = targetScreen,
+                editingTransaction = null,
+                preselectedPartyDraft = null
             )
         }
     }
 
+    // --- Party Directory & Individual Party Ledger Screen Navigation ---
+    fun openPartyLedgerScreen(partyId: Long) {
+        localState.update {
+            it.copy(
+                selectedPartyIdForSheet = partyId,
+                activeScreen = ActiveScreen.PARTY_DETAIL
+            )
+        }
+    }
+
+    fun closePartyLedgerScreen() {
+        localState.update {
+            it.copy(
+                selectedPartyIdForSheet = null,
+                activeScreen = ActiveScreen.PEOPLE_DIRECTORY
+            )
+        }
+    }
+
+    fun openAddPartyModal() {
+        localState.update {
+            it.copy(
+                editingParty = null,
+                showAddEditPartyModal = true
+            )
+        }
+    }
+
+    fun openEditPartyModal(party: PartyEntity) {
+        localState.update {
+            it.copy(
+                editingParty = party,
+                showAddEditPartyModal = true
+            )
+        }
+    }
+
+    fun closeAddEditPartyModal() {
+        localState.update {
+            it.copy(
+                editingParty = null,
+                showAddEditPartyModal = false
+            )
+        }
+    }
+
+    fun saveParty(party: PartyEntity) {
+        viewModelScope.launch {
+            val savedId = repository.saveParty(party)
+            localState.update {
+                it.copy(
+                    editingParty = null,
+                    showAddEditPartyModal = false,
+                    selectedPartyIdForSheet = if (it.activeScreen == ActiveScreen.PARTY_DETAIL) savedId else it.selectedPartyIdForSheet
+                )
+            }
+        }
+    }
+
+    fun deleteParty(party: PartyEntity) {
+        viewModelScope.launch {
+            if (party.partyId > 0L) {
+                repository.deleteParty(party)
+            }
+            localState.update {
+                it.copy(
+                    selectedPartyIdForSheet = null,
+                    activeScreen = ActiveScreen.PEOPLE_DIRECTORY,
+                    showAddEditPartyModal = false
+                )
+            }
+        }
+    }
+
+    fun openPayPartyViaUpiModal(party: PartyEntity, amountInr: Double?) {
+        localState.update {
+            it.copy(
+                qrModalState = QrModalState(
+                    transactionId = null,
+                    partyName = party.name,
+                    initialAmountInr = amountInr?.takeIf { amt -> amt > 0.0 },
+                    customUpiId = party.upiId,
+                    isPayToPartyMode = true
+                )
+            )
+        }
+    }
+
+    // --- Transaction Detail & Modals ---
     fun openTransactionDetail(transactionId: Long) {
         localState.update { it.copy(detailTransactionId = transactionId) }
     }
@@ -237,7 +504,9 @@ class UdhaarViewModel(
                 qrModalState = QrModalState(
                     transactionId = null,
                     partyName = null,
-                    initialAmountInr = null
+                    initialAmountInr = null,
+                    customUpiId = null,
+                    isPayToPartyMode = false
                 )
             )
         }
@@ -249,7 +518,9 @@ class UdhaarViewModel(
                 qrModalState = QrModalState(
                     transactionId = summary.transaction.id,
                     partyName = summary.transaction.partyName,
-                    initialAmountInr = summary.netBalanceDue
+                    initialAmountInr = summary.netBalanceDue,
+                    customUpiId = null,
+                    isPayToPartyMode = false
                 ),
                 detailTransactionId = null
             )
@@ -268,6 +539,14 @@ class UdhaarViewModel(
         localState.update { it.copy(showSettingsModal = false) }
     }
 
+    fun openShareAppModal() {
+        localState.update { it.copy(showShareAppModal = true) }
+    }
+
+    fun closeShareAppModal() {
+        localState.update { it.copy(showShareAppModal = false) }
+    }
+
     fun saveUdhaarTransaction(transaction: UdhaarTransaction) {
         viewModelScope.launch {
             val savedId = repository.saveTransaction(transaction)
@@ -280,9 +559,15 @@ class UdhaarViewModel(
                 }
             }
             localState.update {
+                val returnScreen = if (it.selectedPartyIdForSheet != null) {
+                    ActiveScreen.PARTY_DETAIL
+                } else {
+                    ActiveScreen.DASHBOARD
+                }
                 it.copy(
-                    activeScreen = ActiveScreen.DASHBOARD,
+                    activeScreen = returnScreen,
                     editingTransaction = null,
+                    preselectedPartyDraft = null,
                     summaryCurrency = savedTx.currency
                 )
             }
@@ -346,10 +631,73 @@ class UdhaarViewModel(
         }
     }
 
-    fun saveUserSettings(upiId: String, payeeName: String, defaultCurrency: CurrencyType) {
+    fun saveUserSettings(
+        upiId: String,
+        payeeName: String,
+        defaultCurrency: CurrencyType,
+        inrEnabled: Boolean? = null,
+        nprEnabled: Boolean? = null,
+        themeMode: AppThemeMode? = null,
+        biometricLockEnabled: Boolean? = null,
+        securityPin: String? = null
+    ) {
         viewModelScope.launch {
-            repository.updateSettings(upiId, payeeName, defaultCurrency)
+            repository.updateSettings(
+                upiId = upiId,
+                payeeName = payeeName,
+                defaultCurrency = defaultCurrency,
+                inrEnabled = inrEnabled,
+                nprEnabled = nprEnabled,
+                themeMode = themeMode,
+                biometricLockEnabled = biometricLockEnabled,
+                securityPin = securityPin
+            )
             localState.update { it.copy(showSettingsModal = false) }
+        }
+    }
+
+    // --- Backup / Export / Import Operations ---
+    fun generateFullLedgerBackupJson(onReady: (String) -> Unit) {
+        viewModelScope.launch {
+            val (parties, transactions, payments) = repository.getFullLedgerSnapshot()
+            val json = LedgerBackupManager.buildBackupJson(
+                parties = parties,
+                transactions = transactions,
+                partialPayments = payments,
+                exportType = "FULL_LEDGER"
+            )
+            onReady(json)
+        }
+    }
+
+    fun generateSinglePartyStatementJson(khata: PartyKhataSummary, onReady: (String) -> Unit) {
+        viewModelScope.launch {
+            val (_, _, allPayments) = repository.getFullLedgerSnapshot()
+            val txs = khata.transactions.map { it.transaction }
+            val txIds = txs.map { it.id }.toSet()
+            val partyPayments = allPayments.filter { it.transactionId in txIds }
+            val json = LedgerBackupManager.buildBackupJson(
+                parties = listOf(khata.party),
+                transactions = txs,
+                partialPayments = partyPayments,
+                exportType = "SINGLE_PARTY_STATEMENT",
+                statementPartyName = khata.party.name
+            )
+            onReady(json)
+        }
+    }
+
+    fun importLedgerBackupJson(jsonString: String, onResult: (Result<Int>) -> Unit) {
+        viewModelScope.launch {
+            val result = runCatching {
+                val parsed = LedgerBackupManager.parseBackupJson(jsonString)
+                repository.importLedgerData(
+                    parties = parsed.parties,
+                    transactions = parsed.transactions,
+                    partialPayments = parsed.partialPayments
+                )
+            }
+            onResult(result)
         }
     }
 

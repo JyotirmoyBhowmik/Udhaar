@@ -1,5 +1,8 @@
 package com.example.ui.components
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -28,6 +31,11 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Share
@@ -43,6 +51,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -61,6 +71,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.BuildConfig
 import com.example.data.CurrencyType
 import com.example.data.PartialPayment
 import com.example.data.TransactionType
@@ -493,12 +504,19 @@ fun UpiQrCodeModal(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val isPayToParty = qrState.isPayToPartyMode
 
-    var upiIdInput by rememberSaveable(userSettings.upiId) {
-        mutableStateOf(userSettings.upiId)
+    var upiIdInput by rememberSaveable(qrState.customUpiId, userSettings.upiId) {
+        mutableStateOf(qrState.customUpiId ?: userSettings.upiId)
     }
-    var payeeNameInput by rememberSaveable(userSettings.payeeName) {
-        mutableStateOf(userSettings.payeeName)
+    var payeeNameInput by rememberSaveable(qrState.partyName, userSettings.payeeName, isPayToParty) {
+        mutableStateOf(
+            if (isPayToParty) {
+                qrState.partyName ?: "Party"
+            } else {
+                userSettings.payeeName
+            }
+        )
     }
     var amountInput by rememberSaveable(qrState.initialAmountInr) {
         mutableStateOf(
@@ -562,15 +580,15 @@ fun UpiQrCodeModal(
                 ) {
                     Column {
                         Text(
-                            text = "UPI QR CODE GENERATOR",
+                            text = if (isPayToParty) "PAY PARTY VIA UPI" else "UPI QR CODE GENERATOR",
                             style = MaterialTheme.typography.titleLarge,
                             color = PureBlack
                         )
                         Text(
-                            text = if (qrState.partyName != null) {
-                                "FOR ${qrState.partyName.uppercase()} • INR (₹)"
-                            } else {
-                                "GLOBAL INR (₹) GPAY / PHONEPE / PAYTM QR"
+                            text = when {
+                                isPayToParty -> "DIRECT PAYBACK TO ${payeeNameInput.uppercase()} • INR (₹)"
+                                qrState.partyName != null -> "FOR ${qrState.partyName.uppercase()} • INR (₹)"
+                                else -> "GLOBAL INR (₹) GPAY / PHONEPE / PAYTM QR"
                             },
                             style = MaterialTheme.typography.labelSmall,
                             color = SecondaryInkGrey
@@ -592,7 +610,7 @@ fun UpiQrCodeModal(
                 OutlinedTextField(
                     value = upiIdInput,
                     onValueChange = { upiIdInput = it },
-                    label = { Text("Your UPI ID (VPA) *") },
+                    label = { Text(if (isPayToParty) "Party's UPI ID (VPA) *" else "Your UPI ID (VPA) *") },
                     placeholder = { Text("e.g. yourname@okaxis") },
                     singleLine = true,
                     colors = textFieldColors,
@@ -609,7 +627,7 @@ fun UpiQrCodeModal(
                         value = payeeNameInput,
                         onValueChange = { payeeNameInput = it },
                         label = { Text("Payee Name") },
-                        placeholder = { Text("Your Name") },
+                        placeholder = { Text("Payee Name") },
                         singleLine = true,
                         colors = textFieldColors,
                         modifier = Modifier
@@ -686,7 +704,7 @@ fun UpiQrCodeModal(
                                 modifier = Modifier.size(48.dp)
                             )
                             Text(
-                                text = "Enter your UPI ID (e.g. name@upi) above to generate a scannable monochrome QR code offline.",
+                                text = "Enter a valid UPI ID (e.g. name@upi) above to generate a scannable monochrome QR code offline.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = SecondaryInkGrey,
                                 textAlign = TextAlign.Center
@@ -695,31 +713,68 @@ fun UpiQrCodeModal(
                     }
                 }
 
+                if (isPayToParty && upiUri.isNotBlank()) {
+                    Button(
+                        onClick = {
+                            val payIntent = Intent(Intent.ACTION_VIEW, Uri.parse(upiUri)).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            runCatching {
+                                context.startActivity(payIntent)
+                            }.onFailure {
+                                Toast.makeText(
+                                    context,
+                                    "No UPI payment app installed on this device. Scan the QR code above.",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .testTag("launch_upi_app_button"),
+                        shape = RoundedCornerShape(4.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PureBlack,
+                            contentColor = PureWhite
+                        )
+                    ) {
+                        Text(
+                            text = "OPEN GPAY / PHONEPE / PAYTM TO PAY",
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
+                }
+
                 // Save UPI Settings & Share QR Actions
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    OutlinedButton(
-                        onClick = {
-                            onSaveUpiSettings(upiIdInput, payeeNameInput, userSettings.defaultCurrency)
-                            Toast.makeText(context, "UPI Profile saved", Toast.LENGTH_SHORT).show()
-                        },
-                        enabled = upiIdInput.isNotBlank(),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                            .testTag("save_qr_profile_button"),
-                        shape = RoundedCornerShape(4.dp),
-                        border = BorderStroke(1.dp, PureBlack),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
-                    ) {
-                        Text("SAVE UPI ID", style = MaterialTheme.typography.labelLarge)
+                    if (!isPayToParty) {
+                        OutlinedButton(
+                            onClick = {
+                                onSaveUpiSettings(upiIdInput, payeeNameInput, userSettings.defaultCurrency)
+                                Toast.makeText(context, "UPI Profile saved", Toast.LENGTH_SHORT).show()
+                            },
+                            enabled = upiIdInput.isNotBlank(),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("save_qr_profile_button"),
+                            shape = RoundedCornerShape(4.dp),
+                            border = BorderStroke(1.dp, PureBlack),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                        ) {
+                            Text("SAVE UPI ID", style = MaterialTheme.typography.labelLarge)
+                        }
                     }
 
                     Button(
                         onClick = {
-                            onSaveUpiSettings(upiIdInput, payeeNameInput, userSettings.defaultCurrency)
+                            if (!isPayToParty) {
+                                onSaveUpiSettings(upiIdInput, payeeNameInput, userSettings.defaultCurrency)
+                            }
                             UpiQrGenerator.shareQrCardImage(
                                 context = context,
                                 upiId = upiIdInput,
@@ -747,6 +802,139 @@ fun UpiQrCodeModal(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("SHARE QR IMAGE", style = MaterialTheme.typography.labelLarge)
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ShareUdhaarAppModal(
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val appId = context.packageName
+    val playStoreUrl = "https://play.google.com/store/apps/details?id=$appId"
+    val qrBitmap = remember(playStoreUrl) {
+        UpiQrGenerator.generateQrBitmap(playStoreUrl, sizePx = 560)
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp)),
+            shape = RoundedCornerShape(4.dp),
+            color = PureWhite
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "SHARE / GIVE ACCESS TO UDHAAR",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = PureBlack
+                        )
+                        Text(
+                            text = "SCAN TO INSTALL FROM GOOGLE PLAY STORE",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = SecondaryInkGrey
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = PureBlack)
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(2.dp, PureBlack, RoundedCornerShape(4.dp))
+                        .background(PureWhite, RoundedCornerShape(4.dp))
+                        .padding(16.dp)
+                        .testTag("play_store_qr_box"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "UDHAAR • MONOCHROME LEDGER",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = PureBlack
+                        )
+                        if (qrBitmap != null) {
+                            Image(
+                                bitmap = qrBitmap.asImageBitmap(),
+                                contentDescription = "Play Store QR Code for Udhaar",
+                                modifier = Modifier.size(210.dp)
+                            )
+                        }
+                        Text(
+                            text = playStoreUrl,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = SecondaryInkGrey,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
+                Text(
+                    text = "Anyone nearby can scan this QR code with their phone camera to open Udhaar on Google Play. For Closed/Internal testing tracks, ensure their email is added to your Play Console tester list or share the invite link below.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SecondaryInkGrey,
+                    textAlign = TextAlign.Center
+                )
+
+                Button(
+                    onClick = {
+                        val inviteMessage = buildString {
+                            append("Install *Udhaar* — Minimalist Monochrome Loan & Ledger App (INR ₹ & NPR रू):\n")
+                            append(playStoreUrl)
+                            append("\n\nIf you need tester access or have questions, contact Admin: admin@jyotirmoyb.com")
+                        }
+                        val waUri = Uri.parse("https://wa.me/?text=${Uri.encode(inviteMessage)}")
+                        val waIntent = Intent(Intent.ACTION_VIEW, waUri).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        runCatching {
+                            context.startActivity(waIntent)
+                        }.onFailure {
+                            val fallback = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, inviteMessage)
+                            }
+                            context.startActivity(Intent.createChooser(fallback, "Share Udhaar App"))
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .testTag("share_app_whatsapp_button"),
+                    shape = RoundedCornerShape(4.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PureBlack,
+                        contentColor = PureWhite
+                    )
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("SHARE APP VIA WHATSAPP", style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
@@ -1026,13 +1214,36 @@ fun WhatsAppReminderModal(
 @Composable
 fun ProfileSettingsModal(
     currentSettings: UserSettings,
-    onSave: (String, String, CurrencyType) -> Unit,
+    onSave: (String, String, CurrencyType, Boolean, Boolean, com.example.ui.theme.AppThemeMode, Boolean, String) -> Unit,
+    onLockAppNow: () -> Unit,
+    onOpenShareAppModal: () -> Unit,
+    onExportFullLedgerSaf: () -> Unit,
+    onShareFullLedgerFile: () -> Unit,
+    onImportLedgerSaf: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
+
     var upiId by rememberSaveable(currentSettings.upiId) { mutableStateOf(currentSettings.upiId) }
     var payeeName by rememberSaveable(currentSettings.payeeName) { mutableStateOf(currentSettings.payeeName) }
+    var inrEnabled by rememberSaveable(currentSettings.inrEnabled) { mutableStateOf(currentSettings.inrEnabled) }
+    var nprEnabled by rememberSaveable(currentSettings.nprEnabled) { mutableStateOf(currentSettings.nprEnabled) }
     var defaultCurrency by rememberSaveable(currentSettings.defaultCurrency) {
         mutableStateOf(currentSettings.defaultCurrency)
+    }
+    var selectedThemeMode by rememberSaveable(currentSettings.themeMode) {
+        mutableStateOf(currentSettings.themeMode)
+    }
+    var biometricLockEnabled by rememberSaveable(currentSettings.biometricLockEnabled) {
+        mutableStateOf(currentSettings.biometricLockEnabled)
+    }
+    var securityPin by rememberSaveable(currentSettings.securityPin) {
+        mutableStateOf(currentSettings.securityPin)
+    }
+
+    val playStoreUrl = "https://play.google.com/store/apps/details?id=${context.packageName}"
+    val miniPlayQrBitmap = remember(playStoreUrl) {
+        UpiQrGenerator.generateQrBitmap(playStoreUrl, sizePx = 320)
     }
 
     val textFieldColors = OutlinedTextFieldDefaults.colors(
@@ -1051,7 +1262,7 @@ fun ProfileSettingsModal(
     ) {
         Surface(
             modifier = Modifier
-                .fillMaxWidth(0.92f)
+                .fillMaxWidth(0.95f)
                 .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp)),
             shape = RoundedCornerShape(4.dp),
             color = PureWhite
@@ -1059,9 +1270,11 @@ fun ProfileSettingsModal(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
                     .padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -1069,12 +1282,12 @@ fun ProfileSettingsModal(
                 ) {
                     Column {
                         Text(
-                            text = "PROFILE & UPI SETTINGS",
+                            text = "SETTINGS, CURRENCY, THEME & SUPPORT",
                             style = MaterialTheme.typography.titleLarge,
                             color = PureBlack
                         )
                         Text(
-                            text = "OFFLINE VPA & CURRENCY CONFIGURATION",
+                            text = "INR / NPR TOGGLES, MULTI-THEME, VPA & ADMIN",
                             style = MaterialTheme.typography.labelSmall,
                             color = SecondaryInkGrey
                         )
@@ -1091,64 +1304,617 @@ fun ProfileSettingsModal(
                     }
                 }
 
-                OutlinedTextField(
-                    value = payeeName,
-                    onValueChange = { payeeName = it },
-                    label = { Text("Payee / Business Name") },
-                    placeholder = { Text("e.g. Jyoti Enterprises") },
-                    singleLine = true,
-                    colors = textFieldColors,
+                // 1. Currency Enable / Disable Section (NPR Disabled by Default)
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag("settings_payee_name_input")
-                )
-
-                OutlinedTextField(
-                    value = upiId,
-                    onValueChange = { upiId = it },
-                    label = { Text("UPI ID (VPA) for INR Settlements") },
-                    placeholder = { Text("e.g. merchant@okicici") },
-                    singleLine = true,
-                    colors = textFieldColors,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("settings_upi_id_input")
-                )
-
-                Text(
-                    text = "DEFAULT LEDGER CURRENCY",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = SecondaryInkGrey
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp))
+                        .padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    CurrencyType.entries.forEach { curr ->
-                        MonochromeTogglePill(
-                            text = curr.displayName,
-                            selected = defaultCurrency == curr,
-                            onClick = { defaultCurrency = curr },
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("settings_currency_${curr.name.lowercase()}")
+                    Text(
+                        text = "CURRENCY ENABLE / DISABLE (NPR DISABLED BY DEFAULT)",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = PureBlack
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Indian Rupee — INR (₹)",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = PureBlack
+                            )
+                            Text(
+                                text = if (inrEnabled) "Enabled in Ledger & Summary" else "Disabled (Hidden)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SecondaryInkGrey
+                            )
+                        }
+                        Switch(
+                            checked = inrEnabled,
+                            onCheckedChange = { checked ->
+                                inrEnabled = checked
+                                if (!checked && !nprEnabled) {
+                                    nprEnabled = true
+                                    defaultCurrency = CurrencyType.NPR
+                                } else if (checked && !nprEnabled) {
+                                    defaultCurrency = CurrencyType.INR
+                                }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = PureWhite,
+                                checkedTrackColor = PureBlack,
+                                uncheckedThumbColor = PureBlack,
+                                uncheckedTrackColor = PureWhite,
+                                uncheckedBorderColor = PureBlack
+                            ),
+                            modifier = Modifier.testTag("settings_enable_inr_switch")
+                        )
+                    }
+
+                    HorizontalDivider(color = BorderGrey, thickness = 1.dp)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Nepalese Rupee — NPR (रू)",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = PureBlack
+                            )
+                            Text(
+                                text = if (nprEnabled) "Enabled in Ledger & Summary" else "Disabled by default (Toggle ON to use रू)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SecondaryInkGrey
+                            )
+                        }
+                        Switch(
+                            checked = nprEnabled,
+                            onCheckedChange = { checked ->
+                                nprEnabled = checked
+                                if (!checked && !inrEnabled) {
+                                    inrEnabled = true
+                                    defaultCurrency = CurrencyType.INR
+                                } else if (!checked && defaultCurrency == CurrencyType.NPR) {
+                                    defaultCurrency = CurrencyType.INR
+                                }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = PureWhite,
+                                checkedTrackColor = PureBlack,
+                                uncheckedThumbColor = PureBlack,
+                                uncheckedTrackColor = PureWhite,
+                                uncheckedBorderColor = PureBlack
+                            ),
+                            modifier = Modifier.testTag("settings_enable_npr_switch")
                         )
                     }
                 }
 
-                Button(
-                    onClick = { onSave(upiId, payeeName, defaultCurrency) },
+                // 2. Multi-Theme Appearance Selector
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp)
-                        .testTag("save_settings_button"),
-                    shape = RoundedCornerShape(4.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = PureBlack,
-                        contentColor = PureWhite
-                    )
+                        .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
+                        .padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text("SAVE CONFIGURATION", style = MaterialTheme.typography.labelLarge)
+                    Text(
+                        text = "APP THEME & VISUAL APPEARANCE",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = PureBlack
+                    )
+                    com.example.ui.theme.AppThemeMode.entries.forEach { mode ->
+                        val isSelected = selectedThemeMode == mode
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(
+                                    width = if (isSelected) 1.5.dp else 1.dp,
+                                    color = if (isSelected) PureBlack else BorderGrey,
+                                    shape = RoundedCornerShape(4.dp)
+                                )
+                                .background(
+                                    color = if (isSelected) PureBlack else SubtleSurfaceGrey,
+                                    shape = RoundedCornerShape(4.dp)
+                                )
+                                .clickable {
+                                    selectedThemeMode = mode
+                                    com.example.ui.theme.activePaletteState = com.example.ui.theme.paletteForTheme(mode)
+                                }
+                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                                .testTag("theme_option_${mode.name.lowercase()}"),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = mode.label,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = if (isSelected) PureWhite else PureBlack
+                                )
+                                Text(
+                                    text = mode.subtitle,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isSelected) BorderGrey else SecondaryInkGrey
+                                )
+                            }
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected Theme",
+                                    tint = PureWhite,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 3. Profile, UPI & Biometric Configuration
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
+                        .padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "PROFILE & UPI VPA CONFIGURATION",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = SecondaryInkGrey
+                    )
+
+                    OutlinedTextField(
+                        value = payeeName,
+                        onValueChange = { payeeName = it },
+                        label = { Text("Payee / Business Name") },
+                        placeholder = { Text("e.g. Jyoti Enterprises") },
+                        singleLine = true,
+                        colors = textFieldColors,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("settings_payee_name_input")
+                    )
+
+                    OutlinedTextField(
+                        value = upiId,
+                        onValueChange = { upiId = it },
+                        label = { Text("Your UPI ID (VPA) for INR Settlements") },
+                        placeholder = { Text("e.g. merchant@okicici") },
+                        singleLine = true,
+                        colors = textFieldColors,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("settings_upi_id_input")
+                    )
+
+                    if (inrEnabled && nprEnabled) {
+                        Text(
+                            text = "DEFAULT LEDGER CURRENCY",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = SecondaryInkGrey
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            CurrencyType.entries.forEach { curr ->
+                                MonochromeTogglePill(
+                                    text = curr.displayName,
+                                    selected = defaultCurrency == curr,
+                                    onClick = { defaultCurrency = curr },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("settings_currency_${curr.name.lowercase()}")
+                                )
+                            }
+                        }
+                    }
+
+                    // Biometric Security Lock Configuration
+                    HorizontalDivider(color = BorderGrey, thickness = 1.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "BIOMETRIC SECURITY LOCK",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = PureBlack
+                            )
+                            Text(
+                                text = "Require Fingerprint / Face Unlock or PIN when opening Udhaar",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SecondaryInkGrey
+                            )
+                        }
+                        Switch(
+                            checked = biometricLockEnabled,
+                            onCheckedChange = { biometricLockEnabled = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = PureWhite,
+                                checkedTrackColor = PureBlack,
+                                uncheckedThumbColor = PureBlack,
+                                uncheckedTrackColor = PureWhite,
+                                uncheckedBorderColor = PureBlack
+                            ),
+                            modifier = Modifier.testTag("biometric_lock_switch")
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = securityPin,
+                            onValueChange = { input ->
+                                if (input.length <= 8 && input.all { it.isDigit() }) {
+                                    securityPin = input
+                                }
+                            },
+                            label = { Text("Fallback Security PIN") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            colors = textFieldColors,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("settings_security_pin_input")
+                        )
+                        OutlinedButton(
+                            onClick = {
+                                onDismiss()
+                                onLockAppNow()
+                            },
+                            modifier = Modifier
+                                .height(56.dp)
+                                .padding(top = 6.dp)
+                                .testTag("lock_app_now_button"),
+                            shape = RoundedCornerShape(4.dp),
+                            border = BorderStroke(1.dp, PureBlack),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                        ) {
+                            Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("LOCK NOW", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+
+                    Button(
+                        onClick = {
+                            onSave(
+                                upiId,
+                                payeeName,
+                                defaultCurrency,
+                                inrEnabled,
+                                nprEnabled,
+                                selectedThemeMode,
+                                biometricLockEnabled,
+                                securityPin.ifBlank { "0000" }
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("save_settings_button"),
+                        shape = RoundedCornerShape(4.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PureBlack,
+                            contentColor = PureWhite
+                        )
+                    ) {
+                        Text("SAVE ALL SETTINGS", style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+
+                // 2. Share / Give Access to Udhaar Card (Play Store Link + Scannable App QR)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp))
+                        .background(SubtleSurfaceGrey, RoundedCornerShape(4.dp))
+                        .padding(14.dp)
+                        .testTag("share_give_access_card"),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "SHARE / GIVE ACCESS TO UDHAAR",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = PureBlack
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        if (miniPlayQrBitmap != null) {
+                            Image(
+                                bitmap = miniPlayQrBitmap.asImageBitmap(),
+                                contentDescription = "Google Play QR Code",
+                                modifier = Modifier
+                                    .size(84.dp)
+                                    .border(1.dp, PureBlack, RoundedCornerShape(2.dp))
+                                    .background(PureWhite)
+                                    .padding(4.dp)
+                                    .clickable { onOpenShareAppModal() }
+                            )
+                        }
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "Scan to install Udhaar from Google Play Store or share the invite link directly via WhatsApp.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = SecondaryInkGrey
+                            )
+                            Text(
+                                text = playStoreUrl,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = PureBlack
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onOpenShareAppModal,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp),
+                            shape = RoundedCornerShape(4.dp),
+                            border = BorderStroke(1.dp, PureBlack),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                        ) {
+                            Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("FULL APP QR", style = MaterialTheme.typography.labelSmall)
+                        }
+                        Button(
+                            onClick = {
+                                val inviteMsg = "Install *Udhaar* — Minimalist Loan & Ledger App:\n$playStoreUrl"
+                                val waIntent = Intent(
+                                    Intent.ACTION_VIEW,
+                                    Uri.parse("https://wa.me/?text=${Uri.encode(inviteMsg)}")
+                                ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                                runCatching {
+                                    context.startActivity(waIntent)
+                                }.onFailure {
+                                    val share = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, inviteMsg)
+                                    }
+                                    context.startActivity(Intent.createChooser(share, "Share Udhaar App"))
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1.2f)
+                                .height(44.dp)
+                                .testTag("settings_share_app_whatsapp_button"),
+                            shape = RoundedCornerShape(4.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = PureBlack,
+                                contentColor = PureWhite
+                            )
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("SHARE ON WHATSAPP", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+
+                // 3. Offline Ledger Export / Import (Share Access to Records)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
+                        .padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "OFFLINE LEDGER BACKUP & RECORD TRANSFER (JSON)",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = SecondaryInkGrey
+                    )
+                    Text(
+                        text = "Export your Full Ledger (Parties, Transactions & Partial Payments) to a portable JSON file or import records from another device offline.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SecondaryInkGrey
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onExportFullLedgerSaf,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp)
+                                .testTag("export_ledger_json_button"),
+                            shape = RoundedCornerShape(4.dp),
+                            border = BorderStroke(1.dp, PureBlack),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                        ) {
+                            Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("EXPORT JSON", style = MaterialTheme.typography.labelSmall)
+                        }
+
+                        OutlinedButton(
+                            onClick = onShareFullLedgerFile,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp)
+                                .testTag("share_ledger_json_button"),
+                            shape = RoundedCornerShape(4.dp),
+                            border = BorderStroke(1.dp, PureBlack),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("SHARE BACKUP", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = onImportLedgerSaf,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(46.dp)
+                            .testTag("import_ledger_json_button"),
+                        shape = RoundedCornerShape(4.dp),
+                        border = BorderStroke(1.dp, PureBlack),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                    ) {
+                        Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("IMPORT LEDGER BACKUP (JSON)", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+
+                // 4. Enhancement 3: Admin & Developer Contact Section (Settings -> About & Support)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp))
+                        .background(PureWhite, RoundedCornerShape(4.dp))
+                        .padding(14.dp)
+                        .testTag("about_and_support_card"),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "ABOUT & SUPPORT",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = PureBlack
+                    )
+                    HorizontalDivider(color = BorderGrey, thickness = 1.dp)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Administrator & Lead Developer",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SecondaryInkGrey
+                        )
+                        Text(
+                            text = "Jyotirmoy Bhowmik",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = PureBlack
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Admin Contact Email",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SecondaryInkGrey
+                        )
+                        Text(
+                            text = "admin@jyotirmoyb.com",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = PureBlack
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "App Version",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SecondaryInkGrey
+                        )
+                        Text(
+                            text = "v${BuildConfig.VERSION_NAME} (Code ${BuildConfig.VERSION_CODE})",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = PureBlack
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(2.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            val adminEmail = "admin@jyotirmoyb.com"
+                            // Copy to clipboard first so user always has it even if chooser has no email app
+                            runCatching {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                clipboard.setPrimaryClip(ClipData.newPlainText("Admin Email", adminEmail))
+                            }
+                            val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                data = Uri.parse("mailto:admin@jyotirmoyb.com")
+                                putExtra(
+                                    Intent.EXTRA_SUBJECT,
+                                    "Udhaar App — Support / Access Inquiry (v${BuildConfig.VERSION_NAME})"
+                                )
+                            }
+                            try {
+                                if (intent.resolveActivity(context.packageManager) != null) {
+                                    context.startActivity(Intent.createChooser(intent, "Contact Admin"))
+                                } else {
+                                    context.startActivity(Intent.createChooser(intent, "Contact Admin"))
+                                    Toast.makeText(
+                                        context,
+                                        "Admin email (admin@jyotirmoyb.com) copied to clipboard",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            } catch (e: Exception) {
+                                Toast.makeText(
+                                    context,
+                                    "No email client found. Copied admin@jyotirmoyb.com to clipboard.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("contact_admin_button"),
+                        shape = RoundedCornerShape(4.dp),
+                        border = BorderStroke(1.5.dp, PureBlack),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Email,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Contact Admin (admin@jyotirmoyb.com)",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }

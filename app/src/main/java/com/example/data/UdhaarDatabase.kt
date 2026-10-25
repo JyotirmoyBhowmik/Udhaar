@@ -52,8 +52,8 @@ class UdhaarTypeConverters {
 }
 
 @Database(
-    entities = [UdhaarTransaction::class, PartialPayment::class],
-    version = 1,
+    entities = [PartyEntity::class, UdhaarTransaction::class, PartialPayment::class],
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(UdhaarTypeConverters::class)
