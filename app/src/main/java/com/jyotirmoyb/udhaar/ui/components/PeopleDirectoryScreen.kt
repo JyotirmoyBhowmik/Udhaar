@@ -23,9 +23,11 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -110,12 +112,12 @@ fun PeopleDirectoryContent(
             .widthIn(max = 700.dp)
             .testTag("people_directory_lazy_list"),
         contentPadding = PaddingValues(
-            start = 16.dp,
-            end = 16.dp,
-            top = 16.dp,
-            bottom = 96.dp
+            start = 12.dp,
+            end = 12.dp,
+            top = 12.dp,
+            bottom = 88.dp
         ),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         // Directory Header Card
         item {
@@ -124,39 +126,46 @@ fun PeopleDirectoryContent(
                     .fillMaxWidth()
                     .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp))
                     .background(PureBlack, RoundedCornerShape(4.dp))
-                    .padding(16.dp),
+                    .padding(12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                     Text(
                         text = "PEOPLE & PARTIES KHATA",
                         style = MaterialTheme.typography.titleLarge,
-                        color = PureWhite
+                        color = PureWhite,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "${partyKhataList.size} CONTACTS • TAP ANY PARTY FOR INDIVIDUAL LEDGER VIEW",
+                        text = "${partyKhataList.size} CONTACTS • TAP FOR INDIVIDUAL LEDGER",
                         style = MaterialTheme.typography.labelSmall,
-                        color = BorderGrey
+                        color = BorderGrey,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 OutlinedButton(
                     onClick = onAddPartyClick,
                     shape = RoundedCornerShape(4.dp),
                     border = BorderStroke(1.dp, PureWhite),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
                         containerColor = PureWhite,
                         contentColor = PureBlack
                     ),
-                    modifier = Modifier.testTag("add_party_directory_button")
+                    modifier = Modifier
+                        .height(34.dp)
+                        .testTag("add_party_directory_button")
                 ) {
                     Icon(
                         imageVector = Icons.Default.PersonAdd,
                         contentDescription = null,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(14.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("ADD PARTY", style = MaterialTheme.typography.labelMedium)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("ADD PARTY", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -279,9 +288,9 @@ private fun PartyDirectoryCard(
             .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
             .background(PureWhite, RoundedCornerShape(4.dp))
             .clickable(onClick = onClick)
-            .padding(14.dp)
+            .padding(12.dp)
             .testTag("party_card_${party.name}"),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -289,8 +298,9 @@ private fun PartyDirectoryCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f).padding(end = 6.dp)
             ) {
                 Box(
                     modifier = Modifier
@@ -411,22 +421,25 @@ private fun PartyDirectoryCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "TAP TO OPEN PARTY LEDGER SCREEN",
+                text = "TAP FOR PARTY LEDGER",
                 style = MaterialTheme.typography.labelSmall,
-                color = SecondaryInkGrey
+                color = SecondaryInkGrey,
+                modifier = Modifier.weight(1f).padding(end = 8.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             OutlinedButton(
                 onClick = onAddLoanClick,
-                modifier = Modifier.height(34.dp),
+                modifier = Modifier.height(32.dp),
                 shape = RoundedCornerShape(3.dp),
                 border = BorderStroke(1.dp, PureBlack),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = null,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(13.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text("NEW LOAN", style = MaterialTheme.typography.labelSmall)
@@ -471,17 +484,19 @@ fun PartyDetailScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(PureWhite)
+                    .statusBarsPadding()
+                    .padding(top = 6.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).padding(end = 6.dp)
                     ) {
                         IconButton(
                             onClick = onBack,
@@ -493,8 +508,8 @@ fun PartyDetailScreen(
                                 tint = PureBlack
                             )
                         }
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Column {
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = party.name,
                                 style = MaterialTheme.typography.titleLarge,
@@ -503,18 +518,20 @@ fun PartyDetailScreen(
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "INDIVIDUAL PARTY KHATA LEDGER",
+                                text = "PARTY KHATA LEDGER",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = SecondaryInkGrey
+                                color = SecondaryInkGrey,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         IconButton(
                             onClick = onShareThermalReceipt,
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(36.dp)
                                 .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
                                 .testTag("party_top_thermal_receipt_button")
                         ) {
@@ -522,13 +539,13 @@ fun PartyDetailScreen(
                                 imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
                                 contentDescription = "Share Receipt / Statement",
                                 tint = PureBlack,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                         IconButton(
                             onClick = onEditParty,
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(36.dp)
                                 .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
                                 .testTag("edit_party_top_button")
                         ) {
@@ -536,14 +553,14 @@ fun PartyDetailScreen(
                                 imageVector = Icons.Default.Edit,
                                 contentDescription = "Edit Party Profile",
                                 tint = PureBlack,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                         if (party.partyId > 0L) {
                             IconButton(
                                 onClick = onDeleteParty,
                                 modifier = Modifier
-                                    .size(40.dp)
+                                    .size(36.dp)
                                     .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
                                     .testTag("delete_party_top_button")
                             ) {
@@ -551,7 +568,7 @@ fun PartyDetailScreen(
                                     imageVector = Icons.Default.DeleteOutline,
                                     contentDescription = "Delete Party Profile",
                                     tint = PureBlack,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
                         }
@@ -571,13 +588,13 @@ fun PartyDetailScreen(
                     .testTag("party_add_loan_fab")
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Loan")
+                    Icon(Icons.Default.Add, contentDescription = "Add Loan", modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "NEW LOAN FOR ${party.name.uppercase()}",
+                        text = "NEW LOAN",
                         style = MaterialTheme.typography.labelLarge,
                         color = PureWhite
                     )
@@ -648,12 +665,14 @@ fun PartyDetailScreen(
                                     modifier = Modifier
                                         .weight(1f)
                                         .background(PureBlack)
-                                        .padding(14.dp)
+                                        .padding(12.dp)
                                 ) {
                                     Text(
                                         text = "INR (₹) NET POSITION",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = BorderGrey
+                                        color = BorderGrey,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                     val inrLabel = when {
                                         khata.inrNet > 0.01 -> "RECEIVE ${InterestCalculator.formatCurrency(khata.inrNet, CurrencyType.INR)}"
@@ -662,13 +681,17 @@ fun PartyDetailScreen(
                                     }
                                     Text(
                                         text = inrLabel,
-                                        style = MaterialTheme.typography.headlineMedium,
-                                        color = PureWhite
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = PureWhite,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
-                                        text = "Given: ${InterestCalculator.formatCurrency(khata.inrToReceive, CurrencyType.INR)}  |  Taken: ${InterestCalculator.formatCurrency(khata.inrToPay, CurrencyType.INR)}",
+                                        text = "Given: ${InterestCalculator.formatCurrency(khata.inrToReceive, CurrencyType.INR)} | Taken: ${InterestCalculator.formatCurrency(khata.inrToPay, CurrencyType.INR)}",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = BorderGrey
+                                        color = BorderGrey,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
@@ -678,12 +701,14 @@ fun PartyDetailScreen(
                                     modifier = Modifier
                                         .weight(1f)
                                         .background(if (!inrEnabled) PureBlack else PureWhite)
-                                        .padding(14.dp)
+                                        .padding(12.dp)
                                 ) {
                                     Text(
                                         text = "NPR (रू) NET POSITION",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = if (!inrEnabled) BorderGrey else SecondaryInkGrey
+                                        color = if (!inrEnabled) BorderGrey else SecondaryInkGrey,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                     val nprLabel = when {
                                         khata.nprNet > 0.01 -> "RECEIVE ${InterestCalculator.formatCurrency(khata.nprNet, CurrencyType.NPR)}"
@@ -692,13 +717,17 @@ fun PartyDetailScreen(
                                     }
                                     Text(
                                         text = nprLabel,
-                                        style = MaterialTheme.typography.headlineMedium,
-                                        color = if (!inrEnabled) PureWhite else PureBlack
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = if (!inrEnabled) PureWhite else PureBlack,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
-                                        text = "Given: ${InterestCalculator.formatCurrency(khata.nprToReceive, CurrencyType.NPR)}  |  Taken: ${InterestCalculator.formatCurrency(khata.nprToPay, CurrencyType.NPR)}",
+                                        text = "Given: ${InterestCalculator.formatCurrency(khata.nprToReceive, CurrencyType.NPR)} | Taken: ${InterestCalculator.formatCurrency(khata.nprToPay, CurrencyType.NPR)}",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = if (!inrEnabled) BorderGrey else SecondaryInkGrey
+                                        color = if (!inrEnabled) BorderGrey else SecondaryInkGrey,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
@@ -1039,25 +1068,14 @@ fun AddEditPartyModal(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         val contactUri = result.data?.data ?: return@rememberLauncherForActivityResult
-        runCatching {
-            val projection = arrayOf(
-                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-                ContactsContract.CommonDataKinds.Phone.NUMBER
-            )
-            context.contentResolver.query(contactUri, projection, null, null, null)?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    val nameIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-                    val numIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-                    if (nameIdx >= 0) {
-                        val pickedName = cursor.getString(nameIdx) ?: ""
-                        if (pickedName.isNotBlank()) name = pickedName
-                    }
-                    if (numIdx >= 0) {
-                        val pickedPhone = cursor.getString(numIdx) ?: ""
-                        if (pickedPhone.isNotBlank()) phoneNumber = pickedPhone
-                    }
-                }
-            }
+        val extracted = com.jyotirmoyb.udhaar.util.ContactPickerHelper.extractContactInfo(context, contactUri)
+        if (extracted != null) {
+            val (pickedName, pickedPhone) = extracted
+            if (pickedName.isNotBlank()) name = pickedName
+            if (pickedPhone.isNotBlank()) phoneNumber = pickedPhone
+            android.widget.Toast.makeText(context, "Imported contact: $pickedName", android.widget.Toast.LENGTH_SHORT).show()
+        } else {
+            android.widget.Toast.makeText(context, "Could not load contact details. Please enter name manually.", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -1078,6 +1096,9 @@ fun AddEditPartyModal(
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.94f)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(vertical = 10.dp)
                 .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp)),
             shape = RoundedCornerShape(4.dp),
             color = PureWhite
@@ -1086,8 +1107,8 @@ fun AddEditPartyModal(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1141,11 +1162,13 @@ fun AddEditPartyModal(
                     )
                     OutlinedButton(
                         onClick = {
-                            val pickIntent = Intent(
-                                Intent.ACTION_PICK,
-                                ContactsContract.CommonDataKinds.Phone.CONTENT_URI
-                            )
-                            runCatching { contactPickerLauncher.launch(pickIntent) }
+                            val pickIntent = com.jyotirmoyb.udhaar.util.ContactPickerHelper.createPickContactIntent()
+                            runCatching {
+                                contactPickerLauncher.launch(pickIntent)
+                            }.onFailure {
+                                val fallbackIntent = com.jyotirmoyb.udhaar.util.ContactPickerHelper.createFallbackPickContactIntent()
+                                runCatching { contactPickerLauncher.launch(fallbackIntent) }
+                            }
                         },
                         modifier = Modifier
                             .height(56.dp)

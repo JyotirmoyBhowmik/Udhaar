@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,6 +26,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
@@ -33,7 +35,6 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.QrCode2
-import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.Settings
@@ -109,56 +110,62 @@ fun DashboardScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(PureWhite)
+                    .statusBarsPadding()
+                    .padding(top = 6.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 8.dp)
+                    ) {
                         Text(
                             text = "UDHAAR",
-                            style = MaterialTheme.typography.headlineLarge,
-                            color = PureBlack
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = PureBlack,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = "${uiState.userSettings.themeMode.label.uppercase()} • ${enabledCurrencies.joinToString("/") { it.code }}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = SecondaryInkGrey
+                            color = SecondaryInkGrey,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         if (uiState.userSettings.inrEnabled) {
-                            OutlinedButton(
+                            IconButton(
                                 onClick = onGlobalQrClick,
                                 modifier = Modifier
-                                    .height(42.dp)
-                                    .testTag("global_upi_qr_button"),
-                                shape = RoundedCornerShape(4.dp),
-                                border = BorderStroke(1.dp, PureBlack),
-                                contentPadding = PaddingValues(horizontal = 10.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                                    .size(36.dp)
+                                    .border(1.dp, PureBlack, RoundedCornerShape(4.dp))
+                                    .testTag("global_upi_qr_button")
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.QrCode2,
                                     contentDescription = "Global UPI QR Code",
-                                    modifier = Modifier.size(16.dp)
+                                    tint = PureBlack,
+                                    modifier = Modifier.size(17.dp)
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("QR", style = MaterialTheme.typography.labelSmall)
                             }
                         }
 
                         IconButton(
                             onClick = onCycleTheme,
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(36.dp)
                                 .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
                                 .testTag("cycle_theme_top_button")
                         ) {
@@ -166,14 +173,14 @@ fun DashboardScreen(
                                 imageVector = Icons.Default.Palette,
                                 contentDescription = "Switch Theme (${uiState.userSettings.themeMode.label})",
                                 tint = PureBlack,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                         }
 
                         IconButton(
                             onClick = onShareAppClick,
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(36.dp)
                                 .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
                                 .testTag("share_app_top_button")
                         ) {
@@ -181,14 +188,14 @@ fun DashboardScreen(
                                 imageVector = Icons.Default.Share,
                                 contentDescription = "Share Udhaar App",
                                 tint = PureBlack,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                         }
 
                         IconButton(
                             onClick = onLockAppClick,
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(36.dp)
                                 .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
                                 .testTag("lock_app_top_button")
                         ) {
@@ -196,22 +203,22 @@ fun DashboardScreen(
                                 imageVector = Icons.Default.Lock,
                                 contentDescription = "Lock Udhaar App",
                                 tint = PureBlack,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                         }
 
                         IconButton(
                             onClick = onSettingsClick,
                             modifier = Modifier
-                                .size(42.dp)
-                                .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
+                                .size(36.dp)
+                                .border(1.dp, PureBlack, RoundedCornerShape(4.dp))
                                 .testTag("open_settings_button")
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Settings,
                                 contentDescription = "Profile, Currency, Theme and UPI Settings",
                                 tint = PureBlack,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
@@ -221,14 +228,14 @@ fun DashboardScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     val isLedger = uiState.activeScreen == ActiveScreen.DASHBOARD
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(42.dp)
+                            .height(38.dp)
                             .border(
                                 width = if (isLedger) 1.5.dp else 1.dp,
                                 color = if (isLedger) PureBlack else BorderGrey,
@@ -239,22 +246,25 @@ fun DashboardScreen(
                                 shape = RoundedCornerShape(4.dp)
                             )
                             .clickable { onSwitchTab(ActiveScreen.DASHBOARD) }
+                            .padding(horizontal = 8.dp)
                             .testTag("nav_tab_ledger"),
                         contentAlignment = Alignment.Center
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Default.ReceiptLong,
+                                imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
                                 contentDescription = null,
                                 tint = if (isLedger) PureWhite else PureBlack,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(15.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(5.dp))
                             Text(
                                 text = "LEDGER (${uiState.allCalculatedItems.size})",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isLedger) PureWhite else PureBlack
+                                color = if (isLedger) PureWhite else PureBlack,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -262,7 +272,7 @@ fun DashboardScreen(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(42.dp)
+                            .height(38.dp)
                             .border(
                                 width = if (isPeopleTab) 1.5.dp else 1.dp,
                                 color = if (isPeopleTab) PureBlack else BorderGrey,
@@ -273,6 +283,7 @@ fun DashboardScreen(
                                 shape = RoundedCornerShape(4.dp)
                             )
                             .clickable { onSwitchTab(ActiveScreen.PEOPLE_DIRECTORY) }
+                            .padding(horizontal = 8.dp)
                             .testTag("nav_tab_people_directory"),
                         contentAlignment = Alignment.Center
                     ) {
@@ -281,14 +292,16 @@ fun DashboardScreen(
                                 imageVector = Icons.Default.Group,
                                 contentDescription = null,
                                 tint = if (isPeopleTab) PureWhite else PureBlack,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(15.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(5.dp))
                             Text(
-                                text = "PEOPLE DIRECTORY (${uiState.partyKhataList.size})",
+                                text = "PEOPLE (${uiState.partyKhataList.size})",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isPeopleTab) PureWhite else PureBlack
+                                color = if (isPeopleTab) PureWhite else PureBlack,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -308,12 +321,13 @@ fun DashboardScreen(
                     .testTag("add_udhaar_fab")
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         imageVector = if (isPeopleTab) Icons.Default.PersonAdd else Icons.Default.Add,
-                        contentDescription = stringResource(R.string.add_udhaar_button)
+                        contentDescription = stringResource(R.string.add_udhaar_button),
+                        modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
@@ -348,12 +362,12 @@ fun DashboardScreen(
                         .widthIn(max = 700.dp)
                         .testTag("transactions_lazy_list"),
                     contentPadding = PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
-                        top = 16.dp,
-                        bottom = 96.dp
+                        start = 12.dp,
+                        end = 12.dp,
+                        top = 12.dp,
+                        bottom = 88.dp
                     ),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     item {
                         TopLedgerSummaryCard(
@@ -362,8 +376,7 @@ fun DashboardScreen(
                             totals = uiState.activeSummaryTotals,
                             inrCount = uiState.inrTotals.activeGivenCount + uiState.inrTotals.activeTakenCount,
                             nprCount = uiState.nprTotals.activeGivenCount + uiState.nprTotals.activeTakenCount,
-                            onSelectCurrency = onSelectSummaryCurrency,
-                            onToggleCurrencyEnabled = onToggleCurrencyEnabled
+                            onSelectCurrency = onSelectSummaryCurrency
                         )
                     }
 
@@ -381,7 +394,7 @@ fun DashboardScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 4.dp),
+                                .padding(top = 2.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -394,7 +407,9 @@ fun DashboardScreen(
                                 Text(
                                     text = "VPA: ${uiState.userSettings.upiId}",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = SecondaryInkGrey
+                                    color = SecondaryInkGrey,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
@@ -437,8 +452,7 @@ private fun TopLedgerSummaryCard(
     totals: CurrencyLedgerTotals,
     inrCount: Int,
     nprCount: Int,
-    onSelectCurrency: (CurrencyType) -> Unit,
-    onToggleCurrencyEnabled: (CurrencyType, Boolean) -> Unit
+    onSelectCurrency: (CurrencyType) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -447,11 +461,12 @@ private fun TopLedgerSummaryCard(
             .background(PureWhite, RoundedCornerShape(4.dp))
             .testTag("top_summary_card")
     ) {
+        // Currency tabs shown only for currencies enabled in Settings (no NPR enable button on home screen)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(SubtleSurfaceGrey)
-                .padding(6.dp),
+                .padding(5.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -461,7 +476,7 @@ private fun TopLedgerSummaryCard(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(42.dp)
+                        .height(34.dp)
                         .border(
                             width = 1.dp,
                             color = if (isSelected) PureBlack else BorderGrey,
@@ -472,6 +487,7 @@ private fun TopLedgerSummaryCard(
                             shape = RoundedCornerShape(3.dp)
                         )
                         .clickable { onSelectCurrency(curr) }
+                        .padding(horizontal = 8.dp)
                         .testTag("summary_currency_tab_${curr.name.lowercase()}"),
                     contentAlignment = Alignment.Center
                 ) {
@@ -479,43 +495,9 @@ private fun TopLedgerSummaryCard(
                         text = "${curr.displayName} • $count ACTIVE",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = if (isSelected) PureWhite else PureBlack
-                    )
-                }
-            }
-
-            if (CurrencyType.NPR !in enabledCurrencies) {
-                Box(
-                    modifier = Modifier
-                        .height(42.dp)
-                        .border(1.dp, BorderGrey, RoundedCornerShape(3.dp))
-                        .background(PureWhite, RoundedCornerShape(3.dp))
-                        .clickable { onToggleCurrencyEnabled(CurrencyType.NPR, true) }
-                        .padding(horizontal = 10.dp)
-                        .testTag("quick_enable_npr_button"),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "+ ENABLE NPR (रू)",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = SecondaryInkGrey
-                    )
-                }
-            } else if (CurrencyType.INR !in enabledCurrencies) {
-                Box(
-                    modifier = Modifier
-                        .height(42.dp)
-                        .border(1.dp, BorderGrey, RoundedCornerShape(3.dp))
-                        .background(PureWhite, RoundedCornerShape(3.dp))
-                        .clickable { onToggleCurrencyEnabled(CurrencyType.INR, true) }
-                        .padding(horizontal = 10.dp)
-                        .testTag("quick_enable_inr_button"),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "+ ENABLE INR (₹)",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = SecondaryInkGrey
+                        color = if (isSelected) PureWhite else PureBlack,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -528,22 +510,26 @@ private fun TopLedgerSummaryCard(
                 modifier = Modifier
                     .weight(1f)
                     .background(PureBlack)
-                    .padding(16.dp)
+                    .padding(12.dp)
             ) {
                 Text(
                     text = "TOTAL TO RECEIVE",
                     style = MaterialTheme.typography.labelSmall,
-                    color = BorderGrey
+                    color = BorderGrey,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = "GIVEN • ${totals.activeGivenCount} RECORDS",
                     style = MaterialTheme.typography.labelSmall,
-                    color = SecondaryInkGrey
+                    color = SecondaryInkGrey,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = InterestCalculator.formatCurrency(totals.totalToReceive, selectedCurrency),
-                    style = MaterialTheme.typography.headlineLarge,
+                    style = MaterialTheme.typography.headlineMedium,
                     color = PureWhite,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -555,22 +541,26 @@ private fun TopLedgerSummaryCard(
                 modifier = Modifier
                     .weight(1f)
                     .background(PureWhite)
-                    .padding(16.dp)
+                    .padding(12.dp)
             ) {
                 Text(
                     text = "TOTAL TO PAY",
                     style = MaterialTheme.typography.labelSmall,
-                    color = SecondaryInkGrey
+                    color = SecondaryInkGrey,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = "TAKEN • ${totals.activeTakenCount} RECORDS",
                     style = MaterialTheme.typography.labelSmall,
-                    color = SecondaryInkGrey
+                    color = SecondaryInkGrey,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = InterestCalculator.formatCurrency(totals.totalToPay, selectedCurrency),
-                    style = MaterialTheme.typography.headlineLarge,
+                    style = MaterialTheme.typography.headlineMedium,
                     color = PureBlack,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -585,14 +575,17 @@ private fun TopLedgerSummaryCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(SubtleSurfaceGrey)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 12.dp, vertical = 7.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = "NET ${selectedCurrency.code} LEDGER POSITION",
                 style = MaterialTheme.typography.labelSmall,
-                color = SecondaryInkGrey
+                color = SecondaryInkGrey,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             val net = totals.netPosition
             val prefix = when {
@@ -604,7 +597,8 @@ private fun TopLedgerSummaryCard(
                 text = "$prefix${InterestCalculator.formatCurrency(kotlin.math.abs(net), selectedCurrency)}",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = PureBlack
+                color = PureBlack,
+                maxLines = 1
             )
         }
     }
@@ -626,7 +620,7 @@ private fun SearchAndFilterBar(
         }
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
             value = searchQuery,
             onValueChange = onSearchQueryChange,
@@ -634,14 +628,17 @@ private fun SearchAndFilterBar(
                 Text(
                     text = stringResource(R.string.search_placeholder),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = SecondaryInkGrey
+                    color = SecondaryInkGrey,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Search,
                     contentDescription = "Search",
-                    tint = PureBlack
+                    tint = PureBlack,
+                    modifier = Modifier.size(18.dp)
                 )
             },
             trailingIcon = {
@@ -650,7 +647,8 @@ private fun SearchAndFilterBar(
                         Icon(
                             imageVector = Icons.Default.Clear,
                             contentDescription = "Clear search",
-                            tint = PureBlack
+                            tint = PureBlack,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
@@ -673,13 +671,13 @@ private fun SearchAndFilterBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             visibleFilters.forEach { filter ->
                 val isSelected = selectedFilter == filter
                 Box(
                     modifier = Modifier
-                        .height(40.dp)
+                        .height(34.dp)
                         .border(
                             width = 1.dp,
                             color = if (isSelected) PureBlack else BorderGrey,
@@ -690,7 +688,7 @@ private fun SearchAndFilterBar(
                             shape = RoundedCornerShape(4.dp)
                         )
                         .clickable { onSelectFilter(filter) }
-                        .padding(horizontal = 14.dp)
+                        .padding(horizontal = 12.dp)
                         .testTag("filter_chip_${filter.name.lowercase()}"),
                     contentAlignment = Alignment.Center
                 ) {
@@ -728,9 +726,9 @@ private fun TransactionCardItem(
                 shape = RoundedCornerShape(4.dp)
             )
             .clickable(onClick = onCardClick)
-            .padding(14.dp)
+            .padding(12.dp)
             .testTag("transaction_card_${tx.id}"),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -738,8 +736,9 @@ private fun TransactionCardItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f).padding(end = 6.dp)
             ) {
                 Box(
                     modifier = Modifier
@@ -748,7 +747,7 @@ private fun TransactionCardItem(
                             shape = RoundedCornerShape(2.dp)
                         )
                         .border(1.dp, PureBlack, RoundedCornerShape(2.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .padding(horizontal = 5.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = if (isGiven) "GIVEN" else "TAKEN",
@@ -762,7 +761,7 @@ private fun TransactionCardItem(
                     modifier = Modifier
                         .background(MutedChipGrey, RoundedCornerShape(2.dp))
                         .border(0.5.dp, BorderGrey, RoundedCornerShape(2.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .padding(horizontal = 5.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = tx.paymentMode.label.uppercase(),
@@ -774,7 +773,7 @@ private fun TransactionCardItem(
                 Box(
                     modifier = Modifier
                         .background(MutedChipGrey, RoundedCornerShape(2.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .padding(horizontal = 5.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = tx.currency.code,
@@ -790,7 +789,7 @@ private fun TransactionCardItem(
                         if (summary.isOverdue) {
                             Modifier
                                 .background(PureBlack, RoundedCornerShape(2.dp))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .padding(horizontal = 5.dp, vertical = 2.dp)
                         } else {
                             Modifier
                         }
@@ -800,7 +799,8 @@ private fun TransactionCardItem(
                     text = summary.dueStatusText,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = if (summary.isOverdue || tx.isSettled) FontWeight.Bold else FontWeight.Normal,
-                    color = if (summary.isOverdue) PureWhite else SecondaryInkGrey
+                    color = if (summary.isOverdue) PureWhite else SecondaryInkGrey,
+                    maxLines = 1
                 )
             }
         }
@@ -810,18 +810,22 @@ private fun TransactionCardItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                 Text(
                     text = tx.partyName,
                     style = MaterialTheme.typography.titleLarge,
                     color = PureBlack,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     textDecoration = if (tx.isSettled) TextDecoration.LineThrough else TextDecoration.None
                 )
                 if (tx.phoneNumber.isNotBlank()) {
                     Text(
                         text = tx.phoneNumber,
                         style = MaterialTheme.typography.labelSmall,
-                        color = SecondaryInkGrey
+                        color = SecondaryInkGrey,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -831,6 +835,7 @@ private fun TransactionCardItem(
                 text = InterestCalculator.formatCurrency(displayAmount, tx.currency),
                 style = MaterialTheme.typography.headlineMedium,
                 color = PureBlack,
+                maxLines = 1,
                 textDecoration = if (tx.isSettled) TextDecoration.LineThrough else TextDecoration.None,
                 modifier = Modifier.testTag("tx_card_amount_${tx.id}")
             )
@@ -861,27 +866,30 @@ private fun TransactionCardItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = if (tx.isSettled) "TAP TO VIEW / RECEIPT" else "TAP FOR REPAYMENT / RECEIPT",
+                text = if (tx.isSettled) "TAP FOR RECEIPT" else "TAP FOR REPAYMENT / RECEIPT",
                 style = MaterialTheme.typography.labelSmall,
-                color = SecondaryInkGrey
+                color = SecondaryInkGrey,
+                modifier = Modifier.weight(1f).padding(end = 6.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (tx.currency == CurrencyType.INR && isGiven && !tx.isSettled) {
                     OutlinedButton(
                         onClick = onQrClick,
                         modifier = Modifier
-                            .height(36.dp)
+                            .height(32.dp)
                             .testTag("card_qr_button_${tx.id}"),
                         shape = RoundedCornerShape(3.dp),
                         border = BorderStroke(1.dp, PureBlack),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
                     ) {
                         Icon(
                             imageVector = Icons.Default.QrCode2,
                             contentDescription = "Generate UPI QR for ${tx.partyName}",
-                            modifier = Modifier.size(15.dp)
+                            modifier = Modifier.size(14.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("QR", style = MaterialTheme.typography.labelSmall)
@@ -891,11 +899,11 @@ private fun TransactionCardItem(
                 OutlinedButton(
                     onClick = onWhatsAppClick,
                     modifier = Modifier
-                        .height(36.dp)
+                        .height(32.dp)
                         .testTag("card_whatsapp_button_${tx.id}"),
                     shape = RoundedCornerShape(3.dp),
                     border = BorderStroke(1.dp, PureBlack),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
                         containerColor = PureBlack,
                         contentColor = PureWhite
@@ -904,9 +912,9 @@ private fun TransactionCardItem(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Send,
                         contentDescription = "Send WhatsApp Reminder to ${tx.partyName}",
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(13.dp)
                     )
-                    Spacer(modifier = Modifier.width(5.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text("REMIND", style = MaterialTheme.typography.labelSmall, color = PureWhite)
                 }
             }
@@ -925,10 +933,10 @@ private fun EmptyLedgerState(
             .fillMaxWidth()
             .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
             .background(SubtleSurfaceGrey, RoundedCornerShape(4.dp))
-            .padding(28.dp)
+            .padding(22.dp)
             .testTag("empty_ledger_box"),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
             text = if (hasAnyTransactions) "NO MATCHING RECORDS" else "NO UDHAAR RECORDS YET",
@@ -968,7 +976,7 @@ private fun EmptyLedgerState(
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text("CREATE FIRST UDHAAR", style = MaterialTheme.typography.labelLarge)

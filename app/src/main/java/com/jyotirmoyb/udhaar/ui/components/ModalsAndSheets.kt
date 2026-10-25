@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -22,8 +23,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -43,6 +46,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -86,6 +90,7 @@ import com.jyotirmoyb.udhaar.data.TransactionType
 import com.jyotirmoyb.udhaar.data.UserSettings
 import com.jyotirmoyb.udhaar.notification.ReminderReceiver
 import com.jyotirmoyb.udhaar.ui.QrModalState
+import com.jyotirmoyb.udhaar.ui.theme.AppFontScale
 import com.jyotirmoyb.udhaar.ui.theme.AppThemeMode
 import com.jyotirmoyb.udhaar.ui.theme.BorderGrey
 import com.jyotirmoyb.udhaar.ui.theme.MutedChipGrey
@@ -141,6 +146,9 @@ fun TransactionDetailModal(
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.95f)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(vertical = 10.dp)
                 .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp)),
             shape = RoundedCornerShape(4.dp),
             color = PureWhite
@@ -149,8 +157,8 @@ fun TransactionDetailModal(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Header
                 Row(
@@ -711,6 +719,9 @@ fun ThermalReceiptModal(
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.95f)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(vertical = 10.dp)
                 .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp)),
             shape = RoundedCornerShape(4.dp),
             color = PureWhite
@@ -719,9 +730,9 @@ fun ThermalReceiptModal(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(18.dp),
+                    .padding(14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -889,6 +900,9 @@ fun UpiQrCodeModal(
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.94f)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(vertical = 10.dp)
                 .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp)),
             shape = RoundedCornerShape(4.dp),
             color = PureWhite
@@ -897,9 +911,9 @@ fun UpiQrCodeModal(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(18.dp),
+                    .padding(14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1153,6 +1167,9 @@ fun ShareUdhaarAppModal(
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.92f)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(vertical = 10.dp)
                 .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp)),
             shape = RoundedCornerShape(4.dp),
             color = PureWhite
@@ -1161,9 +1178,9 @@ fun ShareUdhaarAppModal(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(18.dp),
+                    .padding(14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1307,6 +1324,9 @@ fun WhatsAppReminderModal(
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.94f)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(vertical = 10.dp)
                 .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp)),
             shape = RoundedCornerShape(4.dp),
             color = PureWhite
@@ -1315,8 +1335,8 @@ fun WhatsAppReminderModal(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1541,7 +1561,7 @@ fun WhatsAppReminderModal(
 @Composable
 fun ProfileSettingsModal(
     currentSettings: UserSettings,
-    onSave: (String, String, CurrencyType, Boolean, Boolean, AppThemeMode, Boolean, String) -> Unit,
+    onSave: (String, String, CurrencyType, Boolean, Boolean, AppThemeMode, AppFontScale, Boolean, String, Boolean) -> Unit,
     onLockAppNow: () -> Unit,
     onOpenShareAppModal: () -> Unit,
     onExportFullLedgerSaf: () -> Unit,
@@ -1561,11 +1581,29 @@ fun ProfileSettingsModal(
     var selectedThemeMode by rememberSaveable(currentSettings.themeMode) {
         mutableStateOf(currentSettings.themeMode)
     }
+    var selectedFontScale by rememberSaveable(currentSettings.fontScale) {
+        mutableStateOf(currentSettings.fontScale)
+    }
     var biometricLockEnabled by rememberSaveable(currentSettings.biometricLockEnabled) {
         mutableStateOf(currentSettings.biometricLockEnabled)
     }
     var securityPin by rememberSaveable(currentSettings.securityPin) {
         mutableStateOf(currentSettings.securityPin)
+    }
+
+    fun autoSaveCurrentSettings(closeModal: Boolean = false) {
+        onSave(
+            upiId,
+            payeeName,
+            defaultCurrency,
+            inrEnabled,
+            nprEnabled,
+            selectedThemeMode,
+            selectedFontScale,
+            biometricLockEnabled,
+            securityPin.ifBlank { "0000" },
+            closeModal
+        )
     }
 
     val playStoreUrl = "https://play.google.com/store/apps/details?id=${BuildConfig.APPLICATION_ID}"
@@ -1590,6 +1628,9 @@ fun ProfileSettingsModal(
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.95f)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(vertical = 10.dp)
                 .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp)),
             shape = RoundedCornerShape(4.dp),
             color = PureWhite
@@ -1598,8 +1639,8 @@ fun ProfileSettingsModal(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Header
                 Row(
@@ -1607,14 +1648,14 @@ fun ProfileSettingsModal(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "SETTINGS, CURRENCY, THEME & SUPPORT",
+                            text = "SETTINGS, CURRENCY, FONT & THEME",
                             style = MaterialTheme.typography.titleLarge,
                             color = PureBlack
                         )
                         Text(
-                            text = "INR / NPR TOGGLES, MULTI-THEME, VPA & ADMIN",
+                            text = "ENABLE NPR, ADJUST FONT SIZE, PHONE SETTINGS & VPA",
                             style = MaterialTheme.typography.labelSmall,
                             color = SecondaryInkGrey
                         )
@@ -1631,16 +1672,16 @@ fun ProfileSettingsModal(
                     }
                 }
 
-                // 1. Currency Enable / Disable Section (NPR Disabled by Default)
+                // 1. Currency Enable / Disable Section (NPR Enabled strictly from Settings)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp))
-                        .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "CURRENCY ENABLE / DISABLE (NPR DISABLED BY DEFAULT)",
+                        text = "CURRENCY ENABLE / DISABLE (NPR IN SETTINGS ONLY)",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = PureBlack
@@ -1673,6 +1714,7 @@ fun ProfileSettingsModal(
                                 } else if (checked && !nprEnabled) {
                                     defaultCurrency = CurrencyType.INR
                                 }
+                                autoSaveCurrentSettings(closeModal = false)
                             },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = PureWhite,
@@ -1699,7 +1741,7 @@ fun ProfileSettingsModal(
                                 color = PureBlack
                             )
                             Text(
-                                text = if (nprEnabled) "Enabled in Ledger & Summary" else "Disabled by default (Toggle ON to use रू)",
+                                text = if (nprEnabled) "Enabled in Ledger & Summary" else "Disabled by default (Toggle ON here to use रू)",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = SecondaryInkGrey
                             )
@@ -1714,6 +1756,7 @@ fun ProfileSettingsModal(
                                 } else if (!checked && defaultCurrency == CurrencyType.NPR) {
                                     defaultCurrency = CurrencyType.INR
                                 }
+                                autoSaveCurrentSettings(closeModal = false)
                             },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = PureWhite,
@@ -1727,13 +1770,53 @@ fun ProfileSettingsModal(
                     }
                 }
 
-                // 2. Multi-Theme Appearance Selector
+                // 2. Text & Display Size Selector (Mobile Fit & Readability)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
-                        .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "TEXT & DISPLAY SIZE (FITS ALL MOBILE SCREENS)",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = PureBlack
+                    )
+                    Text(
+                        text = "Adjust text size inside the app or follow your phone's display font scale:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SecondaryInkGrey
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        AppFontScale.entries.forEach { scale ->
+                            val isSelected = selectedFontScale == scale
+                            MonochromeTogglePill(
+                                text = scale.label,
+                                selected = isSelected,
+                                onClick = {
+                                    selectedFontScale = scale
+                                    autoSaveCurrentSettings(closeModal = false)
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("font_scale_${scale.name.lowercase()}")
+                            )
+                        }
+                    }
+                }
+
+                // 3. Multi-Theme Appearance Selector (Includes Follow Phone Setting)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
                         text = "APP THEME & VISUAL APPEARANCE",
@@ -1758,8 +1841,9 @@ fun ProfileSettingsModal(
                                 .clickable {
                                     selectedThemeMode = mode
                                     activePaletteState = paletteForTheme(mode)
+                                    autoSaveCurrentSettings(closeModal = false)
                                 }
-                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                                .padding(horizontal = 10.dp, vertical = 8.dp)
                                 .testTag("theme_option_${mode.name.lowercase()}"),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -1781,20 +1865,97 @@ fun ProfileSettingsModal(
                                     imageVector = Icons.Default.Check,
                                     contentDescription = "Selected Theme",
                                     tint = PureWhite,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
                         }
                     }
                 }
 
-                // 3. Profile, UPI & Biometric Configuration (Enhancement A)
+                // 4. Phone System Settings Integration (Adjust Notifications, Permissions, Display & App Info)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
-                        .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                        .background(SubtleSurfaceGrey, RoundedCornerShape(4.dp))
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "PHONE SYSTEM SETTINGS INTEGRATION",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = PureBlack
+                    )
+                    Text(
+                        text = "Manage system permissions, notification alerts, and phone display/language settings directly from Android Settings:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SecondaryInkGrey
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                val intent = Intent(
+                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.fromParts("package", context.packageName, null)
+                                ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                                runCatching { context.startActivity(intent) }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp)
+                                .testTag("open_phone_app_settings_button"),
+                            shape = RoundedCornerShape(4.dp),
+                            border = BorderStroke(1.dp, PureBlack),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                        ) {
+                            Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("PHONE APP SETTINGS", style = MaterialTheme.typography.labelSmall)
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                                    putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                runCatching {
+                                    context.startActivity(intent)
+                                }.onFailure {
+                                    val fallback = Intent(
+                                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                        Uri.fromParts("package", context.packageName, null)
+                                    ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                                    runCatching { context.startActivity(fallback) }
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp)
+                                .testTag("open_phone_notification_settings_button"),
+                            shape = RoundedCornerShape(4.dp),
+                            border = BorderStroke(1.dp, PureBlack),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                        ) {
+                            Icon(Icons.Default.NotificationsActive, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("NOTIFICATIONS", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+
+                // 5. Profile, UPI & Biometric Configuration (Enhancement A)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
                         text = "PROFILE, UPI VPA & APP LOCK CONFIGURATION",
@@ -1834,13 +1995,16 @@ fun ProfileSettingsModal(
                         )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             CurrencyType.entries.forEach { curr ->
                                 MonochromeTogglePill(
                                     text = curr.displayName,
                                     selected = defaultCurrency == curr,
-                                    onClick = { defaultCurrency = curr },
+                                    onClick = {
+                                        defaultCurrency = curr
+                                        autoSaveCurrentSettings(closeModal = false)
+                                    },
                                     modifier = Modifier
                                         .weight(1f)
                                         .testTag("settings_currency_${curr.name.lowercase()}")
@@ -1870,7 +2034,10 @@ fun ProfileSettingsModal(
                         }
                         Switch(
                             checked = biometricLockEnabled,
-                            onCheckedChange = { biometricLockEnabled = it },
+                            onCheckedChange = {
+                                biometricLockEnabled = it
+                                autoSaveCurrentSettings(closeModal = false)
+                            },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = PureWhite,
                                 checkedTrackColor = PureBlack,
@@ -1894,8 +2061,9 @@ fun ProfileSettingsModal(
                                     securityPin = input
                                 }
                             },
-                            label = { Text("Fallback Security PIN") },
+                            label = { Text("Fallback App Security PIN") },
                             singleLine = true,
+                            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                             colors = textFieldColors,
                             modifier = Modifier
@@ -1908,14 +2076,14 @@ fun ProfileSettingsModal(
                                 onLockAppNow()
                             },
                             modifier = Modifier
-                                .height(56.dp)
-                                .padding(top = 6.dp)
+                                .height(50.dp)
+                                .padding(top = 4.dp)
                                 .testTag("lock_app_now_button"),
                             shape = RoundedCornerShape(4.dp),
                             border = BorderStroke(1.dp, PureBlack),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
                         ) {
-                            Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(15.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("LOCK NOW", style = MaterialTheme.typography.labelMedium)
                         }
@@ -1923,20 +2091,11 @@ fun ProfileSettingsModal(
 
                     Button(
                         onClick = {
-                            onSave(
-                                upiId,
-                                payeeName,
-                                defaultCurrency,
-                                inrEnabled,
-                                nprEnabled,
-                                selectedThemeMode,
-                                biometricLockEnabled,
-                                securityPin.ifBlank { "0000" }
-                            )
+                            autoSaveCurrentSettings(closeModal = true)
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp)
+                            .height(44.dp)
                             .testTag("save_settings_button"),
                         shape = RoundedCornerShape(4.dp),
                         colors = ButtonDefaults.buttonColors(

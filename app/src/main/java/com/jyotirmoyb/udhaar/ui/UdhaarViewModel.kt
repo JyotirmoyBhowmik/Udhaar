@@ -14,6 +14,7 @@ import com.jyotirmoyb.udhaar.data.UdhaarRepository
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
 import com.jyotirmoyb.udhaar.data.UserSettings
 import com.jyotirmoyb.udhaar.notification.ReminderScheduler
+import com.jyotirmoyb.udhaar.ui.theme.AppFontScale
 import com.jyotirmoyb.udhaar.ui.theme.AppThemeMode
 import com.jyotirmoyb.udhaar.util.CalculatedUdhaarSummary
 import com.jyotirmoyb.udhaar.util.InterestCalculator
@@ -339,6 +340,12 @@ class UdhaarViewModel(
     fun cycleOrSelectTheme(themeMode: AppThemeMode) {
         viewModelScope.launch {
             repository.setThemeMode(themeMode)
+        }
+    }
+
+    fun selectFontScale(fontScale: AppFontScale) {
+        viewModelScope.launch {
+            repository.setFontScale(fontScale)
         }
     }
 
@@ -687,8 +694,10 @@ class UdhaarViewModel(
         inrEnabled: Boolean? = null,
         nprEnabled: Boolean? = null,
         themeMode: AppThemeMode? = null,
+        fontScale: AppFontScale? = null,
         biometricLockEnabled: Boolean? = null,
-        securityPin: String? = null
+        securityPin: String? = null,
+        closeModal: Boolean = true
     ) {
         viewModelScope.launch {
             repository.updateSettings(
@@ -698,10 +707,13 @@ class UdhaarViewModel(
                 inrEnabled = inrEnabled,
                 nprEnabled = nprEnabled,
                 themeMode = themeMode,
+                fontScale = fontScale,
                 biometricLockEnabled = biometricLockEnabled,
                 securityPin = securityPin
             )
-            localState.update { it.copy(showSettingsModal = false) }
+            if (closeModal) {
+                localState.update { it.copy(showSettingsModal = false) }
+            }
         }
     }
 

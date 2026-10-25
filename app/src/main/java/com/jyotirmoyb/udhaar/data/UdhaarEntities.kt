@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.jyotirmoyb.udhaar.ui.theme.AppFontScale
 import com.jyotirmoyb.udhaar.ui.theme.AppThemeMode
 
 enum class TransactionType(val label: String, val badgeLabel: String) {
@@ -117,6 +118,7 @@ data class UserSettings(
     val inrEnabled: Boolean = true,
     val nprEnabled: Boolean = false, // Disabled by default per user specification
     val themeMode: AppThemeMode = AppThemeMode.MONOCHROME_LIGHT,
+    val fontScale: AppFontScale = AppFontScale.STANDARD,
     val biometricLockEnabled: Boolean = false,
     val securityPin: String = "0000"
 ) {

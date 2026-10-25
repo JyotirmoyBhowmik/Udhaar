@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -73,6 +74,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.jyotirmoyb.udhaar.data.CompoundFrequency
@@ -182,25 +184,21 @@ fun AddEditUdhaarScreen(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         val contactUri = result.data?.data ?: return@rememberLauncherForActivityResult
-        runCatching {
-            val projection = arrayOf(
-                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-                ContactsContract.CommonDataKinds.Phone.NUMBER
-            )
-            context.contentResolver.query(contactUri, projection, null, null, null)?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-                    val numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-                    if (nameIndex >= 0) {
-                        val pickedName = cursor.getString(nameIndex) ?: ""
-                        if (pickedName.isNotBlank()) partyName = pickedName
-                    }
-                    if (numberIndex >= 0) {
-                        val pickedNumber = cursor.getString(numberIndex) ?: ""
-                        if (pickedNumber.isNotBlank()) phoneNumber = pickedNumber
-                    }
-                }
+        val extracted = com.jyotirmoyb.udhaar.util.ContactPickerHelper.extractContactInfo(context, contactUri)
+        if (extracted != null) {
+            val (pickedName, pickedPhone) = extracted
+            if (pickedName.isNotBlank()) partyName = pickedName
+            if (pickedPhone.isNotBlank()) phoneNumber = pickedPhone
+            val matchedParty = savedParties.find {
+                it.name.trim().equals(pickedName.trim(), ignoreCase = true) ||
+                    (pickedPhone.isNotBlank() && it.phoneNumber.trim().endsWith(pickedPhone.takeLast(10)))
             }
+            if (matchedParty != null) {
+                selectedPartyId = matchedParty.partyId
+            }
+            android.widget.Toast.makeText(context, "Imported contact: $pickedName", android.widget.Toast.LENGTH_SHORT).show()
+        } else {
+            android.widget.Toast.makeText(context, "Could not load contact details. Please enter name manually.", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -258,11 +256,13 @@ fun AddEditUdhaarScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(PureWhite)
+                    .statusBarsPadding()
+                    .padding(top = 6.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -282,7 +282,9 @@ fun AddEditUdhaarScreen(
                             Text(
                                 text = if (initialTransaction == null) "NEW UDHAAR RECORD" else "EDIT UDHAAR RECORD",
                                 style = MaterialTheme.typography.titleLarge,
-                                color = PureBlack
+                                color = PureBlack,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Text(
                                 text = "MONOCHROME LEDGER ENTRY",
@@ -306,14 +308,14 @@ fun AddEditUdhaarScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     OutlinedButton(
                         onClick = onCancel,
                         modifier = Modifier
                             .weight(1f)
-                            .height(50.dp)
+                            .height(44.dp)
                             .testTag("cancel_udhaar_button"),
                         shape = RoundedCornerShape(4.dp),
                         border = BorderStroke(1.dp, PureBlack),
@@ -360,7 +362,7 @@ fun AddEditUdhaarScreen(
                         },
                         modifier = Modifier
                             .weight(1.5f)
-                            .height(50.dp)
+                            .height(44.dp)
                             .testTag("save_udhaar_button"),
                         shape = RoundedCornerShape(4.dp),
                         colors = ButtonDefaults.buttonColors(
@@ -391,8 +393,8 @@ fun AddEditUdhaarScreen(
                     .fillMaxWidth()
                     .widthIn(max = 640.dp)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 if (validationError != null) {
                     Box(
@@ -429,45 +431,22 @@ fun AddEditUdhaarScreen(
                     }
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    enabledCurrencies.forEach { curr ->
-                        val selected = currency == curr
-                        MonochromeTogglePill(
-                            text = curr.displayName,
-                            selected = selected,
-                            onClick = { currency = curr },
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("currency_select_${curr.name.lowercase()}")
-                        )
-                    }
-                    if (CurrencyType.NPR !in enabledCurrencies) {
-                        MonochromeTogglePill(
-                            text = "+ Enable NPR (रू)",
-                            selected = false,
-                            onClick = {
-                                onEnableCurrency(CurrencyType.NPR)
-                                currency = CurrencyType.NPR
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("enable_npr_in_form_button")
-                        )
-                    } else if (CurrencyType.INR !in enabledCurrencies) {
-                        MonochromeTogglePill(
-                            text = "+ Enable INR (₹)",
-                            selected = false,
-                            onClick = {
-                                onEnableCurrency(CurrencyType.INR)
-                                currency = CurrencyType.INR
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("enable_inr_in_form_button")
-                        )
+                if (enabledCurrencies.size > 1) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        enabledCurrencies.forEach { curr ->
+                            val selected = currency == curr
+                            MonochromeTogglePill(
+                                text = curr.displayName,
+                                selected = selected,
+                                onClick = { currency = curr },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("currency_select_${curr.name.lowercase()}")
+                            )
+                        }
                     }
                 }
 
@@ -515,11 +494,13 @@ fun AddEditUdhaarScreen(
                     )
                     OutlinedButton(
                         onClick = {
-                            val pickIntent = Intent(
-                                Intent.ACTION_PICK,
-                                ContactsContract.CommonDataKinds.Phone.CONTENT_URI
-                            )
-                            runCatching { contactPickerLauncher.launch(pickIntent) }
+                            val pickIntent = com.jyotirmoyb.udhaar.util.ContactPickerHelper.createPickContactIntent()
+                            runCatching {
+                                contactPickerLauncher.launch(pickIntent)
+                            }.onFailure {
+                                val fallbackIntent = com.jyotirmoyb.udhaar.util.ContactPickerHelper.createFallbackPickContactIntent()
+                                runCatching { contactPickerLauncher.launch(fallbackIntent) }
+                            }
                         },
                         modifier = Modifier
                             .height(56.dp)
@@ -916,7 +897,7 @@ fun MonochromeTogglePill(
 ) {
     Box(
         modifier = modifier
-            .height(48.dp)
+            .height(40.dp)
             .border(
                 width = if (selected) 1.5.dp else 1.dp,
                 color = if (selected) PureBlack else BorderGrey,
@@ -927,13 +908,15 @@ fun MonochromeTogglePill(
                 shape = RoundedCornerShape(4.dp)
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp),
+            .padding(horizontal = 10.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.labelLarge,
-            color = if (selected) PureWhite else PureBlack
+            color = if (selected) PureWhite else PureBlack,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }

@@ -6,10 +6,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 
 enum class AppThemeMode(val label: String, val subtitle: String) {
+    SYSTEM_DEFAULT("Follow Phone Setting", "Automatically matches your phone's Light / Dark mode"),
     MONOCHROME_LIGHT("Monochrome Light", "High-contrast #000000 & #FFFFFF Swiss grid"),
-    OBSIDIAN_DARK("Obsidian Dark", "Deep OLED dark mode (#0C0C0C & crisp white)"),
+    OBSIDIAN_DARK("Obsidian Dark", "Deep OLED dark mode (#0E0E0E & crisp white)"),
     PAPER_LEDGER("Warm Paper Khata", "Archival cream parchment & espresso ink"),
     EMERALD_FINANCE("Emerald Slate", "Modern financial slate & deep emerald ink")
+}
+
+enum class AppFontScale(val label: String, val subtitle: String, val multiplier: Float) {
+    COMPACT("Compact (Small)", "Smaller text to fit more records on compact mobile screens", 0.90f),
+    STANDARD("Standard (Default)", "Balanced mobile typography", 1.00f),
+    LARGE("Comfortable (Large)", "Slightly larger text for easier reading", 1.10f)
 }
 
 data class UdhaarColorPalette(
@@ -64,7 +71,8 @@ val EmeraldFinancePalette = UdhaarColorPalette(
 
 internal var activePaletteState by mutableStateOf(MonochromeLightPalette)
 
-fun paletteForTheme(mode: AppThemeMode): UdhaarColorPalette = when (mode) {
+fun paletteForTheme(mode: AppThemeMode, isSystemDark: Boolean = false): UdhaarColorPalette = when (mode) {
+    AppThemeMode.SYSTEM_DEFAULT -> if (isSystemDark) ObsidianDarkPalette else MonochromeLightPalette
     AppThemeMode.MONOCHROME_LIGHT -> MonochromeLightPalette
     AppThemeMode.OBSIDIAN_DARK -> ObsidianDarkPalette
     AppThemeMode.PAPER_LEDGER -> PaperLedgerPalette

@@ -31,8 +31,8 @@ class ExampleRobolectricTest {
         val appName = context.getString(R.string.app_name)
         assertEquals("Udhaar", appName)
         assertEquals("com.jyotirmoyb.udhaar", BuildConfig.APPLICATION_ID)
-        assertEquals("4.0", BuildConfig.VERSION_NAME)
-        assertEquals(4, BuildConfig.VERSION_CODE)
+        assertEquals("7.0", BuildConfig.VERSION_NAME)
+        assertEquals(7, BuildConfig.VERSION_CODE)
     }
 
     @get:org.junit.Rule

@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.jyotirmoyb.udhaar.ui.theme.AppFontScale
 import com.jyotirmoyb.udhaar.ui.theme.AppThemeMode
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 import kotlinx.coroutines.flow.Flow
@@ -27,6 +28,7 @@ class UdhaarRepository(
         val INR_ENABLED = booleanPreferencesKey("inr_enabled")
         val NPR_ENABLED = booleanPreferencesKey("npr_enabled")
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        val FONT_SCALE = stringPreferencesKey("font_scale")
         val BIOMETRIC_LOCK_ENABLED = booleanPreferencesKey("app_lock_opt_in_enabled")
         val SECURITY_PIN = stringPreferencesKey("security_pin")
     }
@@ -52,6 +54,8 @@ class UdhaarRepository(
 
         val themeStr = prefs[PrefKeys.THEME_MODE] ?: AppThemeMode.MONOCHROME_LIGHT.name
         val themeMode = runCatching { AppThemeMode.valueOf(themeStr) }.getOrDefault(AppThemeMode.MONOCHROME_LIGHT)
+        val fontStr = prefs[PrefKeys.FONT_SCALE] ?: AppFontScale.STANDARD.name
+        val fontScale = runCatching { AppFontScale.valueOf(fontStr) }.getOrDefault(AppFontScale.STANDARD)
 
         UserSettings(
             upiId = prefs[PrefKeys.UPI_ID] ?: "",
@@ -60,6 +64,7 @@ class UdhaarRepository(
             inrEnabled = safeInr,
             nprEnabled = nprEnabled,
             themeMode = themeMode,
+            fontScale = fontScale,
             biometricLockEnabled = prefs[PrefKeys.BIOMETRIC_LOCK_ENABLED] ?: false,
             securityPin = prefs[PrefKeys.SECURITY_PIN]?.takeIf { it.isNotBlank() } ?: "0000"
         )
@@ -205,6 +210,7 @@ class UdhaarRepository(
         inrEnabled: Boolean? = null,
         nprEnabled: Boolean? = null,
         themeMode: AppThemeMode? = null,
+        fontScale: AppFontScale? = null,
         biometricLockEnabled: Boolean? = null,
         securityPin: String? = null
     ) {
@@ -227,6 +233,9 @@ class UdhaarRepository(
 
             if (themeMode != null) {
                 prefs[PrefKeys.THEME_MODE] = themeMode.name
+            }
+            if (fontScale != null) {
+                prefs[PrefKeys.FONT_SCALE] = fontScale.name
             }
             if (biometricLockEnabled != null) {
                 prefs[PrefKeys.BIOMETRIC_LOCK_ENABLED] = biometricLockEnabled
@@ -254,6 +263,12 @@ class UdhaarRepository(
     suspend fun setThemeMode(themeMode: AppThemeMode) {
         context?.dataStore?.edit { prefs ->
             prefs[PrefKeys.THEME_MODE] = themeMode.name
+        }
+    }
+
+    suspend fun setFontScale(fontScale: AppFontScale) {
+        context?.dataStore?.edit { prefs ->
+            prefs[PrefKeys.FONT_SCALE] = fontScale.name
         }
     }
 

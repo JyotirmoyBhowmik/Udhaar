@@ -7,12 +7,21 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -58,15 +67,31 @@ open class MainActivity : FragmentActivity() {
             )
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-            UdhaarTheme(themeMode = uiState.userSettings.themeMode) {
-                val targetTxId = pendingReminderTransactionId
-                LaunchedEffect(targetTxId) {
-                    if (targetTxId != null && targetTxId > 0L) {
-                        viewModel.openWhatsAppReminderModal(targetTxId)
-                        pendingReminderTransactionId = null
+            UdhaarTheme(
+                themeMode = uiState.userSettings.themeMode,
+                fontScaleMode = uiState.userSettings.fontScale
+            ) {
+                Scaffold(
+                    contentWindowInsets = WindowInsets.safeDrawing,
+                    containerColor = MaterialTheme.colorScheme.background,
+                    modifier = Modifier.fillMaxSize()
+                ) { rootPadding ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(rootPadding)
+                            .consumeWindowInsets(rootPadding)
+                    ) {
+                        val targetTxId = pendingReminderTransactionId
+                        LaunchedEffect(targetTxId) {
+                            if (targetTxId != null && targetTxId > 0L) {
+                                viewModel.openWhatsAppReminderModal(targetTxId)
+                                pendingReminderTransactionId = null
+                            }
+                        }
+                        UdhaarApp(viewModel = viewModel)
                     }
                 }
-                UdhaarApp(viewModel = viewModel)
             }
         }
     }
@@ -419,7 +444,7 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
     if (uiState.showSettingsModal) {
         ProfileSettingsModal(
             currentSettings = uiState.userSettings,
-            onSave = { upiId, payeeName, currency, inrEnabled, nprEnabled, themeMode, bioEnabled, pin ->
+            onSave = { upiId, payeeName, currency, inrEnabled, nprEnabled, themeMode, fontScale, bioEnabled, pin, closeModal ->
                 viewModel.saveUserSettings(
                     upiId = upiId,
                     payeeName = payeeName,
@@ -427,8 +452,10 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                     inrEnabled = inrEnabled,
                     nprEnabled = nprEnabled,
                     themeMode = themeMode,
+                    fontScale = fontScale,
                     biometricLockEnabled = bioEnabled,
-                    securityPin = pin
+                    securityPin = pin,
+                    closeModal = closeModal
                 )
             },
             onLockAppNow = viewModel::lockApplicationNow,

@@ -27,90 +27,92 @@ val IbmPlexMonoFamily = FontFamily(
     Font(R.font.ibm_plex_mono, FontWeight.SemiBold)
 )
 
-val Typography = Typography(
+fun scaledTypography(multiplier: Float = 1.0f): Typography = Typography(
     displayLarge = TextStyle(
         fontFamily = SpaceGroteskFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 36.sp,
-        lineHeight = 42.sp,
-        letterSpacing = (-0.5).sp
+        fontSize = (26f * multiplier).sp,
+        lineHeight = (32f * multiplier).sp,
+        letterSpacing = (-0.4).sp
     ),
     displayMedium = TextStyle(
         fontFamily = SpaceGroteskFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 28.sp,
-        lineHeight = 34.sp,
+        fontSize = (21f * multiplier).sp,
+        lineHeight = (26f * multiplier).sp,
         letterSpacing = (-0.25).sp
     ),
     headlineLarge = TextStyle(
         fontFamily = SpaceGroteskFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 24.sp,
-        lineHeight = 30.sp,
-        letterSpacing = (-0.25).sp
+        fontSize = (18f * multiplier).sp,
+        lineHeight = (23f * multiplier).sp,
+        letterSpacing = (-0.2).sp
     ),
     headlineMedium = TextStyle(
         fontFamily = SpaceGroteskFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 20.sp,
-        lineHeight = 26.sp
+        fontSize = (16f * multiplier).sp,
+        lineHeight = (21f * multiplier).sp
     ),
     titleLarge = TextStyle(
         fontFamily = SpaceGroteskFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 18.sp,
-        lineHeight = 24.sp
+        fontSize = (15f * multiplier).sp,
+        lineHeight = (20f * multiplier).sp
     ),
     titleMedium = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp,
-        lineHeight = 22.sp
+        fontSize = (13.5f * multiplier).sp,
+        lineHeight = (18f * multiplier).sp
     ),
     titleSmall = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 13.sp,
-        lineHeight = 18.sp,
-        letterSpacing = 0.4.sp
+        fontSize = (12f * multiplier).sp,
+        lineHeight = (16f * multiplier).sp,
+        letterSpacing = 0.2.sp
     ),
     bodyLarge = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 15.sp,
-        lineHeight = 22.sp
+        fontSize = (13.5f * multiplier).sp,
+        lineHeight = (19f * multiplier).sp
     ),
     bodyMedium = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
-        lineHeight = 19.sp
+        fontSize = (12f * multiplier).sp,
+        lineHeight = (17f * multiplier).sp
     ),
     bodySmall = TextStyle(
         fontFamily = IbmPlexMonoFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 11.5.sp,
-        lineHeight = 16.sp
+        fontSize = (10.5f * multiplier).sp,
+        lineHeight = (14.5f * multiplier).sp
     ),
     labelLarge = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 13.sp,
-        lineHeight = 18.sp,
-        letterSpacing = 0.3.sp
+        fontSize = (11.5f * multiplier).sp,
+        lineHeight = (16f * multiplier).sp,
+        letterSpacing = 0.2.sp
     ),
     labelMedium = TextStyle(
         fontFamily = IbmPlexMonoFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 15.sp,
-        letterSpacing = 0.5.sp
+        fontSize = (10f * multiplier).sp,
+        lineHeight = (14f * multiplier).sp,
+        letterSpacing = 0.3.sp
     ),
     labelSmall = TextStyle(
         fontFamily = IbmPlexMonoFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 10.sp,
-        lineHeight = 14.sp,
-        letterSpacing = 0.5.sp
+        fontSize = (9f * multiplier).sp,
+        lineHeight = (12.5f * multiplier).sp,
+        letterSpacing = 0.3.sp
     )
 )
+
+val Typography = scaledTypography(1.0f)

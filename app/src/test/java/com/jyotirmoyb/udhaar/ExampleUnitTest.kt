@@ -127,8 +127,14 @@ class ExampleUnitTest {
         assertEquals("Ramesh Sharma", party.name)
         assertEquals("ramesh@upi", party.upiId)
 
-        assertEquals(4, AppThemeMode.entries.size)
+        assertEquals(5, AppThemeMode.entries.size)
         assertTrue(paletteForTheme(AppThemeMode.MONOCHROME_LIGHT).primaryInk != paletteForTheme(AppThemeMode.OBSIDIAN_DARK).primaryInk)
         assertTrue(paletteForTheme(AppThemeMode.PAPER_LEDGER).backgroundSurface != paletteForTheme(AppThemeMode.EMERALD_FINANCE).backgroundSurface)
+    }
+
+    @Test
+    fun contactPickerHelper_cleanPhoneNumberFormatsCorrectly() {
+        assertEquals("+919876543210", com.jyotirmoyb.udhaar.util.ContactPickerHelper.cleanPhoneNumber("+91 (987) 654-3210"))
+        assertEquals("9841234567", com.jyotirmoyb.udhaar.util.ContactPickerHelper.cleanPhoneNumber("9841-234-567"))
     }
 }
