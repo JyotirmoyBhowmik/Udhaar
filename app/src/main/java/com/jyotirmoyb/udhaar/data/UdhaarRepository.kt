@@ -8,6 +8,8 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.jyotirmoyb.udhaar.security.PinSecurityManager
+import com.jyotirmoyb.udhaar.security.PinVerificationResult
 import com.jyotirmoyb.udhaar.ui.theme.AppFontScale
 import com.jyotirmoyb.udhaar.ui.theme.AppThemeMode
 import com.jyotirmoyb.udhaar.util.InterestCalculator
@@ -21,6 +23,8 @@ class UdhaarRepository(
     private val dao: UdhaarDao,
     private val context: Context? = null
 ) {
+    val pinSecurityManager: PinSecurityManager? = context?.let { PinSecurityManager(it) }
+
     private object PrefKeys {
         val UPI_ID = stringPreferencesKey("upi_id")
         val PAYEE_NAME = stringPreferencesKey("payee_name")
@@ -30,7 +34,8 @@ class UdhaarRepository(
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val FONT_SCALE = stringPreferencesKey("font_scale")
         val BIOMETRIC_LOCK_ENABLED = booleanPreferencesKey("app_lock_opt_in_enabled")
-        val SECURITY_PIN = stringPreferencesKey("security_pin")
+        val PIN_CONFIGURED_REVISION = stringPreferencesKey("pin_configured_revision")
+        val LEGACY_SECURITY_PIN = stringPreferencesKey("security_pin")
     }
 
     val allParties: Flow<List<PartyEntity>> = dao.getAllParties()
@@ -57,6 +62,15 @@ class UdhaarRepository(
         val fontStr = prefs[PrefKeys.FONT_SCALE] ?: AppFontScale.STANDARD.name
         val fontScale = runCatching { AppFontScale.valueOf(fontStr) }.getOrDefault(AppFontScale.STANDARD)
 
+        // Migrate any custom legacy PIN (ignoring the old insecure "0000" default)
+        val legacyPin = prefs[PrefKeys.LEGACY_SECURITY_PIN]?.trim().orEmpty()
+        if (legacyPin.length in 4..8 && legacyPin != "0000" && pinSecurityManager?.hasPinConfigured() == false) {
+            pinSecurityManager.setPin(legacyPin)
+        }
+
+        val hasPin = pinSecurityManager?.hasPinConfigured() ?: false
+        val lockRequested = prefs[PrefKeys.BIOMETRIC_LOCK_ENABLED] ?: false
+
         UserSettings(
             upiId = prefs[PrefKeys.UPI_ID] ?: "",
             payeeName = prefs[PrefKeys.PAYEE_NAME] ?: "",
@@ -65,8 +79,8 @@ class UdhaarRepository(
             nprEnabled = nprEnabled,
             themeMode = themeMode,
             fontScale = fontScale,
-            biometricLockEnabled = prefs[PrefKeys.BIOMETRIC_LOCK_ENABLED] ?: false,
-            securityPin = prefs[PrefKeys.SECURITY_PIN]?.takeIf { it.isNotBlank() } ?: "0000"
+            biometricLockEnabled = lockRequested && hasPin,
+            hasPinConfigured = hasPin
         )
     } ?: kotlinx.coroutines.flow.flowOf(UserSettings())
 
@@ -214,7 +228,13 @@ class UdhaarRepository(
         biometricLockEnabled: Boolean? = null,
         securityPin: String? = null
     ) {
+        if (!securityPin.isNullOrBlank()) {
+            pinSecurityManager?.setPin(securityPin.trim())
+        }
+        val hasPinNow = pinSecurityManager?.hasPinConfigured() ?: false
+
         context?.dataStore?.edit { prefs ->
+            prefs.remove(PrefKeys.LEGACY_SECURITY_PIN)
             prefs[PrefKeys.UPI_ID] = upiId.trim()
             prefs[PrefKeys.PAYEE_NAME] = payeeName.trim()
             val nextInr = inrEnabled ?: (prefs[PrefKeys.INR_ENABLED] ?: true)
@@ -238,13 +258,34 @@ class UdhaarRepository(
                 prefs[PrefKeys.FONT_SCALE] = fontScale.name
             }
             if (biometricLockEnabled != null) {
-                prefs[PrefKeys.BIOMETRIC_LOCK_ENABLED] = biometricLockEnabled
+                prefs[PrefKeys.BIOMETRIC_LOCK_ENABLED] = biometricLockEnabled && hasPinNow
             }
             if (!securityPin.isNullOrBlank()) {
-                prefs[PrefKeys.SECURITY_PIN] = securityPin.trim()
+                prefs[PrefKeys.PIN_CONFIGURED_REVISION] = System.currentTimeMillis().toString()
             }
         }
     }
+
+    fun verifyPin(candidatePin: String): PinVerificationResult {
+        val manager = pinSecurityManager
+            ?: return PinVerificationResult(
+                isSuccess = false,
+                failedAttempts = 0,
+                lockoutRemainingMillis = 0L,
+                errorMessage = "PIN security manager unavailable."
+            )
+        return manager.verifyPin(candidatePin)
+    }
+
+    fun resetPinFailedAttempts() {
+        pinSecurityManager?.resetFailedAttempts()
+    }
+
+    fun getPinLockoutRemainingMillis(): Long =
+        pinSecurityManager?.getRemainingLockoutMillis() ?: 0L
+
+    fun getPinFailedAttempts(): Int =
+        pinSecurityManager?.getFailedAttempts() ?: 0
 
     suspend fun setCurrencyEnabled(currency: CurrencyType, enabled: Boolean) {
         context?.dataStore?.edit { prefs ->

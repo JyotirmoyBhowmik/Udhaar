@@ -23,11 +23,15 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -54,17 +58,20 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -81,8 +88,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.TransactionType
@@ -1039,7 +1044,7 @@ fun PartyDetailScreen(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AddEditPartyModal(
     initialParty: PartyEntity?,
@@ -1089,49 +1094,60 @@ fun AddEditPartyModal(
         unfocusedContainerColor = SubtleSurfaceGrey
     )
 
-    Dialog(
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        sheetState = sheetState,
+        containerColor = PureWhite,
+        contentColor = PureBlack,
+        contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
     ) {
-        Surface(
+        Column(
             modifier = Modifier
-                .fillMaxWidth(0.94f)
-                .statusBarsPadding()
+                .fillMaxWidth()
+                .widthIn(max = 600.dp)
+                .align(Alignment.CenterHorizontally)
+                .imePadding()
                 .navigationBarsPadding()
-                .padding(vertical = 10.dp)
-                .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp)),
-            shape = RoundedCornerShape(4.dp),
-            color = PureWhite
         ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (initialParty == null) "ADD PARTY TO DIRECTORY" else "EDIT PARTY PROFILE",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = PureBlack
+                    )
+                    Text(
+                        text = "PEOPLE & CONTACT MANAGEMENT",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SecondaryInkGrey
+                    )
+                }
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.testTag("close_party_modal_button")
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = PureBlack)
+                }
+            }
+
+            HorizontalDivider(color = BorderGrey, thickness = 1.dp)
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .weight(1f, fill = false)
                     .verticalScroll(rememberScrollState())
-                    .padding(14.dp),
+                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = if (initialParty == null) "ADD PARTY TO DIRECTORY" else "EDIT PARTY PROFILE",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = PureBlack
-                        )
-                        Text(
-                            text = "PEOPLE & CONTACT MANAGEMENT",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SecondaryInkGrey
-                        )
-                    }
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = PureBlack)
-                    }
-                }
-
                 if (errorText != null) {
                     Text(
                         text = errorText!!,

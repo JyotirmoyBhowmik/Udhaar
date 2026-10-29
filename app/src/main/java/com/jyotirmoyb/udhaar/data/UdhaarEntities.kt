@@ -120,7 +120,7 @@ data class UserSettings(
     val themeMode: AppThemeMode = AppThemeMode.MONOCHROME_LIGHT,
     val fontScale: AppFontScale = AppFontScale.STANDARD,
     val biometricLockEnabled: Boolean = false,
-    val securityPin: String = "0000"
+    val hasPinConfigured: Boolean = false
 ) {
     val enabledCurrencies: List<CurrencyType>
         get() = buildList {

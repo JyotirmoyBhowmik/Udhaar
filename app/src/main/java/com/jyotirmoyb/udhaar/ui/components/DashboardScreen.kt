@@ -4,7 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,8 +22,9 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.QrCode2
@@ -40,6 +42,8 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -51,8 +55,18 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -101,6 +115,7 @@ fun DashboardScreen(
 ) {
     val isPeopleTab = uiState.activeScreen == ActiveScreen.PEOPLE_DIRECTORY
     val enabledCurrencies = uiState.userSettings.enabledCurrencies
+    var showMoreMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         contentWindowInsets = WindowInsets.safeDrawing,
@@ -142,84 +157,161 @@ fun DashboardScreen(
                     }
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (uiState.userSettings.inrEnabled) {
-                            IconButton(
-                                onClick = onGlobalQrClick,
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .border(1.dp, PureBlack, RoundedCornerShape(4.dp))
-                                    .testTag("global_upi_qr_button")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.QrCode2,
-                                    contentDescription = "Global UPI QR Code",
-                                    tint = PureBlack,
-                                    modifier = Modifier.size(17.dp)
-                                )
-                            }
-                        }
-
-                        IconButton(
-                            onClick = onCycleTheme,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
-                                .testTag("cycle_theme_top_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Palette,
-                                contentDescription = "Switch Theme (${uiState.userSettings.themeMode.label})",
-                                tint = PureBlack,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-
-                        IconButton(
-                            onClick = onShareAppClick,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
-                                .testTag("share_app_top_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = "Share Udhaar App",
-                                tint = PureBlack,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-
-                        IconButton(
+                        // Labeled Lock Button in Top Bar
+                        OutlinedButton(
                             onClick = onLockAppClick,
                             modifier = Modifier
-                                .size(36.dp)
-                                .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
-                                .testTag("lock_app_top_button")
+                                .height(38.dp)
+                                .testTag("lock_app_top_button"),
+                            shape = RoundedCornerShape(4.dp),
+                            border = BorderStroke(1.dp, BorderGrey),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = PureWhite,
+                                contentColor = PureBlack
+                            )
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Lock,
                                 contentDescription = "Lock Udhaar App",
                                 tint = PureBlack,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Lock",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = PureBlack,
+                                maxLines = 1
                             )
                         }
 
-                        IconButton(
+                        // Labeled Settings Button in Top Bar
+                        OutlinedButton(
                             onClick = onSettingsClick,
                             modifier = Modifier
-                                .size(36.dp)
-                                .border(1.dp, PureBlack, RoundedCornerShape(4.dp))
-                                .testTag("open_settings_button")
+                                .height(38.dp)
+                                .testTag("open_settings_button"),
+                            shape = RoundedCornerShape(4.dp),
+                            border = BorderStroke(1.dp, PureBlack),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = PureWhite,
+                                contentColor = PureBlack
+                            )
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Settings,
-                                contentDescription = "Profile, Currency, Theme and UPI Settings",
+                                contentDescription = "Settings",
                                 tint = PureBlack,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Settings",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = PureBlack,
+                                maxLines = 1
+                            )
+                        }
+
+                        // "More" Menu grouping QR, Theme, and Share
+                        Box {
+                            IconButton(
+                                onClick = { showMoreMenu = true },
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
+                                    .testTag("more_options_top_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "More options (UPI QR, Theme, Share)",
+                                    tint = PureBlack,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = showMoreMenu,
+                                onDismissRequest = { showMoreMenu = false },
+                                modifier = Modifier
+                                    .background(PureWhite)
+                                    .border(1.dp, PureBlack, RoundedCornerShape(4.dp))
+                            ) {
+                                if (uiState.userSettings.inrEnabled) {
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = "Receive via UPI QR",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = PureBlack
+                                            )
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.QrCode2,
+                                                contentDescription = null,
+                                                tint = PureBlack
+                                            )
+                                        },
+                                        onClick = {
+                                            showMoreMenu = false
+                                            onGlobalQrClick()
+                                        },
+                                        modifier = Modifier.testTag("global_upi_qr_button")
+                                    )
+                                }
+
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = "Switch Theme (${uiState.userSettings.themeMode.label})",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = PureBlack
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Palette,
+                                            contentDescription = null,
+                                            tint = PureBlack
+                                        )
+                                    },
+                                    onClick = {
+                                        showMoreMenu = false
+                                        onCycleTheme()
+                                    },
+                                    modifier = Modifier.testTag("cycle_theme_top_button")
+                                )
+
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = "Share Udhaar App",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = PureBlack
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Share,
+                                            contentDescription = null,
+                                            tint = PureBlack
+                                        )
+                                    },
+                                    onClick = {
+                                        showMoreMenu = false
+                                        onShareAppClick()
+                                    },
+                                    modifier = Modifier.testTag("share_app_top_button")
+                                )
+                            }
                         }
                     }
                 }
@@ -385,6 +477,7 @@ fun DashboardScreen(
                             searchQuery = uiState.searchQuery,
                             selectedFilter = uiState.selectedFilter,
                             enabledCurrencies = enabledCurrencies,
+                            allCalculatedItems = uiState.allCalculatedItems,
                             onSearchQueryChange = onSearchQueryChange,
                             onSelectFilter = onSelectFilter
                         )
@@ -609,6 +702,7 @@ private fun SearchAndFilterBar(
     searchQuery: String,
     selectedFilter: LedgerFilter,
     enabledCurrencies: List<CurrencyType>,
+    allCalculatedItems: List<CalculatedUdhaarSummary>,
     onSearchQueryChange: (String) -> Unit,
     onSelectFilter: (LedgerFilter) -> Unit
 ) {
@@ -619,6 +713,37 @@ private fun SearchAndFilterBar(
             else -> true
         }
     }
+
+    val filterCounts = remember(allCalculatedItems) {
+        LedgerFilter.entries.associateWith { filter ->
+            when (filter) {
+                LedgerFilter.ALL -> allCalculatedItems.size
+                LedgerFilter.GIVEN -> allCalculatedItems.count {
+                    it.transaction.transactionType == TransactionType.GIVEN && !it.transaction.isSettled
+                }
+                LedgerFilter.TAKEN -> allCalculatedItems.count {
+                    it.transaction.transactionType == TransactionType.TAKEN && !it.transaction.isSettled
+                }
+                LedgerFilter.OVERDUE -> allCalculatedItems.count {
+                    it.isOverdue && !it.transaction.isSettled
+                }
+                LedgerFilter.INR -> allCalculatedItems.count {
+                    it.transaction.currency == CurrencyType.INR
+                }
+                LedgerFilter.NPR -> allCalculatedItems.count {
+                    it.transaction.currency == CurrencyType.NPR
+                }
+                LedgerFilter.SETTLED -> allCalculatedItems.count {
+                    it.transaction.isSettled
+                }
+            }
+        }
+    }
+
+    val lazyRowState = rememberLazyListState()
+    val snapFlingBehavior = rememberSnapFlingBehavior(lazyListState = lazyRowState)
+    val canScrollLeft = lazyRowState.canScrollBackward
+    val canScrollRight = lazyRowState.canScrollForward
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
@@ -667,36 +792,98 @@ private fun SearchAndFilterBar(
                 .testTag("dashboard_search_input")
         )
 
-        Row(
+        LazyRow(
+            state = lazyRowState,
+            flingBehavior = snapFlingBehavior,
+            contentPadding = PaddingValues(start = 2.dp, end = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                .drawWithContent {
+                    drawContent()
+                    val fadeWidthPx = 24.dp.toPx()
+                    if (canScrollLeft && size.width > fadeWidthPx * 2) {
+                        drawRect(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(Color.Transparent, Color.Black),
+                                startX = 0f,
+                                endX = fadeWidthPx
+                            ),
+                            blendMode = BlendMode.DstIn
+                        )
+                    }
+                    if (canScrollRight && size.width > fadeWidthPx * 2) {
+                        drawRect(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(Color.Black, Color.Transparent),
+                                startX = size.width - fadeWidthPx,
+                                endX = size.width
+                            ),
+                            blendMode = BlendMode.DstIn
+                        )
+                    }
+                }
+                .testTag("filter_chips_lazy_row")
         ) {
-            visibleFilters.forEach { filter ->
+            items(
+                items = visibleFilters,
+                key = { it.name }
+            ) { filter ->
                 val isSelected = selectedFilter == filter
+                val count = filterCounts[filter] ?: 0
                 Box(
                     modifier = Modifier
-                        .height(34.dp)
+                        .height(38.dp)
                         .border(
-                            width = 1.dp,
+                            width = if (isSelected) 1.5.dp else 1.dp,
                             color = if (isSelected) PureBlack else BorderGrey,
-                            shape = RoundedCornerShape(4.dp)
+                            shape = RoundedCornerShape(6.dp)
                         )
                         .background(
                             color = if (isSelected) PureBlack else PureWhite,
-                            shape = RoundedCornerShape(4.dp)
+                            shape = RoundedCornerShape(6.dp)
                         )
                         .clickable { onSelectFilter(filter) }
-                        .padding(horizontal = 12.dp)
+                        .padding(horizontal = 10.dp)
                         .testTag("filter_chip_${filter.name.lowercase()}"),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = filter.label,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (isSelected) PureWhite else PureBlack
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = filter.label,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isSelected) PureWhite else PureBlack,
+                            maxLines = 1
+                        )
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    color = if (isSelected) PureWhite else SubtleSurfaceGrey,
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                                .border(
+                                    width = 0.5.dp,
+                                    color = if (isSelected) PureWhite else BorderGrey,
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                                .padding(horizontal = 6.dp, vertical = 1.dp)
+                                .testTag("filter_badge_${filter.name.lowercase()}"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = count.toString(),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = PureBlack,
+                                maxLines = 1
+                            )
+                        }
+                    }
                 }
             }
         }

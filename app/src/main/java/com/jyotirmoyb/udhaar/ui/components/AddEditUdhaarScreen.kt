@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -303,6 +304,7 @@ fun AddEditUdhaarScreen(
                     .fillMaxWidth()
                     .background(PureWhite)
                     .navigationBarsPadding()
+                    .imePadding()
             ) {
                 HorizontalDivider(color = BorderGrey, thickness = 1.dp)
                 Row(
@@ -315,7 +317,7 @@ fun AddEditUdhaarScreen(
                         onClick = onCancel,
                         modifier = Modifier
                             .weight(1f)
-                            .height(44.dp)
+                            .height(48.dp)
                             .testTag("cancel_udhaar_button"),
                         shape = RoundedCornerShape(4.dp),
                         border = BorderStroke(1.dp, PureBlack),
@@ -362,7 +364,7 @@ fun AddEditUdhaarScreen(
                         },
                         modifier = Modifier
                             .weight(1.5f)
-                            .height(44.dp)
+                            .height(48.dp)
                             .testTag("save_udhaar_button"),
                         shape = RoundedCornerShape(4.dp),
                         colors = ButtonDefaults.buttonColors(
@@ -385,7 +387,8 @@ fun AddEditUdhaarScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
+                .padding(innerPadding)
+                .imePadding(),
             contentAlignment = Alignment.TopCenter
         ) {
             Column(
@@ -393,7 +396,7 @@ fun AddEditUdhaarScreen(
                     .fillMaxWidth()
                     .widthIn(max = 640.dp)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                    .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 44.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 if (validationError != null) {

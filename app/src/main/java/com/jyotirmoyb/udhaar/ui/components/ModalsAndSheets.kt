@@ -8,6 +8,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -21,48 +22,64 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.FileDownload
-import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.QrCode2
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.SupportAgent
+import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Surface
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -71,138 +88,128 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import com.jyotirmoyb.udhaar.BuildConfig
 import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.PartialPayment
 import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.PaymentMode
 import com.jyotirmoyb.udhaar.data.TransactionType
 import com.jyotirmoyb.udhaar.data.UserSettings
-import com.jyotirmoyb.udhaar.notification.ReminderReceiver
+import com.jyotirmoyb.udhaar.security.SecureScreenEffect
 import com.jyotirmoyb.udhaar.ui.QrModalState
 import com.jyotirmoyb.udhaar.ui.theme.AppFontScale
 import com.jyotirmoyb.udhaar.ui.theme.AppThemeMode
 import com.jyotirmoyb.udhaar.ui.theme.BorderGrey
-import com.jyotirmoyb.udhaar.ui.theme.MutedChipGrey
 import com.jyotirmoyb.udhaar.ui.theme.PureBlack
 import com.jyotirmoyb.udhaar.ui.theme.PureWhite
 import com.jyotirmoyb.udhaar.ui.theme.SecondaryInkGrey
 import com.jyotirmoyb.udhaar.ui.theme.SubtleSurfaceGrey
-import com.jyotirmoyb.udhaar.ui.theme.activePaletteState
-import com.jyotirmoyb.udhaar.ui.theme.paletteForTheme
 import com.jyotirmoyb.udhaar.util.CalculatedUdhaarSummary
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 import com.jyotirmoyb.udhaar.util.ThermalReceiptGenerator
 import com.jyotirmoyb.udhaar.util.UpiQrGenerator
-import kotlin.math.roundToLong
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun TransactionDetailModal(
     summary: CalculatedUdhaarSummary,
     partialPayments: List<PartialPayment>,
-    linkedParty: PartyEntity?,
+    linkedParty: PartyEntity? = null,
     onDismiss: () -> Unit,
-    onRecordPartialPayment: (Double, PaymentMode, String) -> Unit,
+    onRecordPartialPayment: (amount: Double, paymentMode: PaymentMode, note: String) -> Unit,
     onDeletePartialPayment: (PartialPayment) -> Unit,
     onToggleSettled: () -> Unit,
     onEdit: () -> Unit,
     onDeleteTransaction: () -> Unit,
     onOpenQr: () -> Unit,
-    onPayPartyViaUpi: (String, String, Double?) -> Unit,
-    onShareReceipt: () -> Unit,
+    onPayPartyViaUpi: (partyName: String, partyUpiId: String, amountInr: Double) -> Unit = { _, _, _ -> },
+    onShareReceipt: () -> Unit = {},
     onOpenWhatsApp: () -> Unit
 ) {
     val tx = summary.transaction
-    val currency = tx.currency
     var partialAmountText by rememberSaveable { mutableStateOf("") }
+    var partialPaymentMode by rememberSaveable { mutableStateOf(tx.paymentMode) }
     var partialNoteText by rememberSaveable { mutableStateOf("") }
-    var selectedInstallmentMode by rememberSaveable { mutableStateOf(tx.paymentMode) }
+    var errorText by rememberSaveable { mutableStateOf<String?>(null) }
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
 
-    val textFieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = PureBlack,
-        unfocusedBorderColor = BorderGrey,
-        focusedLabelColor = PureBlack,
-        unfocusedLabelColor = SecondaryInkGrey,
-        cursorColor = PureBlack,
-        focusedContainerColor = PureWhite,
-        unfocusedContainerColor = SubtleSurfaceGrey
-    )
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    Dialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
     ) {
-        Surface(
+        Column(
             modifier = Modifier
-                .fillMaxWidth(0.95f)
-                .statusBarsPadding()
+                .fillMaxWidth()
+                .widthIn(max = 600.dp)
+                .align(Alignment.CenterHorizontally)
+                .imePadding()
                 .navigationBarsPadding()
-                .padding(vertical = 10.dp)
-                .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp)),
-            shape = RoundedCornerShape(4.dp),
-            color = PureWhite
         ) {
+            // Sticky Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = tx.partyName.uppercase(),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "${tx.transactionType.badgeLabel} • ${tx.currency.code} • ${tx.paymentMode.label}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.testTag("close_detail_modal_button")
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
+
+            // Scrollable Body with >= 32dp extra bottom padding
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .weight(1f, fill = false)
                     .verticalScroll(rememberScrollState())
-                    .padding(14.dp),
+                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = tx.transactionType.badgeLabel,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SecondaryInkGrey
-                        )
-                        Text(
-                            text = tx.partyName,
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = PureBlack
-                        )
-                        if (tx.phoneNumber.isNotBlank()) {
-                            Text(
-                                text = tx.phoneNumber,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = SecondaryInkGrey
-                            )
-                        }
-                    }
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.testTag("close_detail_modal_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = PureBlack
-                        )
-                    }
-                }
-
-                // Black Summary Box
+                // Net Balance & Breakdown Box
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(PureBlack, RoundedCornerShape(4.dp))
-                        .padding(16.dp),
+                        .border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                        .padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Row(
@@ -211,161 +218,147 @@ fun TransactionDetailModal(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = if (tx.isSettled) "SETTLED RECORD" else "NET OUTSTANDING DUE",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = BorderGrey
+                            text = if (tx.isSettled) "SETTLED RECORD" else "NET REMAINING DUE",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "${tx.paymentMode.label.uppercase()} • ${currency.code}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = BorderGrey
+                            text = InterestCalculator.formatCurrency(summary.netBalanceDue, tx.currency),
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
-                    Text(
-                        text = InterestCalculator.formatCurrency(summary.netBalanceDue, currency),
-                        style = MaterialTheme.typography.displayMedium,
-                        color = PureWhite
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
+                    BreakdownLine("Principal Amount", InterestCalculator.formatCurrency(tx.principalAmount, tx.currency))
+                    BreakdownLine(
+                        label = if (tx.isInterestEnabled) {
+                            "${tx.interestType.label} (${tx.interestRate}${tx.interestRatePeriod.shortSuffix} • ${summary.elapsedDays}d)"
+                        } else {
+                            "Interest"
+                        },
+                        value = InterestCalculator.formatCurrency(summary.accruedInterest, tx.currency)
                     )
-                    Text(
-                        text = summary.subtitleBreakdown,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = BorderGrey
-                    )
-                }
-
-                // Detailed Breakdown Rows
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
-                        .background(SubtleSurfaceGrey, RoundedCornerShape(4.dp))
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    BreakdownRow("Principal Amount", InterestCalculator.formatCurrency(summary.principal, currency))
-                    BreakdownRow(
-                        "Accrued Interest (${summary.elapsedDays}d)",
-                        InterestCalculator.formatCurrency(summary.accruedInterest, currency)
-                    )
-                    BreakdownRow("Gross Total", InterestCalculator.formatCurrency(summary.grossTotal, currency))
-                    BreakdownRow("Total Repaid So Far", "- ${InterestCalculator.formatCurrency(summary.amountPaid, currency)}")
-                    HorizontalDivider(color = BorderGrey, thickness = 1.dp)
-                    BreakdownRow(
-                        "Remaining Balance",
-                        InterestCalculator.formatCurrency(summary.netBalanceDue, currency),
-                        bold = true
-                    )
-                    BreakdownRow("Start Date", InterestCalculator.formatDate(tx.startDateMillis))
-                    if (tx.expiryDateMillis != null) {
-                        BreakdownRow("Due / Expiry Date", InterestCalculator.formatDate(tx.expiryDateMillis))
+                    BreakdownLine("Gross Total", InterestCalculator.formatCurrency(summary.grossTotal, tx.currency))
+                    BreakdownLine("Total Paid / Received", "- ${InterestCalculator.formatCurrency(tx.amountPaid, tx.currency)}")
+                    BreakdownLine("Start Date", InterestCalculator.formatDate(tx.startDateMillis))
+                    tx.expiryDateMillis?.let {
+                        BreakdownLine(
+                            label = if (summary.isOverdue) "Due Date (OVERDUE)" else "Due Date",
+                            value = InterestCalculator.formatDate(it),
+                            bold = summary.isOverdue
+                        )
                     }
                     if (tx.notes.isNotBlank()) {
-                        BreakdownRow("Notes", tx.notes)
+                        BreakdownLine("Notes", tx.notes)
                     }
                 }
 
-                // Enhancement C: One-Tap Partial Repayment Quick-Chips & Installment Logger
+                // Partial Payment Entry Section (Only when not settled)
                 if (!tx.isSettled) {
-                    val remaining = summary.netBalanceDue
-                    val chip25 = ((remaining * 0.25) * 100.0).roundToLong() / 100.0
-                    val chip50 = ((remaining * 0.50) * 100.0).roundToLong() / 100.0
-                    val chipInterestOnly = ((summary.accruedInterest.coerceAtMost(remaining)) * 100.0).roundToLong() / 100.0
-                    val chip100 = ((remaining) * 100.0).roundToLong() / 100.0
-
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
                             .padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
-                            text = "LOG PARTIAL REPAYMENT • ONE-TAP QUICK CHIPS",
+                            text = "RECORD PARTIAL / INSTALLMENT PAYMENT",
                             style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = PureBlack
+                            color = MaterialTheme.colorScheme.onSurface
                         )
 
-                        // Quick-Chips Row: [ 25% ] [ 50% ] [ Interest Only ] [ 100% Full Settle ]
-                        FlowRow(
+                        // Quick Percentage Fill Chips (25%, 50%, 75%, 100% Full Remaining)
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            QuickRepaymentChip(
-                                label = "25% (${InterestCalculator.formatCurrency(chip25, currency)})",
-                                tag = "quick_chip_25",
-                                onClick = {
-                                    partialAmountText = InterestCalculator.formatPlainAmount(chip25)
-                                    partialNoteText = "25% Partial Installment"
+                            listOf(
+                                "25%" to 0.25,
+                                "50%" to 0.50,
+                                "75%" to 0.75,
+                                "100% FULL" to 1.0
+                            ).forEach { (label, fraction) ->
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))
+                                        .clickable {
+                                            val computed = kotlin.math.round(summary.netBalanceDue * fraction * 100.0) / 100.0
+                                            partialAmountText = if (computed % 1.0 == 0.0) {
+                                                computed.toLong().toString()
+                                            } else {
+                                                String.format(java.util.Locale.US, "%.2f", computed)
+                                            }
+                                            errorText = null
+                                        }
+                                        .padding(vertical = 6.dp)
+                                        .testTag("quick_pay_${label.take(3).lowercase()}"),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
                                 }
-                            )
-                            QuickRepaymentChip(
-                                label = "50% (${InterestCalculator.formatCurrency(chip50, currency)})",
-                                tag = "quick_chip_50",
-                                onClick = {
-                                    partialAmountText = InterestCalculator.formatPlainAmount(chip50)
-                                    partialNoteText = "50% Partial Installment"
-                                }
-                            )
-                            if (chipInterestOnly > 0.0) {
-                                QuickRepaymentChip(
-                                    label = "Interest Only (${InterestCalculator.formatCurrency(chipInterestOnly, currency)})",
-                                    tag = "quick_chip_interest",
-                                    onClick = {
-                                        partialAmountText = InterestCalculator.formatPlainAmount(chipInterestOnly)
-                                        partialNoteText = "Accrued Interest Settlement"
-                                    }
-                                )
                             }
-                            QuickRepaymentChip(
-                                label = "100% Full Settle (${InterestCalculator.formatCurrency(chip100, currency)})",
-                                tag = "quick_chip_100",
-                                onClick = {
-                                    partialAmountText = InterestCalculator.formatPlainAmount(chip100)
-                                    partialNoteText = "100% Full Balance Settlement"
-                                }
-                            )
                         }
 
-                        // Payment Mode Selector for the Installment
-                        Text(
-                            text = "INSTALLMENT PAYMENT MODE",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SecondaryInkGrey
-                        )
+                        // Payment Mode Selector for Installment (Cash / UPI / Bank / Other)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             PaymentMode.entries.forEach { mode ->
-                                MonochromeTogglePill(
-                                    text = mode.shortBadge,
-                                    selected = selectedInstallmentMode == mode,
-                                    onClick = { selectedInstallmentMode = mode },
+                                val isSelected = partialPaymentMode == mode
+                                Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .testTag("partial_mode_${mode.name.lowercase()}")
-                                )
+                                        .border(
+                                            width = if (isSelected) 1.5.dp else 1.dp,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                            shape = RoundedCornerShape(4.dp)
+                                        )
+                                        .background(
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                                            shape = RoundedCornerShape(4.dp)
+                                        )
+                                        .clickable { partialPaymentMode = mode }
+                                        .padding(vertical = 6.dp)
+                                        .testTag("partial_mode_${mode.name.lowercase()}"),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = mode.label,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
                             }
                         }
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             OutlinedTextField(
                                 value = partialAmountText,
-                                onValueChange = { input ->
-                                    if (input.isEmpty() || input.matches(Regex("^\\d*\\.?\\d*$"))) {
-                                        partialAmountText = input
+                                onValueChange = {
+                                    if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d*$"))) {
+                                        partialAmountText = it
+                                        errorText = null
                                     }
                                 },
-                                label = { Text("Amount (${currency.symbol})") },
+                                label = { Text("Amount (${tx.currency.symbol})") },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                colors = textFieldColors,
                                 modifier = Modifier
                                     .weight(1f)
                                     .testTag("partial_payment_amount_input")
@@ -375,60 +368,68 @@ fun TransactionDetailModal(
                                 onValueChange = { partialNoteText = it },
                                 label = { Text("Note (Optional)") },
                                 singleLine = true,
-                                colors = textFieldColors,
                                 modifier = Modifier
                                     .weight(1f)
                                     .testTag("partial_payment_note_input")
                             )
                         }
+                        if (errorText != null) {
+                            Text(
+                                text = errorText!!,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                         Button(
                             onClick = {
-                                val amt = partialAmountText.toDoubleOrNull() ?: 0.0
-                                if (amt > 0.0) {
-                                    onRecordPartialPayment(amt, selectedInstallmentMode, partialNoteText)
-                                    partialAmountText = ""
-                                    partialNoteText = ""
+                                val amt = partialAmountText.trim().toDoubleOrNull()
+                                if (amt == null || amt <= 0.0) {
+                                    errorText = "Enter a valid installment amount > 0"
+                                    return@Button
                                 }
+                                onRecordPartialPayment(amt, partialPaymentMode, partialNoteText.trim())
+                                partialAmountText = ""
+                                partialNoteText = ""
+                                errorText = null
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(48.dp)
-                                .testTag("add_partial_payment_button"),
-                            shape = RoundedCornerShape(4.dp),
+                                .testTag("submit_partial_payment_button"),
+                            shape = RoundedCornerShape(6.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = PureBlack,
-                                contentColor = PureWhite
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
                             )
                         ) {
-                            Text("RECORD PARTIAL PAYMENT", style = MaterialTheme.typography.labelLarge)
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("ADD INSTALLMENT (${partialPaymentMode.label.uppercase()})", style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
 
-                // Enhancement C: Running Chronological Audit Trail of Partial Repayments
+                // Installment History List
                 if (partialPayments.isNotEmpty()) {
-                    val chronologicalPayments = remember(partialPayments) {
-                        partialPayments.sortedBy { it.paidAtMillis }
-                    }
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
-                            .padding(12.dp)
-                            .testTag("partial_repayment_audit_trail"),
+                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+                            .padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "RUNNING REPAYMENT AUDIT TRAIL (${chronologicalPayments.size})",
+                            text = "PAYMENT HISTORY (${partialPayments.size})",
                             style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = PureBlack
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        var cumulativePaid = 0.0
-                        chronologicalPayments.forEachIndexed { index, payment ->
-                            cumulativePaid += payment.amount
+                        partialPayments.forEach { payment ->
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 10.dp, vertical = 8.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -438,171 +439,160 @@ fun TransactionDetailModal(
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
                                         Text(
-                                            text = "#${index + 1} • ${InterestCalculator.formatCurrency(payment.amount, currency)}",
+                                            text = InterestCalculator.formatCurrency(payment.amount, tx.currency),
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
-                                            color = PureBlack
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Box(
                                             modifier = Modifier
-                                                .background(MutedChipGrey, RoundedCornerShape(2.dp))
-                                                .border(0.5.dp, BorderGrey, RoundedCornerShape(2.dp))
-                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(3.dp))
+                                                .padding(horizontal = 5.dp, vertical = 1.dp)
                                         ) {
                                             Text(
-                                                text = payment.paymentMode.shortBadge,
+                                                text = payment.paymentMode.label.uppercase(),
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = PureBlack
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
                                     }
                                     val sub = buildString {
-                                        append(InterestCalculator.formatDateTime(payment.paidAtMillis))
+                                        append(InterestCalculator.formatDate(payment.paidAtMillis))
                                         if (payment.note.isNotBlank()) {
-                                            append(" • ${payment.note}")
+                                            append(" • ")
+                                            append(payment.note)
                                         }
-                                        append(" (Cumul: ${InterestCalculator.formatCurrency(cumulativePaid, currency)})")
                                     }
                                     Text(
                                         text = sub,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = SecondaryInkGrey
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-                                IconButton(onClick = { onDeletePartialPayment(payment) }) {
+                                IconButton(
+                                    onClick = { onDeletePartialPayment(payment) },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.DeleteOutline,
-                                        contentDescription = "Remove payment",
-                                        tint = PureBlack
+                                        contentDescription = "Delete installment",
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
                             }
-                            HorizontalDivider(color = BorderGrey, thickness = 0.5.dp)
                         }
                     }
                 }
 
-                // Enhancement B: Share Thermal-Style Monochrome Statement Receipt (Image & PDF)
-                Button(
-                    onClick = onShareReceipt,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .testTag("detail_share_receipt_button"),
-                    shape = RoundedCornerShape(4.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = PureBlack,
-                        contentColor = PureWhite
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "SHARE RECEIPT / STATEMENT (IMAGE & PDF)",
-                        style = MaterialTheme.typography.labelLarge
-                    )
-                }
-
-                // Quick Action Buttons (WhatsApp, UPI QR for GIVEN, Pay Party via UPI for TAKEN)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onOpenWhatsApp,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                            .testTag("detail_whatsapp_button"),
-                        shape = RoundedCornerShape(4.dp),
-                        border = BorderStroke(1.dp, PureBlack),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                // Quick Actions Row (WhatsApp + Thermal Receipt + UPI QR / Pay Party UPI)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("WHATSAPP", style = MaterialTheme.typography.labelMedium)
+                        OutlinedButton(
+                            onClick = onOpenWhatsApp,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("detail_whatsapp_button"),
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("WHATSAPP", style = MaterialTheme.typography.labelMedium)
+                        }
+
+                        OutlinedButton(
+                            onClick = onShareReceipt,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("detail_thermal_receipt_button"),
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("RECEIPT SLIP", style = MaterialTheme.typography.labelMedium)
+                        }
                     }
 
-                    if (currency == CurrencyType.INR && tx.transactionType == TransactionType.GIVEN) {
-                        OutlinedButton(
-                            onClick = onOpenQr,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp)
-                                .testTag("detail_upi_qr_button"),
-                            shape = RoundedCornerShape(4.dp),
-                            border = BorderStroke(1.dp, PureBlack),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                    if (tx.currency == CurrencyType.INR && !tx.isSettled) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.QrCode2,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("UPI QR", style = MaterialTheme.typography.labelMedium)
-                        }
-                    } else if (currency == CurrencyType.INR && tx.transactionType == TransactionType.TAKEN) {
-                        OutlinedButton(
-                            onClick = {
-                                onPayPartyViaUpi(
-                                    tx.partyName,
-                                    linkedParty?.upiId.orEmpty(),
-                                    summary.netBalanceDue.takeIf { it > 0.0 }
-                                )
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp)
-                                .testTag("detail_pay_party_upi_button"),
-                            shape = RoundedCornerShape(4.dp),
-                            border = BorderStroke(1.dp, PureBlack),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.QrCode2,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("PAY PARTY UPI", style = MaterialTheme.typography.labelMedium)
+                            if (tx.transactionType == TransactionType.GIVEN) {
+                                OutlinedButton(
+                                    onClick = onOpenQr,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
+                                        .testTag("detail_upi_qr_button"),
+                                    shape = RoundedCornerShape(6.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                                ) {
+                                    Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("COLLECT VIA MY UPI QR", style = MaterialTheme.typography.labelMedium)
+                                }
+                            } else if (tx.transactionType == TransactionType.TAKEN) {
+                                val partyUpi = linkedParty?.upiId.orEmpty()
+                                OutlinedButton(
+                                    onClick = {
+                                        if (partyUpi.isNotBlank()) {
+                                            onPayPartyViaUpi(tx.partyName, partyUpi, summary.netBalanceDue)
+                                        } else {
+                                            onOpenQr()
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
+                                        .testTag("detail_pay_party_upi_button"),
+                                    shape = RoundedCornerShape(6.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                                ) {
+                                    Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = if (partyUpi.isNotBlank()) "PAY ${tx.partyName.uppercase()} VIA UPI" else "OPEN UPI QR TOOL",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
                         }
                     }
                 }
 
+                // Mark Settled / Re-open Button
                 Button(
                     onClick = onToggleSettled,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp)
                         .testTag("toggle_settled_button"),
-                    shape = RoundedCornerShape(4.dp),
+                    shape = RoundedCornerShape(6.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (tx.isSettled) MutedChipGrey else PureBlack,
-                        contentColor = if (tx.isSettled) PureBlack else PureWhite
-                    )
+                        containerColor = if (tx.isSettled) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary,
+                        contentColor = if (tx.isSettled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary
+                    ),
+                    border = if (tx.isSettled) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (tx.isSettled) "REOPEN RECORD (MARK UNSETTLED)" else "MARK FULLY SETTLED",
+                        text = if (tx.isSettled) "RE-OPEN LEDGER ENTRY" else "MARK AS FULLY SETTLED",
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
 
-                // Edit & Delete Row
+                // Edit & Delete Row (Last buttons — guaranteed reachable via ModalBottomSheet + 40dp bottom padding)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -613,35 +603,40 @@ fun TransactionDetailModal(
                             .weight(1f)
                             .height(48.dp)
                             .testTag("edit_transaction_button"),
-                        shape = RoundedCornerShape(4.dp),
-                        border = BorderStroke(1.dp, BorderGrey),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                        shape = RoundedCornerShape(6.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("EDIT", style = MaterialTheme.typography.labelMedium)
                     }
                     OutlinedButton(
-                        onClick = onDeleteTransaction,
+                        onClick = {
+                            if (confirmDelete) {
+                                onDeleteTransaction()
+                            } else {
+                                confirmDelete = true
+                            }
+                        },
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
                             .testTag("delete_transaction_button"),
-                        shape = RoundedCornerShape(4.dp),
-                        border = BorderStroke(1.dp, BorderGrey),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                        shape = RoundedCornerShape(6.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.DeleteOutline,
+                            Icons.Default.DeleteOutline,
                             contentDescription = null,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.error
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("DELETE", style = MaterialTheme.typography.labelMedium)
+                        Text(
+                            text = if (confirmDelete) "TAP TO CONFIRM" else "DELETE",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
                     }
                 }
             }
@@ -649,58 +644,10 @@ fun TransactionDetailModal(
     }
 }
 
-@Composable
-private fun QuickRepaymentChip(
-    label: String,
-    tag: String,
-    onClick: () -> Unit
-) {
-    OutlinedButton(
-        onClick = onClick,
-        shape = RoundedCornerShape(3.dp),
-        border = BorderStroke(1.dp, PureBlack),
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-        colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = SubtleSurfaceGrey,
-            contentColor = PureBlack
-        ),
-        modifier = Modifier
-            .height(34.dp)
-            .testTag(tag)
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = PureBlack
-        )
-    }
-}
-
-@Composable
-private fun BreakdownRow(label: String, value: String, bold: Boolean = false) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = if (bold) PureBlack else SecondaryInkGrey,
-            fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodySmall,
-            color = PureBlack,
-            fontWeight = if (bold) FontWeight.Bold else FontWeight.Medium
-        )
-    }
-}
-
 /**
- * Enhancement B: Thermal-Style Monochrome Statement Receipt Preview & Share Modal (Image PNG & PDF)
+ * Thermal Receipt Statement Preview & PNG Share ModalBottomSheet
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThermalReceiptModal(
     title: String,
@@ -711,78 +658,82 @@ fun ThermalReceiptModal(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    Dialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
     ) {
-        Surface(
+        Column(
             modifier = Modifier
-                .fillMaxWidth(0.95f)
-                .statusBarsPadding()
+                .fillMaxWidth()
+                .widthIn(max = 600.dp)
+                .align(Alignment.CenterHorizontally)
+                .imePadding()
                 .navigationBarsPadding()
-                .padding(vertical = 10.dp)
-                .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp)),
-            shape = RoundedCornerShape(4.dp),
-            color = PureWhite
         ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.testTag("close_receipt_modal_button")
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .weight(1f, fill = false)
                     .verticalScroll(rememberScrollState())
-                    .padding(14.dp),
+                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleLarge,
-                            color = PureBlack
-                        )
-                        Text(
-                            text = subtitle,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SecondaryInkGrey
-                        )
-                    }
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.testTag("close_receipt_modal_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = PureBlack
-                        )
-                    }
-                }
-
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(2.dp, PureBlack, RoundedCornerShape(4.dp))
-                        .background(PureWhite, RoundedCornerShape(4.dp))
-                        .padding(8.dp)
-                        .testTag("thermal_receipt_preview_box"),
+                        .border(1.5.dp, PureBlack, RoundedCornerShape(6.dp))
+                        .background(PureWhite, RoundedCornerShape(6.dp))
+                        .padding(8.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
                         bitmap = receiptBitmap.asImageBitmap(),
-                        contentDescription = "Thermal Monochrome Statement Receipt",
-                        modifier = Modifier.fillMaxWidth(),
+                        contentDescription = "Thermal Statement Receipt Image",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("thermal_receipt_image_preview"),
                         contentScale = ContentScale.FillWidth
                     )
                 }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Button(
                         onClick = {
@@ -795,17 +746,17 @@ fun ThermalReceiptModal(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(50.dp)
-                            .testTag("share_receipt_png_button"),
-                        shape = RoundedCornerShape(4.dp),
+                            .height(48.dp)
+                            .testTag("share_thermal_receipt_image_button"),
+                        shape = RoundedCornerShape(6.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = PureBlack,
-                            contentColor = PureWhite
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
                         )
                     ) {
                         Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("SHARE IMAGE (PNG)", style = MaterialTheme.typography.labelMedium)
+                        Text("SHARE PNG", style = MaterialTheme.typography.labelLarge)
                     }
 
                     OutlinedButton(
@@ -819,15 +770,14 @@ fun ThermalReceiptModal(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(50.dp)
-                            .testTag("share_receipt_pdf_button"),
-                        shape = RoundedCornerShape(4.dp),
-                        border = BorderStroke(1.5.dp, PureBlack),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                            .height(48.dp)
+                            .testTag("share_thermal_receipt_pdf_button"),
+                        shape = RoundedCornerShape(6.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                     ) {
-                        Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("SHARE PDF", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Text("SHARE PDF", style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }
@@ -835,46 +785,53 @@ fun ThermalReceiptModal(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UpiQrCodeModal(
     qrState: QrModalState,
     userSettings: UserSettings,
-    onSaveUpiSettings: (String, String, CurrencyType) -> Unit,
+    onSaveUpiSettings: (upiId: String, payeeName: String, defaultCurrency: CurrencyType) -> Unit,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val isPayToParty = qrState.isPayToPartyMode
+    val isPayToParty = qrState.isPayToPartyMode && !qrState.customUpiId.isNullOrBlank()
 
-    var upiIdInput by rememberSaveable(qrState.customUpiId, userSettings.upiId) {
-        mutableStateOf(qrState.customUpiId ?: userSettings.upiId)
-    }
-    var payeeNameInput by rememberSaveable(qrState.partyName, userSettings.payeeName, isPayToParty) {
+    var upiIdInput by rememberSaveable(qrState) {
         mutableStateOf(
-            if (isPayToParty) {
-                qrState.partyName ?: "Party"
-            } else {
-                userSettings.payeeName
-            }
+            if (isPayToParty) qrState.customUpiId.orEmpty() else userSettings.upiId
         )
     }
-    var amountInput by rememberSaveable(qrState.initialAmountInr) {
+    var payeeNameInput by rememberSaveable(qrState) {
         mutableStateOf(
-            qrState.initialAmountInr?.takeIf { it > 0.0 }?.let {
-                InterestCalculator.formatPlainAmount(it)
+            if (isPayToParty) qrState.partyName.orEmpty() else userSettings.payeeName
+        )
+    }
+    var amountText by rememberSaveable(qrState) {
+        mutableStateOf(
+            qrState.initialAmountInr?.let {
+                if (it % 1.0 == 0.0) it.toLong().toString() else String.format(java.util.Locale.US, "%.2f", it)
             } ?: ""
         )
     }
 
-    val amountVal = amountInput.toDoubleOrNull()?.takeIf { it > 0.0 }
-    val upiUri = remember(upiIdInput, payeeNameInput, amountVal, qrState.partyName) {
-        if (upiIdInput.trim().isEmpty()) {
+    val parsedAmount = amountText.trim().toDoubleOrNull()
+    val effectiveUpiId = upiIdInput.trim()
+    val effectivePayeeName = payeeNameInput.trim().ifBlank { "Udhaar Payee" }
+
+    val upiUri = remember(effectiveUpiId, effectivePayeeName, parsedAmount, qrState.partyName, isPayToParty) {
+        if (effectiveUpiId.isBlank()) {
             ""
         } else {
+            val note = if (isPayToParty) {
+                "Udhaar repayment to ${qrState.partyName ?: effectivePayeeName}"
+            } else {
+                qrState.partyName?.let { "Udhaar settlement - $it" } ?: "Udhaar Payment"
+            }
             UpiQrGenerator.buildUpiUri(
-                upiId = upiIdInput,
-                payeeName = payeeNameInput,
-                amountInr = amountVal,
-                transactionNote = qrState.partyName?.let { "Udhaar settlement - $it" }
+                upiId = effectiveUpiId,
+                payeeName = effectivePayeeName,
+                amountInr = parsedAmount,
+                transactionNote = note
             )
         }
     }
@@ -883,79 +840,71 @@ fun UpiQrCodeModal(
         if (upiUri.isBlank()) null else UpiQrGenerator.generateQrBitmap(upiUri, sizePx = 560)
     }
 
-    val textFieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = PureBlack,
-        unfocusedBorderColor = BorderGrey,
-        focusedLabelColor = PureBlack,
-        unfocusedLabelColor = SecondaryInkGrey,
-        cursorColor = PureBlack,
-        focusedContainerColor = PureWhite,
-        unfocusedContainerColor = SubtleSurfaceGrey
-    )
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    Dialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
     ) {
-        Surface(
+        Column(
             modifier = Modifier
-                .fillMaxWidth(0.94f)
-                .statusBarsPadding()
+                .fillMaxWidth()
+                .widthIn(max = 600.dp)
+                .align(Alignment.CenterHorizontally)
+                .imePadding()
                 .navigationBarsPadding()
-                .padding(vertical = 10.dp)
-                .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp)),
-            shape = RoundedCornerShape(4.dp),
-            color = PureWhite
         ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (isPayToParty) "PAY PARTY VIA UPI" else "RECEIVE VIA UPI QR",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = if (isPayToParty) {
+                            "SETTLE ${qrState.partyName?.uppercase() ?: "PARTY"} DIRECTLY"
+                        } else {
+                            qrState.partyName?.let { "FOR ${it.uppercase()} • INR (₹)" } ?: "GLOBAL MERCHANT / PERSONAL QR"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.testTag("close_qr_modal_button")
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .weight(1f, fill = false)
                     .verticalScroll(rememberScrollState())
-                    .padding(14.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = if (isPayToParty) "PAY PARTY VIA UPI" else "UPI QR CODE GENERATOR",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = PureBlack
-                        )
-                        Text(
-                            text = when {
-                                isPayToParty -> "DIRECT PAYBACK TO ${payeeNameInput.uppercase()} • INR (₹)"
-                                qrState.partyName != null -> "FOR ${qrState.partyName.uppercase()} • INR (₹)"
-                                else -> "GLOBAL INR (₹) GPAY / PHONEPE / PAYTM QR"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SecondaryInkGrey
-                        )
-                    }
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.testTag("close_qr_modal_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = PureBlack
-                        )
-                    }
-                }
-
-                // UPI ID & Payee Name quick fields
                 OutlinedTextField(
                     value = upiIdInput,
                     onValueChange = { upiIdInput = it },
-                    label = { Text(if (isPayToParty) "Party's UPI ID (VPA) *" else "Your UPI ID (VPA) *") },
+                    label = { Text(if (isPayToParty) "Party UPI ID (VPA) *" else "Your UPI ID (VPA) *") },
                     placeholder = { Text("e.g. yourname@okaxis") },
                     singleLine = true,
-                    colors = textFieldColors,
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("qr_upi_id_input")
@@ -969,180 +918,135 @@ fun UpiQrCodeModal(
                         value = payeeNameInput,
                         onValueChange = { payeeNameInput = it },
                         label = { Text("Payee Name") },
-                        placeholder = { Text("Payee Name") },
                         singleLine = true,
-                        colors = textFieldColors,
                         modifier = Modifier
                             .weight(1f)
                             .testTag("qr_payee_name_input")
                     )
                     OutlinedTextField(
-                        value = amountInput,
-                        onValueChange = { input ->
-                            if (input.isEmpty() || input.matches(Regex("^\\d*\\.?\\d*$"))) {
-                                amountInput = input
+                        value = amountText,
+                        onValueChange = {
+                            if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d*$"))) {
+                                amountText = it
                             }
                         },
                         label = { Text("Amount (₹)") },
-                        placeholder = { Text("Optional") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        colors = textFieldColors,
                         modifier = Modifier
                             .weight(1f)
                             .testTag("qr_amount_input")
                     )
                 }
 
-                // Clean White Monochrome QR Card
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(2.dp, PureBlack, RoundedCornerShape(4.dp))
-                        .background(PureWhite, RoundedCornerShape(4.dp))
-                        .padding(16.dp)
-                        .testTag("upi_qr_card_box"),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (qrBitmap != null) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = payeeNameInput.ifBlank { "UDHAAR PAYEE" }.uppercase(),
-                                style = MaterialTheme.typography.titleMedium,
-                                color = PureBlack
-                            )
-                            Image(
-                                bitmap = qrBitmap.asImageBitmap(),
-                                contentDescription = "UPI QR Code for $upiIdInput",
-                                modifier = Modifier.size(220.dp)
-                            )
-                            if (amountVal != null) {
-                                Text(
-                                    text = "₹${InterestCalculator.formatPlainAmount(amountVal)}",
-                                    style = MaterialTheme.typography.headlineLarge,
-                                    color = PureBlack
-                                )
-                            }
-                            Text(
-                                text = upiUri,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = SecondaryInkGrey,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    } else {
-                        Column(
-                            modifier = Modifier.padding(vertical = 32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.QrCode2,
-                                contentDescription = null,
-                                tint = PureBlack,
-                                modifier = Modifier.size(48.dp)
-                            )
-                            Text(
-                                text = "Enter a valid UPI ID (e.g. name@upi) above to generate a scannable monochrome QR code offline.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = SecondaryInkGrey,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                }
-
-                if (isPayToParty && upiUri.isNotBlank()) {
-                    Button(
+                if (!isPayToParty && (upiIdInput.trim() != userSettings.upiId || payeeNameInput.trim() != userSettings.payeeName)) {
+                    OutlinedButton(
                         onClick = {
-                            val payIntent = Intent(Intent.ACTION_VIEW, Uri.parse(upiUri)).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            }
-                            runCatching {
-                                context.startActivity(payIntent)
-                            }.onFailure {
-                                Toast.makeText(
-                                    context,
-                                    "No UPI payment app installed on this device. Scan the QR code above.",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
+                            onSaveUpiSettings(
+                                upiIdInput.trim(),
+                                payeeNameInput.trim(),
+                                userSettings.defaultCurrency
+                            )
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp)
-                            .testTag("launch_upi_app_button"),
-                        shape = RoundedCornerShape(4.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = PureBlack,
-                            contentColor = PureWhite
-                        )
+                            .height(44.dp)
+                            .testTag("save_upi_from_qr_button"),
+                        shape = RoundedCornerShape(6.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                     ) {
-                        Text(
-                            text = "OPEN GPAY / PHONEPE / PAYTM TO PAY",
-                            style = MaterialTheme.typography.labelLarge
-                        )
+                        Text("SAVE AS DEFAULT UPI PROFILE", style = MaterialTheme.typography.labelMedium)
                     }
                 }
 
-                // Save UPI Settings & Share QR Actions
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    if (!isPayToParty) {
+                if (qrBitmap != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(210.dp)
+                            .border(2.dp, PureBlack, RoundedCornerShape(8.dp))
+                            .background(PureWhite, RoundedCornerShape(8.dp))
+                            .padding(10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            bitmap = qrBitmap.asImageBitmap(),
+                            contentDescription = "Generated UPI QR Code",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .testTag("upi_qr_bitmap_image")
+                        )
+                    }
+                    Text(
+                        text = upiUri,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         OutlinedButton(
                             onClick = {
-                                onSaveUpiSettings(upiIdInput, payeeNameInput, userSettings.defaultCurrency)
-                                Toast.makeText(context, "UPI Profile saved", Toast.LENGTH_SHORT).show()
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                clipboard.setPrimaryClip(ClipData.newPlainText("UPI Link", upiUri))
+                                Toast.makeText(context, "UPI Payment Link copied", Toast.LENGTH_SHORT).show()
                             },
-                            enabled = upiIdInput.isNotBlank(),
                             modifier = Modifier
                                 .weight(1f)
                                 .height(48.dp)
-                                .testTag("save_qr_profile_button"),
-                            shape = RoundedCornerShape(4.dp),
-                            border = BorderStroke(1.dp, PureBlack),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                                .testTag("copy_upi_uri_button"),
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                         ) {
-                            Text("SAVE UPI ID", style = MaterialTheme.typography.labelLarge)
+                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("COPY LINK", style = MaterialTheme.typography.labelMedium)
+                        }
+
+                        Button(
+                            onClick = {
+                                runCatching {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(upiUri))
+                                    context.startActivity(intent)
+                                }.onFailure {
+                                    Toast.makeText(context, "No UPI app installed on this device.", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1.3f)
+                                .height(48.dp)
+                                .testTag("launch_upi_app_button"),
+                            shape = RoundedCornerShape(6.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            )
+                        ) {
+                            Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("OPEN UPI APP", style = MaterialTheme.typography.labelMedium)
                         }
                     }
-
-                    Button(
-                        onClick = {
-                            if (!isPayToParty) {
-                                onSaveUpiSettings(upiIdInput, payeeNameInput, userSettings.defaultCurrency)
-                            }
-                            UpiQrGenerator.shareQrCardImage(
-                                context = context,
-                                upiId = upiIdInput,
-                                payeeName = payeeNameInput,
-                                amountInr = amountVal,
-                                partyName = qrState.partyName
-                            )
-                        },
-                        enabled = upiIdInput.isNotBlank(),
+                } else {
+                    Box(
                         modifier = Modifier
-                            .weight(1.3f)
-                            .height(48.dp)
-                            .testTag("share_qr_image_button"),
-                        shape = RoundedCornerShape(4.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = PureBlack,
-                            contentColor = PureWhite
-                        )
+                            .fillMaxWidth()
+                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
+                            .padding(20.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
+                        Text(
+                            text = "Enter a valid UPI ID above (e.g. merchant@upi) to generate an offline scan-ready QR code.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("SHARE QR IMAGE", style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }
@@ -1150,141 +1054,155 @@ fun UpiQrCodeModal(
     }
 }
 
+/**
+ * Share Udhaar App ModalBottomSheet — Lets users share Play Store link, scan QR, or invite via WhatsApp.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShareUdhaarAppModal(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val playStoreUrl = "https://play.google.com/store/apps/details?id=${BuildConfig.APPLICATION_ID}"
-    val qrBitmap = remember(playStoreUrl) {
-        UpiQrGenerator.generateQrBitmap(playStoreUrl, sizePx = 560)
+    val appShareUrl = "https://play.google.com/store/apps/details?id=${context.packageName}"
+    val shareMessage = buildString {
+        appendLine("📒 *Udhaar — Smart Interest & Khata Ledger (INR ₹ & NPR रू)*")
+        appendLine("Track Given/Taken loans, automatic Simple & Compound interest, offline UPI QR codes, thermal receipts, and WhatsApp reminders.")
+        appendLine()
+        append("Download / Open Udhaar App: $appShareUrl")
     }
 
-    Dialog(
+    val appQrBitmap = remember(appShareUrl) {
+        UpiQrGenerator.generateQrBitmap(appShareUrl, sizePx = 520)
+    }
+
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
     ) {
-        Surface(
+        Column(
             modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .statusBarsPadding()
+                .fillMaxWidth()
+                .widthIn(max = 600.dp)
+                .align(Alignment.CenterHorizontally)
+                .imePadding()
                 .navigationBarsPadding()
-                .padding(vertical = 10.dp)
-                .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp)),
-            shape = RoundedCornerShape(4.dp),
-            color = PureWhite
         ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "SHARE UDHAAR APP",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "INVITE FRIENDS, CUSTOMERS OR PARTNERS",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.testTag("close_share_app_modal_button")
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .weight(1f, fill = false)
                     .verticalScroll(rememberScrollState())
-                    .padding(14.dp),
+                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "SHARE / GIVE ACCESS TO UDHAAR",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = PureBlack
-                        )
-                        Text(
-                            text = "SCAN TO INSTALL FROM GOOGLE PLAY STORE",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SecondaryInkGrey
-                        )
-                    }
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = PureBlack)
-                    }
-                }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(2.dp, PureBlack, RoundedCornerShape(4.dp))
-                        .background(PureWhite, RoundedCornerShape(4.dp))
-                        .padding(16.dp)
-                        .testTag("play_store_qr_box"),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                if (appQrBitmap != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(200.dp)
+                            .border(2.dp, PureBlack, RoundedCornerShape(8.dp))
+                            .background(PureWhite, RoundedCornerShape(8.dp))
+                            .padding(10.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "UDHAAR • MONOCHROME LEDGER",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = PureBlack
-                        )
-                        if (qrBitmap != null) {
-                            Image(
-                                bitmap = qrBitmap.asImageBitmap(),
-                                contentDescription = "Play Store QR Code for Udhaar",
-                                modifier = Modifier.size(210.dp)
-                            )
-                        }
-                        Text(
-                            text = playStoreUrl,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SecondaryInkGrey,
-                            textAlign = TextAlign.Center
+                        Image(
+                            bitmap = appQrBitmap.asImageBitmap(),
+                            contentDescription = "Udhaar App Download QR Code",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .testTag("share_app_qr_image")
                         )
                     }
                 }
 
                 Text(
-                    text = "Anyone nearby can scan this QR code with their phone camera to open Udhaar on Google Play. For Closed/Internal testing tracks, ensure their email is added to your Play Console tester list or share the invite link below.",
+                    text = "Scan this QR code with any phone camera to open Udhaar on Google Play, or share the invite link below.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = SecondaryInkGrey,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
 
                 Button(
                     onClick = {
-                        val inviteMessage = buildString {
-                            append("Install *Udhaar* — Minimalist Monochrome Loan & Ledger App (INR ₹ & NPR रू):\n")
-                            append(playStoreUrl)
-                            append("\n\nIf you need tester access or have questions, contact Admin: admin@jyotirmoyb.com")
+                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, "Udhaar — Interest & Khata Ledger App")
+                            putExtra(Intent.EXTRA_TEXT, shareMessage)
                         }
-                        val waUri = Uri.parse("https://wa.me/?text=${Uri.encode(inviteMessage)}")
-                        val waIntent = Intent(Intent.ACTION_VIEW, waUri).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                        runCatching {
-                            context.startActivity(waIntent)
-                        }.onFailure {
-                            val fallback = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, inviteMessage)
-                            }
-                            context.startActivity(Intent.createChooser(fallback, "Share Udhaar App"))
-                        }
+                        context.startActivity(Intent.createChooser(sendIntent, "Share Udhaar App via"))
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp)
-                        .testTag("share_app_whatsapp_button"),
-                    shape = RoundedCornerShape(4.dp),
+                        .height(48.dp)
+                        .testTag("share_app_native_button"),
+                    shape = RoundedCornerShape(6.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = PureBlack,
-                        contentColor = PureWhite
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("SHARE APP VIA WHATSAPP", style = MaterialTheme.typography.labelLarge)
+                    Text("SHARE APP INVITE LINK", style = MaterialTheme.typography.labelLarge)
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("Udhaar App Link", shareMessage))
+                        Toast.makeText(context, "App invite message copied!", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("copy_app_link_button"),
+                    shape = RoundedCornerShape(6.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                ) {
+                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("COPY INVITE MESSAGE", style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WhatsAppReminderModal(
     summary: CalculatedUdhaarSummary,
@@ -1295,263 +1213,1090 @@ fun WhatsAppReminderModal(
     val tx = summary.transaction
 
     var hideExactAmount by rememberSaveable { mutableStateOf(false) }
-    var includeUpiInMessage by rememberSaveable { mutableStateOf(true) }
-    var editablePhone by rememberSaveable(tx.phoneNumber) { mutableStateOf(tx.phoneNumber) }
 
-    val generatedMessage = remember(summary, hideExactAmount, userSettings.upiId, includeUpiInMessage) {
+    val generatedMessage = remember(summary, userSettings.upiId, hideExactAmount) {
         InterestCalculator.buildWhatsAppReminderMessage(
             summary = summary,
             hideExactAmount = hideExactAmount,
             upiId = userSettings.upiId,
-            includeUpiId = includeUpiInMessage
+            includeUpiId = true
         )
     }
 
-    val textFieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = PureBlack,
-        unfocusedBorderColor = BorderGrey,
-        focusedLabelColor = PureBlack,
-        unfocusedLabelColor = SecondaryInkGrey,
-        cursorColor = PureBlack,
-        focusedContainerColor = PureWhite,
-        unfocusedContainerColor = SubtleSurfaceGrey
-    )
+    var editableMessage by rememberSaveable(generatedMessage) {
+        mutableStateOf(generatedMessage)
+    }
 
-    Dialog(
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
     ) {
-        Surface(
+        Column(
             modifier = Modifier
-                .fillMaxWidth(0.94f)
-                .statusBarsPadding()
+                .fillMaxWidth()
+                .widthIn(max = 600.dp)
+                .align(Alignment.CenterHorizontally)
+                .imePadding()
                 .navigationBarsPadding()
-                .padding(vertical = 10.dp)
-                .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp)),
-            shape = RoundedCornerShape(4.dp),
-            color = PureWhite
         ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "WHATSAPP REMINDER",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "TO: ${tx.partyName.uppercase()} ${if (tx.phoneNumber.isNotBlank()) "(${tx.phoneNumber})" else ""}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.testTag("close_whatsapp_modal_button")
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .weight(1f, fill = false)
                     .verticalScroll(rememberScrollState())
-                    .padding(14.dp),
+                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                // Hide Exact Amount Toggle
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "WHATSAPP REMINDER ENGINE",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = PureBlack
+                            text = "HIDE EXACT AMOUNT IN MESSAGE",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "TO: ${tx.partyName.uppercase()} • ${InterestCalculator.formatCurrency(summary.netBalanceDue, tx.currency)}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SecondaryInkGrey
+                            text = "Send polite reminder without numeric figures",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.testTag("close_whatsapp_modal_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = PureBlack
-                        )
-                    }
+                    Switch(
+                        checked = hideExactAmount,
+                        onCheckedChange = { hideExactAmount = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primary
+                        ),
+                        modifier = Modifier.testTag("hide_exact_amount_switch")
+                    )
                 }
 
                 OutlinedTextField(
-                    value = editablePhone,
-                    onValueChange = { editablePhone = it },
-                    label = { Text("Recipient WhatsApp Number") },
-                    placeholder = { Text("${tx.currency.defaultCountryCode} 98XXXXXXXX") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    colors = textFieldColors,
+                    value = editableMessage,
+                    onValueChange = { editableMessage = it },
+                    label = { Text("Preview & Customize Message") },
+                    minLines = 5,
+                    maxLines = 9,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag("whatsapp_phone_input")
+                        .testTag("whatsapp_message_input")
                 )
 
-                // Privacy Toggle: [x] Hide Exact Amount in Message
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp))
-                        .background(
-                            if (hideExactAmount) PureBlack else SubtleSurfaceGrey,
-                            RoundedCornerShape(4.dp)
-                        )
-                        .clickable { hideExactAmount = !hideExactAmount }
-                        .padding(horizontal = 12.dp, vertical = 10.dp)
-                        .testTag("hide_exact_amount_checkbox"),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(
-                        checked = hideExactAmount,
-                        onCheckedChange = { hideExactAmount = it },
-                        colors = CheckboxDefaults.colors(
-                            checkedColor = PureWhite,
-                            uncheckedColor = PureBlack,
-                            checkmarkColor = PureBlack
-                        )
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column {
-                        Text(
-                            text = "Hide Exact Amount in Message",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = if (hideExactAmount) PureWhite else PureBlack
-                        )
-                        Text(
-                            text = if (hideExactAmount) {
-                                "Privacy Mode ON • Masks principal & interest figures"
-                            } else {
-                                "Standard Mode • Includes principal & interest breakdown"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (hideExactAmount) BorderGrey else SecondaryInkGrey
-                        )
-                    }
-                }
-
-                // Optional UPI ID inclusion toggle (when INR & UPI ID is configured & Amount is visible)
-                if (!hideExactAmount && tx.currency == CurrencyType.INR && userSettings.upiId.isNotBlank() && tx.transactionType == TransactionType.GIVEN) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { includeUpiInMessage = !includeUpiInMessage }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = includeUpiInMessage,
-                            onCheckedChange = { includeUpiInMessage = it },
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = PureBlack,
-                                uncheckedColor = PureBlack,
-                                checkmarkColor = PureWhite
-                            )
-                        )
-                        Text(
-                            text = "Append UPI ID (${userSettings.upiId}) to message",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = PureBlack
-                        )
-                    }
-                }
-
-                // Polite Message Preview Box
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
-                        .background(SubtleSurfaceGrey, RoundedCornerShape(4.dp))
-                        .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = "MESSAGE PREVIEW",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = SecondaryInkGrey
-                    )
-                    Text(
-                        text = generatedMessage,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = PureBlack,
-                        modifier = Modifier.testTag("whatsapp_message_preview_text")
-                    )
-                }
-
-                // Send via WhatsApp Action
                 Button(
                     onClick = {
                         val sanitizedPhone = InterestCalculator.sanitizePhoneForWhatsApp(
-                            editablePhone,
+                            tx.phoneNumber,
                             tx.currency
                         )
-                        val encodedText = Uri.encode(generatedMessage)
-                        val waUrl = if (sanitizedPhone.isNotEmpty()) {
-                            "https://wa.me/$sanitizedPhone?text=$encodedText"
+                        val encodedMessage = Uri.encode(editableMessage)
+                        val waUrl = if (sanitizedPhone.isNotBlank()) {
+                            "https://wa.me/$sanitizedPhone?text=$encodedMessage"
                         } else {
-                            "https://wa.me/?text=$encodedText"
-                        }
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(waUrl)).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            "https://wa.me/?text=$encodedMessage"
                         }
                         runCatching {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(waUrl))
                             context.startActivity(intent)
                         }.onFailure {
-                            Toast.makeText(
-                                context,
-                                "Opening share menu for WhatsApp message",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                            val fallback = Intent(Intent.ACTION_SEND).apply {
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, generatedMessage)
+                                putExtra(Intent.EXTRA_TEXT, editableMessage)
                             }
-                            context.startActivity(Intent.createChooser(fallback, "Send Reminder"))
+                            context.startActivity(Intent.createChooser(shareIntent, "Send Reminder"))
                         }
                         onDismiss()
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp)
-                        .testTag("send_whatsapp_intent_button"),
-                    shape = RoundedCornerShape(4.dp),
+                        .height(48.dp)
+                        .testTag("launch_whatsapp_send_button"),
+                    shape = RoundedCornerShape(6.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = PureBlack,
-                        contentColor = PureWhite
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("SEND VIA WHATSAPP", style = MaterialTheme.typography.labelLarge)
                 }
+            }
+        }
+    }
+}
 
-                // Trigger Local Notification Now (To test Notification -> Quick-Share workflow)
-                OutlinedButton(
-                    onClick = {
-                        ReminderReceiver.showNotification(
-                            context = context,
-                            transactionId = tx.id,
-                            partyName = tx.partyName,
-                            formattedAmount = InterestCalculator.formatCurrency(summary.netBalanceDue, tx.currency),
-                            txTypeLabel = tx.transactionType.label
-                        )
-                        Toast.makeText(
-                            context,
-                            "Reminder notification sent! Tap it in the status bar to launch quick-share.",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    },
+/**
+ * Full-Screen Settings Screen with Sticky Top Bar, Sticky Bottom Save Bar, and 5 Clear Sections:
+ * 1. Profile and UPI
+ * 2. Security
+ * 3. Currency and Theme
+ * 4. Backup and Sync
+ * 5. About
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun ProfileSettingsModal(
+    currentSettings: UserSettings,
+    onSave: (
+        upiId: String,
+        payeeName: String,
+        defaultCurrency: CurrencyType,
+        inrEnabled: Boolean,
+        nprEnabled: Boolean,
+        themeMode: AppThemeMode,
+        fontScale: AppFontScale,
+        biometricLockEnabled: Boolean,
+        securityPin: String,
+        closeModal: Boolean
+    ) -> Unit,
+    onLockAppNow: () -> Unit = {},
+    onOpenGlobalQrModal: () -> Unit = {},
+    onOpenShareAppModal: () -> Unit = {},
+    onExportFullLedgerSaf: () -> Unit,
+    onShareFullLedgerFile: () -> Unit,
+    onImportLedgerSaf: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    // Block screenshots on the Settings screen where PIN is configured
+    SecureScreenEffect(enabled = true)
+
+    BackHandler {
+        onDismiss()
+    }
+
+    val context = LocalContext.current
+    var payeeName by rememberSaveable(currentSettings.payeeName) { mutableStateOf(currentSettings.payeeName) }
+    var upiId by rememberSaveable(currentSettings.upiId) { mutableStateOf(currentSettings.upiId) }
+    var inrEnabled by rememberSaveable(currentSettings.inrEnabled) { mutableStateOf(currentSettings.inrEnabled) }
+    var nprEnabled by rememberSaveable(currentSettings.nprEnabled) { mutableStateOf(currentSettings.nprEnabled) }
+    var defaultCurrency by rememberSaveable(currentSettings.defaultCurrency) { mutableStateOf(currentSettings.defaultCurrency) }
+    var themeMode by rememberSaveable(currentSettings.themeMode) { mutableStateOf(currentSettings.themeMode) }
+    var fontScale by rememberSaveable(currentSettings.fontScale) { mutableStateOf(currentSettings.fontScale) }
+    var biometricLockEnabled by rememberSaveable(currentSettings.biometricLockEnabled) {
+        mutableStateOf(currentSettings.biometricLockEnabled)
+    }
+    var securityPin by rememberSaveable {
+        mutableStateOf("")
+    }
+    var showSecurityPin by rememberSaveable { mutableStateOf(false) }
+    var pinValidationError by rememberSaveable { mutableStateOf<String?>(null) }
+
+    val validateAndSave: (Boolean) -> Unit = { closeAfterSave ->
+        val trimmedPin = securityPin.trim()
+        val hasValidNewPin = trimmedPin.length in 4..8 && trimmedPin.all { it.isDigit() }
+        if (biometricLockEnabled && !currentSettings.hasPinConfigured && !hasValidNewPin) {
+            pinValidationError = "Please set a 4 to 8 digit numeric PIN before enabling App Lock."
+            Toast.makeText(
+                context,
+                "Please set a 4 to 8 digit PIN to enable App Lock.",
+                Toast.LENGTH_SHORT
+            ).show()
+        } else if (trimmedPin.isNotEmpty() && !hasValidNewPin) {
+            pinValidationError = "Security PIN must be 4 to 8 numeric digits."
+            Toast.makeText(
+                context,
+                "Security PIN must be 4 to 8 numeric digits.",
+                Toast.LENGTH_SHORT
+            ).show()
+        } else {
+            pinValidationError = null
+            onSave(
+                upiId.trim(),
+                payeeName.trim(),
+                defaultCurrency,
+                inrEnabled,
+                nprEnabled,
+                themeMode,
+                fontScale,
+                biometricLockEnabled,
+                trimmedPin,
+                closeAfterSave
+            )
+            if (closeAfterSave) {
+                Toast.makeText(context, "Settings saved", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val persistImmediately = {
+        onSave(
+            upiId.trim(),
+            payeeName.trim(),
+            defaultCurrency,
+            inrEnabled,
+            nprEnabled,
+            themeMode,
+            fontScale,
+            biometricLockEnabled,
+            securityPin.trim(),
+            false
+        )
+    }
+
+    Scaffold(
+        contentWindowInsets = WindowInsets.safeDrawing,
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .statusBarsPadding()
+            ) {
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
-                        .testTag("test_notification_button"),
-                    shape = RoundedCornerShape(4.dp),
-                    border = BorderStroke(1.dp, BorderGrey),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.NotificationsActive,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("TEST SCHEDULED NOTIFICATION ALERT", style = MaterialTheme.typography.labelMedium)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.testTag("close_settings_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Column {
+                            Text(
+                                text = "SETTINGS & PREFERENCES",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "PROFILE • SECURITY • CURRENCY • BACKUP • ABOUT",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
+            }
+        },
+        bottomBar = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .navigationBarsPadding()
+                    .imePadding()
+            ) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .testTag("cancel_settings_button"),
+                        shape = RoundedCornerShape(6.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    ) {
+                        Text("CANCEL", style = MaterialTheme.typography.labelLarge)
+                    }
+                    Button(
+                        onClick = { validateAndSave(true) },
+                        modifier = Modifier
+                            .weight(1.6f)
+                            .height(48.dp)
+                            .testTag("save_settings_button"),
+                        shape = RoundedCornerShape(6.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("SAVE SETTINGS", style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+            }
+        }
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 640.dp)
+                    .testTag("settings_lazy_column"),
+                contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 44.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // =========================================================================
+                // 1. PROFILE AND UPI
+                // =========================================================================
+                item(key = "section_profile_and_upi") {
+                    SettingsSectionCard(
+                        sectionNumber = "1",
+                        title = "PROFILE AND UPI",
+                        subtitle = "Business name & UPI ID for QR collection and WhatsApp reminders",
+                        testTag = "section_profile_and_upi"
+                    ) {
+                        OutlinedTextField(
+                            value = payeeName,
+                            onValueChange = { payeeName = it },
+                            label = { Text("Your Business / Payee Name") },
+                            placeholder = { Text("e.g. Sharma General Store") },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("settings_payee_name_input")
+                        )
+
+                        OutlinedTextField(
+                            value = upiId,
+                            onValueChange = { upiId = it },
+                            label = { Text("Your Default UPI ID (for INR QR)") },
+                            placeholder = { Text("e.g. merchant@okicici") },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("settings_upi_id_input")
+                        )
+
+                        OutlinedButton(
+                            onClick = {
+                                persistImmediately()
+                                onOpenGlobalQrModal()
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .testTag("settings_open_upi_qr_button"),
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("OPEN MY UPI QR CODE", style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
+                }
+
+                // =========================================================================
+                // 2. SECURITY
+                // =========================================================================
+                item(key = "section_security") {
+                    SettingsSectionCard(
+                        sectionNumber = "2",
+                        title = "SECURITY",
+                        subtitle = "Biometric fingerprint, device credential & salted PBKDF2 PIN lock",
+                        testTag = "section_security"
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Fingerprint,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                                Column {
+                                    Text(
+                                        text = "BIOMETRIC & PIN APP LOCK",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Require Fingerprint, Phone PIN, or App PIN on launch",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Switch(
+                                checked = biometricLockEnabled,
+                                onCheckedChange = { enabled ->
+                                    if (enabled) {
+                                        val candidate = securityPin.trim()
+                                        val hasValidNewPin = candidate.length in 4..8 && candidate.all { it.isDigit() }
+                                        if (!currentSettings.hasPinConfigured && !hasValidNewPin) {
+                                            pinValidationError = "Set a 4 to 8 digit numeric PIN below before turning on App Lock."
+                                            Toast.makeText(
+                                                context,
+                                                "Enter a 4 to 8 digit PIN below first to enable App Lock.",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            return@Switch
+                                        }
+                                        pinValidationError = null
+                                        biometricLockEnabled = true
+                                        persistImmediately()
+                                    } else {
+                                        pinValidationError = null
+                                        biometricLockEnabled = false
+                                        persistImmediately()
+                                    }
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary
+                                ),
+                                modifier = Modifier.testTag("biometric_lock_switch")
+                            )
+                        }
+
+                        OutlinedTextField(
+                            value = securityPin,
+                            onValueChange = { input ->
+                                if (input.length <= 8 && input.all { it.isDigit() }) {
+                                    securityPin = input
+                                    pinValidationError = null
+                                }
+                            },
+                            label = {
+                                Text(
+                                    if (currentSettings.hasPinConfigured) {
+                                        "Change 4–8 Digit Security PIN (Salted Hash Active)"
+                                    } else {
+                                        "Set 4–8 Digit Security PIN (Required for App Lock)"
+                                    }
+                                )
+                            },
+                            placeholder = {
+                                Text(
+                                    if (currentSettings.hasPinConfigured) "Leave blank to keep current PIN" else "Enter 4 to 8 digits"
+                                )
+                            },
+                            singleLine = true,
+                            visualTransformation = if (showSecurityPin) {
+                                VisualTransformation.None
+                            } else {
+                                PasswordVisualTransformation()
+                            },
+                            trailingIcon = {
+                                IconButton(
+                                    onClick = { showSecurityPin = !showSecurityPin },
+                                    modifier = Modifier.testTag("toggle_settings_pin_visibility")
+                                ) {
+                                    Icon(
+                                        imageVector = if (showSecurityPin) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                        contentDescription = if (showSecurityPin) "Hide PIN" else "Show PIN",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            },
+                            isError = pinValidationError != null,
+                            supportingText = {
+                                if (pinValidationError != null) {
+                                    Text(
+                                        text = pinValidationError!!,
+                                        color = MaterialTheme.colorScheme.error,
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                } else {
+                                    Text(
+                                        text = if (currentSettings.hasPinConfigured) {
+                                            "PIN is stored as a PBKDF2-HMAC-SHA256 salted hash in Android Keystore."
+                                        } else {
+                                            "No default PIN exists. You must set a 4–8 digit PIN to enable App Lock."
+                                        },
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("settings_security_pin_input")
+                        )
+
+                        if (currentSettings.hasPinConfigured || (securityPin.trim().length in 4..8)) {
+                            OutlinedButton(
+                                onClick = {
+                                    persistImmediately()
+                                    onLockAppNow()
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp)
+                                    .testTag("lock_app_now_button"),
+                                shape = RoundedCornerShape(6.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                            ) {
+                                Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("LOCK APP NOW", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                    }
+                }
+
+                // =========================================================================
+                // 3. CURRENCY AND THEME
+                // =========================================================================
+                item(key = "section_currency_and_theme") {
+                    SettingsSectionCard(
+                        sectionNumber = "3",
+                        title = "CURRENCY AND THEME",
+                        subtitle = "INR (₹) / NPR (रू) ledgers, 4 themes, font scale & phone settings",
+                        testTag = "section_currency_and_theme"
+                    ) {
+                        Text(
+                            text = "ENABLED LEDGER CURRENCIES",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Enable Indian Rupee (INR ₹), Nepalese Rupee (NPR रू), or both. At least one currency stays active.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Indian Rupee — INR (₹)",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Supports offline UPI QR & INR khata",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = inrEnabled,
+                                onCheckedChange = { checked ->
+                                    if (!checked && !nprEnabled) {
+                                        nprEnabled = true
+                                        defaultCurrency = CurrencyType.NPR
+                                    }
+                                    inrEnabled = checked
+                                    if (!inrEnabled && defaultCurrency == CurrencyType.INR) {
+                                        defaultCurrency = CurrencyType.NPR
+                                    }
+                                    persistImmediately()
+                                },
+                                modifier = Modifier.testTag("settings_enable_inr_switch")
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Nepalese Rupee — NPR (रू)",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Enable NPR ledger tabs & entries",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = nprEnabled,
+                                onCheckedChange = { checked ->
+                                    if (!checked && !inrEnabled) {
+                                        inrEnabled = true
+                                        defaultCurrency = CurrencyType.INR
+                                    }
+                                    nprEnabled = checked
+                                    if (!nprEnabled && defaultCurrency == CurrencyType.NPR) {
+                                        defaultCurrency = CurrencyType.INR
+                                    }
+                                    persistImmediately()
+                                },
+                                modifier = Modifier.testTag("settings_enable_npr_switch")
+                            )
+                        }
+
+                        if (inrEnabled && nprEnabled) {
+                            Text(
+                                text = "DEFAULT STARTUP CURRENCY",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                CurrencyType.entries.forEach { curr ->
+                                    MonochromeTogglePill(
+                                        text = curr.displayName,
+                                        selected = defaultCurrency == curr,
+                                        onClick = {
+                                            defaultCurrency = curr
+                                            persistImmediately()
+                                        },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
+
+                        // Font Scale
+                        Text(
+                            text = "TEXT & UI SIZE (MOBILE FIT)",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            AppFontScale.entries.forEach { scaleOption ->
+                                val isSelected = fontScale == scaleOption
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .border(
+                                            width = if (isSelected) 2.dp else 1.dp,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                            shape = RoundedCornerShape(6.dp)
+                                        )
+                                        .background(
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                                            shape = RoundedCornerShape(6.dp)
+                                        )
+                                        .clickable {
+                                            fontScale = scaleOption
+                                            persistImmediately()
+                                        }
+                                        .padding(vertical = 8.dp, horizontal = 4.dp)
+                                        .testTag("font_scale_${scaleOption.name.lowercase()}"),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = scaleOption.label,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
+
+                        // App Theme Selector
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Palette,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "COLOR THEME",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            AppThemeMode.entries.forEach { mode ->
+                                val isSelected = themeMode == mode
+                                Box(
+                                    modifier = Modifier
+                                        .border(
+                                            width = if (isSelected) 2.dp else 1.dp,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                            shape = RoundedCornerShape(6.dp)
+                                        )
+                                        .background(
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                                            shape = RoundedCornerShape(6.dp)
+                                        )
+                                        .clickable {
+                                            themeMode = mode
+                                            persistImmediately()
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                                        .testTag("theme_option_${mode.name.lowercase()}")
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = mode.label,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = mode.subtitle,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (isSelected) {
+                                                MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
+
+                        // Phone System Settings Shortcuts
+                        Text(
+                            text = "PHONE SYSTEM SETTINGS INTEGRATION",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    runCatching {
+                                        context.startActivity(Intent(Settings.ACTION_DISPLAY_SETTINGS))
+                                    }.onFailure {
+                                        runCatching { context.startActivity(Intent(Settings.ACTION_SETTINGS)) }
+                                    }
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp)
+                                    .testTag("open_phone_display_settings_button"),
+                                shape = RoundedCornerShape(6.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                            ) {
+                                Text(
+                                    text = "DISPLAY & FONT",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    runCatching {
+                                        context.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
+                                    }.onFailure {
+                                        runCatching { context.startActivity(Intent(Settings.ACTION_SETTINGS)) }
+                                    }
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp)
+                                    .testTag("open_phone_security_settings_button"),
+                                shape = RoundedCornerShape(6.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                            ) {
+                                Text(
+                                    text = "PHONE PIN / BIO",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                runCatching {
+                                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                        data = Uri.fromParts("package", context.packageName, null)
+                                    }
+                                    context.startActivity(intent)
+                                }.onFailure {
+                                    runCatching { context.startActivity(Intent(Settings.ACTION_SETTINGS)) }
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp)
+                                .testTag("open_app_system_settings_button"),
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                        ) {
+                            Text(
+                                text = "APP PERMISSIONS & NOTIFICATION SETTINGS",
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
+                // =========================================================================
+                // 4. BACKUP AND SYNC
+                // =========================================================================
+                item(key = "section_backup_and_sync") {
+                    SettingsSectionCard(
+                        sectionNumber = "4",
+                        title = "BACKUP AND SYNC",
+                        subtitle = "Offline JSON ledger export, WhatsApp/Drive file share & restore",
+                        testTag = "section_backup_and_sync"
+                    ) {
+                        Text(
+                            text = "Export your entire ledger (all parties, INR & NPR transactions, and partial payment history) as a portable JSON file or restore from an existing backup.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = onExportFullLedgerSaf,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                                    .testTag("export_ledger_json_button"),
+                                shape = RoundedCornerShape(6.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                            ) {
+                                Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("SAVE BACKUP", style = MaterialTheme.typography.labelMedium)
+                            }
+
+                            OutlinedButton(
+                                onClick = onShareFullLedgerFile,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                                    .testTag("share_ledger_json_button"),
+                                shape = RoundedCornerShape(6.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                            ) {
+                                Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("SHARE FILE", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+
+                        OutlinedButton(
+                            onClick = onImportLedgerSaf,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .testTag("import_ledger_json_button"),
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                        ) {
+                            Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("IMPORT / RESTORE JSON BACKUP", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
+
+                // =========================================================================
+                // 5. ABOUT
+                // =========================================================================
+                item(key = "section_about") {
+                    SettingsSectionCard(
+                        sectionNumber = "5",
+                        title = "ABOUT",
+                        subtitle = "Share Udhaar app, version info & direct developer support",
+                        testTag = "section_about"
+                    ) {
+                        // Share & Give Access Card
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                                .padding(12.dp)
+                                .testTag("share_give_access_card"),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "SHARE UDHAAR & GIVE ACCESS",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Share the Udhaar app via QR or WhatsApp, or send your ledger statement file to a partner device.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            OutlinedButton(
+                                onClick = onOpenShareAppModal,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp)
+                                    .testTag("open_share_app_modal_from_settings"),
+                                shape = RoundedCornerShape(6.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                            ) {
+                                Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("SHARE UDHAAR APP (QR & INVITE LINK)", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+
+                        // About & Developer Support Card
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                                .padding(12.dp)
+                                .testTag("about_and_support_card"),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.SupportAgent,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Column {
+                                    Text(
+                                        text = "UDHAAR LEDGER v7.0",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = "Developer & Admin: Jyotirmoy Bhowmik",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "Support Email: jyotirmoybhowmik@gmail.com",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontFamily = FontFamily.Monospace,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            OutlinedButton(
+                                onClick = {
+                                    val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
+                                        data = Uri.parse("mailto:jyotirmoybhowmik@gmail.com")
+                                        putExtra(Intent.EXTRA_SUBJECT, "Udhaar App Support / Feedback")
+                                    }
+                                    runCatching {
+                                        context.startActivity(emailIntent)
+                                    }.onFailure {
+                                        Toast.makeText(context, "Admin Email: jyotirmoybhowmik@gmail.com", Toast.LENGTH_LONG).show()
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp)
+                                    .testTag("contact_admin_button"),
+                                shape = RoundedCornerShape(6.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                            ) {
+                                Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("CONTACT ADMIN (EMAIL SUPPORT)", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1559,849 +2304,82 @@ fun WhatsAppReminderModal(
 }
 
 @Composable
-fun ProfileSettingsModal(
-    currentSettings: UserSettings,
-    onSave: (String, String, CurrencyType, Boolean, Boolean, AppThemeMode, AppFontScale, Boolean, String, Boolean) -> Unit,
-    onLockAppNow: () -> Unit,
-    onOpenShareAppModal: () -> Unit,
-    onExportFullLedgerSaf: () -> Unit,
-    onShareFullLedgerFile: () -> Unit,
-    onImportLedgerSaf: () -> Unit,
-    onDismiss: () -> Unit
+private fun SettingsSectionCard(
+    sectionNumber: String,
+    title: String,
+    subtitle: String,
+    testTag: String,
+    content: @Composable () -> Unit
 ) {
-    val context = LocalContext.current
-
-    var upiId by rememberSaveable(currentSettings.upiId) { mutableStateOf(currentSettings.upiId) }
-    var payeeName by rememberSaveable(currentSettings.payeeName) { mutableStateOf(currentSettings.payeeName) }
-    var inrEnabled by rememberSaveable(currentSettings.inrEnabled) { mutableStateOf(currentSettings.inrEnabled) }
-    var nprEnabled by rememberSaveable(currentSettings.nprEnabled) { mutableStateOf(currentSettings.nprEnabled) }
-    var defaultCurrency by rememberSaveable(currentSettings.defaultCurrency) {
-        mutableStateOf(currentSettings.defaultCurrency)
-    }
-    var selectedThemeMode by rememberSaveable(currentSettings.themeMode) {
-        mutableStateOf(currentSettings.themeMode)
-    }
-    var selectedFontScale by rememberSaveable(currentSettings.fontScale) {
-        mutableStateOf(currentSettings.fontScale)
-    }
-    var biometricLockEnabled by rememberSaveable(currentSettings.biometricLockEnabled) {
-        mutableStateOf(currentSettings.biometricLockEnabled)
-    }
-    var securityPin by rememberSaveable(currentSettings.securityPin) {
-        mutableStateOf(currentSettings.securityPin)
-    }
-
-    fun autoSaveCurrentSettings(closeModal: Boolean = false) {
-        onSave(
-            upiId,
-            payeeName,
-            defaultCurrency,
-            inrEnabled,
-            nprEnabled,
-            selectedThemeMode,
-            selectedFontScale,
-            biometricLockEnabled,
-            securityPin.ifBlank { "0000" },
-            closeModal
-        )
-    }
-
-    val playStoreUrl = "https://play.google.com/store/apps/details?id=${BuildConfig.APPLICATION_ID}"
-    val miniPlayQrBitmap = remember(playStoreUrl) {
-        UpiQrGenerator.generateQrBitmap(playStoreUrl, sizePx = 320)
-    }
-
-    val textFieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = PureBlack,
-        unfocusedBorderColor = BorderGrey,
-        focusedLabelColor = PureBlack,
-        unfocusedLabelColor = SecondaryInkGrey,
-        cursorColor = PureBlack,
-        focusedContainerColor = PureWhite,
-        unfocusedContainerColor = SubtleSurfaceGrey
-    )
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+            .padding(14.dp)
+            .testTag(testTag),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth(0.95f)
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .padding(vertical = 10.dp)
-                .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp)),
-            shape = RoundedCornerShape(4.dp),
-            color = PureWhite
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Column(
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .size(24.dp)
+                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp)),
+                contentAlignment = Alignment.Center
             ) {
-                // Header
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "SETTINGS, CURRENCY, FONT & THEME",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = PureBlack
-                        )
-                        Text(
-                            text = "ENABLE NPR, ADJUST FONT SIZE, PHONE SETTINGS & VPA",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SecondaryInkGrey
-                        )
-                    }
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.testTag("close_settings_modal_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = PureBlack
-                        )
-                    }
-                }
-
-                // 1. Currency Enable / Disable Section (NPR Enabled strictly from Settings)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp))
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "CURRENCY ENABLE / DISABLE (NPR IN SETTINGS ONLY)",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = PureBlack
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Indian Rupee — INR (₹)",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = PureBlack
-                            )
-                            Text(
-                                text = if (inrEnabled) "Enabled in Ledger & Summary" else "Disabled (Hidden)",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = SecondaryInkGrey
-                            )
-                        }
-                        Switch(
-                            checked = inrEnabled,
-                            onCheckedChange = { checked ->
-                                inrEnabled = checked
-                                if (!checked && !nprEnabled) {
-                                    nprEnabled = true
-                                    defaultCurrency = CurrencyType.NPR
-                                } else if (checked && !nprEnabled) {
-                                    defaultCurrency = CurrencyType.INR
-                                }
-                                autoSaveCurrentSettings(closeModal = false)
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = PureWhite,
-                                checkedTrackColor = PureBlack,
-                                uncheckedThumbColor = PureBlack,
-                                uncheckedTrackColor = PureWhite,
-                                uncheckedBorderColor = PureBlack
-                            ),
-                            modifier = Modifier.testTag("settings_enable_inr_switch")
-                        )
-                    }
-
-                    HorizontalDivider(color = BorderGrey, thickness = 1.dp)
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Nepalese Rupee — NPR (रू)",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = PureBlack
-                            )
-                            Text(
-                                text = if (nprEnabled) "Enabled in Ledger & Summary" else "Disabled by default (Toggle ON here to use रू)",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = SecondaryInkGrey
-                            )
-                        }
-                        Switch(
-                            checked = nprEnabled,
-                            onCheckedChange = { checked ->
-                                nprEnabled = checked
-                                if (!checked && !inrEnabled) {
-                                    inrEnabled = true
-                                    defaultCurrency = CurrencyType.INR
-                                } else if (!checked && defaultCurrency == CurrencyType.NPR) {
-                                    defaultCurrency = CurrencyType.INR
-                                }
-                                autoSaveCurrentSettings(closeModal = false)
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = PureWhite,
-                                checkedTrackColor = PureBlack,
-                                uncheckedThumbColor = PureBlack,
-                                uncheckedTrackColor = PureWhite,
-                                uncheckedBorderColor = PureBlack
-                            ),
-                            modifier = Modifier.testTag("settings_enable_npr_switch")
-                        )
-                    }
-                }
-
-                // 2. Text & Display Size Selector (Mobile Fit & Readability)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "TEXT & DISPLAY SIZE (FITS ALL MOBILE SCREENS)",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = PureBlack
-                    )
-                    Text(
-                        text = "Adjust text size inside the app or follow your phone's display font scale:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = SecondaryInkGrey
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        AppFontScale.entries.forEach { scale ->
-                            val isSelected = selectedFontScale == scale
-                            MonochromeTogglePill(
-                                text = scale.label,
-                                selected = isSelected,
-                                onClick = {
-                                    selectedFontScale = scale
-                                    autoSaveCurrentSettings(closeModal = false)
-                                },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("font_scale_${scale.name.lowercase()}")
-                            )
-                        }
-                    }
-                }
-
-                // 3. Multi-Theme Appearance Selector (Includes Follow Phone Setting)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "APP THEME & VISUAL APPEARANCE",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = PureBlack
-                    )
-                    AppThemeMode.entries.forEach { mode ->
-                        val isSelected = selectedThemeMode == mode
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .border(
-                                    width = if (isSelected) 1.5.dp else 1.dp,
-                                    color = if (isSelected) PureBlack else BorderGrey,
-                                    shape = RoundedCornerShape(4.dp)
-                                )
-                                .background(
-                                    color = if (isSelected) PureBlack else SubtleSurfaceGrey,
-                                    shape = RoundedCornerShape(4.dp)
-                                )
-                                .clickable {
-                                    selectedThemeMode = mode
-                                    activePaletteState = paletteForTheme(mode)
-                                    autoSaveCurrentSettings(closeModal = false)
-                                }
-                                .padding(horizontal = 10.dp, vertical = 8.dp)
-                                .testTag("theme_option_${mode.name.lowercase()}"),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = mode.label,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = if (isSelected) PureWhite else PureBlack
-                                )
-                                Text(
-                                    text = mode.subtitle,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (isSelected) BorderGrey else SecondaryInkGrey
-                                )
-                            }
-                            if (isSelected) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = "Selected Theme",
-                                    tint = PureWhite,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // 4. Phone System Settings Integration (Adjust Notifications, Permissions, Display & App Info)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
-                        .background(SubtleSurfaceGrey, RoundedCornerShape(4.dp))
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "PHONE SYSTEM SETTINGS INTEGRATION",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = PureBlack
-                    )
-                    Text(
-                        text = "Manage system permissions, notification alerts, and phone display/language settings directly from Android Settings:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = SecondaryInkGrey
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = {
-                                val intent = Intent(
-                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                    Uri.fromParts("package", context.packageName, null)
-                                ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-                                runCatching { context.startActivity(intent) }
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(42.dp)
-                                .testTag("open_phone_app_settings_button"),
-                            shape = RoundedCornerShape(4.dp),
-                            border = BorderStroke(1.dp, PureBlack),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
-                        ) {
-                            Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(15.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("PHONE APP SETTINGS", style = MaterialTheme.typography.labelSmall)
-                        }
-                        OutlinedButton(
-                            onClick = {
-                                val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                                    putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
-                                runCatching {
-                                    context.startActivity(intent)
-                                }.onFailure {
-                                    val fallback = Intent(
-                                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                        Uri.fromParts("package", context.packageName, null)
-                                    ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-                                    runCatching { context.startActivity(fallback) }
-                                }
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(42.dp)
-                                .testTag("open_phone_notification_settings_button"),
-                            shape = RoundedCornerShape(4.dp),
-                            border = BorderStroke(1.dp, PureBlack),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
-                        ) {
-                            Icon(Icons.Default.NotificationsActive, contentDescription = null, modifier = Modifier.size(15.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("NOTIFICATIONS", style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                }
-
-                // 5. Profile, UPI & Biometric Configuration (Enhancement A)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(
-                        text = "PROFILE, UPI VPA & APP LOCK CONFIGURATION",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = SecondaryInkGrey
-                    )
-
-                    OutlinedTextField(
-                        value = payeeName,
-                        onValueChange = { payeeName = it },
-                        label = { Text("Payee / Business Name") },
-                        placeholder = { Text("e.g. Jyoti Enterprises") },
-                        singleLine = true,
-                        colors = textFieldColors,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("settings_payee_name_input")
-                    )
-
-                    OutlinedTextField(
-                        value = upiId,
-                        onValueChange = { upiId = it },
-                        label = { Text("Your UPI ID (VPA) for INR Settlements") },
-                        placeholder = { Text("e.g. merchant@okicici") },
-                        singleLine = true,
-                        colors = textFieldColors,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("settings_upi_id_input")
-                    )
-
-                    if (inrEnabled && nprEnabled) {
-                        Text(
-                            text = "DEFAULT LEDGER CURRENCY",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SecondaryInkGrey
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            CurrencyType.entries.forEach { curr ->
-                                MonochromeTogglePill(
-                                    text = curr.displayName,
-                                    selected = defaultCurrency == curr,
-                                    onClick = {
-                                        defaultCurrency = curr
-                                        autoSaveCurrentSettings(closeModal = false)
-                                    },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .testTag("settings_currency_${curr.name.lowercase()}")
-                                )
-                            }
-                        }
-                    }
-
-                    // Enhancement A: Biometric / PIN App Lock Configuration
-                    HorizontalDivider(color = BorderGrey, thickness = 1.dp)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "App Lock (Biometric / Device PIN)",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = PureBlack
-                            )
-                            Text(
-                                text = "Require Fingerprint / Face Unlock or PIN when opening Udhaar",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = SecondaryInkGrey
-                            )
-                        }
-                        Switch(
-                            checked = biometricLockEnabled,
-                            onCheckedChange = {
-                                biometricLockEnabled = it
-                                autoSaveCurrentSettings(closeModal = false)
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = PureWhite,
-                                checkedTrackColor = PureBlack,
-                                uncheckedThumbColor = PureBlack,
-                                uncheckedTrackColor = PureWhite,
-                                uncheckedBorderColor = PureBlack
-                            ),
-                            modifier = Modifier.testTag("biometric_lock_switch")
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextField(
-                            value = securityPin,
-                            onValueChange = { input ->
-                                if (input.length <= 8 && input.all { it.isDigit() }) {
-                                    securityPin = input
-                                }
-                            },
-                            label = { Text("Fallback App Security PIN") },
-                            singleLine = true,
-                            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                            colors = textFieldColors,
-                            modifier = Modifier
-                                .weight(1f)
-                                .testTag("settings_security_pin_input")
-                        )
-                        OutlinedButton(
-                            onClick = {
-                                onDismiss()
-                                onLockAppNow()
-                            },
-                            modifier = Modifier
-                                .height(50.dp)
-                                .padding(top = 4.dp)
-                                .testTag("lock_app_now_button"),
-                            shape = RoundedCornerShape(4.dp),
-                            border = BorderStroke(1.dp, PureBlack),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
-                        ) {
-                            Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(15.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("LOCK NOW", style = MaterialTheme.typography.labelMedium)
-                        }
-                    }
-
-                    Button(
-                        onClick = {
-                            autoSaveCurrentSettings(closeModal = true)
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(44.dp)
-                            .testTag("save_settings_button"),
-                        shape = RoundedCornerShape(4.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = PureBlack,
-                            contentColor = PureWhite
-                        )
-                    ) {
-                        Text("SAVE ALL SETTINGS", style = MaterialTheme.typography.labelLarge)
-                    }
-                }
-
-                // 4. Enhancement E: Share / Give Access to Udhaar Card (Play Store Link + Scannable App QR)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp))
-                        .background(SubtleSurfaceGrey, RoundedCornerShape(4.dp))
-                        .padding(14.dp)
-                        .testTag("share_give_access_card"),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(
-                        text = "SHARE / GIVE ACCESS TO UDHAAR",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = PureBlack
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        if (miniPlayQrBitmap != null) {
-                            Image(
-                                bitmap = miniPlayQrBitmap.asImageBitmap(),
-                                contentDescription = "Google Play QR Code",
-                                modifier = Modifier
-                                    .size(84.dp)
-                                    .border(1.dp, PureBlack, RoundedCornerShape(2.dp))
-                                    .background(PureWhite)
-                                    .padding(4.dp)
-                                    .clickable { onOpenShareAppModal() }
-                            )
-                        }
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = "Scan to install Udhaar from Google Play Store or share the invite link directly via WhatsApp.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = SecondaryInkGrey
-                            )
-                            Text(
-                                text = playStoreUrl,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = PureBlack
-                            )
-                        }
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = onOpenShareAppModal,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(44.dp),
-                            shape = RoundedCornerShape(4.dp),
-                            border = BorderStroke(1.dp, PureBlack),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
-                        ) {
-                            Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("FULL APP QR", style = MaterialTheme.typography.labelSmall)
-                        }
-                        Button(
-                            onClick = {
-                                val inviteMsg = "Install *Udhaar* — Minimalist Loan & Ledger App:\n$playStoreUrl"
-                                val waIntent = Intent(
-                                    Intent.ACTION_VIEW,
-                                    Uri.parse("https://wa.me/?text=${Uri.encode(inviteMsg)}")
-                                ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-                                runCatching {
-                                    context.startActivity(waIntent)
-                                }.onFailure {
-                                    val share = Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/plain"
-                                        putExtra(Intent.EXTRA_TEXT, inviteMsg)
-                                    }
-                                    context.startActivity(Intent.createChooser(share, "Share Udhaar App"))
-                                }
-                            },
-                            modifier = Modifier
-                                .weight(1.2f)
-                                .height(44.dp)
-                                .testTag("settings_share_app_whatsapp_button"),
-                            shape = RoundedCornerShape(4.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = PureBlack,
-                                contentColor = PureWhite
-                            )
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(15.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("SHARE ON WHATSAPP", style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                }
-
-                // 5. Offline Ledger Export / Import (Share Access to Records)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
-                        .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(
-                        text = "OFFLINE LEDGER BACKUP & RECORD TRANSFER (JSON)",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = SecondaryInkGrey
-                    )
-                    Text(
-                        text = "Export your Full Ledger (Parties, Transactions & Partial Payments) to a portable JSON file or import records from another device offline.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = SecondaryInkGrey
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = onExportFullLedgerSaf,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(46.dp)
-                                .testTag("export_ledger_json_button"),
-                            shape = RoundedCornerShape(4.dp),
-                            border = BorderStroke(1.dp, PureBlack),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
-                        ) {
-                            Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("EXPORT JSON", style = MaterialTheme.typography.labelSmall)
-                        }
-
-                        OutlinedButton(
-                            onClick = onShareFullLedgerFile,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(46.dp)
-                                .testTag("share_ledger_json_button"),
-                            shape = RoundedCornerShape(4.dp),
-                            border = BorderStroke(1.dp, PureBlack),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
-                        ) {
-                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(15.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("SHARE BACKUP", style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-
-                    OutlinedButton(
-                        onClick = onImportLedgerSaf,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(46.dp)
-                            .testTag("import_ledger_json_button"),
-                        shape = RoundedCornerShape(4.dp),
-                        border = BorderStroke(1.dp, PureBlack),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
-                    ) {
-                        Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("IMPORT LEDGER BACKUP (JSON)", style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-
-                // 6. Enhancement E: Admin & Support Card
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp))
-                        .background(PureWhite, RoundedCornerShape(4.dp))
-                        .padding(14.dp)
-                        .testTag("about_and_support_card"),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "ADMIN & SUPPORT",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = PureBlack
-                    )
-                    HorizontalDivider(color = BorderGrey, thickness = 1.dp)
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Administrator & Developer",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = SecondaryInkGrey
-                        )
-                        Text(
-                            text = "Jyotirmoy Bhowmik",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Bold,
-                            color = PureBlack
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Admin Email",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = SecondaryInkGrey
-                        )
-                        Text(
-                            text = "admin@jyotirmoyb.com",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Bold,
-                            color = PureBlack
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Version",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = SecondaryInkGrey
-                        )
-                        Text(
-                            text = "v${BuildConfig.VERSION_NAME} (Code ${BuildConfig.VERSION_CODE})",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = PureBlack
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(2.dp))
-
-                    OutlinedButton(
-                        onClick = {
-                            val adminEmail = "admin@jyotirmoyb.com"
-                            runCatching {
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                clipboard.setPrimaryClip(ClipData.newPlainText("Admin Email", adminEmail))
-                            }
-                            val intent = Intent(Intent.ACTION_SENDTO).apply {
-                                data = Uri.parse("mailto:admin@jyotirmoyb.com")
-                                putExtra(
-                                    Intent.EXTRA_SUBJECT,
-                                    "Udhaar App Support (v${BuildConfig.VERSION_NAME})"
-                                )
-                            }
-                            try {
-                                if (intent.resolveActivity(context.packageManager) != null) {
-                                    context.startActivity(Intent.createChooser(intent, "Contact Admin"))
-                                } else {
-                                    context.startActivity(Intent.createChooser(intent, "Contact Admin"))
-                                    Toast.makeText(
-                                        context,
-                                        "Admin email (admin@jyotirmoyb.com) copied to clipboard",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            } catch (e: Exception) {
-                                Toast.makeText(
-                                    context,
-                                    "No email client found. Copied admin@jyotirmoyb.com to clipboard.",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
-                            .testTag("contact_admin_button"),
-                        shape = RoundedCornerShape(4.dp),
-                        border = BorderStroke(1.5.dp, PureBlack),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Email,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Contact Admin (admin@jyotirmoyb.com)",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
+                Text(
+                    text = sectionNumber,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f), thickness = 1.dp)
+        content()
+    }
+}
+
+@Composable
+private fun BreakdownLine(
+    label: String,
+    value: String,
+    bold: Boolean = false
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = if (bold) FontWeight.Bold else FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.End
+        )
     }
 }

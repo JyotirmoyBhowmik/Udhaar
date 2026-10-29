@@ -56,20 +56,62 @@ class UdhaarTypeConverters {
 @Database(
     entities = [PartyEntity::class, UdhaarTransaction::class, PartialPayment::class],
     version = 3,
-    exportSchema = false
+    exportSchema = true
 )
 @TypeConverters(UdhaarTypeConverters::class)
 abstract class UdhaarDatabase : RoomDatabase() {
     abstract fun udhaarDao(): UdhaarDao
 
     companion object {
-        private val MIGRATION_2_3 = object : Migration(2, 3) {
+        private fun hasColumn(db: SupportSQLiteDatabase, tableName: String, columnName: String): Boolean {
+            db.query("PRAGMA table_info(`$tableName`)").use { cursor ->
+                val nameIndex = cursor.getColumnIndex("name")
+                if (nameIndex < 0) return false
+                while (cursor.moveToNext()) {
+                    if (cursor.getString(nameIndex).equals(columnName, ignoreCase = true)) {
+                        return true
+                    }
+                }
+            }
+            return false
+        }
+
+        val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                runCatching {
-                    db.execSQL("ALTER TABLE partial_payments ADD COLUMN paymentMode TEXT NOT NULL DEFAULT 'CASH'")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `parties` (
+                        `partyId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `phoneNumber` TEXT NOT NULL,
+                        `upiId` TEXT NOT NULL,
+                        `email` TEXT NOT NULL,
+                        `tagOrNotes` TEXT NOT NULL,
+                        `preferredCurrency` TEXT NOT NULL,
+                        `createdAtMillis` INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                if (!hasColumn(db, "udhaar_transactions", "partyId")) {
+                    db.execSQL("ALTER TABLE `udhaar_transactions` ADD COLUMN `partyId` INTEGER")
                 }
             }
         }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                if (!hasColumn(db, "partial_payments", "paymentMode")) {
+                    db.execSQL(
+                        "ALTER TABLE `partial_payments` ADD COLUMN `paymentMode` TEXT NOT NULL DEFAULT 'CASH'"
+                    )
+                }
+            }
+        }
+
+        val ALL_MIGRATIONS: Array<Migration> = arrayOf(
+            MIGRATION_1_2,
+            MIGRATION_2_3
+        )
 
         @Volatile
         private var INSTANCE: UdhaarDatabase? = null
@@ -81,9 +123,7 @@ abstract class UdhaarDatabase : RoomDatabase() {
                     UdhaarDatabase::class.java,
                     "udhaar_ledger.db"
                 )
-                    .addMigrations(MIGRATION_2_3)
-                    .fallbackToDestructiveMigration(true)
-                    .fallbackToDestructiveMigrationOnDowngrade(true)
+                    .addMigrations(*ALL_MIGRATIONS)
                     .build()
                 INSTANCE = instance
                 instance

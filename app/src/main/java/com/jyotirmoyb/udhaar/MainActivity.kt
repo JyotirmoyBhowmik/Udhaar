@@ -168,7 +168,10 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
     // Enhancement A: Biometric / PIN App Lock Gate when opening the application
     if (!uiState.isAuthenticated) {
         BiometricSecurityScreen(
-            expectedPin = uiState.userSettings.securityPin,
+            hasPinConfigured = uiState.userSettings.hasPinConfigured,
+            initialLockoutMillis = viewModel.getPinLockoutRemainingMillis(),
+            initialFailedAttempts = viewModel.getPinFailedAttempts(),
+            onVerifyPin = viewModel::verifyPin,
             onAuthenticated = viewModel::markAuthenticated
         )
         return
@@ -288,6 +291,49 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                 },
                 onSave = viewModel::saveUdhaarTransaction,
                 onCancel = viewModel::navigateBackToDashboard
+            )
+        }
+        ActiveScreen.SETTINGS -> {
+            ProfileSettingsModal(
+                currentSettings = uiState.userSettings,
+                onSave = { upiId, payeeName, currency, inrEnabled, nprEnabled, themeMode, fontScale, bioEnabled, pin, closeModal ->
+                    viewModel.saveUserSettings(
+                        upiId = upiId,
+                        payeeName = payeeName,
+                        defaultCurrency = currency,
+                        inrEnabled = inrEnabled,
+                        nprEnabled = nprEnabled,
+                        themeMode = themeMode,
+                        fontScale = fontScale,
+                        biometricLockEnabled = bioEnabled,
+                        securityPin = pin,
+                        closeModal = closeModal
+                    )
+                },
+                onLockAppNow = viewModel::lockApplicationNow,
+                onOpenGlobalQrModal = viewModel::openGlobalQrModal,
+                onOpenShareAppModal = {
+                    viewModel.openShareAppModal()
+                },
+                onExportFullLedgerSaf = {
+                    viewModel.generateFullLedgerBackupJson { json ->
+                        pendingJsonToSave = json
+                        createDocumentLauncher.launch("udhaar_full_ledger_backup.json")
+                    }
+                },
+                onShareFullLedgerFile = {
+                    viewModel.generateFullLedgerBackupJson { json ->
+                        LedgerBackupManager.shareBackupFile(
+                            context = context,
+                            jsonContent = json,
+                            fileNamePrefix = "udhaar_full_ledger_backup"
+                        )
+                    }
+                },
+                onImportLedgerSaf = {
+                    openDocumentLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+                },
+                onDismiss = viewModel::closeSettingsModal
             )
         }
     }
@@ -427,7 +473,7 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
             qrState = qrState,
             userSettings = uiState.userSettings,
             onSaveUpiSettings = { upiId, payeeName, currency ->
-                viewModel.saveUserSettings(upiId, payeeName, currency)
+                viewModel.saveUserSettings(upiId, payeeName, currency, closeModal = false)
             },
             onDismiss = viewModel::closeQrModal
         )
@@ -437,51 +483,6 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
     if (uiState.showShareAppModal) {
         ShareUdhaarAppModal(
             onDismiss = viewModel::closeShareAppModal
-        )
-    }
-
-    // Profile, Currency Toggles, Theme, Backup & Admin Support Modal
-    if (uiState.showSettingsModal) {
-        ProfileSettingsModal(
-            currentSettings = uiState.userSettings,
-            onSave = { upiId, payeeName, currency, inrEnabled, nprEnabled, themeMode, fontScale, bioEnabled, pin, closeModal ->
-                viewModel.saveUserSettings(
-                    upiId = upiId,
-                    payeeName = payeeName,
-                    defaultCurrency = currency,
-                    inrEnabled = inrEnabled,
-                    nprEnabled = nprEnabled,
-                    themeMode = themeMode,
-                    fontScale = fontScale,
-                    biometricLockEnabled = bioEnabled,
-                    securityPin = pin,
-                    closeModal = closeModal
-                )
-            },
-            onLockAppNow = viewModel::lockApplicationNow,
-            onOpenShareAppModal = {
-                viewModel.closeSettingsModal()
-                viewModel.openShareAppModal()
-            },
-            onExportFullLedgerSaf = {
-                viewModel.generateFullLedgerBackupJson { json ->
-                    pendingJsonToSave = json
-                    createDocumentLauncher.launch("udhaar_full_ledger_backup.json")
-                }
-            },
-            onShareFullLedgerFile = {
-                viewModel.generateFullLedgerBackupJson { json ->
-                    LedgerBackupManager.shareBackupFile(
-                        context = context,
-                        jsonContent = json,
-                        fileNamePrefix = "udhaar_full_ledger_backup"
-                    )
-                }
-            },
-            onImportLedgerSaf = {
-                openDocumentLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
-            },
-            onDismiss = viewModel::closeSettingsModal
         )
     }
 }

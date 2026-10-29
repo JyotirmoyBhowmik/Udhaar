@@ -31,7 +31,8 @@ enum class ActiveScreen {
     DASHBOARD,
     PEOPLE_DIRECTORY,
     PARTY_DETAIL,
-    ADD_EDIT
+    ADD_EDIT,
+    SETTINGS
 }
 
 data class QrModalState(
@@ -109,6 +110,7 @@ private data class LocalUiFilterState(
     val hasUnlockedThisSession: Boolean = false,
     val manualLockRequested: Boolean = false,
     val activeScreen: ActiveScreen = ActiveScreen.DASHBOARD,
+    val previousScreenBeforeSettings: ActiveScreen = ActiveScreen.DASHBOARD,
     val summaryCurrency: CurrencyType? = null,
     val selectedFilter: LedgerFilter = LedgerFilter.ALL,
     val searchQuery: String = "",
@@ -306,6 +308,7 @@ class UdhaarViewModel(
     )
 
     fun markAuthenticated() {
+        repository.resetPinFailedAttempts()
         localState.update {
             it.copy(
                 hasUnlockedThisSession = true,
@@ -314,11 +317,29 @@ class UdhaarViewModel(
         }
     }
 
+    fun verifyPin(candidatePin: String): com.jyotirmoyb.udhaar.security.PinVerificationResult {
+        val result = repository.verifyPin(candidatePin)
+        if (result.isSuccess) {
+            markAuthenticated()
+        }
+        return result
+    }
+
+    fun getPinLockoutRemainingMillis(): Long = repository.getPinLockoutRemainingMillis()
+
+    fun getPinFailedAttempts(): Int = repository.getPinFailedAttempts()
+
     fun lockApplicationNow() {
         localState.update {
+            val returnScreen = if (it.activeScreen == ActiveScreen.SETTINGS) {
+                it.previousScreenBeforeSettings
+            } else {
+                it.activeScreen
+            }
             it.copy(
                 manualLockRequested = true,
-                showSettingsModal = false
+                showSettingsModal = false,
+                activeScreen = returnScreen
             )
         }
     }
@@ -586,11 +607,28 @@ class UdhaarViewModel(
     }
 
     fun openSettingsModal() {
-        localState.update { it.copy(showSettingsModal = true) }
+        localState.update {
+            val prev = if (it.activeScreen != ActiveScreen.SETTINGS) it.activeScreen else it.previousScreenBeforeSettings
+            it.copy(
+                previousScreenBeforeSettings = prev,
+                activeScreen = ActiveScreen.SETTINGS,
+                showSettingsModal = true
+            )
+        }
     }
 
     fun closeSettingsModal() {
-        localState.update { it.copy(showSettingsModal = false) }
+        localState.update {
+            val nextScreen = if (it.activeScreen == ActiveScreen.SETTINGS) {
+                it.previousScreenBeforeSettings
+            } else {
+                it.activeScreen
+            }
+            it.copy(
+                activeScreen = nextScreen,
+                showSettingsModal = false
+            )
+        }
     }
 
     fun openShareAppModal() {
@@ -712,7 +750,17 @@ class UdhaarViewModel(
                 securityPin = securityPin
             )
             if (closeModal) {
-                localState.update { it.copy(showSettingsModal = false) }
+                localState.update {
+                    val nextScreen = if (it.activeScreen == ActiveScreen.SETTINGS) {
+                        it.previousScreenBeforeSettings
+                    } else {
+                        it.activeScreen
+                    }
+                    it.copy(
+                        activeScreen = nextScreen,
+                        showSettingsModal = false
+                    )
+                }
             }
         }
     }

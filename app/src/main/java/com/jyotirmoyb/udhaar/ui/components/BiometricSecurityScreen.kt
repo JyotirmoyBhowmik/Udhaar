@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fingerprint
@@ -45,6 +46,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -54,29 +57,53 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import com.jyotirmoyb.udhaar.security.PinSecurityManager
+import com.jyotirmoyb.udhaar.security.PinVerificationResult
+import com.jyotirmoyb.udhaar.security.SecureScreenEffect
 import com.jyotirmoyb.udhaar.ui.theme.BorderGrey
 import com.jyotirmoyb.udhaar.ui.theme.PureBlack
 import com.jyotirmoyb.udhaar.ui.theme.PureWhite
 import com.jyotirmoyb.udhaar.ui.theme.SecondaryInkGrey
 import com.jyotirmoyb.udhaar.ui.theme.SubtleSurfaceGrey
+import kotlinx.coroutines.delay
 
 @Composable
 fun BiometricSecurityScreen(
-    expectedPin: String,
+    hasPinConfigured: Boolean,
+    initialLockoutMillis: Long = 0L,
+    initialFailedAttempts: Int = 0,
+    onVerifyPin: (String) -> PinVerificationResult,
     onAuthenticated: () -> Unit
 ) {
+    // Phase 0: Block screenshots and screen recording on the lock screen & PIN field
+    SecureScreenEffect(enabled = true)
+
     val context = LocalContext.current
     val activity = context as? FragmentActivity
 
     var pinInput by rememberSaveable { mutableStateOf("") }
     var statusMessage by rememberSaveable { mutableStateOf<String?>(null) }
     var showManualPinField by rememberSaveable { mutableStateOf(false) }
+    var failedAttempts by rememberSaveable { mutableIntStateOf(initialFailedAttempts) }
+    var lockoutRemainingMillis by rememberSaveable { mutableLongStateOf(initialLockoutMillis) }
+
+    LaunchedEffect(lockoutRemainingMillis) {
+        if (lockoutRemainingMillis > 0L) {
+            delay(1_000L)
+            val next = (lockoutRemainingMillis - 1_000L).coerceAtLeast(0L)
+            lockoutRemainingMillis = next
+            if (next == 0L) {
+                statusMessage = "Lockout expired. You may try entering your PIN again."
+            }
+        }
+    }
 
     val keyguardManager = remember(context) {
         context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
@@ -187,7 +214,6 @@ fun BiometricSecurityScreen(
                 .build()
             prompt.authenticate(promptInfo)
         }.onFailure {
-            // Fallback to Device Credential directly via KeyguardManager
             if (isDeviceSecure) {
                 triggerDevicePinPrompt()
             } else {
@@ -196,10 +222,26 @@ fun BiometricSecurityScreen(
         }
     }
 
+    fun submitAppPin() {
+        if (lockoutRemainingMillis > 0L) return
+        if (pinInput.length < 4) {
+            statusMessage = "Please enter your 4 to 8 digit App PIN."
+            return
+        }
+        val result = onVerifyPin(pinInput)
+        pinInput = ""
+        failedAttempts = result.failedAttempts
+        lockoutRemainingMillis = result.lockoutRemainingMillis
+        statusMessage = result.errorMessage
+    }
+
     // Check Biometric / Phone Credential FIRST automatically as soon as screen is displayed
     LaunchedEffect(Unit) {
         triggerBiometricPrompt()
     }
+
+    val isLockedOut = lockoutRemainingMillis > 0L
+    val lockoutSeconds = ((lockoutRemainingMillis + 999L) / 1000L).coerceAtLeast(1L)
 
     Scaffold(
         contentWindowInsets = WindowInsets.safeDrawing,
@@ -265,7 +307,25 @@ fun BiometricSecurityScreen(
                     textAlign = TextAlign.Center
                 )
 
-                if (statusMessage != null) {
+                if (isLockedOut) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp))
+                            .background(PureBlack, RoundedCornerShape(4.dp))
+                            .padding(10.dp)
+                            .testTag("pin_lockout_banner")
+                    ) {
+                        Text(
+                            text = "PIN LOCKED ($failedAttempts/${PinSecurityManager.MAX_FREE_ATTEMPTS} FAILED ATTEMPTS) • WAIT ${lockoutSeconds}s",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = PureWhite,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                } else if (statusMessage != null) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -332,94 +392,94 @@ fun BiometricSecurityScreen(
                     )
                 }
 
-                // Clean expandable fallback App PIN field (Masked dots, NO password text shown)
-                if (showManualPinField) {
-                    HorizontalDivider(color = BorderGrey, thickness = 1.dp)
+                if (hasPinConfigured) {
+                    if (showManualPinField) {
+                        HorizontalDivider(color = BorderGrey, thickness = 1.dp)
 
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "APP SECURITY PIN",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = PureBlack
-                        )
-                        Row(
+                        Column(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            OutlinedTextField(
-                                value = pinInput,
-                                onValueChange = { input ->
-                                    if (input.length <= 8 && input.all { it.isDigit() }) {
-                                        pinInput = input
-                                        statusMessage = null
-                                        if (input == expectedPin) {
-                                            onAuthenticated()
-                                        }
-                                    }
-                                },
-                                placeholder = { Text("Enter App PIN") },
-                                singleLine = true,
-                                visualTransformation = PasswordVisualTransformation(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = PureBlack,
-                                    unfocusedBorderColor = BorderGrey,
-                                    cursorColor = PureBlack,
-                                    focusedContainerColor = PureWhite,
-                                    unfocusedContainerColor = SubtleSurfaceGrey
-                                ),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("security_pin_input")
+                            Text(
+                                text = "APP SECURITY PIN",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = PureBlack
                             )
-
-                            OutlinedButton(
-                                onClick = {
-                                    if (pinInput == expectedPin || (pinInput.isEmpty() && !isBiometricReady && !isDeviceSecure)) {
-                                        onAuthenticated()
-                                    } else {
-                                        statusMessage = "Incorrect PIN. Please try again."
-                                    }
-                                },
-                                modifier = Modifier
-                                    .height(54.dp)
-                                    .testTag("verify_pin_button"),
-                                shape = RoundedCornerShape(4.dp),
-                                border = BorderStroke(1.5.dp, PureBlack),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.LockOpen,
-                                    contentDescription = "Unlock",
-                                    modifier = Modifier.size(18.dp)
+                                OutlinedTextField(
+                                    value = pinInput,
+                                    onValueChange = { input ->
+                                        if (!isLockedOut && input.length <= 8 && input.all { it.isDigit() }) {
+                                            pinInput = input
+                                        }
+                                    },
+                                    enabled = !isLockedOut,
+                                    placeholder = { Text("Enter 4–8 digit PIN") },
+                                    singleLine = true,
+                                    visualTransformation = PasswordVisualTransformation(),
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.NumberPassword,
+                                        imeAction = ImeAction.Done
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onDone = { submitAppPin() }
+                                    ),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = PureBlack,
+                                        unfocusedBorderColor = BorderGrey,
+                                        cursorColor = PureBlack,
+                                        focusedContainerColor = PureWhite,
+                                        unfocusedContainerColor = SubtleSurfaceGrey
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("security_pin_input")
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "UNLOCK",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.Bold
-                                )
+
+                                OutlinedButton(
+                                    onClick = { submitAppPin() },
+                                    enabled = !isLockedOut && pinInput.length >= 4,
+                                    modifier = Modifier
+                                        .height(54.dp)
+                                        .testTag("verify_pin_button"),
+                                    shape = RoundedCornerShape(4.dp),
+                                    border = BorderStroke(1.5.dp, PureBlack),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.LockOpen,
+                                        contentDescription = "Unlock",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "UNLOCK",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
+                    } else {
+                        Text(
+                            text = "Or enter App PIN manually",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = SecondaryInkGrey,
+                            modifier = Modifier
+                                .clickable { showManualPinField = true }
+                                .padding(vertical = 4.dp)
+                                .testTag("expand_manual_pin_button")
+                        )
                     }
-                } else {
-                    Text(
-                        text = "Or enter App PIN manually",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = SecondaryInkGrey,
-                        modifier = Modifier
-                            .clickable { showManualPinField = true }
-                            .padding(vertical = 4.dp)
-                    )
                 }
 
-                // If neither biometric nor phone lock is enrolled on device (rare/emulator case)
-                if (!isBiometricReady && !isDeviceSecure) {
+                // If neither biometric, phone lock, nor app PIN is configured
+                if (!isBiometricReady && !isDeviceSecure && !hasPinConfigured) {
                     OutlinedButton(
                         onClick = onAuthenticated,
                         modifier = Modifier
