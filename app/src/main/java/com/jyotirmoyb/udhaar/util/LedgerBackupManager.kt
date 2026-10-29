@@ -12,6 +12,7 @@ import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.PaymentMode
 import com.jyotirmoyb.udhaar.data.TransactionType
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
+import com.jyotirmoyb.udhaar.data.VerificationStatus
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -33,7 +34,7 @@ object LedgerBackupManager {
         statementPartyName: String? = null
     ): String {
         val root = JSONObject()
-        root.put("schemaVersion", 3)
+        root.put("schemaVersion", 4)
         root.put("app", "Udhaar")
         root.put("packageName", "com.jyotirmoyb.udhaar")
         root.put("exportType", exportType)
@@ -82,6 +83,16 @@ object LedgerBackupManager {
                 put("isSettled", tx.isSettled)
                 put("settledAtMillis", tx.settledAtMillis ?: -1L)
                 put("createdAtMillis", tx.createdAtMillis)
+                put("remoteId", tx.remoteId)
+                put("verificationStatus", tx.verificationStatus.name)
+                put("verifiedAtMillis", tx.verifiedAtMillis ?: -1L)
+                put("counterpartyUserId", tx.counterpartyUserId)
+                put("contentHash", tx.contentHash)
+                put("needsMyConfirmation", tx.needsMyConfirmation)
+                put("shareToken", tx.shareToken)
+                put("disputeReason", tx.disputeReason)
+                put("lenderName", tx.lenderName)
+                put("borrowerName", tx.borrowerName)
             }
             txArray.put(obj)
         }
@@ -96,6 +107,12 @@ object LedgerBackupManager {
                 put("paymentMode", payment.paymentMode.name)
                 put("paidAtMillis", payment.paidAtMillis)
                 put("note", payment.note)
+                put("remotePaymentId", payment.remotePaymentId)
+                put("recordedByUserId", payment.recordedByUserId)
+                put("recordedByName", payment.recordedByName)
+                put("isAcknowledged", payment.isAcknowledged)
+                put("acknowledgedAtMillis", payment.acknowledgedAtMillis ?: -1L)
+                put("needsMyAcknowledgement", payment.needsMyAcknowledgement)
             }
             paymentsArray.put(obj)
         }
@@ -137,6 +154,7 @@ object LedgerBackupManager {
             val expiryRaw = obj.optLong("expiryDateMillis", -1L)
             val reminderRaw = obj.optLong("reminderDateMillis", -1L)
             val settledRaw = obj.optLong("settledAtMillis", -1L)
+            val verifiedRaw = obj.optLong("verifiedAtMillis", -1L)
 
             transactions.add(
                 UdhaarTransaction(
@@ -172,7 +190,19 @@ object LedgerBackupManager {
                     notes = obj.optString("notes", ""),
                     isSettled = obj.optBoolean("isSettled", false),
                     settledAtMillis = settledRaw.takeIf { it > 0L },
-                    createdAtMillis = obj.optLong("createdAtMillis", System.currentTimeMillis())
+                    createdAtMillis = obj.optLong("createdAtMillis", System.currentTimeMillis()),
+                    remoteId = obj.optString("remoteId", ""),
+                    verificationStatus = runCatching {
+                        VerificationStatus.valueOf(obj.optString("verificationStatus", "LOCAL_ONLY"))
+                    }.getOrDefault(VerificationStatus.LOCAL_ONLY),
+                    verifiedAtMillis = verifiedRaw.takeIf { it > 0L },
+                    counterpartyUserId = obj.optString("counterpartyUserId", ""),
+                    contentHash = obj.optString("contentHash", ""),
+                    needsMyConfirmation = obj.optBoolean("needsMyConfirmation", false),
+                    shareToken = obj.optString("shareToken", ""),
+                    disputeReason = obj.optString("disputeReason", ""),
+                    lenderName = obj.optString("lenderName", ""),
+                    borrowerName = obj.optString("borrowerName", "")
                 )
             )
         }
@@ -184,6 +214,7 @@ object LedgerBackupManager {
             val mode = runCatching {
                 PaymentMode.valueOf(obj.optString("paymentMode", "CASH"))
             }.getOrDefault(PaymentMode.CASH)
+            val ackAtRaw = obj.optLong("acknowledgedAtMillis", -1L)
             partialPayments.add(
                 PartialPayment(
                     id = obj.optLong("id", 0L),
@@ -191,7 +222,13 @@ object LedgerBackupManager {
                     amount = obj.optDouble("amount", 0.0),
                     paymentMode = mode,
                     paidAtMillis = obj.optLong("paidAtMillis", System.currentTimeMillis()),
-                    note = obj.optString("note", "")
+                    note = obj.optString("note", ""),
+                    remotePaymentId = obj.optString("remotePaymentId", ""),
+                    recordedByUserId = obj.optString("recordedByUserId", ""),
+                    recordedByName = obj.optString("recordedByName", ""),
+                    isAcknowledged = obj.optBoolean("isAcknowledged", false),
+                    acknowledgedAtMillis = ackAtRaw.takeIf { it > 0L },
+                    needsMyAcknowledgement = obj.optBoolean("needsMyAcknowledgement", false)
                 )
             )
         }

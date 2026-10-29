@@ -42,6 +42,9 @@ interface UdhaarDao {
     @Query("SELECT * FROM udhaar_transactions WHERE id = :id LIMIT 1")
     suspend fun getTransactionById(id: Long): UdhaarTransaction?
 
+    @Query("SELECT * FROM udhaar_transactions WHERE remoteId = :remoteId LIMIT 1")
+    suspend fun getTransactionByRemoteId(remoteId: String): UdhaarTransaction?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: UdhaarTransaction): Long
 
@@ -58,6 +61,9 @@ interface UdhaarDao {
     @Query("SELECT * FROM partial_payments WHERE transactionId = :transactionId ORDER BY paidAtMillis DESC")
     fun getPartialPaymentsForTransaction(transactionId: Long): Flow<List<PartialPayment>>
 
+    @Query("SELECT * FROM partial_payments WHERE transactionId = :transactionId ORDER BY paidAtMillis DESC")
+    suspend fun getPartialPaymentsForTransactionSnapshot(transactionId: Long): List<PartialPayment>
+
     @Query("SELECT * FROM partial_payments ORDER BY paidAtMillis DESC")
     fun getAllPartialPayments(): Flow<List<PartialPayment>>
 
@@ -67,6 +73,25 @@ interface UdhaarDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPartialPayment(payment: PartialPayment): Long
 
+    @Update
+    suspend fun updatePartialPayment(payment: PartialPayment)
+
     @Delete
     suspend fun deletePartialPayment(payment: PartialPayment)
+
+    // --- Audit Trail Queries ---
+    @Query("SELECT * FROM audit_trail_entries WHERE transactionId = :transactionId ORDER BY eventTimeMillis ASC")
+    fun getAuditTrailForTransaction(transactionId: Long): Flow<List<AuditTrailEntry>>
+
+    @Query("SELECT * FROM audit_trail_entries WHERE transactionId = :transactionId ORDER BY eventTimeMillis ASC")
+    suspend fun getAuditTrailForTransactionSnapshot(transactionId: Long): List<AuditTrailEntry>
+
+    @Query("SELECT * FROM audit_trail_entries ORDER BY eventTimeMillis ASC")
+    fun getAllAuditTrailEntries(): Flow<List<AuditTrailEntry>>
+
+    @Query("SELECT * FROM audit_trail_entries ORDER BY eventTimeMillis ASC")
+    suspend fun getAllAuditTrailEntriesSnapshot(): List<AuditTrailEntry>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAuditTrailEntry(entry: AuditTrailEntry): Long
 }

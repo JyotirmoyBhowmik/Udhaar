@@ -470,7 +470,9 @@ fun PartyDetailScreen(
     onPayPartyViaUpi: (Double?) -> Unit,
     onShareThermalReceipt: () -> Unit,
     onExportPartyStatement: () -> Unit,
-    onSharePartyStatement: () -> Unit
+    onSharePartyStatement: () -> Unit,
+    onShareMyPaymentDetails: () -> Unit = {},
+    onRequestPartyPaymentDetails: () -> Unit = {}
 ) {
     BackHandler {
         onBack()
@@ -865,6 +867,53 @@ fun PartyDetailScreen(
                                     },
                                     style = MaterialTheme.typography.labelLarge,
                                     fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        // Phase 3: Share my payment details & Request their payment details (QR and link)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = onShareMyPaymentDetails,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(46.dp)
+                                    .testTag("party_share_my_payment_details_button"),
+                                shape = RoundedCornerShape(4.dp),
+                                border = BorderStroke(1.5.dp, PureBlack),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                            ) {
+                                Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "SHARE MY PAYMENT DETAILS",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            OutlinedButton(
+                                onClick = onRequestPartyPaymentDetails,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(46.dp)
+                                    .testTag("party_request_payment_details_button"),
+                                shape = RoundedCornerShape(4.dp),
+                                border = BorderStroke(1.5.dp, PureBlack),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                            ) {
+                                Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(15.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "REQUEST THEIR DETAILS",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }

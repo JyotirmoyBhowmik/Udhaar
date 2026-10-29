@@ -137,4 +137,63 @@ class ExampleUnitTest {
         assertEquals("+919876543210", com.jyotirmoyb.udhaar.util.ContactPickerHelper.cleanPhoneNumber("+91 (987) 654-3210"))
         assertEquals("9841234567", com.jyotirmoyb.udhaar.util.ContactPickerHelper.cleanPhoneNumber("9841-234-567"))
     }
+
+    @Test
+    fun twoPartyVerification_mirroredRoleContentHashAndE2eeLinksWork() {
+        val lenderTx = UdhaarTransaction(
+            id = 100L,
+            transactionType = TransactionType.GIVEN,
+            partyName = "Bapan",
+            lenderName = "Jyotirmoy",
+            borrowerName = "Bapan",
+            currency = CurrencyType.INR,
+            principalAmount = 15_000.0,
+            startDateMillis = 1_710_000_000_000L,
+            expiryDateMillis = 1_715_000_000_000L,
+            isInterestEnabled = true,
+            interestType = InterestType.SIMPLE,
+            interestRate = 2.0,
+            interestRatePeriod = InterestRatePeriod.PER_MONTH
+        )
+        val borrowerMirroredTx = lenderTx.copy(
+            id = 200L,
+            transactionType = TransactionType.TAKEN,
+            partyName = "Jyotirmoy"
+        )
+
+        val lenderHash = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.computeTransactionContentHash(
+            lenderTx,
+            myProfileName = "Jyotirmoy"
+        )
+        val borrowerHash = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.computeTransactionContentHash(
+            borrowerMirroredTx,
+            myProfileName = "Bapan"
+        )
+        assertEquals(64, lenderHash.length)
+        assertEquals("Mirrored GIVEN and TAKEN records must share the exact same SHA-256 contentHash", lenderHash, borrowerHash)
+
+        val cipher = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.encryptE2eeField(
+            plainText = "Confidential shop invoice #42",
+            remoteId = "uuid-1234",
+            shareToken = "secret-token-99"
+        )
+        val decrypted = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.decryptE2eeField(
+            cipherText = cipher,
+            remoteId = "uuid-1234",
+            shareToken = "secret-token-99"
+        )
+        assertEquals("Confidential shop invoice #42", decrypted)
+
+        val profileLink = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.buildPaymentProfileLink(
+            com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.SharedPaymentProfilePayload(
+                userId = "uid-bapan",
+                displayName = "Bapan",
+                phoneNumber = "+919876543210",
+                upiId = "bapan@okaxis"
+            )
+        )
+        assertTrue(profileLink.startsWith("https://jyotirmoyb.com/u/p/"))
+        val parsedProfile = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.parsePaymentProfileLink(profileLink)
+        assertEquals("bapan@okaxis", parsedProfile?.upiId)
+    }
 }

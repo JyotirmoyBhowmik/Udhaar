@@ -40,10 +40,31 @@ enum class CompoundFrequency(val label: String, val periodsPerYear: Int) {
     YEARLY("Yearly", 1)
 }
 
+enum class VerificationStatus(val label: String, val shortBadge: String) {
+    LOCAL_ONLY("Local Only", "LOCAL"),
+    PENDING("Pending Verification", "PENDING"),
+    CONFIRMED("Verified by Both", "VERIFIED ✓"),
+    DISPUTED("Disputed", "DISPUTED !"),
+    EDITED_AFTER_CONFIRM("Edited • Re-confirm", "RE-CONFIRM")
+}
+
+enum class AuditEventType(val label: String) {
+    CREATED("Record Created"),
+    SHARED("Shared for Verification"),
+    VIEWED("Viewed by Counterparty"),
+    CONFIRMED("Confirmed by Counterparty"),
+    DISPUTED("Disputed by Counterparty"),
+    EDITED("Terms Edited"),
+    PAYMENT_RECORDED("Partial Payment Recorded"),
+    PAYMENT_ACKNOWLEDGED("Payment Acknowledged"),
+    SETTLED("Marked Settled")
+}
+
 enum class LedgerFilter(val label: String) {
     ALL("All"),
     GIVEN("Given"),
     TAKEN("Taken"),
+    NEEDS_CONFIRMATION("Needs my confirmation"),
     OVERDUE("Overdue/Expired"),
     INR("INR (₹)"),
     NPR("NPR (रू)"),
@@ -86,7 +107,18 @@ data class UdhaarTransaction(
     val notes: String = "",
     val isSettled: Boolean = false,
     val settledAtMillis: Long? = null,
-    val createdAtMillis: Long = System.currentTimeMillis()
+    val createdAtMillis: Long = System.currentTimeMillis(),
+    // --- Phase 3: Two-Party Verification Fields ---
+    val remoteId: String = "",
+    val verificationStatus: VerificationStatus = VerificationStatus.LOCAL_ONLY,
+    val verifiedAtMillis: Long? = null,
+    val counterpartyUserId: String = "",
+    val contentHash: String = "",
+    val needsMyConfirmation: Boolean = false,
+    val shareToken: String = "",
+    val disputeReason: String = "",
+    val lenderName: String = "",
+    val borrowerName: String = ""
 )
 
 @Entity(
@@ -108,19 +140,57 @@ data class PartialPayment(
     val amount: Double,
     val paymentMode: PaymentMode = PaymentMode.CASH,
     val paidAtMillis: Long = System.currentTimeMillis(),
-    val note: String = ""
+    val note: String = "",
+    // --- Phase 3: Two-Party Partial Payment Acknowledgement ---
+    val remotePaymentId: String = "",
+    val recordedByUserId: String = "",
+    val recordedByName: String = "",
+    val isAcknowledged: Boolean = false,
+    val acknowledgedAtMillis: Long? = null,
+    val needsMyAcknowledgement: Boolean = false
+)
+
+@Entity(
+    tableName = "audit_trail_entries",
+    foreignKeys = [
+        ForeignKey(
+            entity = UdhaarTransaction::class,
+            parentColumns = ["id"],
+            childColumns = ["transactionId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index(value = ["transactionId"])]
+)
+data class AuditTrailEntry(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0L,
+    val transactionId: Long,
+    val remoteEventId: String = "",
+    val eventType: AuditEventType = AuditEventType.CREATED,
+    val actorUserId: String = "",
+    val actorName: String = "You",
+    val summaryText: String = "",
+    val contentHashSnapshot: String = "",
+    val isAcknowledged: Boolean = false,
+    val eventTimeMillis: Long = System.currentTimeMillis()
 )
 
 data class UserSettings(
     val upiId: String = "",
     val payeeName: String = "",
+    val phoneNumber: String = "",
+    val profilePhotoUri: String = "",
     val defaultCurrency: CurrencyType = CurrencyType.INR,
     val inrEnabled: Boolean = true,
     val nprEnabled: Boolean = false, // Disabled by default per user specification
     val themeMode: AppThemeMode = AppThemeMode.MONOCHROME_LIGHT,
     val fontScale: AppFontScale = AppFontScale.STANDARD,
     val biometricLockEnabled: Boolean = false,
-    val hasPinConfigured: Boolean = false
+    val hasPinConfigured: Boolean = false,
+    val cloudVerificationConsent: Boolean = false,
+    val cloudUserId: String = "",
+    val cloudUserEmail: String = ""
 ) {
     val enabledCurrencies: List<CurrencyType>
         get() = buildList {

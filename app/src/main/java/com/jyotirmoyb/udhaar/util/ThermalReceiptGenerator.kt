@@ -31,7 +31,8 @@ object ThermalReceiptGenerator {
         summary: CalculatedUdhaarSummary,
         partialPayments: List<PartialPayment>,
         userSettings: UserSettings,
-        partyUpiId: String? = null
+        partyUpiId: String? = null,
+        auditTrail: List<com.jyotirmoyb.udhaar.data.AuditTrailEntry> = emptyList()
     ): Bitmap {
         val tx = summary.transaction
         val currency = tx.currency
@@ -63,10 +64,12 @@ object ThermalReceiptGenerator {
             null
         }
 
+        val auditItems = auditTrail.sortedBy { it.eventTimeMillis }.takeLast(8)
         val width = 840
         val paymentRowsHeight = if (partialPayments.isEmpty()) 56 else (partialPayments.size.coerceAtMost(12) * 44 + 74)
+        val auditRowsHeight = if (auditItems.isEmpty()) 110 else (auditItems.size * 44 + 140)
         val qrSectionHeight = if (qrBitmap != null) 410 else 0
-        val height = 1040 + paymentRowsHeight + qrSectionHeight
+        val height = 1140 + paymentRowsHeight + auditRowsHeight + qrSectionHeight
 
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -160,6 +163,11 @@ object ThermalReceiptGenerator {
             drawRow("CONTACT PHONE", tx.phoneNumber)
         }
         drawRow("RECORD TYPE", if (isGiven) "GIVEN (TO RECEIVE)" else "TAKEN (TO PAY)")
+        drawRow("VERIFICATION", tx.verificationStatus.shortBadge, boldLabel = true)
+        val effectiveHash = tx.contentHash.ifBlank {
+            VerificationCryptoHelper.computeTransactionContentHash(tx)
+        }
+        drawRow("CONTENT SHA-256", "${effectiveHash.take(12)}…${effectiveHash.takeLast(6)}")
         drawRow("CURRENCY & MODE", "${currency.displayName} • ${tx.paymentMode.label.uppercase()}")
         drawRow("START DATE", InterestCalculator.formatDate(tx.startDateMillis))
         drawRow(
@@ -195,9 +203,29 @@ object ThermalReceiptGenerator {
             val chronological = partialPayments.sortedBy { it.paidAtMillis }.takeLast(12)
             chronological.forEachIndexed { idx, p ->
                 val dateStr = InterestCalculator.formatDate(p.paidAtMillis)
-                val notePart = if (p.note.isNotBlank()) " • ${p.note.take(16)}" else ""
-                val leftCol = "${idx + 1}. $dateStr [${p.paymentMode.shortBadge}]$notePart"
+                val ackTag = if (p.isAcknowledged) "✓ACK" else "⏳PEND"
+                val byPart = if (p.recordedByName.isNotBlank()) " by ${p.recordedByName.take(10)}" else ""
+                val leftCol = "${idx + 1}. $dateStr [${p.paymentMode.shortBadge}•$ackTag]$byPart"
                 drawRow(leftCol, "- ${InterestCalculator.formatCurrency(p.amount, currency)}")
+            }
+        }
+
+        drawDashedDivider()
+
+        // Immutable Verification & Audit Timeline Section
+        canvas.drawText("IMMUTABLE AUDIT TIMELINE (${auditItems.size})", leftX, y, sectionTitlePaint)
+        y += 42f
+        if (auditItems.isEmpty()) {
+            val createdStr = InterestCalculator.formatDate(tx.createdAtMillis)
+            drawRow("1. $createdStr • RECORD CREATED", tx.verificationStatus.shortBadge)
+        } else {
+            auditItems.forEachIndexed { idx, ev ->
+                val dStr = InterestCalculator.formatDate(ev.eventTimeMillis)
+                val actor = ev.actorName.ifBlank { "Party" }.take(12)
+                drawRow(
+                    "${idx + 1}. $dStr • ${ev.eventType.label.take(22)}",
+                    "$actor [${ev.contentHashSnapshot.take(6)}]"
+                )
             }
         }
 
@@ -419,13 +447,14 @@ object ThermalReceiptGenerator {
             itemsToRender.forEachIndexed { index, item ->
                 val t = item.transaction
                 val badge = if (t.transactionType == TransactionType.GIVEN) "GIVEN" else "TAKEN"
+                val verBadge = t.verificationStatus.shortBadge
                 val dateStr = InterestCalculator.formatDate(t.startDateMillis)
                 val statusAmt = if (t.isSettled) {
                     "SETTLED (${InterestCalculator.formatCurrency(item.grossTotal, t.currency)})"
                 } else {
                     InterestCalculator.formatCurrency(item.netBalanceDue, t.currency)
                 }
-                drawRow("${index + 1}. $dateStr [$badge • ${t.paymentMode.shortBadge}]", statusAmt)
+                drawRow("${index + 1}. $dateStr [$badge • $verBadge]", statusAmt)
             }
         }
 

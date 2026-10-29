@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.jyotirmoyb.udhaar.data.AuditTrailEntry
 import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.LedgerFilter
 import com.jyotirmoyb.udhaar.data.PartialPayment
@@ -13,12 +14,14 @@ import com.jyotirmoyb.udhaar.data.TransactionType
 import com.jyotirmoyb.udhaar.data.UdhaarRepository
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
 import com.jyotirmoyb.udhaar.data.UserSettings
+import com.jyotirmoyb.udhaar.data.VerificationStatus
 import com.jyotirmoyb.udhaar.notification.ReminderScheduler
 import com.jyotirmoyb.udhaar.ui.theme.AppFontScale
 import com.jyotirmoyb.udhaar.ui.theme.AppThemeMode
 import com.jyotirmoyb.udhaar.util.CalculatedUdhaarSummary
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 import com.jyotirmoyb.udhaar.util.LedgerBackupManager
+import com.jyotirmoyb.udhaar.util.VerificationCryptoHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -88,6 +91,7 @@ data class UdhaarUiState(
     val partyKhataList: List<PartyKhataSummary> = emptyList(),
     val filteredPartyKhataList: List<PartyKhataSummary> = emptyList(),
     val partialPaymentsByTx: Map<Long, List<PartialPayment>> = emptyMap(),
+    val auditTrailByTx: Map<Long, List<AuditTrailEntry>> = emptyMap(),
     val userSettings: UserSettings = UserSettings(),
     val editingTransaction: UdhaarTransaction? = null,
     val preselectedPartyDraft: PreselectedPartyDraft? = null,
@@ -100,7 +104,16 @@ data class UdhaarUiState(
     val editingParty: PartyEntity? = null,
     val showAddEditPartyModal: Boolean = false,
     val receiptModalTransactionId: Long? = null,
-    val receiptModalPartyId: Long? = null
+    val receiptModalPartyId: Long? = null,
+    // --- Phase 3: Verification & Payment Profile Sharing State ---
+    val verificationShareTransactionId: Long? = null,
+    val verificationShareLink: String? = null,
+    val incomingVerificationPayload: VerificationCryptoHelper.SharedVerificationPayload? = null,
+    val incomingPaymentProfilePayload: VerificationCryptoHelper.SharedPaymentProfilePayload? = null,
+    val incomingPaymentProfileTargetPartyId: Long? = null,
+    val showShareMyPaymentDetailsModal: Boolean = false,
+    val shareMyPaymentDetailsTargetParty: PartyEntity? = null,
+    val requestPaymentDetailsParty: PartyEntity? = null
 ) {
     val activeSummaryTotals: CurrencyLedgerTotals
         get() = if (summaryCurrency == CurrencyType.INR) inrTotals else nprTotals
@@ -126,7 +139,15 @@ private data class LocalUiFilterState(
     val editingParty: PartyEntity? = null,
     val showAddEditPartyModal: Boolean = false,
     val receiptModalTransactionId: Long? = null,
-    val receiptModalPartyId: Long? = null
+    val receiptModalPartyId: Long? = null,
+    val verificationShareTransactionId: Long? = null,
+    val verificationShareLink: String? = null,
+    val incomingVerificationPayload: VerificationCryptoHelper.SharedVerificationPayload? = null,
+    val incomingPaymentProfilePayload: VerificationCryptoHelper.SharedPaymentProfilePayload? = null,
+    val incomingPaymentProfileTargetPartyId: Long? = null,
+    val showShareMyPaymentDetailsModal: Boolean = false,
+    val shareMyPaymentDetailsTargetParty: PartyEntity? = null,
+    val requestPaymentDetailsParty: PartyEntity? = null
 )
 
 class UdhaarViewModel(
@@ -136,13 +157,32 @@ class UdhaarViewModel(
 
     private val localState = MutableStateFlow(LocalUiFilterState())
 
-    val uiState: StateFlow<UdhaarUiState> = combine(
+    private val ledgerCoreFlow = combine(
         repository.allParties,
         repository.allTransactions,
         repository.allPartialPayments,
+        repository.allAuditTrailEntries
+    ) { parties, transactions, partialPayments, auditEntries ->
+         LedgerCoreBundle(parties, transactions, partialPayments, auditEntries)
+    }
+
+    private data class LedgerCoreBundle(
+        val parties: List<PartyEntity>,
+        val transactions: List<UdhaarTransaction>,
+        val partialPayments: List<PartialPayment>,
+        val auditEntries: List<AuditTrailEntry>
+    )
+
+    val uiState: StateFlow<UdhaarUiState> = combine(
+        ledgerCoreFlow,
         repository.userSettings,
         localState
-    ) { parties, transactions, partialPayments, settings, local ->
+    ) { core, settings, local ->
+        val parties = core.parties
+        val transactions = core.transactions
+        val partialPayments = core.partialPayments
+        val auditEntries = core.auditEntries
+
         val nowMillis = System.currentTimeMillis()
         val enabledCurrencySet = settings.enabledCurrencies.toSet()
 
@@ -175,13 +215,23 @@ class UdhaarViewModel(
             activeTakenCount = activeNpr.count { it.transaction.transactionType == TransactionType.TAKEN }
         )
 
+        val paymentsMap = partialPayments.groupBy { it.transactionId }
+        val auditMap = auditEntries.groupBy { it.transactionId }
+
         val query = local.searchQuery.trim().lowercase()
         val filtered = visibleCalculatedList.filter { item ->
             val tx = item.transaction
+            val txPayments = paymentsMap[tx.id].orEmpty()
+            val needsConfirm = tx.needsMyConfirmation ||
+                tx.verificationStatus == VerificationStatus.EDITED_AFTER_CONFIRM ||
+                tx.verificationStatus == VerificationStatus.PENDING ||
+                txPayments.any { it.needsMyAcknowledgement || !it.isAcknowledged }
+
             val matchesFilter = when (local.selectedFilter) {
                 LedgerFilter.ALL -> true
                 LedgerFilter.GIVEN -> tx.transactionType == TransactionType.GIVEN && !tx.isSettled
                 LedgerFilter.TAKEN -> tx.transactionType == TransactionType.TAKEN && !tx.isSettled
+                LedgerFilter.NEEDS_CONFIRMATION -> needsConfirm && !tx.isSettled
                 LedgerFilter.OVERDUE -> item.isOverdue && !tx.isSettled
                 LedgerFilter.INR -> tx.currency == CurrencyType.INR
                 LedgerFilter.NPR -> tx.currency == CurrencyType.NPR
@@ -193,7 +243,8 @@ class UdhaarViewModel(
                 tx.partyName.lowercase().contains(query) ||
                     tx.phoneNumber.lowercase().contains(query) ||
                     tx.notes.lowercase().contains(query) ||
-                    tx.paymentMode.label.lowercase().contains(query)
+                    tx.paymentMode.label.lowercase().contains(query) ||
+                    tx.verificationStatus.label.lowercase().contains(query)
             }
             matchesFilter && matchesQuery
         }
@@ -262,7 +313,6 @@ class UdhaarViewModel(
             }
         }
 
-        val paymentsMap = partialPayments.groupBy { it.transactionId }
         val rawSummaryCurrency = local.summaryCurrency ?: settings.defaultCurrency
         val effectiveSummaryCurrency = if (rawSummaryCurrency in enabledCurrencySet) {
             rawSummaryCurrency
@@ -287,6 +337,7 @@ class UdhaarViewModel(
             partyKhataList = khataList,
             filteredPartyKhataList = filteredKhataList,
             partialPaymentsByTx = paymentsMap,
+            auditTrailByTx = auditMap,
             userSettings = settings,
             editingTransaction = local.editingTransaction,
             preselectedPartyDraft = local.preselectedPartyDraft,
@@ -299,7 +350,15 @@ class UdhaarViewModel(
             editingParty = local.editingParty,
             showAddEditPartyModal = local.showAddEditPartyModal,
             receiptModalTransactionId = local.receiptModalTransactionId,
-            receiptModalPartyId = local.receiptModalPartyId
+            receiptModalPartyId = local.receiptModalPartyId,
+            verificationShareTransactionId = local.verificationShareTransactionId,
+            verificationShareLink = local.verificationShareLink,
+            incomingVerificationPayload = local.incomingVerificationPayload,
+            incomingPaymentProfilePayload = local.incomingPaymentProfilePayload,
+            incomingPaymentProfileTargetPartyId = local.incomingPaymentProfileTargetPartyId,
+            showShareMyPaymentDetailsModal = local.showShareMyPaymentDetailsModal,
+            shareMyPaymentDetailsTargetParty = local.shareMyPaymentDetailsTargetParty,
+            requestPaymentDetailsParty = local.requestPaymentDetailsParty
         )
     }.stateIn(
         scope = viewModelScope,
@@ -639,9 +698,195 @@ class UdhaarViewModel(
         localState.update { it.copy(showShareAppModal = false) }
     }
 
+    // --- Phase 3: Two-Party Verification & Payment Profile Sharing Actions ---
+    fun requestVerificationForTransaction(transaction: UdhaarTransaction) {
+        viewModelScope.launch {
+            val (updatedTx, link) = repository.prepareVerificationShare(transaction)
+            localState.update {
+                it.copy(
+                    verificationShareTransactionId = updatedTx.id,
+                    verificationShareLink = link
+                )
+            }
+        }
+    }
+
+    fun closeVerificationShareModal() {
+        localState.update {
+            it.copy(
+                verificationShareTransactionId = null,
+                verificationShareLink = null
+            )
+        }
+    }
+
+    /**
+     * Handles an incoming Android App Link (`https://jyotirmoyb.com/u/<token>` or `.../u/p/<token>`)
+     * or a pasted/scanned verification or payment profile token.
+     */
+    fun handleIncomingDeepLinkOrToken(
+        urlOrToken: String,
+        targetPartyId: Long? = null
+    ): Boolean {
+        val profilePayload = VerificationCryptoHelper.parsePaymentProfileLink(urlOrToken)
+        if (profilePayload != null) {
+            localState.update {
+                it.copy(
+                    incomingPaymentProfilePayload = profilePayload,
+                    incomingPaymentProfileTargetPartyId = targetPartyId
+                )
+            }
+            return true
+        }
+
+        val verificationPayload = VerificationCryptoHelper.parseVerificationLink(urlOrToken)
+        if (verificationPayload != null) {
+            localState.update {
+                it.copy(
+                    incomingVerificationPayload = verificationPayload
+                )
+            }
+            return true
+        }
+        return false
+    }
+
+    fun confirmOrDisputeIncomingVerification(
+        confirm: Boolean,
+        disputeReason: String = ""
+    ) {
+        val payload = localState.value.incomingVerificationPayload ?: return
+        viewModelScope.launch {
+            val savedTx = repository.processIncomingVerificationResponse(
+                payload = payload,
+                confirm = confirm,
+                disputeReason = disputeReason
+            )
+            localState.update {
+                it.copy(
+                    incomingVerificationPayload = null,
+                    detailTransactionId = savedTx.id,
+                    summaryCurrency = savedTx.currency
+                )
+            }
+        }
+    }
+
+    fun dismissIncomingVerification() {
+        localState.update { it.copy(incomingVerificationPayload = null) }
+    }
+
+    fun confirmOrDisputeExistingRecord(
+        transaction: UdhaarTransaction,
+        confirm: Boolean,
+        disputeReason: String = ""
+    ) {
+        viewModelScope.launch {
+            repository.confirmOrDisputeExistingTransaction(
+                transaction = transaction,
+                confirm = confirm,
+                disputeReason = disputeReason
+            )
+        }
+    }
+
+    fun acknowledgePartialPayment(
+        transaction: UdhaarTransaction,
+        payment: PartialPayment
+    ) {
+        viewModelScope.launch {
+            repository.acknowledgePartialPayment(
+                transaction = transaction,
+                payment = payment,
+                actorName = uiState.value.userSettings.payeeName.ifBlank { "You" }
+            )
+        }
+    }
+
+    fun openShareMyPaymentDetailsModal(targetParty: PartyEntity? = null) {
+        localState.update {
+            it.copy(
+                showShareMyPaymentDetailsModal = true,
+                shareMyPaymentDetailsTargetParty = targetParty
+            )
+        }
+    }
+
+    fun closeShareMyPaymentDetailsModal() {
+        localState.update {
+            it.copy(
+                showShareMyPaymentDetailsModal = false,
+                shareMyPaymentDetailsTargetParty = null
+            )
+        }
+    }
+
+    fun openRequestPartyPaymentDetailsModal(party: PartyEntity) {
+        localState.update {
+            it.copy(requestPaymentDetailsParty = party)
+        }
+    }
+
+    fun closeRequestPartyPaymentDetailsModal() {
+        localState.update {
+            it.copy(requestPaymentDetailsParty = null)
+        }
+    }
+
+    fun acceptIncomingPaymentProfile() {
+        val payload = localState.value.incomingPaymentProfilePayload ?: return
+        val targetPartyId = localState.value.incomingPaymentProfileTargetPartyId
+        viewModelScope.launch {
+            val updatedParty = repository.acceptSharedPaymentProfile(payload, targetPartyId)
+            localState.update {
+                it.copy(
+                    incomingPaymentProfilePayload = null,
+                    incomingPaymentProfileTargetPartyId = null,
+                    requestPaymentDetailsParty = null,
+                    selectedPartyIdForSheet = if (it.activeScreen == ActiveScreen.PARTY_DETAIL) {
+                        updatedParty.partyId
+                    } else {
+                        it.selectedPartyIdForSheet
+                    }
+                )
+            }
+        }
+    }
+
+    fun dismissIncomingPaymentProfile() {
+        localState.update {
+            it.copy(
+                incomingPaymentProfilePayload = null,
+                incomingPaymentProfileTargetPartyId = null
+            )
+        }
+    }
+
+    fun setCloudAccountState(
+        consentGranted: Boolean,
+        userId: String,
+        email: String
+    ) {
+        viewModelScope.launch {
+            repository.setCloudAccountState(
+                consentGranted = consentGranted,
+                userId = userId,
+                email = email
+            )
+        }
+    }
+
+    fun deleteMyCloudData(onComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            repository.deleteMyCloudData()
+            onComplete()
+        }
+    }
+
     fun saveUdhaarTransaction(transaction: UdhaarTransaction) {
         viewModelScope.launch {
-            val savedId = repository.saveTransaction(transaction)
+            val myName = uiState.value.userSettings.payeeName.ifBlank { "You" }
+            val savedId = repository.saveTransaction(transaction, myProfileName = myName)
             val savedTx = transaction.copy(id = savedId)
             appContext?.let { ctx ->
                 if (savedTx.reminderDateMillis != null && !savedTx.isSettled) {
@@ -685,15 +930,23 @@ class UdhaarViewModel(
         summary: CalculatedUdhaarSummary,
         amount: Double,
         paymentMode: PaymentMode = PaymentMode.CASH,
-        note: String
+        note: String,
+        recordedByCounterparty: Boolean = false
     ) {
         viewModelScope.launch {
+            val myName = uiState.value.userSettings.payeeName.ifBlank { "You" }
+            val actor = if (recordedByCounterparty) {
+                summary.transaction.partyName
+            } else {
+                myName
+            }
             repository.recordPartialPayment(
                 transaction = summary.transaction,
                 paymentAmount = amount,
                 paymentMode = paymentMode,
                 note = note,
-                totalAccruedAmount = summary.grossTotal
+                totalAccruedAmount = summary.grossTotal,
+                actorName = actor
             )
         }
     }
@@ -735,6 +988,9 @@ class UdhaarViewModel(
         fontScale: AppFontScale? = null,
         biometricLockEnabled: Boolean? = null,
         securityPin: String? = null,
+        phoneNumber: String? = null,
+        profilePhotoUri: String? = null,
+        cloudVerificationConsent: Boolean? = null,
         closeModal: Boolean = true
     ) {
         viewModelScope.launch {
@@ -747,7 +1003,10 @@ class UdhaarViewModel(
                 themeMode = themeMode,
                 fontScale = fontScale,
                 biometricLockEnabled = biometricLockEnabled,
-                securityPin = securityPin
+                securityPin = securityPin,
+                phoneNumber = phoneNumber,
+                profilePhotoUri = profilePhotoUri,
+                cloudVerificationConsent = cloudVerificationConsent
             )
             if (closeModal) {
                 localState.update {

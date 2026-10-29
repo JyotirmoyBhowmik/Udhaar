@@ -158,6 +158,16 @@ object InterestCalculator {
         return "${currency.symbol}$formattedNumber"
     }
 
+    fun formatAmount(amount: Double): String {
+        val clean = if (kotlin.math.abs(amount) < 0.005) 0.0 else amount
+        val hasDecimals = kotlin.math.abs(clean - kotlin.math.round(clean)) >= 0.01
+        return if (hasDecimals) {
+            decimalFormat.format(clean)
+        } else {
+            wholeNumberFormat.format(clean)
+        }
+    }
+
     fun formatPlainAmount(amount: Double): String {
         val clean = max(0.0, amount)
         return String.format(Locale.US, "%.2f", clean)
@@ -186,15 +196,50 @@ object InterestCalculator {
         summary: CalculatedUdhaarSummary,
         hideExactAmount: Boolean,
         upiId: String,
-        includeUpiId: Boolean = true
+        includeUpiId: Boolean = true,
+        verificationLink: String? = null
     ): String {
         val tx = summary.transaction
         val partyName = tx.partyName.ifBlank { "Friend" }
         val expiryText = tx.expiryDateMillis?.let { formatDate(it) } ?: "the earliest convenience"
         val currency = tx.currency
 
+        val effectiveLink = verificationLink?.takeIf { it.isNotBlank() } ?: run {
+            val (lender, borrower) = VerificationCryptoHelper.resolveLenderAndBorrowerNames(
+                type = tx.transactionType,
+                partyName = tx.partyName,
+                myProfileName = "Udhaar User",
+                explicitLenderName = tx.lenderName,
+                explicitBorrowerName = tx.borrowerName
+            )
+            val hash = tx.contentHash.ifBlank {
+                VerificationCryptoHelper.computeTransactionContentHash(tx)
+            }
+            val payload = VerificationCryptoHelper.SharedVerificationPayload(
+                remoteId = tx.remoteId.ifBlank { "tx_${tx.id}" },
+                shareToken = tx.shareToken,
+                creatorUserId = "",
+                creatorRole = tx.transactionType,
+                lenderName = lender,
+                borrowerName = borrower,
+                creatorPhone = "",
+                counterpartyPhone = tx.phoneNumber,
+                principalAmount = tx.principalAmount,
+                currencyCode = tx.currency.code,
+                startDateMillis = tx.startDateMillis,
+                expiryDateMillis = tx.expiryDateMillis,
+                isInterestEnabled = tx.isInterestEnabled,
+                interestType = tx.interestType,
+                interestRate = tx.interestRate,
+                interestRatePeriod = tx.interestRatePeriod,
+                compoundFrequency = tx.compoundFrequency,
+                contentHash = hash
+            )
+            VerificationCryptoHelper.buildVerificationLink(payload)
+        }
+
         if (hideExactAmount) {
-            return "Hello $partyName, hope you are doing well. This is a gentle reminder regarding our pending account settlement scheduled for $expiryText. Please check at your convenience. Thank you!"
+            return "Hello $partyName, hope you are doing well. This is a gentle reminder regarding our pending account settlement scheduled for $expiryText. Please check or confirm the entry here: $effectiveLink"
         }
 
         val totalFormatted = formatCurrency(summary.netBalanceDue, currency)
@@ -206,13 +251,15 @@ object InterestCalculator {
             ""
         }
 
-        val baseMessage = "Hello $partyName, hope you are doing well. This is a gentle reminder from Udhaar regarding the ${tx.paymentMode.label} record of $totalFormatted (Principal: $principalFormatted, Interest: $interestFormatted$paidPart) due on $expiryText. Kindly let me know once settled. Thank you!"
+        val baseMessage = "Hello $partyName, hope you are doing well. This is a gentle reminder from Udhaar regarding the ${tx.paymentMode.label} record of $totalFormatted (Principal: $principalFormatted, Interest: $interestFormatted$paidPart) due on $expiryText."
 
-        return if (includeUpiId && currency == CurrencyType.INR && upiId.isNotBlank() && tx.transactionType.name == "GIVEN") {
+        val withUpi = if (includeUpiId && currency == CurrencyType.INR && upiId.isNotBlank() && tx.transactionType.name == "GIVEN") {
             "$baseMessage\n\nUPI ID for settlement: ${upiId.trim()}"
         } else {
             baseMessage
         }
+
+        return "$withUpi\n\nVerify or confirm this Udhaar record (Hash ${tx.contentHash.take(8).ifBlank { "verified" }}): $effectiveLink"
     }
 
     fun sanitizePhoneForWhatsApp(rawPhone: String, currency: CurrencyType): String {

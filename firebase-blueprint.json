@@ -1,0 +1,387 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user's payment and verification profile (isolated to owner).",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the profile owner."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User's display or business name."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "User's formatted phone number."
+        },
+        "upiId": {
+          "type": "string",
+          "description": "User's UPI VPA for receiving settlements."
+        },
+        "photoUri": {
+          "type": "string",
+          "description": "Optional avatar/photo reference URI."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the profile was created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the profile was last updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "phoneNumber",
+        "upiId",
+        "photoUri",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SharedVerificationRecord": {
+      "title": "SharedVerificationRecord",
+      "description": "Two-party verifiable Udhaar ledger record readable only by the two participants.",
+      "type": "object",
+      "properties": {
+        "remoteId": {
+          "type": "string",
+          "description": "UUID matching the document ID."
+        },
+        "creatorUid": {
+          "type": "string",
+          "description": "UID of the user who created and shared the record."
+        },
+        "counterpartyUid": {
+          "type": "string",
+          "description": "UID of the counterparty who confirmed or disputed the record (empty string until claimed)."
+        },
+        "participantUids": {
+          "type": "array",
+          "description": "Bounded 1-2 element array of participant UIDs used for two-party read/query isolation."
+        },
+        "lenderName": {
+          "type": "string",
+          "description": "Canonical name of the lender (GIVEN party)."
+        },
+        "borrowerName": {
+          "type": "string",
+          "description": "Canonical name of the borrower (TAKEN party)."
+        },
+        "creatorRole": {
+          "type": "string",
+          "enum": ["GIVEN", "TAKEN"],
+          "description": "Whether the creator recorded this entry as GIVEN or TAKEN."
+        },
+        "currency": {
+          "type": "string",
+          "enum": ["INR", "NPR"],
+          "description": "Ledger currency code."
+        },
+        "principalAmount": {
+          "type": "number",
+          "description": "Principal amount (> 0)."
+        },
+        "amountPaid": {
+          "type": "number",
+          "description": "Cumulative amount repaid so far (>= 0)."
+        },
+        "paymentMode": {
+          "type": "string",
+          "enum": ["CASH", "ONLINE", "UPI", "PARTY_ACCOUNT"],
+          "description": "Payment mode."
+        },
+        "isInterestEnabled": {
+          "type": "boolean",
+          "description": "Whether interest accrual is enabled."
+        },
+        "interestType": {
+          "type": "string",
+          "enum": ["SIMPLE", "COMPOUND"],
+          "description": "Interest calculation type."
+        },
+        "interestRate": {
+          "type": "number",
+          "description": "Interest rate percentage (>= 0)."
+        },
+        "interestRatePeriod": {
+          "type": "string",
+          "enum": ["PER_MONTH", "PER_ANNUM"],
+          "description": "Interest rate period."
+        },
+        "compoundFrequency": {
+          "type": "string",
+          "enum": ["MONTHLY", "QUARTERLY", "YEARLY"],
+          "description": "Compounding frequency."
+        },
+        "startDateMillis": {
+          "type": "integer",
+          "description": "Epoch milliseconds of the loan start date."
+        },
+        "expiryDateMillis": {
+          "type": "integer",
+          "description": "Epoch milliseconds of the due date, or -1 if open-ended."
+        },
+        "contentHash": {
+          "type": "string",
+          "description": "64-character SHA-256 hex digest of canonical party, amount, currency, dates, type, and interest terms."
+        },
+        "verificationStatus": {
+          "type": "string",
+          "enum": ["PENDING", "CONFIRMED", "DISPUTED", "EDITED_AFTER_CONFIRM"],
+          "description": "Current two-party verification status."
+        },
+        "verifiedAtMillis": {
+          "type": "integer",
+          "description": "Epoch milliseconds when confirmed/verified, or -1 if unverified."
+        },
+        "disputeReason": {
+          "type": "string",
+          "description": "Optional reason provided if disputed."
+        },
+        "encryptedNotes": {
+          "type": "string",
+          "description": "End-to-end AES-GCM encrypted notes ciphertext."
+        },
+        "attachmentRefs": {
+          "type": "array",
+          "description": "Bounded list (<= 5) of end-to-end encrypted attachment references."
+        },
+        "isSettled": {
+          "type": "boolean",
+          "description": "Whether the record is marked settled."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when last updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "remoteId",
+        "creatorUid",
+        "counterpartyUid",
+        "participantUids",
+        "lenderName",
+        "borrowerName",
+        "creatorRole",
+        "currency",
+        "principalAmount",
+        "amountPaid",
+        "paymentMode",
+        "isInterestEnabled",
+        "interestType",
+        "interestRate",
+        "interestRatePeriod",
+        "compoundFrequency",
+        "startDateMillis",
+        "expiryDateMillis",
+        "contentHash",
+        "verificationStatus",
+        "verifiedAtMillis",
+        "disputeReason",
+        "encryptedNotes",
+        "attachmentRefs",
+        "isSettled",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SharedPartialPayment": {
+      "title": "SharedPartialPayment",
+      "description": "Installment payment recorded on a shared verification record with counterparty acknowledgement.",
+      "type": "object",
+      "properties": {
+        "paymentId": {
+          "type": "string",
+          "description": "Unique payment ID."
+        },
+        "remoteId": {
+          "type": "string",
+          "description": "Parent shared record ID."
+        },
+        "recordedByUid": {
+          "type": "string",
+          "description": "UID of the party who recorded the installment."
+        },
+        "recordedByName": {
+          "type": "string",
+          "description": "Display name of the party who recorded the installment."
+        },
+        "participantUids": {
+          "type": "array",
+          "description": "Denormalized 1-2 participant UIDs for flat security rule evaluation."
+        },
+        "amount": {
+          "type": "number",
+          "description": "Installment payment amount (> 0)."
+        },
+        "paymentMode": {
+          "type": "string",
+          "enum": ["CASH", "ONLINE", "UPI", "PARTY_ACCOUNT"],
+          "description": "Payment mode for this installment."
+        },
+        "paidAtMillis": {
+          "type": "integer",
+          "description": "Epoch milliseconds when paid."
+        },
+        "encryptedNote": {
+          "type": "string",
+          "description": "Optional E2EE AES-GCM encrypted note."
+        },
+        "isAcknowledged": {
+          "type": "boolean",
+          "description": "Whether the other party confirmed/acknowledged this installment."
+        },
+        "acknowledgedByUid": {
+          "type": "string",
+          "description": "UID of the party who acknowledged this installment."
+        },
+        "acknowledgedAtMillis": {
+          "type": "integer",
+          "description": "Epoch milliseconds when acknowledged, or -1."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "paymentId",
+        "remoteId",
+        "recordedByUid",
+        "recordedByName",
+        "participantUids",
+        "amount",
+        "paymentMode",
+        "paidAtMillis",
+        "encryptedNote",
+        "isAcknowledged",
+        "acknowledgedByUid",
+        "acknowledgedAtMillis",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SharedAuditEvent": {
+      "title": "SharedAuditEvent",
+      "description": "Immutable append-only audit trail entry for a shared verification record.",
+      "type": "object",
+      "properties": {
+        "eventId": {
+          "type": "string",
+          "description": "Unique event ID."
+        },
+        "remoteId": {
+          "type": "string",
+          "description": "Parent shared record ID."
+        },
+        "eventType": {
+          "type": "string",
+          "enum": [
+            "CREATED",
+            "SHARED",
+            "VIEWED",
+            "CONFIRMED",
+            "DISPUTED",
+            "EDITED",
+            "PAYMENT_RECORDED",
+            "PAYMENT_ACKNOWLEDGED",
+            "SETTLED"
+          ],
+          "description": "Audit lifecycle event type."
+        },
+        "actorUid": {
+          "type": "string",
+          "description": "UID of the user who triggered the event."
+        },
+        "actorName": {
+          "type": "string",
+          "description": "Display name of the actor."
+        },
+        "participantUids": {
+          "type": "array",
+          "description": "Denormalized 1-2 participant UIDs for two-party read isolation."
+        },
+        "summaryText": {
+          "type": "string",
+          "description": "Human-readable audit description."
+        },
+        "contentHashSnapshot": {
+          "type": "string",
+          "description": "SHA-256 contentHash at the time of the event."
+        },
+        "acknowledged": {
+          "type": "boolean",
+          "description": "Whether the counterparty acknowledged this event."
+        },
+        "eventTimeMillis": {
+          "type": "integer",
+          "description": "Client event timestamp in epoch milliseconds."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when recorded (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "eventId",
+        "remoteId",
+        "eventType",
+        "actorUid",
+        "actorName",
+        "participantUids",
+        "summaryText",
+        "contentHashSnapshot",
+        "acknowledged",
+        "eventTimeMillis",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/user_profiles/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Owner-isolated user profile and payment details."
+    },
+    "/shared_records/{remoteId}": {
+      "schema": {
+        "$ref": "#/entities/SharedVerificationRecord"
+      },
+      "description": "Two-party verification records readable only by creatorUid and counterpartyUid."
+    },
+    "/shared_records/{remoteId}/partial_payments/{paymentId}": {
+      "schema": {
+        "$ref": "#/entities/SharedPartialPayment"
+      },
+      "description": "Partial repayments and counterparty acknowledgements for a shared record."
+    },
+    "/shared_records/{remoteId}/audit_trail/{eventId}": {
+      "schema": {
+        "$ref": "#/entities/SharedAuditEvent"
+      },
+      "description": "Immutable append-only audit trail for a shared record."
+    }
+  }
+}

@@ -76,8 +76,10 @@ import androidx.compose.ui.unit.dp
 import com.jyotirmoyb.udhaar.R
 import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.LedgerFilter
+import com.jyotirmoyb.udhaar.data.PartialPayment
 import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.TransactionType
+import com.jyotirmoyb.udhaar.data.VerificationStatus
 import com.jyotirmoyb.udhaar.ui.ActiveScreen
 import com.jyotirmoyb.udhaar.ui.CurrencyLedgerTotals
 import com.jyotirmoyb.udhaar.ui.PartyKhataSummary
@@ -111,7 +113,8 @@ fun DashboardScreen(
     onGlobalQrClick: () -> Unit,
     onShareAppClick: () -> Unit,
     onLockAppClick: () -> Unit,
-    onSettingsClick: () -> Unit
+    onSettingsClick: () -> Unit,
+    onShareMyPaymentDetailsClick: () -> Unit = {}
 ) {
     val isPeopleTab = uiState.activeScreen == ActiveScreen.PEOPLE_DIRECTORY
     val enabledCurrencies = uiState.userSettings.enabledCurrencies
@@ -288,6 +291,28 @@ fun DashboardScreen(
                                         onCycleTheme()
                                     },
                                     modifier = Modifier.testTag("cycle_theme_top_button")
+                                )
+
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = "Share My Payment Details",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = PureBlack
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.QrCode2,
+                                            contentDescription = null,
+                                            tint = PureBlack
+                                        )
+                                    },
+                                    onClick = {
+                                        showMoreMenu = false
+                                        onShareMyPaymentDetailsClick()
+                                    },
+                                    modifier = Modifier.testTag("share_payment_profile_top_button")
                                 )
 
                                 DropdownMenuItem(
@@ -478,12 +503,16 @@ fun DashboardScreen(
                             selectedFilter = uiState.selectedFilter,
                             enabledCurrencies = enabledCurrencies,
                             allCalculatedItems = uiState.allCalculatedItems,
+                            partialPaymentsByTx = uiState.partialPaymentsByTx,
                             onSearchQueryChange = onSearchQueryChange,
                             onSelectFilter = onSelectFilter
                         )
                     }
 
                     item {
+                        val verifiedCount = uiState.allCalculatedItems.count {
+                            it.transaction.verificationStatus == VerificationStatus.CONFIRMED
+                        }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -492,7 +521,7 @@ fun DashboardScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "LEDGER RECORDS (${uiState.filteredItems.size})",
+                                text = "LEDGER RECORDS (${uiState.filteredItems.size}) • $verifiedCount VERIFIED ✓",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = SecondaryInkGrey
                             )
@@ -703,6 +732,7 @@ private fun SearchAndFilterBar(
     selectedFilter: LedgerFilter,
     enabledCurrencies: List<CurrencyType>,
     allCalculatedItems: List<CalculatedUdhaarSummary>,
+    partialPaymentsByTx: Map<Long, List<PartialPayment>>,
     onSearchQueryChange: (String) -> Unit,
     onSelectFilter: (LedgerFilter) -> Unit
 ) {
@@ -714,7 +744,7 @@ private fun SearchAndFilterBar(
         }
     }
 
-    val filterCounts = remember(allCalculatedItems) {
+    val filterCounts = remember(allCalculatedItems, partialPaymentsByTx) {
         LedgerFilter.entries.associateWith { filter ->
             when (filter) {
                 LedgerFilter.ALL -> allCalculatedItems.size
@@ -723,6 +753,16 @@ private fun SearchAndFilterBar(
                 }
                 LedgerFilter.TAKEN -> allCalculatedItems.count {
                     it.transaction.transactionType == TransactionType.TAKEN && !it.transaction.isSettled
+                }
+                LedgerFilter.NEEDS_CONFIRMATION -> allCalculatedItems.count { item ->
+                    val tx = item.transaction
+                    val txPayments = partialPaymentsByTx[tx.id].orEmpty()
+                    !tx.isSettled && (
+                        tx.needsMyConfirmation ||
+                            tx.verificationStatus == VerificationStatus.EDITED_AFTER_CONFIRM ||
+                            tx.verificationStatus == VerificationStatus.PENDING ||
+                            txPayments.any { it.needsMyAcknowledgement || !it.isAcknowledged }
+                        )
                 }
                 LedgerFilter.OVERDUE -> allCalculatedItems.count {
                     it.isOverdue && !it.transaction.isSettled
@@ -966,6 +1006,35 @@ private fun TransactionCardItem(
                         text = tx.currency.code,
                         style = MaterialTheme.typography.labelSmall,
                         color = SecondaryInkGrey
+                    )
+                }
+
+                val isVerified = tx.verificationStatus == VerificationStatus.CONFIRMED
+                val verBadgeText = if (tx.needsMyConfirmation) {
+                    "CONFIRM?"
+                } else {
+                    tx.verificationStatus.shortBadge
+                }
+                Box(
+                    modifier = Modifier
+                        .background(
+                            color = if (isVerified) PureBlack else SubtleSurfaceGrey,
+                            shape = RoundedCornerShape(2.dp)
+                        )
+                        .border(
+                            width = if (isVerified || tx.verificationStatus != VerificationStatus.LOCAL_ONLY) 1.dp else 0.5.dp,
+                            color = if (isVerified) PureBlack else BorderGrey,
+                            shape = RoundedCornerShape(2.dp)
+                        )
+                        .padding(horizontal = 5.dp, vertical = 2.dp)
+                        .testTag("tx_verification_badge_${tx.id}")
+                ) {
+                    Text(
+                        text = verBadgeText,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = if (isVerified || tx.needsMyConfirmation) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isVerified) PureWhite else PureBlack,
+                        maxLines = 1
                     )
                 }
             }

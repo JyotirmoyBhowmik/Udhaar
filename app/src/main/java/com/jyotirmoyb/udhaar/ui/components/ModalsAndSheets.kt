@@ -9,6 +9,9 @@ import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -101,12 +104,14 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.jyotirmoyb.udhaar.data.AuditTrailEntry
 import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.PartialPayment
 import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.PaymentMode
 import com.jyotirmoyb.udhaar.data.TransactionType
 import com.jyotirmoyb.udhaar.data.UserSettings
+import com.jyotirmoyb.udhaar.data.VerificationStatus
 import com.jyotirmoyb.udhaar.security.SecureScreenEffect
 import com.jyotirmoyb.udhaar.ui.QrModalState
 import com.jyotirmoyb.udhaar.ui.theme.AppFontScale
@@ -126,10 +131,15 @@ import com.jyotirmoyb.udhaar.util.UpiQrGenerator
 fun TransactionDetailModal(
     summary: CalculatedUdhaarSummary,
     partialPayments: List<PartialPayment>,
+    auditTrail: List<AuditTrailEntry> = emptyList(),
     linkedParty: PartyEntity? = null,
     onDismiss: () -> Unit,
     onRecordPartialPayment: (amount: Double, paymentMode: PaymentMode, note: String) -> Unit,
+    onRecordCounterpartyPayment: (amount: Double, paymentMode: PaymentMode, note: String) -> Unit = { _, _, _ -> },
+    onAcknowledgePartialPayment: (PartialPayment) -> Unit = {},
     onDeletePartialPayment: (PartialPayment) -> Unit,
+    onRequestVerification: () -> Unit = {},
+    onConfirmOrDisputeRecord: (confirm: Boolean, disputeReason: String) -> Unit = { _, _ -> },
     onToggleSettled: () -> Unit,
     onEdit: () -> Unit,
     onDeleteTransaction: () -> Unit,
@@ -142,8 +152,11 @@ fun TransactionDetailModal(
     var partialAmountText by rememberSaveable { mutableStateOf("") }
     var partialPaymentMode by rememberSaveable { mutableStateOf(tx.paymentMode) }
     var partialNoteText by rememberSaveable { mutableStateOf("") }
+    var reportedByCounterparty by rememberSaveable { mutableStateOf(false) }
     var errorText by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    var showDisputeInput by rememberSaveable { mutableStateOf(false) }
+    var disputeReasonInput by rememberSaveable { mutableStateOf("") }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -251,6 +264,175 @@ fun TransactionDetailModal(
                     }
                     if (tx.notes.isNotBlank()) {
                         BreakdownLine("Notes", tx.notes)
+                    }
+                }
+
+                // Phase 3: Two-Party Verification & Content Hash Card
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                        .padding(12.dp)
+                        .testTag("detail_verification_section"),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "TWO-PARTY VERIFICATION",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Box(
+                            modifier = Modifier
+                                .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = tx.verificationStatus.shortBadge,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+
+                    if (tx.contentHash.isNotBlank()) {
+                        Text(
+                            text = "SHA-256: ${tx.contentHash.take(24)}...",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (tx.disputeReason.isNotBlank() && tx.verificationStatus == VerificationStatus.DISPUTED) {
+                        Text(
+                            text = "Dispute Note: ${tx.disputeReason}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+
+                    if (tx.verificationStatus == VerificationStatus.EDITED_AFTER_CONFIRM) {
+                        Text(
+                            text = "Terms were edited after confirmation. Ask ${tx.partyName} to re-confirm or confirm the updated hash below.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+
+                    OutlinedButton(
+                        onClick = onRequestVerification,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(46.dp)
+                            .testTag("request_verification_button"),
+                        shape = RoundedCornerShape(6.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                    ) {
+                        Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (tx.verificationStatus == VerificationStatus.LOCAL_ONLY) {
+                                "REQUEST VERIFICATION (LINK & QR)"
+                            } else {
+                                "SHARE VERIFICATION LINK & QR"
+                            },
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+
+                    if (tx.needsMyConfirmation ||
+                        tx.verificationStatus == VerificationStatus.PENDING ||
+                        tx.verificationStatus == VerificationStatus.EDITED_AFTER_CONFIRM
+                    ) {
+                        if (showDisputeInput) {
+                            OutlinedTextField(
+                                value = disputeReasonInput,
+                                onValueChange = { disputeReasonInput = it },
+                                label = { Text("Reason for Dispute") },
+                                singleLine = true,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("detail_dispute_reason_input")
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { showDisputeInput = false },
+                                    modifier = Modifier.weight(1f).height(44.dp),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text("CANCEL", style = MaterialTheme.typography.labelSmall)
+                                }
+                                Button(
+                                    onClick = {
+                                        onConfirmOrDisputeRecord(
+                                            false,
+                                            disputeReasonInput.ifBlank { "Disputed by counterparty" }
+                                        )
+                                        showDisputeInput = false
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(44.dp)
+                                        .testTag("detail_submit_dispute_button"),
+                                    shape = RoundedCornerShape(6.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.error,
+                                        contentColor = MaterialTheme.colorScheme.onError
+                                    )
+                                ) {
+                                    Text("SUBMIT DISPUTE", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = { onConfirmOrDisputeRecord(true, "") },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(44.dp)
+                                        .testTag("detail_confirm_verification_button"),
+                                    shape = RoundedCornerShape(6.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                ) {
+                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("CONFIRM ENTRY", style = MaterialTheme.typography.labelSmall)
+                                }
+                                OutlinedButton(
+                                    onClick = { showDisputeInput = true },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(44.dp)
+                                        .testTag("detail_dispute_verification_button"),
+                                    shape = RoundedCornerShape(6.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                                ) {
+                                    Text(
+                                        text = "DISPUTE",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -373,6 +555,26 @@ fun TransactionDetailModal(
                                     .testTag("partial_payment_note_input")
                             )
                         }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { reportedByCounterparty = !reportedByCounterparty }
+                                .padding(vertical = 2.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Reported by ${tx.partyName} (Requires my confirmation)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Switch(
+                                checked = reportedByCounterparty,
+                                onCheckedChange = { reportedByCounterparty = it },
+                                modifier = Modifier.testTag("reported_by_counterparty_switch")
+                            )
+                        }
                         if (errorText != null) {
                             Text(
                                 text = errorText!!,
@@ -388,9 +590,14 @@ fun TransactionDetailModal(
                                     errorText = "Enter a valid installment amount > 0"
                                     return@Button
                                 }
-                                onRecordPartialPayment(amt, partialPaymentMode, partialNoteText.trim())
+                                if (reportedByCounterparty) {
+                                    onRecordCounterpartyPayment(amt, partialPaymentMode, partialNoteText.trim())
+                                } else {
+                                    onRecordPartialPayment(amt, partialPaymentMode, partialNoteText.trim())
+                                }
                                 partialAmountText = ""
                                 partialNoteText = ""
+                                reportedByCounterparty = false
                                 errorText = null
                             },
                             modifier = Modifier
@@ -425,61 +632,159 @@ fun TransactionDetailModal(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         partialPayments.forEach { payment ->
-                            Row(
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))
                                     .padding(horizontal = 10.dp, vertical = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        Text(
-                                            text = InterestCalculator.formatCurrency(payment.amount, tx.currency),
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Box(
-                                            modifier = Modifier
-                                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(3.dp))
-                                                .padding(horizontal = 5.dp, vertical = 1.dp)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
                                             Text(
-                                                text = payment.paymentMode.label.uppercase(),
+                                                text = InterestCalculator.formatCurrency(payment.amount, tx.currency),
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(3.dp))
+                                                    .padding(horizontal = 5.dp, vertical = 1.dp)
+                                            ) {
+                                                Text(
+                                                    text = payment.paymentMode.label.uppercase(),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                            Text(
+                                                text = if (payment.isAcknowledged) "✓ Acknowledged" else "⏳ Unconfirmed",
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (payment.isAcknowledged) {
+                                                    MaterialTheme.colorScheme.primary
+                                                } else {
+                                                    MaterialTheme.colorScheme.error
+                                                }
                                             )
                                         }
-                                    }
-                                    val sub = buildString {
-                                        append(InterestCalculator.formatDate(payment.paidAtMillis))
-                                        if (payment.note.isNotBlank()) {
-                                            append(" • ")
-                                            append(payment.note)
+                                        val recorder = payment.recordedByName.ifBlank { "You" }
+                                        val sub = buildString {
+                                            append("Recorded by $recorder • ")
+                                            append(InterestCalculator.formatDate(payment.paidAtMillis))
+                                            if (payment.note.isNotBlank()) {
+                                                append(" • ")
+                                                append(payment.note)
+                                            }
                                         }
+                                        Text(
+                                            text = sub,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
                                     }
+                                    IconButton(
+                                        onClick = { onDeletePartialPayment(payment) },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.DeleteOutline,
+                                            contentDescription = "Delete installment",
+                                            tint = MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+
+                                if (!payment.isAcknowledged || payment.needsMyAcknowledgement) {
+                                    val displayActor = payment.recordedByName.ifBlank { tx.partyName }
+                                    val formattedAmt = InterestCalculator.formatCurrency(payment.amount, tx.currency)
+                                    OutlinedButton(
+                                        onClick = { onAcknowledgePartialPayment(payment) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(40.dp)
+                                            .testTag("acknowledge_payment_${payment.id}"),
+                                        shape = RoundedCornerShape(6.dp),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                                    ) {
+                                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "$displayActor marked $formattedAmt received — Confirm?",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Phase 3: Immutable Audit Trail Timeline
+                if (auditTrail.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+                            .padding(12.dp)
+                            .testTag("detail_audit_trail_section"),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "IMMUTABLE AUDIT TRAIL (${auditTrail.size})",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        auditTrail.forEach { entry ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = sub,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        text = "${entry.eventType.label} • ${entry.actorName}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
+                                    if (entry.summaryText.isNotBlank()) {
+                                        Text(
+                                            text = entry.summaryText,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    if (entry.contentHashSnapshot.isNotBlank()) {
+                                        Text(
+                                            text = "Hash: ${entry.contentHashSnapshot.take(16)}...",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 }
-                                IconButton(
-                                    onClick = { onDeletePartialPayment(payment) },
-                                    modifier = Modifier.size(36.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.DeleteOutline,
-                                        contentDescription = "Delete installment",
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
+                                Text(
+                                    text = InterestCalculator.formatDate(entry.eventTimeMillis),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
@@ -1392,6 +1697,11 @@ fun ProfileSettingsModal(
         securityPin: String,
         closeModal: Boolean
     ) -> Unit,
+    onSaveExtendedProfile: (phoneNumber: String, profilePhotoUri: String, cloudVerificationConsent: Boolean) -> Unit = { _, _, _ -> },
+    onShareMyPaymentDetails: () -> Unit = {},
+    onOpenReceivedVerificationLink: (String) -> Unit = {},
+    onSignInWithGoogleForVerification: () -> Unit = {},
+    onDeleteMyCloudData: () -> Unit = {},
     onLockAppNow: () -> Unit = {},
     onOpenGlobalQrModal: () -> Unit = {},
     onOpenShareAppModal: () -> Unit = {},
@@ -1410,6 +1720,23 @@ fun ProfileSettingsModal(
     val context = LocalContext.current
     var payeeName by rememberSaveable(currentSettings.payeeName) { mutableStateOf(currentSettings.payeeName) }
     var upiId by rememberSaveable(currentSettings.upiId) { mutableStateOf(currentSettings.upiId) }
+    var phoneNumber by rememberSaveable(currentSettings.phoneNumber) { mutableStateOf(currentSettings.phoneNumber) }
+    var profilePhotoUri by rememberSaveable(currentSettings.profilePhotoUri) { mutableStateOf(currentSettings.profilePhotoUri) }
+    var cloudVerificationConsent by rememberSaveable(currentSettings.cloudVerificationConsent) {
+        mutableStateOf(currentSettings.cloudVerificationConsent)
+    }
+    var incomingLinkInput by rememberSaveable { mutableStateOf("") }
+    var confirmCloudDelete by rememberSaveable { mutableStateOf(false) }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            profilePhotoUri = uri.toString()
+            onSaveExtendedProfile(phoneNumber.trim(), profilePhotoUri, cloudVerificationConsent)
+        }
+    }
+
     var inrEnabled by rememberSaveable(currentSettings.inrEnabled) { mutableStateOf(currentSettings.inrEnabled) }
     var nprEnabled by rememberSaveable(currentSettings.nprEnabled) { mutableStateOf(currentSettings.nprEnabled) }
     var defaultCurrency by rememberSaveable(currentSettings.defaultCurrency) { mutableStateOf(currentSettings.defaultCurrency) }
@@ -1443,6 +1770,7 @@ fun ProfileSettingsModal(
             ).show()
         } else {
             pinValidationError = null
+            onSaveExtendedProfile(phoneNumber.trim(), profilePhotoUri, cloudVerificationConsent)
             onSave(
                 upiId.trim(),
                 payeeName.trim(),
@@ -1462,6 +1790,7 @@ fun ProfileSettingsModal(
     }
 
     val persistImmediately = {
+        onSaveExtendedProfile(phoneNumber.trim(), profilePhotoUri, cloudVerificationConsent)
         onSave(
             upiId.trim(),
             payeeName.trim(),
@@ -1621,6 +1950,59 @@ fun ProfileSettingsModal(
                                 .fillMaxWidth()
                                 .testTag("settings_upi_id_input")
                         )
+
+                        OutlinedTextField(
+                            value = phoneNumber,
+                            onValueChange = { phoneNumber = it },
+                            label = { Text("Your Phone Number (for Verification & Profile Share)") },
+                            placeholder = { Text("e.g. +91 9876543210") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("settings_phone_number_input")
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    photoPickerLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                                    .testTag("settings_pick_profile_photo_button"),
+                                shape = RoundedCornerShape(6.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                            ) {
+                                Text(
+                                    text = if (profilePhotoUri.isNotBlank()) "CHANGE PHOTO ✓" else "OPTIONAL PHOTO",
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    persistImmediately()
+                                    onShareMyPaymentDetails()
+                                },
+                                modifier = Modifier
+                                    .weight(1.2f)
+                                    .height(48.dp)
+                                    .testTag("settings_share_payment_profile_button"),
+                                shape = RoundedCornerShape(6.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                            ) {
+                                Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("SHARE MY DETAILS", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
 
                         OutlinedButton(
                             onClick = {
@@ -2182,6 +2564,133 @@ fun ProfileSettingsModal(
                             Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("IMPORT / RESTORE JSON BACKUP", style = MaterialTheme.typography.labelMedium)
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
+
+                        // Phase 3: Two-Party Cloud Verification, Privacy Consent & Delete My Cloud Data
+                        Text(
+                            text = "TWO-PARTY CLOUD VERIFICATION & PRIVACY",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Udhaar works 100% offline by default. Nothing leaves your device unless you explicitly consent below or share a verification link.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Explicit Cloud Verification Consent",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Allow shared records & E2EE notes to sync with Cloud Firestore",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = cloudVerificationConsent,
+                                onCheckedChange = { granted ->
+                                    cloudVerificationConsent = granted
+                                    persistImmediately()
+                                },
+                                modifier = Modifier.testTag("cloud_verification_consent_switch")
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                persistImmediately()
+                                onSignInWithGoogleForVerification()
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .testTag("google_sign_in_verification_button"),
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                        ) {
+                            Text(
+                                text = if (currentSettings.cloudUserId.isNotBlank()) {
+                                    "SIGNED IN (${currentSettings.cloudUserEmail.ifBlank { "VERIFIED ACCOUNT" }})"
+                                } else {
+                                    "SIGN IN WITH GOOGLE FOR CLOUD VERIFICATION"
+                                },
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+
+                        // Open / Verify a received link directly
+                        OutlinedTextField(
+                            value = incomingLinkInput,
+                            onValueChange = { incomingLinkInput = it },
+                            label = { Text("Open Received Verification or Payment Link") },
+                            placeholder = { Text("Paste https://jyotirmoyb.com/u/... link") },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("settings_open_verification_link_input")
+                        )
+
+                        if (incomingLinkInput.isNotBlank()) {
+                            Button(
+                                onClick = {
+                                    onOpenReceivedVerificationLink(incomingLinkInput.trim())
+                                    incomingLinkInput = ""
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(46.dp)
+                                    .testTag("settings_open_verification_link_button"),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text("INSPECT SHARED LINK", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                if (confirmCloudDelete) {
+                                    confirmCloudDelete = false
+                                    cloudVerificationConsent = false
+                                    onDeleteMyCloudData()
+                                } else {
+                                    confirmCloudDelete = true
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .testTag("delete_my_cloud_data_button"),
+                            shape = RoundedCornerShape(6.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                        ) {
+                            Icon(
+                                Icons.Default.DeleteOutline,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (confirmCloudDelete) "TAP AGAIN TO PERMANENTLY DELETE CLOUD DATA" else "DELETE MY CLOUD DATA",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.error
+                            )
                         }
                     }
                 }
