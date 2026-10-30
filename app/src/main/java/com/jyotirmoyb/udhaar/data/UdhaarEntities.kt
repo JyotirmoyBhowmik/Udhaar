@@ -102,10 +102,10 @@ enum class LedgerFilter(val label: String) {
 }
 
 enum class TransactionSortOption(val label: String) {
-    RECENT_FIRST("Date (Newest)"),
-    DUE_DATE_ASC("Due Date (Earliest)"),
-    AMOUNT_DESC("Highest Amount"),
-    PARTY_NAME("Party Name")
+    DUE_DATE_ASC("Due date"),
+    AMOUNT_DESC("Amount"),
+    PARTY_NAME("Name"),
+    RECENT_FIRST("Newest")
 }
 
 enum class DateRangeFilter(val label: String) {

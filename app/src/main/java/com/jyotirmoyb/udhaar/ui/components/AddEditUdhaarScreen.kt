@@ -90,7 +90,10 @@ import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.core.content.ContextCompat
@@ -254,6 +257,20 @@ fun AddEditUdhaarScreen(
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showExpiryDatePicker by remember { mutableStateOf(false) }
     var showReminderDatePicker by remember { mutableStateOf(false) }
+    var showMoreDetails by rememberSaveable {
+        mutableStateOf(
+            initialTransaction != null && (
+                initialTransaction.isInterestEnabled ||
+                    initialTransaction.notes.isNotBlank() ||
+                    initialTransaction.reminderDateMillis != null
+                )
+        )
+    }
+    val plainAmountLabel = if (transactionType == TransactionType.GIVEN) {
+        "Amount lent"
+    } else {
+        "Amount borrowed"
+    }
 
     val contactPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -403,11 +420,11 @@ fun AddEditUdhaarScreen(
                         onClick = {
                             val principal = principalText.trim().toDoubleOrNull()
                             if (partyName.trim().isEmpty()) {
-                                validationError = "Please enter a Party / Contact Name."
+                                validationError = "Please enter who this udhaar is with (Step 1)."
                                 return@Button
                             }
                             if (principal == null || principal <= 0.0) {
-                                validationError = "Please enter a valid Principal Amount greater than 0."
+                                validationError = "Please enter a valid ${plainAmountLabel.lowercase()} greater than 0 (Step 2)."
                                 return@Button
                             }
                             val rate = if (isInterestEnabled) {
@@ -490,7 +507,172 @@ fun AddEditUdhaarScreen(
                     }
                 }
 
-                SectionHeader("1. TRANSACTION TYPE & CURRENCY")
+                // Step progress summary strip
+                val step1Done = partyName.trim().isNotEmpty()
+                val step2Done = (principalText.trim().toDoubleOrNull() ?: 0.0) > 0.0
+                val step3Done = expiryDateMillis != null
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .testTag("add_udhaar_steps_indicator"),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (step1Done) "✓ 1. Who" else "1. Who",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (!step1Done) FontWeight.Bold else FontWeight.SemiBold,
+                        color = PureBlack
+                    )
+                    Text(
+                        text = if (step2Done) "✓ 2. How much" else "2. How much",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (step1Done && !step2Done) FontWeight.Bold else FontWeight.SemiBold,
+                        color = if (step1Done || step2Done) PureBlack else SecondaryInkGrey
+                    )
+                    Text(
+                        text = if (step3Done) "✓ 3. When" else "3. When (Optional)",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (step1Done && step2Done) FontWeight.Bold else FontWeight.Normal,
+                        color = if (step1Done && step2Done) PureBlack else SecondaryInkGrey
+                    )
+                }
+
+                // STEP 1: WHO
+                SectionHeader("STEP 1 · WHO IS THIS UDHAAR WITH?")
+                val topRecentAndFavorites = remember(savedParties) {
+                    savedParties.sortedWith(
+                        compareByDescending<PartyEntity> { it.isFavorite }
+                            .thenByDescending { it.lastInteractionMillis }
+                    ).take(8)
+                }
+                if (topRecentAndFavorites.isNotEmpty()) {
+                    Text(
+                        text = "Recent & favourite people",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SecondaryInkGrey,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    LazyRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("recent_people_row"),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(topRecentAndFavorites, key = { it.partyId }) { savedParty ->
+                            val isChosen = partyName.equals(savedParty.name, ignoreCase = true)
+                            Row(
+                                modifier = Modifier
+                                    .height(44.dp)
+                                    .clip(RoundedCornerShape(22.dp))
+                                    .background(if (isChosen) PureBlack else SubtleSurfaceGrey)
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (isChosen) PureBlack else BorderGrey,
+                                        shape = RoundedCornerShape(22.dp)
+                                    )
+                                    .clickable {
+                                        selectedPartyId = savedParty.partyId.takeIf { it > 0L }
+                                        partyName = savedParty.name
+                                        phoneNumber = savedParty.phoneNumber
+                                        currency = savedParty.preferredCurrency
+                                    }
+                                    .padding(start = 6.dp, end = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                PersonAvatar(
+                                    name = savedParty.name,
+                                    photoUri = savedParty.photoUri,
+                                    size = 30.dp
+                                )
+                                Text(
+                                    text = if (savedParty.isFavorite) "★ ${savedParty.name}" else savedParty.name,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = if (isChosen) PureWhite else PureBlack,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = partyName,
+                        onValueChange = {
+                            partyName = it
+                            validationError = null
+                        },
+                        label = { Text("Person or business name *") },
+                        placeholder = { Text("e.g. Ramesh Sharma") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                        colors = textFieldColors,
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("party_name_input")
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            onOpenInAppContactPicker()
+                        },
+                        modifier = Modifier
+                            .height(56.dp)
+                            .padding(top = 6.dp)
+                            .testTag("pick_contact_button"),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, PureBlack),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Contacts,
+                            contentDescription = "Pick from phone contacts",
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Contacts", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+
+                var showPhoneText by rememberSaveable { mutableStateOf(false) }
+                OutlinedTextField(
+                    value = phoneNumber,
+                    onValueChange = {
+                        phoneNumber = it
+                        showPhoneText = true
+                    },
+                    label = { Text("Phone / WhatsApp number (Optional)") },
+                    placeholder = { Text("${currency.defaultCountryCode} 98*** ***10") },
+                    singleLine = true,
+                    visualTransformation = if (showPhoneText) VisualTransformation.None else PhoneMaskVisualTransformation,
+                    trailingIcon = if (phoneNumber.isNotBlank()) {
+                        {
+                            IconButton(onClick = { showPhoneText = !showPhoneText }) {
+                                Icon(
+                                    imageVector = if (showPhoneText) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (showPhoneText) "Mask phone number" else "Show phone number",
+                                    tint = PureBlack
+                                )
+                            }
+                        }
+                    } else null,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    colors = textFieldColors,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("phone_number_input")
+                )
+
+                HorizontalDivider(color = BorderGrey, thickness = 1.dp)
+
+                // STEP 2: HOW MUCH
+                SectionHeader("STEP 2 · HOW MUCH?")
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -527,113 +709,40 @@ fun AddEditUdhaarScreen(
                     }
                 }
 
-                SectionHeader("2. PARTY / CONTACT DETAILS")
-                val topRecentAndFavorites = remember(savedParties) {
-                    savedParties.sortedWith(
-                        compareByDescending<PartyEntity> { it.isFavorite }
-                            .thenByDescending { it.lastInteractionMillis }
-                    ).take(8)
-                }
-                if (topRecentAndFavorites.isNotEmpty()) {
-                    Text(
-                        text = "FAVORITES & RECENT PARTIES",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = SecondaryInkGrey,
-                        fontWeight = FontWeight.Bold
-                    )
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        topRecentAndFavorites.forEach { savedParty ->
-                            val isChosen = partyName.equals(savedParty.name, ignoreCase = true)
-                            val pillText = if (savedParty.isFavorite) "★ ${savedParty.name}" else savedParty.name
-                            MonochromeTogglePill(
-                                text = pillText,
-                                selected = isChosen,
-                                onClick = {
-                                    selectedPartyId = savedParty.partyId.takeIf { it > 0L }
-                                    partyName = savedParty.name
-                                    phoneNumber = savedParty.phoneNumber
-                                    currency = savedParty.preferredCurrency
-                                }
-                            )
-                        }
-                    }
-                }
+                // Quick amount chips: 500, 1000, 5000, Custom
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedTextField(
-                        value = partyName,
-                        onValueChange = {
-                            partyName = it
-                            validationError = null
+                    listOf("500", "1000", "5000").forEach { quickAmt ->
+                        val isQuickSelected = principalText.trim() == quickAmt
+                        MonochromeTogglePill(
+                            text = "${currency.symbol}$quickAmt",
+                            selected = isQuickSelected,
+                            onClick = {
+                                principalText = quickAmt
+                                validationError = null
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("quick_amount_$quickAmt")
+                        )
+                    }
+                    val isCustomSelected = principalText.isNotBlank() && principalText.trim() !in setOf("500", "1000", "5000")
+                    MonochromeTogglePill(
+                        text = "Custom",
+                        selected = isCustomSelected,
+                        onClick = {
+                            if (principalText.trim() in setOf("500", "1000", "5000")) {
+                                principalText = ""
+                            }
                         },
-                        label = { Text("Party / Contact Name *") },
-                        placeholder = { Text("e.g. Ramesh Sharma") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
-                        colors = textFieldColors,
                         modifier = Modifier
                             .weight(1f)
-                            .testTag("party_name_input")
+                            .testTag("quick_amount_custom")
                     )
-                    OutlinedButton(
-                        onClick = {
-                            onOpenInAppContactPicker()
-                        },
-                        modifier = Modifier
-                            .height(56.dp)
-                            .padding(top = 6.dp)
-                            .testTag("pick_contact_button"),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, PureBlack),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Contacts,
-                            contentDescription = "Pick from phone contacts",
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("CONTACTS", style = MaterialTheme.typography.labelMedium)
-                    }
                 }
 
-                var showPhoneText by rememberSaveable { mutableStateOf(false) }
-                OutlinedTextField(
-                    value = phoneNumber,
-                    onValueChange = {
-                        phoneNumber = it
-                        showPhoneText = true
-                    },
-                    label = { Text("Phone / WhatsApp Number (Optional)") },
-                    placeholder = { Text("${currency.defaultCountryCode} 98*** ***10") },
-                    singleLine = true,
-                    visualTransformation = if (showPhoneText) VisualTransformation.None else PhoneMaskVisualTransformation,
-                    trailingIcon = if (phoneNumber.isNotBlank()) {
-                        {
-                            IconButton(onClick = { showPhoneText = !showPhoneText }) {
-                                Icon(
-                                    imageVector = if (showPhoneText) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                    contentDescription = if (showPhoneText) "Mask phone number" else "Show phone number",
-                                    tint = PureBlack
-                                )
-                            }
-                        }
-                    } else null,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    colors = textFieldColors,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("phone_number_input")
-                )
-
-                SectionHeader("3. PRINCIPAL AMOUNT & PAYMENT MODE")
                 OutlinedTextField(
                     value = principalText,
                     onValueChange = { input ->
@@ -642,7 +751,7 @@ fun AddEditUdhaarScreen(
                             validationError = null
                         }
                     },
-                    label = { Text("Principal Amount (${currency.symbol}) *") },
+                    label = { Text("$plainAmountLabel (${currency.symbol}) *") },
                     prefix = {
                         Text(
                             text = "${currency.symbol} ",
@@ -658,135 +767,173 @@ fun AddEditUdhaarScreen(
                         .testTag("principal_amount_input")
                 )
 
-                Text(
-                    text = "PAYMENT MODE",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = SecondaryInkGrey
-                )
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    PaymentMode.entries.forEach { mode ->
-                        val selected = paymentMode == mode
-                        MonochromeTogglePill(
-                            text = mode.label,
-                            selected = selected,
-                            onClick = { paymentMode = mode },
-                            modifier = Modifier.testTag("payment_mode_${mode.name.lowercase()}")
-                        )
-                    }
+                if (step1Done && step2Done) {
+                    Text(
+                        text = "Ready to save now — or set a due date below.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SecondaryInkGrey,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
 
                 HorizontalDivider(color = BorderGrey, thickness = 1.dp)
+
+                // STEP 3: WHEN
+                SectionHeader("STEP 3 · WHEN IS IT DUE? (OPTIONAL)")
+                val nowMs = remember { System.currentTimeMillis() }
+                val oneWeekMs = remember(nowMs) { nowMs + 7L * 86_400_000L }
+                val oneMonthMs = remember(nowMs) { nowMs + 30L * 86_400_000L }
+                val expDaysFromNow = expiryDateMillis?.let { ((it - nowMs) / 86_400_000L).toInt() }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    MonochromeTogglePill(
+                        text = "In 1 week",
+                        selected = expDaysFromNow in 6..8,
+                        onClick = { expiryDateMillis = oneWeekMs },
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("due_chip_1_week")
+                    )
+                    MonochromeTogglePill(
+                        text = "In 1 month",
+                        selected = expDaysFromNow in 28..31,
+                        onClick = { expiryDateMillis = oneMonthMs },
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("due_chip_1_month")
+                    )
+                    MonochromeTogglePill(
+                        text = "Custom",
+                        selected = expiryDateMillis != null && expDaysFromNow !in 6..8 && expDaysFromNow !in 28..31,
+                        onClick = { showExpiryDatePicker = true },
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("due_chip_custom")
+                    )
+                }
+
+                DateSelectorRow(
+                    label = "Due date",
+                    valueText = expiryDateMillis?.let { InterestCalculator.formatDate(it) } ?: "No due date (Open-ended)",
+                    onSelectClick = { showExpiryDatePicker = true },
+                    onClearClick = expiryDateMillis?.let { { expiryDateMillis = null } },
+                    testTag = "expiry_date_selector"
+                )
+
+                HorizontalDivider(color = BorderGrey, thickness = 1.dp)
+
+                // OPTIONAL MORE DETAILS COLLAPSIBLE SECTION
+                val allCurrentAttachments = draftAttachments + existingAttachments
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(SubtleSurfaceGrey)
                         .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
-                        .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .clickable { showMoreDetails = !showMoreDetails }
+                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                        .testTag("toggle_more_details_button"),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "INTEREST APPLICABLE",
+                            text = "More details (Optional)",
                             style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
                             color = PureBlack
                         )
                         Text(
-                            text = if (isInterestEnabled) "Enabled • Accrues from Start Date" else "No interest (0% flat principal)",
+                            text = "Payment mode, interest, reminder, notes & attachments",
                             style = MaterialTheme.typography.bodySmall,
                             color = SecondaryInkGrey
                         )
                     }
-                    Switch(
-                        checked = isInterestEnabled,
-                        onCheckedChange = { isInterestEnabled = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = PureWhite,
-                            checkedTrackColor = PureBlack,
-                            uncheckedThumbColor = PureBlack,
-                            uncheckedTrackColor = PureWhite,
-                            uncheckedBorderColor = PureBlack
-                        ),
-                        modifier = Modifier.testTag("interest_applicable_switch")
+                    Icon(
+                        imageVector = if (showMoreDetails) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (showMoreDetails) "Collapse more details" else "Expand more details",
+                        tint = PureBlack
                     )
                 }
 
-                AnimatedVisibility(visible = isInterestEnabled) {
+                AnimatedVisibility(visible = showMoreDetails) {
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(1.dp, PureBlack, RoundedCornerShape(12.dp))
-                            .padding(14.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         Text(
-                            text = "INTEREST TYPE",
+                            text = "Payment mode",
                             style = MaterialTheme.typography.labelMedium,
                             color = SecondaryInkGrey
                         )
-                        Row(
+                        FlowRow(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            InterestType.entries.forEach { type ->
+                            PaymentMode.entries.forEach { mode ->
+                                val selected = paymentMode == mode
                                 MonochromeTogglePill(
-                                    text = type.label,
-                                    selected = interestType == type,
-                                    onClick = { interestType = type },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .testTag("interest_type_${type.name.lowercase()}")
+                                    text = mode.label,
+                                    selected = selected,
+                                    onClick = { paymentMode = mode },
+                                    modifier = Modifier.testTag("payment_mode_${mode.name.lowercase()}")
                                 )
                             }
                         }
 
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
+                                .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            OutlinedTextField(
-                                value = interestRateText,
-                                onValueChange = { input ->
-                                    if (input.isEmpty() || input.matches(Regex("^\\d*\\.?\\d*$"))) {
-                                        interestRateText = input
-                                    }
-                                },
-                                label = { Text("Rate (%)") },
-                                suffix = { Text("%") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                colors = textFieldColors,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("interest_rate_input")
-                            )
-
-                            Column(
-                                modifier = Modifier.weight(1.3f),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                InterestRatePeriod.entries.forEach { period ->
-                                    MonochromeTogglePill(
-                                        text = period.label,
-                                        selected = interestRatePeriod == period,
-                                        onClick = { interestRatePeriod = period },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .testTag("rate_period_${period.name.lowercase()}")
-                                    )
-                                }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Charge or pay interest",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = PureBlack
+                                )
+                                Text(
+                                    text = if (isInterestEnabled) {
+                                        "Enabled • Accrues from start date"
+                                    } else {
+                                        "Interest-free (only the original ${plainAmountLabel.lowercase()} is due)"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = SecondaryInkGrey
+                                )
                             }
+                            Switch(
+                                checked = isInterestEnabled,
+                                onCheckedChange = { isInterestEnabled = it },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = PureWhite,
+                                    checkedTrackColor = PureBlack,
+                                    uncheckedThumbColor = PureBlack,
+                                    uncheckedTrackColor = PureWhite,
+                                    uncheckedBorderColor = PureBlack
+                                ),
+                                modifier = Modifier.testTag("interest_applicable_switch")
+                            )
                         }
 
-                        AnimatedVisibility(visible = interestType == InterestType.COMPOUND) {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        AnimatedVisibility(visible = isInterestEnabled) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, PureBlack, RoundedCornerShape(12.dp))
+                                    .padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
                                 Text(
-                                    text = "COMPOUNDING FREQUENCY",
+                                    text = "Interest calculation type",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = SecondaryInkGrey
                                 )
@@ -794,14 +941,117 @@ fun AddEditUdhaarScreen(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    CompoundFrequency.entries.forEach { freq ->
+                                    InterestType.entries.forEach { type ->
                                         MonochromeTogglePill(
-                                            text = freq.label,
-                                            selected = compoundFrequency == freq,
-                                            onClick = { compoundFrequency = freq },
+                                            text = type.label,
+                                            selected = interestType == type,
+                                            onClick = { interestType = type },
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .testTag("compound_freq_${freq.name.lowercase()}")
+                                                .testTag("interest_type_${type.name.lowercase()}")
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = if (interestType == InterestType.SIMPLE) {
+                                        "Helper: Simple interest is calculated only on the original ${plainAmountLabel.lowercase()}."
+                                    } else {
+                                        "Helper: Compound interest adds unpaid interest to the balance each period."
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = SecondaryInkGrey,
+                                    modifier = Modifier.testTag("interest_type_helper_text")
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    OutlinedTextField(
+                                        value = interestRateText,
+                                        onValueChange = { input ->
+                                            if (input.isEmpty() || input.matches(Regex("^\\d*\\.?\\d*$"))) {
+                                                interestRateText = input
+                                            }
+                                        },
+                                        label = { Text("Rate (%)") },
+                                        suffix = { Text("%") },
+                                        singleLine = true,
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                        colors = textFieldColors,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .testTag("interest_rate_input")
+                                    )
+
+                                    Column(
+                                        modifier = Modifier.weight(1.3f),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        InterestRatePeriod.entries.forEach { period ->
+                                            MonochromeTogglePill(
+                                                text = period.label,
+                                                selected = interestRatePeriod == period,
+                                                onClick = { interestRatePeriod = period },
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .testTag("rate_period_${period.name.lowercase()}")
+                                            )
+                                        }
+                                    }
+                                }
+
+                                AnimatedVisibility(visible = interestType == InterestType.COMPOUND) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text(
+                                            text = "Compounding frequency",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = SecondaryInkGrey
+                                        )
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            CompoundFrequency.entries.forEach { freq ->
+                                                MonochromeTogglePill(
+                                                    text = freq.label,
+                                                    selected = compoundFrequency == freq,
+                                                    onClick = { compoundFrequency = freq },
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .testTag("compound_freq_${freq.name.lowercase()}")
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                DateSelectorRow(
+                                    label = "Start date (when interest begins)",
+                                    valueText = InterestCalculator.formatDate(startDateMillis),
+                                    onSelectClick = { showStartDatePicker = true },
+                                    onClearClick = null,
+                                    testTag = "start_date_selector"
+                                )
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
+                                        .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
+                                        .padding(10.dp)
+                                ) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text(
+                                            text = "Live summary preview",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = SecondaryInkGrey
+                                        )
+                                        Text(
+                                            text = previewSummary.subtitleBreakdown,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = PureBlack
                                         )
                                     }
                                 }
@@ -809,203 +1059,164 @@ fun AddEditUdhaarScreen(
                         }
 
                         DateSelectorRow(
-                            label = "START DATE (INTEREST ACCRUAL)",
-                            valueText = InterestCalculator.formatDate(startDateMillis),
-                            onSelectClick = { showStartDatePicker = true },
-                            onClearClick = null,
-                            testTag = "start_date_selector"
+                            label = "Scheduled reminder (Optional)",
+                            valueText = reminderDateMillis?.let { InterestCalculator.formatDateTime(it) } ?: "No reminder scheduled",
+                            icon = Icons.Default.NotificationsActive,
+                            onSelectClick = {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.POST_NOTIFICATIONS
+                                    ) != PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                } else {
+                                    showReminderDatePicker = true
+                                }
+                            },
+                            onClearClick = reminderDateMillis?.let { { reminderDateMillis = null } },
+                            testTag = "reminder_date_selector"
                         )
 
-                        Box(
+                        OutlinedTextField(
+                            value = notes,
+                            onValueChange = { notes = it },
+                            label = { Text("Note or reason (Optional)") },
+                            placeholder = { Text("e.g. Shop supplies or medical advance") },
+                            maxLines = 3,
+                            colors = textFieldColors,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
-                                .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
-                                .padding(10.dp)
+                                .testTag("notes_input")
+                        )
+
+                        Text(
+                            text = "Attachments & bills (${allCurrentAttachments.size})",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = SecondaryInkGrey
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(
-                                    text = "LIVE BREAKDOWN PREVIEW",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = SecondaryInkGrey
-                                )
-                                Text(
-                                    text = previewSummary.subtitleBreakdown,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = PureBlack
-                                )
+                            OutlinedButton(
+                                onClick = {
+                                    val (uri, _) = AttachmentManager.createCameraTempFileUri(context)
+                                    cameraTempUri = uri
+                                    cameraLauncher.launch(uri)
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                                    .testTag("add_attachment_camera_button"),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 4.dp)
+                            ) {
+                                Icon(Icons.Default.CameraAlt, contentDescription = "Take photo with camera", modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Camera", style = MaterialTheme.typography.labelSmall)
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                                    .testTag("add_attachment_gallery_button"),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 4.dp)
+                            ) {
+                                Icon(Icons.Default.Image, contentDescription = "Pick image from gallery", modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Gallery", style = MaterialTheme.typography.labelSmall)
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    documentLauncher.launch(arrayOf("application/pdf", "image/*", "text/*", "*/*"))
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                                    .testTag("add_attachment_doc_button"),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 4.dp)
+                            ) {
+                                Icon(Icons.Default.Description, contentDescription = "Attach PDF or document", modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Doc/PDF", style = MaterialTheme.typography.labelSmall)
                             }
                         }
-                    }
-                }
 
-                HorizontalDivider(color = BorderGrey, thickness = 1.dp)
-                SectionHeader("5. SETTLEMENT DUE DATE & REMINDER")
-
-                DateSelectorRow(
-                    label = "EXPIRY / DUE DATE (OPTIONAL)",
-                    valueText = expiryDateMillis?.let { InterestCalculator.formatDate(it) } ?: "Not set (Open-ended)",
-                    onSelectClick = { showExpiryDatePicker = true },
-                    onClearClick = expiryDateMillis?.let { { expiryDateMillis = null } },
-                    testTag = "expiry_date_selector"
-                )
-
-                DateSelectorRow(
-                    label = "SCHEDULED WHATSAPP REMINDER (OPTIONAL)",
-                    valueText = reminderDateMillis?.let { InterestCalculator.formatDateTime(it) } ?: "No reminder scheduled",
-                    icon = Icons.Default.NotificationsActive,
-                    onSelectClick = {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                            ContextCompat.checkSelfPermission(
-                                context,
-                                Manifest.permission.POST_NOTIFICATIONS
-                            ) != PackageManager.PERMISSION_GRANTED
-                        ) {
-                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        } else {
-                            showReminderDatePicker = true
-                        }
-                    },
-                    onClearClick = reminderDateMillis?.let { { reminderDateMillis = null } },
-                    testTag = "reminder_date_selector"
-                )
-
-                SectionHeader("6. NOTES (OPTIONAL)")
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text("Short Note / Reference") },
-                    placeholder = { Text("e.g. Invoice #104 or emergency medical advance") },
-                    maxLines = 3,
-                    colors = textFieldColors,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("notes_input")
-                )
-
-                HorizontalDivider(color = BorderGrey, thickness = 1.dp)
-                val allCurrentAttachments = draftAttachments + existingAttachments
-                SectionHeader("7. ATTACHED DOCUMENTS & BILLS (${allCurrentAttachments.size})")
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = {
-                            val (uri, _) = AttachmentManager.createCameraTempFileUri(context)
-                            cameraTempUri = uri
-                            cameraLauncher.launch(uri)
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(38.dp)
-                            .testTag("add_attachment_camera_button"),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 4.dp)
-                    ) {
-                        Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("CAMERA", style = MaterialTheme.typography.labelSmall)
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(38.dp)
-                            .testTag("add_attachment_gallery_button"),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 4.dp)
-                    ) {
-                        Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("GALLERY", style = MaterialTheme.typography.labelSmall)
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            documentLauncher.launch(arrayOf("application/pdf", "image/*", "text/*", "*/*"))
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(38.dp)
-                            .testTag("add_attachment_doc_button"),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 4.dp)
-                    ) {
-                        Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("DOC/PDF", style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-
-                if (allCurrentAttachments.isNotEmpty()) {
-                    LazyRow(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("add_edit_attachments_row"),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        items(allCurrentAttachments, key = { it.localPath }) { att ->
-                            val isImg = att.mimeType.startsWith("image/")
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                border = BorderStroke(1.dp, BorderGrey),
+                        if (allCurrentAttachments.isNotEmpty()) {
+                            LazyRow(
                                 modifier = Modifier
-                                    .size(90.dp)
-                                    .clickable { onOpenAttachmentViewer(att) }
+                                    .fillMaxWidth()
+                                    .testTag("add_edit_attachments_row"),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Box(modifier = Modifier.fillMaxSize()) {
-                                    if (isImg) {
-                                        AsyncImage(
-                                            model = File(att.localPath),
-                                            contentDescription = att.fileName,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
-                                    } else {
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .padding(6.dp),
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.Center
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Description,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(24.dp),
-                                                tint = PureBlack
-                                            )
-                                            Spacer(modifier = Modifier.height(2.dp))
-                                            Text(
-                                                att.fileName,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                    }
-                                    IconButton(
-                                        onClick = {
-                                            if (att.id > 0L) onDeleteExistingAttachment(att)
-                                            else onRemoveDraftAttachment(att)
-                                        },
+                                items(allCurrentAttachments, key = { it.localPath }) { att ->
+                                    val isImg = att.mimeType.startsWith("image/")
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.surfaceVariant,
+                                        border = BorderStroke(1.dp, BorderGrey),
                                         modifier = Modifier
-                                            .align(Alignment.TopEnd)
-                                            .size(24.dp)
-                                            .background(
-                                                PureBlack.copy(alpha = 0.7f),
-                                                RoundedCornerShape(12.dp)
-                                            )
+                                            .size(90.dp)
+                                            .clickable { onOpenAttachmentViewer(att) }
                                     ) {
-                                        Icon(
-                                            Icons.Default.Close,
-                                            contentDescription = "Remove",
-                                            tint = PureWhite,
-                                            modifier = Modifier.size(12.dp)
-                                        )
+                                        Box(modifier = Modifier.fillMaxSize()) {
+                                            if (isImg) {
+                                                AsyncImage(
+                                                    model = File(att.localPath),
+                                                    contentDescription = att.fileName,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                            } else {
+                                                Column(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .padding(6.dp),
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                    verticalArrangement = Arrangement.Center
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Description,
+                                                        contentDescription = att.fileName,
+                                                        modifier = Modifier.size(24.dp),
+                                                        tint = PureBlack
+                                                    )
+                                                    Spacer(modifier = Modifier.height(2.dp))
+                                                    Text(
+                                                        att.fileName,
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
+                                            }
+                                            IconButton(
+                                                onClick = {
+                                                    if (att.id > 0L) onDeleteExistingAttachment(att)
+                                                    else onRemoveDraftAttachment(att)
+                                                },
+                                                modifier = Modifier
+                                                    .align(Alignment.TopEnd)
+                                                    .size(24.dp)
+                                                    .background(
+                                                        PureBlack.copy(alpha = 0.7f),
+                                                        RoundedCornerShape(12.dp)
+                                                    )
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Close,
+                                                    contentDescription = "Remove attachment",
+                                                    tint = PureWhite,
+                                                    modifier = Modifier.size(12.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }

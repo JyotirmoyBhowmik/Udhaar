@@ -196,6 +196,7 @@ fun TransactionDetailModal(
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     var showDisputeInput by rememberSaveable { mutableStateOf(false) }
     var disputeReasonInput by rememberSaveable { mutableStateOf("") }
+    var showVerificationDetails by rememberSaveable { mutableStateOf(false) }
 
     var cameraTempUri by remember { mutableStateOf<Uri?>(null) }
     var pendingProofAttachment by remember { mutableStateOf<Attachment?>(null) }
@@ -347,7 +348,10 @@ fun TransactionDetailModal(
                         )
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
-                    BreakdownLine("Principal Amount", InterestCalculator.formatCurrency(tx.principalAmount, tx.currency))
+                    BreakdownLine(
+                        label = if (tx.transactionType == TransactionType.GIVEN) "Amount lent" else "Amount borrowed",
+                        value = InterestCalculator.formatCurrency(tx.principalAmount, tx.currency)
+                    )
                     BreakdownLine(
                         label = if (tx.isInterestEnabled) {
                             "${tx.interestType.label} (${tx.interestRate}${tx.interestRatePeriod.shortSuffix} • ${summary.elapsedDays}d)"
@@ -356,12 +360,12 @@ fun TransactionDetailModal(
                         },
                         value = InterestCalculator.formatCurrency(summary.accruedInterest, tx.currency)
                     )
-                    BreakdownLine("Gross Total", InterestCalculator.formatCurrency(summary.grossTotal, tx.currency))
-                    BreakdownLine("Total Paid / Received", "- ${InterestCalculator.formatCurrency(tx.amountPaid, tx.currency)}")
-                    BreakdownLine("Start Date", InterestCalculator.formatDate(tx.startDateMillis))
+                    BreakdownLine("Total with interest", InterestCalculator.formatCurrency(summary.grossTotal, tx.currency))
+                    BreakdownLine("Total paid / received", "- ${InterestCalculator.formatCurrency(tx.amountPaid, tx.currency)}")
+                    BreakdownLine("Start date", InterestCalculator.formatDate(tx.startDateMillis))
                     tx.expiryDateMillis?.let {
                         BreakdownLine(
-                            label = if (summary.isOverdue) "Due Date (OVERDUE)" else "Due Date",
+                            label = if (summary.isOverdue) "Due date (Overdue)" else "Due date",
                             value = InterestCalculator.formatDate(it),
                             bold = summary.isOverdue
                         )
@@ -371,12 +375,12 @@ fun TransactionDetailModal(
                     }
                 }
 
-                // Phase 3: Two-Party Verification & Content Hash Card
+                // Phase 3: Two-Party Verification Card with collapsed technical details
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
                         .padding(12.dp)
                         .testTag("detail_verification_section"),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -387,37 +391,20 @@ fun TransactionDetailModal(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "TWO-PARTY VERIFICATION",
-                            style = MaterialTheme.typography.labelMedium,
+                            text = "Verification status",
+                            style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Box(
-                            modifier = Modifier
-                                .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = tx.verificationStatus.shortBadge,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-
-                    if (tx.contentHash.isNotBlank()) {
-                        Text(
-                            text = "SHA-256: ${tx.contentHash.take(24)}...",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        StatusAtAGlanceBadge(
+                            summary = summary,
+                            modifier = Modifier.testTag("detail_status_at_a_glance_badge")
                         )
                     }
 
                     if (tx.disputeReason.isNotBlank() && tx.verificationStatus == VerificationStatus.DISPUTED) {
                         Text(
-                            text = "Dispute Note: ${tx.disputeReason}",
+                            text = "Dispute note: ${tx.disputeReason}",
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.error
@@ -426,7 +413,7 @@ fun TransactionDetailModal(
 
                     if (tx.verificationStatus == VerificationStatus.EDITED_AFTER_CONFIRM) {
                         Text(
-                            text = "Terms were edited after confirmation. Ask ${tx.partyName} to re-confirm or confirm the updated hash below.",
+                            text = "Terms were edited after confirmation. Ask ${tx.partyName} to confirm the updated record.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )
@@ -1139,59 +1126,113 @@ fun TransactionDetailModal(
                     }
                 }
 
-                // Phase 3: Immutable Audit Trail Timeline
-                if (auditTrail.isNotEmpty()) {
-                    Column(
+                // Collapsible "Verification details" section (SHA-256 hash, cloud IDs, and Audit Trail)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                        .padding(12.dp)
+                        .testTag("detail_audit_trail_section"),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
-                            .padding(12.dp)
-                            .testTag("detail_audit_trail_section"),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                            .clickable { showVerificationDetails = !showVerificationDetails }
+                            .padding(vertical = 4.dp)
+                            .testTag("toggle_verification_details_button"),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Verification details",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = if (showVerificationDetails) {
+                                    "Hide technical SHA-256 hash, cloud IDs, and audit trail"
+                                } else {
+                                    "Tap to view SHA-256 hash, cloud ID, and audit log (${auditTrail.size})"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         Text(
-                            text = "IMMUTABLE AUDIT TRAIL (${auditTrail.size})",
+                            text = if (showVerificationDetails) "Hide" else "Show",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.primary
                         )
-                        auditTrail.forEach { entry ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
-                                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "${entry.eventType.label} • ${entry.actorName}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    if (entry.summaryText.isNotBlank()) {
+                    }
+
+                    if (showVerificationDetails) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.8.dp)
+                        if (tx.contentHash.isNotBlank()) {
+                            Text(
+                                text = "SHA-256: ${tx.contentHash}",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (tx.remoteId.isNotBlank()) {
+                            Text(
+                                text = "Cloud ID: ${tx.remoteId}",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (auditTrail.isEmpty()) {
+                            Text(
+                                text = "No audit events recorded yet.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            auditTrail.forEach { entry ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.Top
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = entry.summaryText,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                    if (entry.contentHashSnapshot.isNotBlank()) {
-                                        Text(
-                                            text = "Hash: ${entry.contentHashSnapshot.take(16)}...",
+                                            text = "${entry.eventType.label} • ${entry.actorName}",
                                             style = MaterialTheme.typography.labelSmall,
-                                            fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
+                                        if (entry.summaryText.isNotBlank()) {
+                                            Text(
+                                                text = entry.summaryText,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        if (entry.contentHashSnapshot.isNotBlank()) {
+                                            Text(
+                                                text = "Hash: ${entry.contentHashSnapshot.take(16)}...",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
                                     }
+                                    Text(
+                                        text = InterestCalculator.formatDate(entry.eventTimeMillis),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
-                                Text(
-                                    text = InterestCalculator.formatDate(entry.eventTimeMillis),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
                             }
                         }
                     }

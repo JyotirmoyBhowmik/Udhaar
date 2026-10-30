@@ -23,6 +23,16 @@ object UdhaarShapeTokens {
     val Corner16 = RoundedCornerShape(16.dp)
     val Corner24 = RoundedCornerShape(24.dp)
     val Pill = RoundedCornerShape(50)
+
+    val Small = Corner8
+    val Medium = Corner12
+    val Large = Corner16
+    val ExtraLarge = Corner24
+
+    val ShapeSmall = Corner8
+    val ShapeMedium = Corner12
+    val ShapeLarge = Corner16
+    val ShapeExtraLarge = Corner24
 }
 
 val UdhaarShapes = Shapes(

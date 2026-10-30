@@ -257,22 +257,33 @@ fun ChatThreadBottomSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = if (scope == ChatThreadScope.TRANSACTION && tx != null) {
-                                "${tx.partyName} • ${tx.currency.symbol}${InterestCalculator.formatAmount(tx.principalAmount)}"
-                            } else {
-                                "$effectivePartyName • General Thread"
-                            },
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    PersonAvatar(
+                        name = effectivePartyName,
+                        photoUri = "",
+                        size = 38.dp,
+                        modifier = Modifier.testTag("chat_header_avatar")
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = if (scope == ChatThreadScope.TRANSACTION && tx != null) {
+                                    "${tx.partyName} • ${tx.currency.symbol}${InterestCalculator.formatAmount(tx.principalAmount)}"
+                                } else {
+                                    "$effectivePartyName • General Thread"
+                                },
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         if (isMuted) {
                             Surface(
                                 color = MaterialTheme.colorScheme.surfaceVariant,
@@ -311,6 +322,7 @@ fun ChatThreadBottomSheet(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
                     }
                 }
 

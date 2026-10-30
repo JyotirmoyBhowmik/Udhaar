@@ -190,7 +190,11 @@ data class UdhaarUiState(
     val isLoadingContacts: Boolean = false,
     val transactionSortOption: TransactionSortOption = TransactionSortOption.RECENT_FIRST,
     val dateRangeFilter: DateRangeFilter = DateRangeFilter.ALL_TIME,
-    val showOnboardingModal: Boolean = false
+    val showOnboardingModal: Boolean = false,
+    val isAmountsHidden: Boolean = false,
+    val showCoachMarks: Boolean = false,
+    val isNeedsAttentionDismissed: Boolean = false,
+    val undoSnackbarMessage: String? = null
 ) {
     val activeSummaryTotals: CurrencyLedgerTotals
         get() = if (summaryCurrency == CurrencyType.INR) inrTotals else nprTotals
@@ -249,7 +253,13 @@ private data class LocalUiFilterState(
     val isLoadingContacts: Boolean = false,
     val transactionSortOption: TransactionSortOption = TransactionSortOption.RECENT_FIRST,
     val dateRangeFilter: DateRangeFilter = DateRangeFilter.ALL_TIME,
-    val showOnboardingDismissed: Boolean = false
+    val showOnboardingDismissed: Boolean = false,
+    val isAmountsHidden: Boolean = false,
+    val showCoachMarks: Boolean = false,
+    val isNeedsAttentionDismissed: Boolean = false,
+    val undoSnackbarMessage: String? = null,
+    val lastDeletedTransaction: UdhaarTransaction? = null,
+    val lastSettledBeforeTransaction: UdhaarTransaction? = null
 )
 
 class UdhaarViewModel(
@@ -674,7 +684,11 @@ class UdhaarViewModel(
             isLoadingContacts = local.isLoadingContacts,
             transactionSortOption = local.transactionSortOption,
             dateRangeFilter = local.dateRangeFilter,
-            showOnboardingModal = !settings.hasCompletedOnboarding && !local.showOnboardingDismissed
+            showOnboardingModal = !settings.hasCompletedOnboarding && !local.showOnboardingDismissed,
+            isAmountsHidden = local.isAmountsHidden,
+            showCoachMarks = local.showCoachMarks,
+            isNeedsAttentionDismissed = local.isNeedsAttentionDismissed,
+            undoSnackbarMessage = local.undoSnackbarMessage
         )
     }.stateIn(
         scope = viewModelScope,
@@ -772,7 +786,55 @@ class UdhaarViewModel(
                 upiId = upiId.ifBlank { null },
                 payeeName = name.ifBlank { null }
             )
-            localState.update { it.copy(showOnboardingDismissed = true) }
+            localState.update {
+                it.copy(
+                    showOnboardingDismissed = true,
+                    showCoachMarks = true
+                )
+            }
+        }
+    }
+
+    fun dismissCoachMarks() {
+        localState.update { it.copy(showCoachMarks = false) }
+    }
+
+    fun toggleHideAmounts() {
+        localState.update { it.copy(isAmountsHidden = !it.isAmountsHidden) }
+    }
+
+    fun dismissNeedsAttentionStrip() {
+        localState.update { it.copy(isNeedsAttentionDismissed = true) }
+    }
+
+    fun dismissUndoSnackbar() {
+        localState.update {
+            it.copy(
+                undoSnackbarMessage = null,
+                lastDeletedTransaction = null,
+                lastSettledBeforeTransaction = null
+            )
+        }
+    }
+
+    fun performUndoAction() {
+        val current = localState.value
+        val deletedTx = current.lastDeletedTransaction
+        val settledBeforeTx = current.lastSettledBeforeTransaction
+        localState.update {
+            it.copy(
+                undoSnackbarMessage = null,
+                lastDeletedTransaction = null,
+                lastSettledBeforeTransaction = null
+            )
+        }
+        viewModelScope.launch {
+            val myName = uiState.value.userSettings.payeeName.ifBlank { "You" }
+            if (deletedTx != null) {
+                repository.saveTransaction(deletedTx.copy(id = 0L), myProfileName = myName)
+            } else if (settledBeforeTx != null) {
+                repository.saveTransaction(settledBeforeTx, myProfileName = myName)
+            }
         }
     }
 
@@ -1376,7 +1438,10 @@ class UdhaarViewModel(
             localState.update {
                 it.copy(
                     detailTransactionId = null,
-                    whatsAppPreviewTransactionId = null
+                    whatsAppPreviewTransactionId = null,
+                    lastDeletedTransaction = transaction,
+                    lastSettledBeforeTransaction = null,
+                    undoSnackbarMessage = "Deleted udhaar for ${transaction.partyName}"
                 )
             }
         }
@@ -1474,15 +1539,27 @@ class UdhaarViewModel(
     }
 
     fun toggleSettled(summary: CalculatedUdhaarSummary) {
+        val beforeTx = summary.transaction
         viewModelScope.launch {
             repository.toggleFullSettlement(
-                transaction = summary.transaction,
+                transaction = beforeTx,
                 totalAccruedAmount = summary.grossTotal
             )
             appContext?.let { ctx ->
-                if (!summary.transaction.isSettled) {
-                    ReminderScheduler.cancelReminder(ctx, summary.transaction.id)
+                if (!beforeTx.isSettled) {
+                    ReminderScheduler.cancelReminder(ctx, beforeTx.id)
                 }
+            }
+            localState.update {
+                it.copy(
+                    lastSettledBeforeTransaction = beforeTx,
+                    lastDeletedTransaction = null,
+                    undoSnackbarMessage = if (!beforeTx.isSettled) {
+                        "Settled udhaar for ${beforeTx.partyName}"
+                    } else {
+                        "Reopened udhaar for ${beforeTx.partyName}"
+                    }
+                )
             }
         }
     }

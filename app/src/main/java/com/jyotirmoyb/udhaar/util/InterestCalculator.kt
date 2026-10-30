@@ -74,7 +74,12 @@ object InterestCalculator {
 
         val currency = transaction.currency
         val subtitleParts = mutableListOf<String>()
-        subtitleParts.add("Principal: ${formatCurrency(principal, currency)}")
+        val amountLabel = if (transaction.transactionType == com.jyotirmoyb.udhaar.data.TransactionType.GIVEN) {
+            "Amount lent"
+        } else {
+            "Amount borrowed"
+        }
+        subtitleParts.add("$amountLabel: ${formatCurrency(principal, currency)}")
 
         if (transaction.isInterestEnabled && transaction.interestRate > 0.0) {
             val typeShort = if (transaction.interestType == InterestType.SIMPLE) {
@@ -156,6 +161,10 @@ object InterestCalculator {
             wholeNumberFormat.format(clean)
         }
         return "${currency.symbol}$formattedNumber"
+    }
+
+    fun formatCurrencyPrivacy(amount: Double, currency: CurrencyType, isHidden: Boolean): String {
+        return if (isHidden) "${currency.symbol} ••••" else formatCurrency(amount, currency)
     }
 
     fun formatAmount(amount: Double): String {

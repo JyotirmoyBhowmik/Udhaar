@@ -336,43 +336,13 @@ fun PeopleDirectoryContent(
 
         if (partyKhataList.isEmpty()) {
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
-                        .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
-                        .padding(28.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(
-                        text = "NO CONTACTS IN DIRECTORY",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = PureBlack
-                    )
-                    Text(
-                        text = "Add a contact manually or import via the Contact Picker to open individual party ledger views and store their UPI ID.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = SecondaryInkGrey,
-                        textAlign = TextAlign.Center
-                    )
-                    Button(
-                        onClick = onAddPartyClick,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = PureBlack,
-                            contentColor = PureWhite
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PersonAdd,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("ADD / IMPORT CONTACT", style = MaterialTheme.typography.labelLarge)
-                    }
-                }
+                FriendlyEmptyStateCard(
+                    sentence = "No people in your directory yet — add a contact or import from your phonebook to track records by person.",
+                    primaryButtonLabel = "Add your first contact",
+                    onPrimaryClick = onAddPartyClick,
+                    secondaryButtonLabel = "Import from contacts",
+                    onSecondaryClick = onOpenContactPicker
+                )
             }
         } else {
             items(
@@ -504,13 +474,13 @@ private fun PartyDirectoryCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(
                     onClick = onToggleFavorite,
-                    modifier = Modifier.size(28.dp).testTag("party_fav_button_${party.name}")
+                    modifier = Modifier.size(48.dp).testTag("party_fav_button_${party.name}")
                 ) {
                     Icon(
                         imageVector = if (party.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
                         contentDescription = if (party.isFavorite) "Favorite" else "Not favorite",
                         tint = PureBlack,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
                 Spacer(modifier = Modifier.width(4.dp))
@@ -531,33 +501,11 @@ private fun PartyDirectoryCard(
                 modifier = Modifier.weight(1f).padding(end = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Avatar (Photo or Colored/Monochrome Initial)
-                if (party.photoUri.isNotBlank()) {
-                    AsyncImage(
-                        model = party.photoUri,
-                        contentDescription = party.name,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .border(1.dp, BorderGrey, CircleShape)
-                    )
-                } else {
-                    val initial = party.name.trim().take(1).uppercase()
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .background(PureBlack, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = initial.ifEmpty { "?" },
-                            style = MaterialTheme.typography.titleMedium,
-                            color = PureWhite,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
+                PersonAvatar(
+                    name = party.name,
+                    photoUri = party.photoUri,
+                    size = 40.dp
+                )
 
                 Spacer(modifier = Modifier.width(10.dp))
 

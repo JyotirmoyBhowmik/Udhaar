@@ -443,7 +443,12 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                     viewModel.generateFullLedgerPdf { file ->
                         PdfStatementGenerator.sharePdfFile(context, file, "Udhaar Full Ledger Statement")
                     }
-                }
+                },
+                onToggleHideAmounts = viewModel::toggleHideAmounts,
+                onDismissNeedsAttention = viewModel::dismissNeedsAttentionStrip,
+                onDismissCoachMarks = viewModel::dismissCoachMarks,
+                onUndoAction = viewModel::performUndoAction,
+                onDismissUndo = viewModel::dismissUndoSnackbar
             )
         }
         ActiveScreen.PARTY_DETAIL -> {

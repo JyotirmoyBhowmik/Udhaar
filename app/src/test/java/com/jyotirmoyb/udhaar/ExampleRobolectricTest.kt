@@ -208,11 +208,18 @@ class ExampleRobolectricTest {
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("nav_tab_people_directory")).assertExists()
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("nav_tab_history")).assertExists()
 
-        // Two soft summary cards side-by-side + Net INR Position row + Search bar
+        // Two soft summary cards side-by-side + Privacy toggle + Net INR Position row + Search bar
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("summary_receivable_card")).assertExists()
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("summary_payable_card")).assertExists()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("privacy_hide_amounts_toggle")).assertExists()
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("net_position_row")).assertExists()
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("dashboard_search_input")).assertExists()
+
+        // Toggling privacy eye hides amounts
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("privacy_hide_amounts_toggle")).performClick()
+        composeRule.waitForIdle()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("privacy_hide_amounts_toggle")).performClick()
+        composeRule.waitForIdle()
 
         // Filter chips LazyRow scrolls to Settled chip and displays count badge
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("filter_chips_lazy_row"))
@@ -223,6 +230,12 @@ class ExampleRobolectricTest {
             androidx.compose.ui.test.hasTestTag("filter_badge_settled"),
             useUnmergedTree = true
         ).assertExists()
+
+        // Scroll to the sort menu button inside the ledger LazyColumn
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("transactions_lazy_list"))
+            .performScrollToNode(androidx.compose.ui.test.hasTestTag("sort_transactions_button"))
+        composeRule.waitForIdle()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("sort_transactions_button")).assertExists()
     }
 
     @Test

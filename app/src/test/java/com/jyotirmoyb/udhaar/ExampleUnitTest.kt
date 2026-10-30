@@ -42,8 +42,10 @@ class ExampleUnitTest {
         assertEquals(10_000.0, summary.principal, 1.0)
         assertEquals(1_200.0, summary.accruedInterest, 5.0)
         assertEquals(9_200.0, summary.netBalanceDue, 5.0)
-        assertTrue(summary.subtitleBreakdown.contains("Principal: रू10,000"))
+        assertTrue(summary.subtitleBreakdown.contains("Amount lent: रू10,000"))
         assertTrue(summary.subtitleBreakdown.contains("Paid: रू2,000"))
+        assertEquals("रू ••••", InterestCalculator.formatCurrencyPrivacy(10_000.0, CurrencyType.NPR, isHidden = true))
+        assertEquals("रू10,000", InterestCalculator.formatCurrencyPrivacy(10_000.0, CurrencyType.NPR, isHidden = false))
     }
 
     @Test

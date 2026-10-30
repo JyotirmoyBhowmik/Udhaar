@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -41,15 +42,19 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
@@ -61,9 +66,17 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -130,6 +143,7 @@ private enum class HomePillTab {
     HISTORY
 }
 
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     uiState: UdhaarUiState,
@@ -160,11 +174,34 @@ fun DashboardScreen(
     onToggleFavoriteParty: (PartyEntity) -> Unit = {},
     onTransactionSortOptionChange: (TransactionSortOption) -> Unit = {},
     onDateRangeFilterChange: (DateRangeFilter) -> Unit = {},
-    onExportFullLedgerPdf: () -> Unit = {}
+    onExportFullLedgerPdf: () -> Unit = {},
+    onToggleHideAmounts: () -> Unit = {},
+    onDismissNeedsAttention: () -> Unit = {},
+    onDismissCoachMarks: () -> Unit = {},
+    onUndoAction: () -> Unit = {},
+    onDismissUndo: () -> Unit = {}
 ) {
     val isPeopleTab = uiState.activeScreen == ActiveScreen.PEOPLE_DIRECTORY
     val enabledCurrencies = uiState.userSettings.enabledCurrencies
     var isHistoryMode by rememberSaveable { mutableStateOf(false) }
+    val reducedMotion = rememberReducedMotionEnabled()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.undoSnackbarMessage) {
+        val msg = uiState.undoSnackbarMessage
+        if (!msg.isNullOrBlank()) {
+            val result = snackbarHostState.showSnackbar(
+                message = msg,
+                actionLabel = "Undo",
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                onUndoAction()
+            } else {
+                onDismissUndo()
+            }
+        }
+    }
 
     val selectedPillTab = when {
         isPeopleTab -> HomePillTab.PEOPLE
@@ -177,6 +214,66 @@ fun DashboardScreen(
     }
     val peopleCount = uiState.partyKhataList.size
 
+    val partyPhotoByName = remember(uiState.allParties) {
+        uiState.allParties.associate { it.name.trim().lowercase() to it.photoUri }
+    }
+
+    val nowMillis = System.currentTimeMillis()
+    val endOfTodayMillis = nowMillis + 24L * 3600 * 1000
+    val endOfWeekMillis = nowMillis + 7L * 24 * 3600 * 1000
+
+    val overdueCount = remember(uiState.allCalculatedItems) {
+        uiState.allCalculatedItems.count { it.isOverdue && !it.transaction.isSettled }
+    }
+    val dueTodayCount = remember(uiState.allCalculatedItems, nowMillis) {
+        uiState.allCalculatedItems.count { item ->
+            val exp = item.transaction.expiryDateMillis
+            !item.transaction.isSettled && !item.isOverdue && exp != null && exp in nowMillis..endOfTodayMillis
+        }
+    }
+    val waitingConfirmationCount = remember(uiState.allCalculatedItems, uiState.partialPaymentsByTx) {
+        uiState.allCalculatedItems.count { item ->
+            val tx = item.transaction
+            val txPayments = uiState.partialPaymentsByTx[tx.id].orEmpty()
+            !tx.isSettled && (
+                tx.needsMyConfirmation ||
+                    tx.verificationStatus == VerificationStatus.EDITED_AFTER_CONFIRM ||
+                    tx.verificationStatus == VerificationStatus.PENDING ||
+                    txPayments.any { it.needsMyAcknowledgement || !it.isAcknowledged }
+                )
+        }
+    }
+
+    val groupedFilteredItems = remember(uiState.filteredItems, uiState.selectedFilter, nowMillis) {
+        if (uiState.selectedFilter == LedgerFilter.SETTLED) {
+            listOf("Settled" to uiState.filteredItems)
+        } else {
+            val overdue = mutableListOf<CalculatedUdhaarSummary>()
+            val dueThisWeek = mutableListOf<CalculatedUdhaarSummary>()
+            val later = mutableListOf<CalculatedUdhaarSummary>()
+            val noDueDate = mutableListOf<CalculatedUdhaarSummary>()
+            val settled = mutableListOf<CalculatedUdhaarSummary>()
+
+            for (item in uiState.filteredItems) {
+                val tx = item.transaction
+                when {
+                    tx.isSettled -> settled.add(item)
+                    item.isOverdue -> overdue.add(item)
+                    tx.expiryDateMillis != null && tx.expiryDateMillis <= endOfWeekMillis -> dueThisWeek.add(item)
+                    tx.expiryDateMillis != null -> later.add(item)
+                    else -> noDueDate.add(item)
+                }
+            }
+            buildList {
+                if (overdue.isNotEmpty()) add("Overdue" to overdue)
+                if (dueThisWeek.isNotEmpty()) add("Due this week" to dueThisWeek)
+                if (later.isNotEmpty()) add("Later" to later)
+                if (noDueDate.isNotEmpty()) add("No due date" to noDueDate)
+                if (settled.isNotEmpty()) add("Settled" to settled)
+            }
+        }
+    }
+
     val ledgerListState = rememberLazyListState()
     val isFabExpanded by remember {
         derivedStateOf {
@@ -187,6 +284,12 @@ fun DashboardScreen(
     Scaffold(
         contentWindowInsets = WindowInsets.safeDrawing,
         containerColor = PureWhite,
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.testTag("dashboard_snackbar_host")
+            )
+        },
         floatingActionButtonPosition = FabPosition.Center,
         topBar = {
             Column(
@@ -300,9 +403,10 @@ fun DashboardScreen(
             }
         },
         floatingActionButton = {
+            val animDuration = if (reducedMotion) 0 else 220
             val fabCorner by animateDpAsState(
                 targetValue = if (isFabExpanded) 16.dp else 28.dp,
-                animationSpec = tween(durationMillis = 220),
+                animationSpec = tween(durationMillis = animDuration),
                 label = "fabCorner"
             )
             FloatingActionButton(
@@ -334,8 +438,8 @@ fun DashboardScreen(
                     )
                     AnimatedVisibility(
                         visible = isFabExpanded,
-                        enter = fadeIn(tween(180)) + expandHorizontally(tween(220)),
-                        exit = fadeOut(tween(150)) + shrinkHorizontally(tween(200))
+                        enter = fadeIn(tween(if (reducedMotion) 0 else 180)) + expandHorizontally(tween(animDuration)),
+                        exit = fadeOut(tween(if (reducedMotion) 0 else 150)) + shrinkHorizontally(tween(if (reducedMotion) 0 else 200))
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Spacer(modifier = Modifier.width(8.dp))
@@ -401,8 +505,18 @@ fun DashboardScreen(
                             totals = uiState.activeSummaryTotals,
                             inrCount = uiState.inrTotals.activeGivenCount + uiState.inrTotals.activeTakenCount,
                             nprCount = uiState.nprTotals.activeGivenCount + uiState.nprTotals.activeTakenCount,
+                            isAmountsHidden = uiState.isAmountsHidden,
+                            onToggleHideAmounts = onToggleHideAmounts,
                             onSelectCurrency = onSelectSummaryCurrency
                         )
+                    }
+
+                    if (uiState.showCoachMarks) {
+                        item {
+                            FirstRunCoachMarksCard(
+                                onSkipOrFinish = onDismissCoachMarks
+                            )
+                        }
                     }
 
                     item {
@@ -420,6 +534,23 @@ fun DashboardScreen(
                         )
                     }
 
+                    if (!uiState.isNeedsAttentionDismissed &&
+                        (overdueCount > 0 || dueTodayCount > 0 || waitingConfirmationCount > 0)
+                    ) {
+                        item {
+                            NeedsAttentionStrip(
+                                overdueCount = overdueCount,
+                                dueTodayCount = dueTodayCount,
+                                waitingConfirmationCount = waitingConfirmationCount,
+                                onFilterSelect = { filter ->
+                                    isHistoryMode = false
+                                    onSelectFilter(filter)
+                                },
+                                onDismiss = onDismissNeedsAttention
+                            )
+                        }
+                    }
+
                     item {
                         LedgerSectionHeaderRow(
                             recordCount = uiState.filteredItems.size,
@@ -435,6 +566,7 @@ fun DashboardScreen(
                             EmptyLedgerState(
                                 hasAnyTransactions = uiState.allCalculatedItems.isNotEmpty(),
                                 onAddClick = onAddUdhaarClick,
+                                onInviteClick = onShareMyPaymentDetailsClick,
                                 onResetFilter = {
                                     isHistoryMode = false
                                     onSelectFilter(LedgerFilter.ALL)
@@ -443,29 +575,58 @@ fun DashboardScreen(
                             )
                         }
                     } else {
-                        items(
-                            items = uiState.filteredItems,
-                            key = { it.transaction.id }
-                        ) { summary ->
-                            TransactionCardItem(
-                                summary = summary,
-                                unreadCount = uiState.unreadCountByTx[summary.transaction.id] ?: 0,
-                                attachmentsCount = uiState.attachmentsByTx[summary.transaction.id]?.size ?: 0,
-                                onCardClick = { onTransactionClick(summary) },
-                                onChatClick = { onOpenTransactionChat(summary) },
-                                onWhatsAppClick = { onWhatsAppClick(summary) },
-                                onQrClick = {
-                                    val tx = summary.transaction
-                                    if (tx.currency == CurrencyType.INR &&
-                                        tx.transactionType == TransactionType.GIVEN &&
-                                        !tx.isSettled
+                        val showGroupStickyHeaders = groupedFilteredItems.size > 1 ||
+                            (groupedFilteredItems.size == 1 && groupedFilteredItems.first().first == "Overdue")
+
+                        groupedFilteredItems.forEach { (groupTitle, groupItems) ->
+                            if (showGroupStickyHeaders) {
+                                stickyHeader(key = "group_header_$groupTitle") {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(PureWhite.copy(alpha = 0.96f))
+                                            .padding(vertical = 4.dp, horizontal = 2.dp)
+                                            .testTag("sticky_group_header_${groupTitle.lowercase().replace(' ', '_')}")
                                     ) {
-                                        onTransactionQrClick(summary)
-                                    } else {
-                                        onTransactionClick(summary)
+                                        Text(
+                                            text = "$groupTitle (${groupItems.size})",
+                                            style = MaterialTheme.typography.labelMedium.copy(
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold
+                                            ),
+                                            color = if (groupTitle == "Overdue") PayableCardInk else SecondaryInkGrey
+                                        )
                                     }
                                 }
-                            )
+                            }
+
+                            items(
+                                items = groupItems,
+                                key = { it.transaction.id }
+                            ) { summary ->
+                                val partyPhotoUri = partyPhotoByName[summary.transaction.partyName.trim().lowercase()].orEmpty()
+                                SwipeableTransactionCardItem(
+                                    summary = summary,
+                                    partyPhotoUri = partyPhotoUri,
+                                    isAmountsHidden = uiState.isAmountsHidden,
+                                    unreadCount = uiState.unreadCountByTx[summary.transaction.id] ?: 0,
+                                    attachmentsCount = uiState.attachmentsByTx[summary.transaction.id]?.size ?: 0,
+                                    onCardClick = { onTransactionClick(summary) },
+                                    onChatClick = { onOpenTransactionChat(summary) },
+                                    onWhatsAppClick = { onWhatsAppClick(summary) },
+                                    onQrClick = {
+                                        val tx = summary.transaction
+                                        if (tx.currency == CurrencyType.INR &&
+                                            tx.transactionType == TransactionType.GIVEN &&
+                                            !tx.isSettled
+                                        ) {
+                                            onTransactionQrClick(summary)
+                                        } else {
+                                            onTransactionClick(summary)
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
 
@@ -551,6 +712,8 @@ private fun TopLedgerSummaryCard(
     totals: CurrencyLedgerTotals,
     inrCount: Int,
     nprCount: Int,
+    isAmountsHidden: Boolean = false,
+    onToggleHideAmounts: () -> Unit = {},
     onSelectCurrency: (CurrencyType) -> Unit
 ) {
     Column(
@@ -615,22 +778,42 @@ private fun TopLedgerSummaryCard(
                     .fillMaxHeight()
                     .clip(UdhaarShapeTokens.Corner24)
                     .background(ReceivableCardBg, UdhaarShapeTokens.Corner24)
-                    .padding(horizontal = 16.dp, vertical = 18.dp)
+                    .padding(horizontal = 16.dp, vertical = 14.dp)
                     .testTag("summary_receivable_card"),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = "Total Receivable:",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
-                    ),
-                    color = ReceivableCardInk,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Total Receivable:",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = ReceivableCardInk,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                        onClick = onToggleHideAmounts,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .testTag("privacy_hide_amounts_toggle")
+                    ) {
+                        Icon(
+                            imageVector = if (isAmountsHidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = if (isAmountsHidden) "Show amounts" else "Hide amounts",
+                            tint = ReceivableCardInk,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -638,7 +821,7 @@ private fun TopLedgerSummaryCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = InterestCalculator.formatCurrency(totals.totalToReceive, selectedCurrency),
+                        text = InterestCalculator.formatCurrencyPrivacy(totals.totalToReceive, selectedCurrency, isAmountsHidden),
                         style = MaterialTheme.typography.displayMedium.copy(
                             fontFamily = IbmPlexMonoFamily,
                             fontWeight = FontWeight.Bold,
@@ -714,7 +897,7 @@ private fun TopLedgerSummaryCard(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
-                    text = InterestCalculator.formatCurrency(totals.totalToPay, selectedCurrency),
+                    text = InterestCalculator.formatCurrencyPrivacy(totals.totalToPay, selectedCurrency, isAmountsHidden),
                     style = MaterialTheme.typography.displayMedium.copy(
                         fontFamily = IbmPlexMonoFamily,
                         fontWeight = FontWeight.Bold,
@@ -768,12 +951,13 @@ private fun TopLedgerSummaryCard(
 
             val net = totals.netPosition
             val prefix = when {
+                isAmountsHidden -> ""
                 net > 0.005 -> "+"
                 net < -0.005 -> "-"
                 else -> ""
             }
             Text(
-                text = "$prefix${InterestCalculator.formatCurrency(kotlin.math.abs(net), selectedCurrency)}",
+                text = "$prefix${InterestCalculator.formatCurrencyPrivacy(kotlin.math.abs(net), selectedCurrency, isAmountsHidden)}",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontFamily = IbmPlexMonoFamily,
                     fontSize = 14.5.sp,
@@ -1109,9 +1293,116 @@ private fun LedgerSectionHeaderRow(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SwipeableTransactionCardItem(
+    summary: CalculatedUdhaarSummary,
+    partyPhotoUri: String = "",
+    isAmountsHidden: Boolean = false,
+    unreadCount: Int = 0,
+    attachmentsCount: Int = 0,
+    onCardClick: () -> Unit,
+    onChatClick: () -> Unit = {},
+    onWhatsAppClick: () -> Unit,
+    onQrClick: () -> Unit
+) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            when (value) {
+                SwipeToDismissBoxValue.StartToEnd -> {
+                    onCardClick()
+                    false
+                }
+                SwipeToDismissBoxValue.EndToStart -> {
+                    onWhatsAppClick()
+                    false
+                }
+                SwipeToDismissBoxValue.Settled -> false
+            }
+        }
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            val direction = dismissState.dismissDirection
+            val bgColor = when (direction) {
+                SwipeToDismissBoxValue.StartToEnd -> ReceivableCardBg
+                SwipeToDismissBoxValue.EndToStart -> MutedChipGrey
+                SwipeToDismissBoxValue.Settled -> Color.Transparent
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(UdhaarShapeTokens.Corner16)
+                    .background(bgColor)
+                    .padding(horizontal = 20.dp),
+                contentAlignment = when (direction) {
+                    SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                    else -> Alignment.CenterEnd
+                }
+            ) {
+                when (direction) {
+                    SwipeToDismissBoxValue.StartToEnd -> {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Payments,
+                                contentDescription = "Record payment",
+                                tint = ReceivableCardInk
+                            )
+                            Text(
+                                text = "Record payment",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = ReceivableCardInk
+                            )
+                        }
+                    }
+                    SwipeToDismissBoxValue.EndToStart -> {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Send reminder",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = PureBlack
+                            )
+                            Icon(
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = "Send reminder",
+                                tint = PureBlack
+                            )
+                        }
+                    }
+                    SwipeToDismissBoxValue.Settled -> {}
+                }
+            }
+        }
+    ) {
+        TransactionCardItem(
+            summary = summary,
+            partyPhotoUri = partyPhotoUri,
+            isAmountsHidden = isAmountsHidden,
+            unreadCount = unreadCount,
+            attachmentsCount = attachmentsCount,
+            onCardClick = onCardClick,
+            onChatClick = onChatClick,
+            onWhatsAppClick = onWhatsAppClick,
+            onQrClick = onQrClick
+        )
+    }
+}
+
 @Composable
 private fun TransactionCardItem(
     summary: CalculatedUdhaarSummary,
+    partyPhotoUri: String = "",
+    isAmountsHidden: Boolean = false,
     unreadCount: Int = 0,
     attachmentsCount: Int = 0,
     onCardClick: () -> Unit,
@@ -1141,7 +1432,7 @@ private fun TransactionCardItem(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Top row: small chips GIVEN, UPI, INR and the due date on the right
+            // Top row: small chips GIVEN, UPI, INR, Status-at-a-glance badge, and the due date on the right
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1205,37 +1496,11 @@ private fun TransactionCardItem(
                         )
                     }
 
-                    // Optional Verification badge when verified or pending action
-                    if (tx.verificationStatus != VerificationStatus.LOCAL_ONLY || tx.needsMyConfirmation) {
-                        val isVerified = tx.verificationStatus == VerificationStatus.CONFIRMED
-                        val verBadgeText = if (tx.needsMyConfirmation) {
-                            "Confirm?"
-                        } else {
-                            tx.verificationStatus.shortBadge
-                        }
-                        Box(
-                            modifier = Modifier
-                                .background(
-                                    color = if (isVerified) SelectedPillTint else SubtleSurfaceGrey,
-                                    shape = UdhaarShapeTokens.Corner8
-                                )
-                                .border(
-                                    width = 1.dp,
-                                    color = if (isVerified) PureBlack else BorderGrey,
-                                    shape = UdhaarShapeTokens.Corner8
-                                )
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                .testTag("tx_verification_badge_${tx.id}")
-                        ) {
-                            Text(
-                                text = verBadgeText,
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                fontWeight = FontWeight.SemiBold,
-                                color = PureBlack,
-                                maxLines = 1
-                            )
-                        }
-                    }
+                    // Status at a glance badge: coloured icon + plain-language word (never colour alone)
+                    StatusAtAGlanceBadge(
+                        summary = summary,
+                        modifier = Modifier.testTag("tx_verification_badge_${tx.id}")
+                    )
 
                     if (unreadCount > 0) {
                         Box(
@@ -1285,46 +1550,56 @@ private fun TransactionCardItem(
                 )
             }
 
-            // Person's name with the amount on the right in large type, and the masked phone number below
+            // Person's avatar + name with the amount on the right in large type, and the masked phone number below
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(
+                Row(
                     modifier = Modifier
                         .weight(1f)
                         .padding(end = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(
-                        text = tx.partyName,
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.SemiBold
-                        ),
-                        color = PureBlack,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textDecoration = if (tx.isSettled) TextDecoration.LineThrough else TextDecoration.None
+                    PersonAvatar(
+                        name = tx.partyName,
+                        photoUri = partyPhotoUri,
+                        size = 40.dp
                     )
-                    if (tx.phoneNumber.isNotBlank()) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
                         Text(
-                            text = InterestCalculator.maskPhoneNumber(tx.phoneNumber),
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontFamily = IbmPlexMonoFamily,
-                                fontSize = 12.sp
+                            text = tx.partyName,
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.SemiBold
                             ),
-                            color = SecondaryInkGrey,
+                            color = PureBlack,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            textDecoration = if (tx.isSettled) TextDecoration.LineThrough else TextDecoration.None
                         )
+                        if (tx.phoneNumber.isNotBlank()) {
+                            Text(
+                                text = InterestCalculator.maskPhoneNumber(tx.phoneNumber),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontFamily = IbmPlexMonoFamily,
+                                    fontSize = 12.sp
+                                ),
+                                color = SecondaryInkGrey,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
 
                 val displayAmount = if (tx.isSettled) summary.grossTotal else summary.netBalanceDue
                 Text(
-                    text = InterestCalculator.formatCurrency(displayAmount, tx.currency),
+                    text = InterestCalculator.formatCurrencyPrivacy(displayAmount, tx.currency, isAmountsHidden),
                     style = MaterialTheme.typography.headlineLarge.copy(
                         fontFamily = IbmPlexMonoFamily,
                         fontWeight = FontWeight.Bold,
@@ -1337,7 +1612,7 @@ private fun TransactionCardItem(
                 )
             }
 
-            // One line of terms (Principal, Interest, rate, type, days) and the note in italics
+            // One line of terms (Amount lent/borrowed, Interest, rate, type, days) and the note in italics
             Text(
                 text = summary.subtitleBreakdown,
                 style = MaterialTheme.typography.bodySmall.copy(
@@ -1387,7 +1662,7 @@ private fun TransactionCardItem(
                     modifier = Modifier
                         .clip(UdhaarShapeTokens.Corner8)
                         .clickable(onClick = onChatClick)
-                        .padding(horizontal = 6.dp, vertical = 4.dp)
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
                         .testTag("card_chat_button_${tx.id}"),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -1396,7 +1671,7 @@ private fun TransactionCardItem(
                         imageVector = Icons.Default.ChatBubbleOutline,
                         contentDescription = "Open chat for ${tx.partyName}",
                         tint = SecondaryInkGrey,
-                        modifier = Modifier.size(15.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                     if (unreadCount > 0) {
                         Text(
@@ -1409,7 +1684,7 @@ private fun TransactionCardItem(
                 }
             }
 
-            // Two buttons side by side: tonal Get QR/Receipt and filled Send Reminder
+            // Two buttons side by side: tonal Get QR/Receipt and filled Send Reminder (minimum 48.dp touch target)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -1419,7 +1694,7 @@ private fun TransactionCardItem(
                     onClick = onQrClick,
                     modifier = Modifier
                         .weight(1f)
-                        .height(42.dp)
+                        .height(48.dp)
                         .testTag("card_qr_button_${tx.id}"),
                     shape = UdhaarShapeTokens.Corner12,
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
@@ -1450,7 +1725,7 @@ private fun TransactionCardItem(
                     onClick = onWhatsAppClick,
                     modifier = Modifier
                         .weight(1f)
-                        .height(42.dp)
+                        .height(48.dp)
                         .testTag("card_whatsapp_button_${tx.id}"),
                     shape = UdhaarShapeTokens.Corner12,
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
@@ -1486,68 +1761,29 @@ private fun TransactionCardItem(
 private fun EmptyLedgerState(
     hasAnyTransactions: Boolean,
     onAddClick: () -> Unit,
+    onInviteClick: () -> Unit = {},
     onResetFilter: () -> Unit
 ) {
-    Surface(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .testTag("empty_ledger_box"),
-        shape = UdhaarShapeTokens.Corner16,
-        color = CardSurfaceWhite,
-        shadowElevation = 2.dp,
-        border = BorderStroke(1.dp, BorderGrey)
+            .testTag("empty_ledger_box")
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = if (hasAnyTransactions) "No Matching Records" else "No Udhaar Records Yet",
-                style = MaterialTheme.typography.titleLarge,
-                color = PureBlack
+        if (hasAnyTransactions) {
+            FriendlyEmptyStateCard(
+                sentence = "No udhaar records match your current search or filter.",
+                primaryButtonLabel = "Clear filters",
+                onPrimaryClick = onResetFilter
             )
-            Text(
-                text = if (hasAnyTransactions) {
-                    "No transactions match your current filter or search query."
-                } else {
-                    stringResource(R.string.empty_ledger_subtitle)
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = SecondaryInkGrey,
-                textAlign = TextAlign.Center
+        } else {
+            FriendlyEmptyStateCard(
+                sentence = "Keep track of money lent or borrowed with friends and family in seconds.",
+                primaryButtonLabel = "Add your first udhaar",
+                onPrimaryClick = onAddClick,
+                secondaryButtonLabel = "Invite a friend to verify",
+                onSecondaryClick = onInviteClick,
+                modifier = Modifier.testTag("empty_state_add_button")
             )
-            Spacer(modifier = Modifier.height(6.dp))
-            if (hasAnyTransactions) {
-                OutlinedButton(
-                    onClick = onResetFilter,
-                    shape = UdhaarShapeTokens.Corner12,
-                    border = BorderStroke(1.dp, PureBlack),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
-                ) {
-                    Text("Clear Filters", style = MaterialTheme.typography.labelLarge)
-                }
-            } else {
-                Button(
-                    onClick = onAddClick,
-                    shape = UdhaarShapeTokens.Corner12,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AccentFabGreen,
-                        contentColor = AccentFabInk
-                    ),
-                    modifier = Modifier.testTag("empty_state_add_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Create First Udhaar", style = MaterialTheme.typography.labelLarge)
-                }
-            }
         }
     }
 }
