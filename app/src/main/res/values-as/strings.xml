@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">উধাৰ</string>
+    <string name="tagline_monochrome_ledger">সহজ খাতা আৰু ধাৰৰ হিচাপ</string>
+    <string name="total_to_receive">মুঠ পাবলগীয়া (দিয়া)</string>
+    <string name="total_to_pay">মুঠ দিবলগীয়া (লোৱা)</string>
+    <string name="net_balance_label">মুঠ স্থিতি</string>
+    <string name="search_placeholder">নাম, ফোন বা নথি সন্ধান কৰক…</string>
+    <string name="add_udhaar_button">নতুন ঋণ</string>
+    <string name="empty_ledger_title">কোনো তথ্য পোৱা নগ’ল</string>
+    <string name="empty_ledger_subtitle">+ নতুন ঋণ টিপি INR (₹) বা NPR (रू) ত ধন দিয়া বা লোৱাৰ হিচাপ ৰাখক।</string>
+    <string name="settings_title">প্ৰফাইল আৰু ছেটিংছ</string>
+    <string name="qr_modal_title">UPI পৰিশোধ QR</string>
+    <string name="whatsapp_reminder_title">হোৱাটছএপ সোঁৱৰণী</string>
+    <string name="hide_exact_amount_label">বাৰ্তাত সঠিক ধন লুকুৱাই ৰাখক</string>
+    <string name="send_whatsapp_button">হোৱাটছএপত প্ৰেৰণ কৰক</string>
+    <string name="share_qr_button">QR কাৰ্ড শ্বেয়াৰ কৰক</string>
+    <string name="save_record_button">সংৰক্ষণ কৰক</string>
+    <string name="pick_contact_desc">ফোন যোগাযোগৰ পৰা বাছক</string>
+    <string name="widget_description">পাবলগীয়া আৰু দিবলগীয়া ধনৰ মুঠ পৰিমাণ দেখুৱায়</string>
+    <string name="onboarding_title_1">স্মাৰ্ট খাতা আৰু সঠিক হিচাপ</string>
+    <string name="onboarding_desc_1">চক্ৰবৃদ্ধি বা সৰল সুত আৰু কিস্তিত ধন পৰিশোধৰ স্বয়ংক্ৰিয় নির্ভুল হিচাপ।</string>
+    <string name="onboarding_title_2">যাচাইকৰণ আৰু বাৰ্তালাপ</string>
+    <string name="onboarding_desc_2">SHA-256 সুৰক্ষা আৰু প্রমাণসহ দুয়োপক্ষৰ বাৰ্তালাপ আৰু সময় বৃদ্ধিৰ সুবিধা।</string>
+    <string name="onboarding_title_3">সুৰক্ষিত গুগল ড্রাইভ বেকআপ</string>
+    <string name="onboarding_desc_3">AES-256-GCM এনক্ৰিপচনেৰে গুগল ড্রাইভত নিৰাপদে নথি আৰু খাতা সংৰক্ষণ কৰক।</string>
+    <string name="onboarding_get_started">আৰম্ভ কৰক</string>
+    <string name="onboarding_setup_pin_title">সুৰক্ষা পিন আৰু UPI যোগ কৰক</string>
+    <string name="onboarding_setup_pin_desc">৪-অংকৰ পিনেৰে খাতা সুৰক্ষিত কৰক আৰু তৎক্ষণাৎ UPI যোগ কৰক।</string>
+    <string name="pdf_statement">PDF প্ৰতিবেদন</string>
+    <string name="share_pdf">PDF শ্বেয়াৰ কৰক</string>
+    <string name="export_pdf_statement">PDF সংৰক্ষণ কৰক</string>
+</resources>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">उधार</string>
+    <string name="tagline_monochrome_ledger">सरल खाता तथा ऋण ट्र्याकर</string>
+    <string name="total_to_receive">कुल लिनुपर्ने (दिएको)</string>
+    <string name="total_to_pay">कुल तिर्नुपर्ने (लिएको)</string>
+    <string name="net_balance_label">कुल स्थिति</string>
+    <string name="search_placeholder">नाम, फोन, विवरण वा कागजात खोज्नुहोस्…</string>
+    <string name="add_udhaar_button">नयाँ उधार</string>
+    <string name="empty_ledger_title">कुनै खाता प्रविष्टि फेला परेन</string>
+    <string name="empty_ledger_subtitle">+ नयाँ उधार थिचेर NPR (रू) वा INR (₹) मा दिएको वा लिएको रकम सुरक्षित राख्नुहोस्।</string>
+    <string name="settings_title">प्रोफाइल र सेटिङहरू</string>
+    <string name="qr_modal_title">भुक्तानी QR कोड</string>
+    <string name="whatsapp_reminder_title">ह्वाट्सएप सम्झौता</string>
+    <string name="hide_exact_amount_label">सन्देशमा ठ्याक्कै रकम नदेखाउनुहोस्</string>
+    <string name="send_whatsapp_button">ह्वाट्सएप मार्फत पठाउनुहोस्</string>
+    <string name="share_qr_button">QR कार्ड सेयर गर्नुहोस्</string>
+    <string name="save_record_button">रेकर्ड बचत गर्नुहोस्</string>
+    <string name="pick_contact_desc">सम्पर्क सूचीबाट छान्नुहोस्</string>
+    <string name="widget_description">लिनुपर्ने र तिर्नुपर्ने कुल रकम देखाउँछ</string>
+    <string name="onboarding_title_1">स्मार्ट खाता तथा स्वचालित हिसाब</string>
+    <string name="onboarding_desc_1">NPR र INR मा साधारण वा चक्रवृद्धी ब्याज, आंशिक भुक्तानी र बिना कुनै गणितीय गल्ती रेकर्ड राख्नुहोस्।</string>
+    <string name="onboarding_title_2">दुई-तर्फी प्रमाणीकरण र च्याट</string>
+    <string name="onboarding_desc_2">SHA-256 प्रविधि र इन-ऐप च्याट मार्फत रसिद प्रमाण र म्याद थपको सहज सुविधा।</string>
+    <string name="onboarding_title_3">सुरक्षित गुगल ड्राइभ ब्याकअप</string>
+    <string name="onboarding_desc_3">AES-256-GCM इन्क्रिप्सनका साथ आफ्नो निजी गुगल ड्राइभमा खाता र कागजात सुरक्षित राख्नुहोस्।</string>
+    <string name="onboarding_get_started">सुरु गर्नुहोस्</string>
+    <string name="onboarding_setup_pin_title">सुरक्षा पिन र UPI सेट गर्नुहोस्</string>
+    <string name="onboarding_setup_pin_desc">आफ्नो वित्तीय विवरणलाई ४-अङ्कको पिनले सुरक्षित राख्नुहोस् र भुक्तानी सहज बनाउनुहोस्।</string>
+    <string name="pdf_statement">PDF विवरण</string>
+    <string name="share_pdf">PDF सेयर गर्नुहोस्</string>
+    <string name="export_pdf_statement">PDF विवरण डाउनलोड</string>
+</resources>

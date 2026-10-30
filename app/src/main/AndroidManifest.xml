@@ -8,6 +8,12 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Camera for capturing transaction documents and UPI receipt proofs -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Exact alarms for scheduled repayment reminders -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- Reschedule recurring alarms after device reboot -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:allowBackup="false"
@@ -50,6 +56,28 @@
         <receiver
             android:name="com.jyotirmoyb.udhaar.notification.ReminderReceiver"
             android:exported="false" />
+
+        <!-- Reschedule exact reminders after device boot -->
+        <receiver
+            android:name="com.jyotirmoyb.udhaar.notification.BootRescheduleReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Udhaar Home Screen Summary Widget -->
+        <receiver
+            android:name="com.jyotirmoyb.udhaar.widget.UdhaarWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/udhaar_widget_info" />
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"

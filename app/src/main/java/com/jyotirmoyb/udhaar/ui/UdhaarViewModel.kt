@@ -32,11 +32,17 @@ import com.jyotirmoyb.udhaar.backup.DriveResult
 import com.jyotirmoyb.udhaar.backup.DriveServiceHelper
 import com.jyotirmoyb.udhaar.data.AutoBackupFrequency
 import com.jyotirmoyb.udhaar.util.CalculatedUdhaarSummary
+import com.jyotirmoyb.udhaar.data.DateRangeFilter
+import com.jyotirmoyb.udhaar.data.TransactionSortOption
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 import com.jyotirmoyb.udhaar.util.LedgerBackupManager
+import com.jyotirmoyb.udhaar.util.PdfStatementGenerator
 import com.jyotirmoyb.udhaar.util.VerificationCryptoHelper
+import com.jyotirmoyb.udhaar.widget.UdhaarWidgetProvider
+import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -181,7 +187,10 @@ data class UdhaarUiState(
     val showMergeDuplicatesModal: Boolean = false,
     val showInAppContactPicker: Boolean = false,
     val deviceContacts: List<com.jyotirmoyb.udhaar.util.DeviceContact> = emptyList(),
-    val isLoadingContacts: Boolean = false
+    val isLoadingContacts: Boolean = false,
+    val transactionSortOption: TransactionSortOption = TransactionSortOption.RECENT_FIRST,
+    val dateRangeFilter: DateRangeFilter = DateRangeFilter.ALL_TIME,
+    val showOnboardingModal: Boolean = false
 ) {
     val activeSummaryTotals: CurrencyLedgerTotals
         get() = if (summaryCurrency == CurrencyType.INR) inrTotals else nprTotals
@@ -237,7 +246,10 @@ private data class LocalUiFilterState(
     val showMergeDuplicatesModal: Boolean = false,
     val showInAppContactPicker: Boolean = false,
     val deviceContacts: List<com.jyotirmoyb.udhaar.util.DeviceContact> = emptyList(),
-    val isLoadingContacts: Boolean = false
+    val isLoadingContacts: Boolean = false,
+    val transactionSortOption: TransactionSortOption = TransactionSortOption.RECENT_FIRST,
+    val dateRangeFilter: DateRangeFilter = DateRangeFilter.ALL_TIME,
+    val showOnboardingDismissed: Boolean = false
 )
 
 class UdhaarViewModel(
@@ -345,10 +357,21 @@ class UdhaarViewModel(
             }
         }
 
+        val now = System.currentTimeMillis()
+        val cal = Calendar.getInstance().apply {
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val startOfMonth = cal.timeInMillis
+
         val query = local.searchQuery.trim().lowercase()
         val filtered = visibleCalculatedList.filter { item ->
             val tx = item.transaction
             val txPayments = paymentsMap[tx.id].orEmpty()
+            val txAttachments = attachmentsByTx[tx.id].orEmpty()
             val needsConfirm = tx.needsMyConfirmation ||
                 tx.verificationStatus == VerificationStatus.EDITED_AFTER_CONFIRM ||
                 tx.verificationStatus == VerificationStatus.PENDING ||
@@ -364,6 +387,14 @@ class UdhaarViewModel(
                 LedgerFilter.NPR -> tx.currency == CurrencyType.NPR
                 LedgerFilter.SETTLED -> tx.isSettled
             }
+
+            val matchesDateRange = when (local.dateRangeFilter) {
+                DateRangeFilter.ALL_TIME -> true
+                DateRangeFilter.THIS_MONTH -> tx.createdAtMillis >= startOfMonth
+                DateRangeFilter.LAST_30_DAYS -> tx.createdAtMillis >= (now - 30L * 24 * 3600 * 1000)
+                DateRangeFilter.LAST_90_DAYS -> tx.createdAtMillis >= (now - 90L * 24 * 3600 * 1000)
+            }
+
             val matchesQuery = if (query.isEmpty()) {
                 true
             } else {
@@ -371,9 +402,24 @@ class UdhaarViewModel(
                     tx.phoneNumber.lowercase().contains(query) ||
                     tx.notes.lowercase().contains(query) ||
                     tx.paymentMode.label.lowercase().contains(query) ||
-                    tx.verificationStatus.label.lowercase().contains(query)
+                    tx.verificationStatus.label.lowercase().contains(query) ||
+                    txAttachments.any { it.fileName.lowercase().contains(query) } ||
+                    txPayments.any { p ->
+                        p.note.lowercase().contains(query) ||
+                            attachmentsByPayment[p.id].orEmpty().any { it.fileName.lowercase().contains(query) }
+                    }
             }
-            matchesFilter && matchesQuery
+            matchesFilter && matchesDateRange && matchesQuery
+        }
+
+        val sortedFiltered = when (local.transactionSortOption) {
+            TransactionSortOption.RECENT_FIRST -> filtered.sortedByDescending { it.transaction.createdAtMillis }
+            TransactionSortOption.DUE_DATE_ASC -> filtered.sortedWith(
+                compareBy<CalculatedUdhaarSummary> { it.transaction.expiryDateMillis ?: Long.MAX_VALUE }
+                    .thenByDescending { it.transaction.createdAtMillis }
+            )
+            TransactionSortOption.AMOUNT_DESC -> filtered.sortedByDescending { it.netBalanceDue }
+            TransactionSortOption.PARTY_NAME -> filtered.sortedBy { it.transaction.partyName.lowercase() }
         }
 
         // Build unified Party Khata Summaries
@@ -570,7 +616,7 @@ class UdhaarViewModel(
             searchQuery = local.searchQuery,
             peopleSearchQuery = local.peopleSearchQuery,
             allCalculatedItems = visibleCalculatedList,
-            filteredItems = filtered,
+            filteredItems = sortedFiltered,
             allParties = combinedParties,
             partyKhataList = khataList,
             filteredPartyKhataList = filteredKhataList,
@@ -625,7 +671,10 @@ class UdhaarViewModel(
             showMergeDuplicatesModal = local.showMergeDuplicatesModal,
             showInAppContactPicker = local.showInAppContactPicker,
             deviceContacts = local.deviceContacts,
-            isLoadingContacts = local.isLoadingContacts
+            isLoadingContacts = local.isLoadingContacts,
+            transactionSortOption = local.transactionSortOption,
+            dateRangeFilter = local.dateRangeFilter,
+            showOnboardingModal = !settings.hasCompletedOnboarding && !local.showOnboardingDismissed
         )
     }.stateIn(
         scope = viewModelScope,
@@ -706,6 +755,52 @@ class UdhaarViewModel(
 
     fun setPeopleSearchQuery(query: String) {
         localState.update { it.copy(peopleSearchQuery = query) }
+    }
+
+    fun setTransactionSortOption(option: TransactionSortOption) {
+        localState.update { it.copy(transactionSortOption = option) }
+    }
+
+    fun setDateRangeFilter(filter: DateRangeFilter) {
+        localState.update { it.copy(dateRangeFilter = filter) }
+    }
+
+    fun completeOnboarding(pin: String, upiId: String, name: String) {
+        viewModelScope.launch {
+            repository.completeOnboarding(
+                securityPin = pin.ifBlank { null },
+                upiId = upiId.ifBlank { null },
+                payeeName = name.ifBlank { null }
+            )
+            localState.update { it.copy(showOnboardingDismissed = true) }
+        }
+    }
+
+    fun generatePartyStatementPdf(khata: PartyKhataSummary, onReady: (File) -> Unit) {
+        if (appContext == null) return
+        viewModelScope.launch {
+            val file = PdfStatementGenerator.generatePartyStatementPdf(
+                context = appContext,
+                khata = khata,
+                userSettings = uiState.value.userSettings,
+                enabledCurrencies = uiState.value.userSettings.enabledCurrencies
+            )
+            onReady(file)
+        }
+    }
+
+    fun generateFullLedgerPdf(onReady: (File) -> Unit) {
+        if (appContext == null) return
+        viewModelScope.launch {
+            val file = PdfStatementGenerator.generateFullLedgerPdf(
+                context = appContext,
+                parties = uiState.value.allParties,
+                khataList = uiState.value.partyKhataList,
+                userSettings = uiState.value.userSettings,
+                enabledCurrencies = uiState.value.userSettings.enabledCurrencies
+            )
+            onReady(file)
+        }
     }
 
     fun openAddTransaction() {
@@ -1245,6 +1340,13 @@ class UdhaarViewModel(
                 } else {
                     ReminderScheduler.cancelReminder(ctx, savedId)
                 }
+                if (savedTx.expiryDateMillis != null && !savedTx.isSettled) {
+                    val formatted = InterestCalculator.formatCurrency(savedTx.principalAmount, savedTx.currency)
+                    com.jyotirmoyb.udhaar.notification.RecurringReminderScheduler.scheduleRemindersForTransaction(ctx, savedTx, formatted)
+                } else {
+                    com.jyotirmoyb.udhaar.notification.RecurringReminderScheduler.cancelRemindersForTransaction(ctx, savedId)
+                }
+                UdhaarWidgetProvider.updateAllWidgets(ctx)
             }
             localState.update {
                 val returnScreen = if (it.selectedPartyIdForSheet != null) {
@@ -1267,6 +1369,8 @@ class UdhaarViewModel(
         viewModelScope.launch {
             appContext?.let { ctx ->
                 ReminderScheduler.cancelReminder(ctx, transaction.id)
+                com.jyotirmoyb.udhaar.notification.RecurringReminderScheduler.cancelRemindersForTransaction(ctx, transaction.id)
+                UdhaarWidgetProvider.updateAllWidgets(ctx)
             }
             repository.deleteTransaction(transaction)
             localState.update {

@@ -691,6 +691,7 @@ fun PartyDetailScreen(
     onShareThermalReceipt: () -> Unit,
     onExportPartyStatement: () -> Unit,
     onSharePartyStatement: () -> Unit,
+    onExportPartyPdfStatement: () -> Unit = {},
     onShareMyPaymentDetails: () -> Unit = {},
     onRequestPartyPaymentDetails: () -> Unit = {},
     onRequestVerification: () -> Unit = {},
@@ -1173,6 +1174,30 @@ fun PartyDetailScreen(
                             Text(
                                 text = "SHARE RECEIPT / STATEMENT (IMAGE & PDF)",
                                 style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+
+                        // Phase 8: Export Official Printable PDF Statement
+                        OutlinedButton(
+                            onClick = onExportPartyPdfStatement,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .testTag("party_export_pdf_statement_button"),
+                            shape = RoundedCornerShape(4.dp),
+                            border = BorderStroke(1.5.dp, PureBlack),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "EXPORT PDF STATEMENT (AUDIT TRAIL)",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold
                             )
                         }
 

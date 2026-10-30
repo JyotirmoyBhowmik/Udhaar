@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">उधार</string>
+    <string name="tagline_monochrome_ledger">सरल खाता एवं ऋण प्रबंधन</string>
+    <string name="total_to_receive">कुल लेना (दिया)</string>
+    <string name="total_to_pay">कुल देना (लिया)</string>
+    <string name="net_balance_label">शुद्ध स्थिति</string>
+    <string name="search_placeholder">नाम, फोन, विवरण या दस्तावेज खोजें…</string>
+    <string name="add_udhaar_button">नया उधार</string>
+    <string name="empty_ledger_title">कोई खाता प्रविष्टि नहीं मिली</string>
+    <string name="empty_ledger_subtitle">+ नया उधार दबाकर INR (₹) या NPR (रू) में दिए या लिए गए पैसे दर्ज करें।</string>
+    <string name="settings_title">प्रोफ़ाइल एवं सेटिंग्स</string>
+    <string name="qr_modal_title">UPI भुगतान QR</string>
+    <string name="whatsapp_reminder_title">व्हाट्सएप रिमाइंडर</string>
+    <string name="hide_exact_amount_label">संदेश में सही राशि छिपाएं</string>
+    <string name="send_whatsapp_button">व्हाट्सएप द्वारा भेजें</string>
+    <string name="share_qr_button">QR कार्ड साझा करें</string>
+    <string name="save_record_button">रिकॉर्ड सहेजें</string>
+    <string name="pick_contact_desc">संपर्कों से चुनें</string>
+    <string name="widget_description">लेने-देने की कुल राशि और बकाया संख्या दिखाता है</string>
+    <string name="onboarding_title_1">स्मार्ट खाता एवं स्वचालित गणना</string>
+    <string name="onboarding_desc_1">INR और NPR में दिए और लिए गए ऋणों को साधारण या चक्रवृद्धि ब्याज, स्वचालित आंशिक भुगतान और बिना किसी गणितीय त्रुटि के ट्रैक करें।</string>
+    <string name="onboarding_title_2">सत्यापन एवं इन-ऐप बातचीत</string>
+    <string name="onboarding_desc_2">SHA-256 हैश के साथ छेड़छाड़-मुक्त ऑडिट ट्रेल। सत्यापन लिंक साझा करें और भुगतान प्रमाण के साथ चैट करें।</string>
+    <string name="onboarding_title_3">सुरक्षित गूगल ड्राइव बैकअप</string>
+    <string name="onboarding_desc_3">AES-256-GCM एन्क्रिप्शन के साथ अपने निजी Google Drive फ़ोल्डर में खाता और अनुलग्नकों का बैकअप लें।</string>
+    <string name="onboarding_get_started">शुरू करें</string>
+    <string name="onboarding_setup_pin_title">सुरक्षा पिन एवं UPI सेट करें</string>
+    <string name="onboarding_setup_pin_desc">अपने वित्तीय रिकॉर्ड को 4-अंकीय पिन से सुरक्षित करें और त्वरित UPI QR भुगतान सेट करें।</string>
+    <string name="pdf_statement">PDF स्टेटमेंट</string>
+    <string name="share_pdf">PDF साझा करें</string>
+    <string name="export_pdf_statement">PDF स्टेटमेंट निर्यात करें</string>
+</resources>

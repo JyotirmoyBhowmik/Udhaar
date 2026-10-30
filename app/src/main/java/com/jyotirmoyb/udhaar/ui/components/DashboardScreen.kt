@@ -31,14 +31,17 @@ import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -73,11 +76,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.jyotirmoyb.udhaar.R
 import com.jyotirmoyb.udhaar.data.CurrencyType
+import com.jyotirmoyb.udhaar.data.DateRangeFilter
 import com.jyotirmoyb.udhaar.data.LedgerFilter
 import com.jyotirmoyb.udhaar.data.PartialPayment
 import com.jyotirmoyb.udhaar.data.PartyEntity
+import com.jyotirmoyb.udhaar.data.TransactionSortOption
 import com.jyotirmoyb.udhaar.data.TransactionType
 import com.jyotirmoyb.udhaar.data.VerificationStatus
 import com.jyotirmoyb.udhaar.ui.ActiveScreen
@@ -121,7 +127,10 @@ fun DashboardScreen(
     onPartySortOptionChange: (PartySortOption) -> Unit = {},
     onOpenMergeDuplicates: () -> Unit = {},
     onOpenContactPicker: () -> Unit = {},
-    onToggleFavoriteParty: (PartyEntity) -> Unit = {}
+    onToggleFavoriteParty: (PartyEntity) -> Unit = {},
+    onTransactionSortOptionChange: (TransactionSortOption) -> Unit = {},
+    onDateRangeFilterChange: (DateRangeFilter) -> Unit = {},
+    onExportFullLedgerPdf: () -> Unit = {}
 ) {
     val isPeopleTab = uiState.activeScreen == ActiveScreen.PEOPLE_DIRECTORY
     val enabledCurrencies = uiState.userSettings.enabledCurrencies
@@ -343,6 +352,28 @@ fun DashboardScreen(
                                     },
                                     modifier = Modifier.testTag("share_app_top_button")
                                 )
+
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = "Export Full PDF Statement",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = PureBlack
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.PictureAsPdf,
+                                            contentDescription = null,
+                                            tint = PureBlack
+                                        )
+                                    },
+                                    onClick = {
+                                        showMoreMenu = false
+                                        onExportFullLedgerPdf()
+                                    },
+                                    modifier = Modifier.testTag("export_full_pdf_top_button")
+                                )
                             }
                         }
                     }
@@ -516,11 +547,15 @@ fun DashboardScreen(
                         SearchAndFilterBar(
                             searchQuery = uiState.searchQuery,
                             selectedFilter = uiState.selectedFilter,
+                            transactionSortOption = uiState.transactionSortOption,
+                            dateRangeFilter = uiState.dateRangeFilter,
                             enabledCurrencies = enabledCurrencies,
                             allCalculatedItems = uiState.allCalculatedItems,
                             partialPaymentsByTx = uiState.partialPaymentsByTx,
                             onSearchQueryChange = onSearchQueryChange,
-                            onSelectFilter = onSelectFilter
+                            onSelectFilter = onSelectFilter,
+                            onTransactionSortOptionChange = onTransactionSortOptionChange,
+                            onDateRangeFilterChange = onDateRangeFilterChange
                         )
                     }
 
@@ -748,11 +783,15 @@ private fun TopLedgerSummaryCard(
 private fun SearchAndFilterBar(
     searchQuery: String,
     selectedFilter: LedgerFilter,
+    transactionSortOption: TransactionSortOption,
+    dateRangeFilter: DateRangeFilter,
     enabledCurrencies: List<CurrencyType>,
     allCalculatedItems: List<CalculatedUdhaarSummary>,
     partialPaymentsByTx: Map<Long, List<PartialPayment>>,
     onSearchQueryChange: (String) -> Unit,
-    onSelectFilter: (LedgerFilter) -> Unit
+    onSelectFilter: (LedgerFilter) -> Unit,
+    onTransactionSortOptionChange: (TransactionSortOption) -> Unit,
+    onDateRangeFilterChange: (DateRangeFilter) -> Unit
 ) {
     val visibleFilters = LedgerFilter.entries.filter { filter ->
         when (filter) {
@@ -941,6 +980,98 @@ private fun SearchAndFilterBar(
                                 maxLines = 1
                             )
                         }
+                    }
+                }
+            }
+        }
+
+        // Date Range & Sort Option Controls Row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Date Range Quick Filter Chips
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f, fill = false)
+            ) {
+                items(DateRangeFilter.entries) { range ->
+                    val isSelected = dateRangeFilter == range
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                color = if (isSelected) PureBlack else SubtleSurfaceGrey,
+                                shape = RoundedCornerShape(4.dp)
+                            )
+                            .border(
+                                width = if (isSelected) 1.dp else 0.5.dp,
+                                color = if (isSelected) PureBlack else BorderGrey,
+                                shape = RoundedCornerShape(4.dp)
+                            )
+                            .clickable { onDateRangeFilterChange(range) }
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .testTag("date_range_${range.name.lowercase()}"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = range.label.uppercase(),
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) PureWhite else PureBlack
+                        )
+                    }
+                }
+            }
+
+            // Sort Dropdown Button
+            var sortMenuExpanded by remember { mutableStateOf(false) }
+            Box {
+                OutlinedButton(
+                    onClick = { sortMenuExpanded = true },
+                    shape = RoundedCornerShape(4.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    modifier = Modifier
+                        .height(30.dp)
+                        .testTag("sort_transactions_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Sort,
+                        contentDescription = "Sort transactions",
+                        tint = PureBlack,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = transactionSortOption.label,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = PureBlack
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = sortMenuExpanded,
+                    onDismissRequest = { sortMenuExpanded = false },
+                    modifier = Modifier.background(PureWhite)
+                ) {
+                    TransactionSortOption.entries.forEach { option ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = option.label,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = if (option == transactionSortOption) FontWeight.Bold else FontWeight.Normal,
+                                    color = PureBlack
+                                )
+                            },
+                            onClick = {
+                                sortMenuExpanded = false
+                                onTransactionSortOptionChange(option)
+                            }
+                        )
                     }
                 }
             }

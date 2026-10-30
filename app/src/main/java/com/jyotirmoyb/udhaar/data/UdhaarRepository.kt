@@ -71,6 +71,7 @@ class UdhaarRepository(
         val DRIVE_AUTO_BACKUP_FREQ = stringPreferencesKey("drive_auto_backup_freq")
         val DRIVE_AUTO_BACKUP_WIFI = booleanPreferencesKey("drive_auto_backup_wifi")
         val DRIVE_AUTO_BACKUP_KEY_SAVED = booleanPreferencesKey("drive_auto_backup_key_saved")
+        val HAS_COMPLETED_ONBOARDING = booleanPreferencesKey("has_completed_onboarding")
     }
 
     val allParties: Flow<List<PartyEntity>> = dao.getAllParties()
@@ -134,7 +135,8 @@ class UdhaarRepository(
                 driveLastBackupSizeBytes = prefs[PrefKeys.DRIVE_LAST_BACKUP_SIZE] ?: 0L,
                 driveAutoBackupFrequency = driveAutoFreq,
                 driveAutoBackupWifiOnly = prefs[PrefKeys.DRIVE_AUTO_BACKUP_WIFI] ?: true,
-                driveAutoBackupPassphraseSaved = prefs[PrefKeys.DRIVE_AUTO_BACKUP_KEY_SAVED] ?: false
+                driveAutoBackupPassphraseSaved = prefs[PrefKeys.DRIVE_AUTO_BACKUP_KEY_SAVED] ?: false,
+                hasCompletedOnboarding = prefs[PrefKeys.HAS_COMPLETED_ONBOARDING] ?: false
             )
         } ?: kotlinx.coroutines.flow.flowOf(UserSettings())
 
@@ -1117,6 +1119,30 @@ class UdhaarRepository(
                         photoUri = currentSettings.profilePhotoUri
                     )
                 )
+            }
+        }
+    }
+
+    suspend fun completeOnboarding(
+        securityPin: String? = null,
+        upiId: String? = null,
+        payeeName: String? = null
+    ) {
+        if (!securityPin.isNullOrBlank()) {
+            pinSecurityManager?.setPin(securityPin.trim())
+        }
+        val hasPinNow = pinSecurityManager?.hasPinConfigured() ?: false
+        context?.dataStore?.edit { prefs ->
+            prefs[PrefKeys.HAS_COMPLETED_ONBOARDING] = true
+            if (!upiId.isNullOrBlank()) {
+                prefs[PrefKeys.UPI_ID] = upiId.trim()
+            }
+            if (!payeeName.isNullOrBlank()) {
+                prefs[PrefKeys.PAYEE_NAME] = payeeName.trim()
+            }
+            if (hasPinNow) {
+                prefs[PrefKeys.BIOMETRIC_LOCK_ENABLED] = true
+                prefs[PrefKeys.PIN_CONFIGURED_REVISION] = System.currentTimeMillis().toString()
             }
         }
     }

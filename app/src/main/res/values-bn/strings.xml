@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">উধার</string>
+    <string name="tagline_monochrome_ledger">সহজ খাতা ও ঋণ ট্র্যাকার</string>
+    <string name="total_to_receive">মোট প্রাপ্য (প্রদত্ত)</string>
+    <string name="total_to_pay">মোট প্রদেয় (গৃহীত)</string>
+    <string name="net_balance_label">মোট স্থিতি</string>
+    <string name="search_placeholder">নাম, ফোন, নোট বা ফাইল খুঁজুন…</string>
+    <string name="add_udhaar_button">নতুন ঋণ</string>
+    <string name="empty_ledger_title">কোনো খাতা রেকর্ড পাওয়া যায়নি</string>
+    <string name="empty_ledger_subtitle">+ নতুন ঋণ চেপে INR (₹) বা NPR (रू)-এ টাকা লেনদেনের হিসাব রাখুন।</string>
+    <string name="settings_title">প্রোফাইল ও সেটিংস</string>
+    <string name="qr_modal_title">UPI পেমেন্ট QR</string>
+    <string name="whatsapp_reminder_title">হোয়াটসঅ্যাপ তাগাদা</string>
+    <string name="hide_exact_amount_label">বার্তায় নির্দিষ্ট টাকার পরিমাণ লুকান</string>
+    <string name="send_whatsapp_button">হোয়াটসঅ্যাপে পাঠান</string>
+    <string name="share_qr_button">QR কার্ড শেয়ার করুন</string>
+    <string name="save_record_button">সংরক্ষণ করুন</string>
+    <string name="pick_contact_desc">ফোন কন্টাক্ট থেকে বাছাই করুন</string>
+    <string name="widget_description">মোট দেনা-পাওনা এবং বকেয়ার হিসাব প্রদর্শন করে</string>
+    <string name="onboarding_title_1">স্মার্ট খাতা ও সঠিক হিসাব</string>
+    <string name="onboarding_desc_1">সহজ বা চক্রবৃদ্ধি সুদ, কিস্তি পরিশোধ এবং স্বয়ংক্রিয় হিসাবের সাথে লেনদেন রেকর্ড করুন।</string>
+    <string name="onboarding_title_2">যাচাইকরণ ও ইন-অ্যাপ চ্যাট</string>
+    <string name="onboarding_desc_2">SHA-256 ক্রিপ্টোগ্রাফিক সুরক্ষা এবং প্রমাণসহ উভয় পক্ষের সমন্বিত চ্যাট ও সময়সীমা বৃদ্ধির সুযোগ।</string>
+    <string name="onboarding_title_3">এনক্রিপ্টেড গুগল ড্রাইভ ব্যাকআপ</string>
+    <string name="onboarding_desc_3">AES-256-GCM এনক্রিপশনের মাধ্যমে গুগল ড্রাইভে নিরাপদে আপনার খাতা ও রসিদ সংরক্ষণ করুন।</string>
+    <string name="onboarding_get_started">শুরু করুন</string>
+    <string name="onboarding_setup_pin_title">সুরক্ষা পিন ও UPI সেট করুন</string>
+    <string name="onboarding_setup_pin_desc">৪-সংখ্যার পিন দিয়ে খাতা সুরক্ষিত করুন এবং দ্রুত পরিশোধের জন্য UPI আইডি যুক্ত করুন।</string>
+    <string name="pdf_statement">PDF স্টেটমেন্ট</string>
+    <string name="share_pdf">PDF শেয়ার করুন</string>
+    <string name="export_pdf_statement">PDF স্টেটমেন্ট সংরক্ষণ</string>
+</resources>

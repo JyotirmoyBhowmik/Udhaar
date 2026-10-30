@@ -1,14 +1,15 @@
 <resources>
     <string name="app_name">Udhaar</string>
+    <string name="default_web_client_id">528046585099-g90j9r5g9v3n923k10u40i5i149q7ncm.apps.googleusercontent.com</string>
     <string name="tagline_monochrome_ledger">MINIMALIST LOAN &amp; LEDGER</string>
     <string name="total_to_receive">TOTAL TO RECEIVE (GIVEN)</string>
     <string name="total_to_pay">TOTAL TO PAY (TAKEN)</string>
     <string name="net_balance_label">NET POSITION</string>
-    <string name="search_placeholder">Search party, phone, or notes…</string>
+    <string name="search_placeholder">Search party, phone, notes or attachments…</string>
     <string name="add_udhaar_button">New Udhaar</string>
     <string name="empty_ledger_title">No Ledger Records Found</string>
     <string name="empty_ledger_subtitle">Tap + New Udhaar to record money given or taken in INR (₹) or NPR (रू).</string>
-    <string name="settings_title">Profile &amp; UPI Settings</string>
+    <string name="settings_title">Profile &amp; Settings</string>
     <string name="qr_modal_title">UPI Payment QR</string>
     <string name="whatsapp_reminder_title">WhatsApp Reminder</string>
     <string name="hide_exact_amount_label">Hide Exact Amount in Message</string>
@@ -16,4 +17,17 @@
     <string name="share_qr_button">Share QR Card</string>
     <string name="save_record_button">Save Record</string>
     <string name="pick_contact_desc">Pick from phone contacts</string>
+    <string name="widget_description">Displays total to receive, total to pay, and overdue counts</string>
+    <string name="onboarding_title_1">Smart Ledger &amp; Automatic Math</string>
+    <string name="onboarding_desc_1">Effortlessly track loans given and taken in INR and NPR with simple or compounding interest, auto-calculated partial repayments, and zero math errors.</string>
+    <string name="onboarding_title_2">Two-Party Verification &amp; Chat</string>
+    <string name="onboarding_desc_2">Tamper-proof cryptographic audit trail with SHA-256 hashes. Share verification links and chat in-app with receipt proofs and due-date extensions.</string>
+    <string name="onboarding_title_3">Passphrase-Encrypted Cloud Backups</string>
+    <string name="onboarding_desc_3">Back up your complete ledger and document attachments to your private Google Drive app folder with zero-knowledge AES-256-GCM encryption.</string>
+    <string name="onboarding_get_started">Get Started</string>
+    <string name="onboarding_setup_pin_title">Set Up Security PIN &amp; UPI</string>
+    <string name="onboarding_setup_pin_desc">Protect your financial records with a 4-digit PIN and configure your UPI ID for instant settlement QR codes.</string>
+    <string name="pdf_statement">PDF Statement</string>
+    <string name="share_pdf">Share PDF</string>
+    <string name="export_pdf_statement">Export PDF Statement</string>
 </resources>

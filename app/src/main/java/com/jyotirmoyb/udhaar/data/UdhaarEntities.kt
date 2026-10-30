@@ -101,6 +101,20 @@ enum class LedgerFilter(val label: String) {
     SETTLED("Settled")
 }
 
+enum class TransactionSortOption(val label: String) {
+    RECENT_FIRST("Date (Newest)"),
+    DUE_DATE_ASC("Due Date (Earliest)"),
+    AMOUNT_DESC("Highest Amount"),
+    PARTY_NAME("Party Name")
+}
+
+enum class DateRangeFilter(val label: String) {
+    ALL_TIME("All Time"),
+    THIS_MONTH("This Month"),
+    LAST_30_DAYS("Last 30 Days"),
+    LAST_90_DAYS("Last 90 Days")
+}
+
 @Entity(tableName = "parties")
 data class PartyEntity(
     @PrimaryKey(autoGenerate = true)
@@ -340,7 +354,8 @@ data class UserSettings(
     val driveLastBackupSizeBytes: Long = 0L,
     val driveAutoBackupFrequency: AutoBackupFrequency = AutoBackupFrequency.OFF,
     val driveAutoBackupWifiOnly: Boolean = true,
-    val driveAutoBackupPassphraseSaved: Boolean = false
+    val driveAutoBackupPassphraseSaved: Boolean = false,
+    val hasCompletedOnboarding: Boolean = false
 ) {
     val driveAccountEmail: String get() = driveUserEmail
     val driveLastBackupMillis: Long get() = driveLastBackupTimeMillis

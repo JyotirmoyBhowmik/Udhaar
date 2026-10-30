@@ -34,8 +34,8 @@ class ExampleRobolectricTest {
         val appName = context.getString(R.string.app_name)
         assertEquals("Udhaar", appName)
         assertEquals("com.jyotirmoyb.udhaar", BuildConfig.APPLICATION_ID)
-        assertEquals("7.0", BuildConfig.VERSION_NAME)
-        assertEquals(7, BuildConfig.VERSION_CODE)
+        assertEquals("8.0", BuildConfig.VERSION_NAME)
+        assertEquals(8, BuildConfig.VERSION_CODE)
     }
 
     @get:org.junit.Rule
@@ -550,5 +550,112 @@ class ExampleRobolectricTest {
 
             db.close()
         }
+
+    @Test
+    fun `room migrations 1 to 7 apply cleanly without schema violation`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dbFile = context.getDatabasePath("migration_test.db")
+        dbFile.delete()
+
+        val helperFactory = androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory()
+        val config = androidx.sqlite.db.SupportSQLiteOpenHelper.Configuration.builder(context)
+            .name("migration_test.db")
+            .callback(object : androidx.sqlite.db.SupportSQLiteOpenHelper.Callback(1) {
+                override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                    db.execSQL("""
+                        CREATE TABLE IF NOT EXISTS `udhaar_transactions` (
+                            `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            `transactionType` TEXT NOT NULL,
+                            `partyName` TEXT NOT NULL,
+                            `phoneNumber` TEXT NOT NULL,
+                            `currency` TEXT NOT NULL,
+                            `principalAmount` REAL NOT NULL,
+                            `amountPaid` REAL NOT NULL,
+                            `paymentMode` TEXT NOT NULL,
+                            `isInterestEnabled` INTEGER NOT NULL,
+                            `interestType` TEXT NOT NULL,
+                            `interestRate` REAL NOT NULL,
+                            `interestRatePeriod` TEXT NOT NULL,
+                            `compoundFrequency` TEXT NOT NULL,
+                            `startDateMillis` INTEGER NOT NULL,
+                            `expiryDateMillis` INTEGER,
+                            `gracePeriodDays` INTEGER NOT NULL,
+                            `notes` TEXT NOT NULL,
+                            `isSettled` INTEGER NOT NULL,
+                            `createdAtMillis` INTEGER NOT NULL,
+                            `updatedAtMillis` INTEGER NOT NULL
+                        )
+                    """.trimIndent())
+                    db.execSQL("""
+                        CREATE TABLE IF NOT EXISTS `partial_payments` (
+                            `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            `transactionId` INTEGER NOT NULL,
+                            `amount` REAL NOT NULL,
+                            `paymentDateMillis` INTEGER NOT NULL,
+                            `note` TEXT NOT NULL
+                        )
+                    """.trimIndent())
+                }
+                override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+            })
+            .build()
+
+        val helper = helperFactory.create(config)
+        val v1Db = helper.writableDatabase
+        v1Db.execSQL("INSERT INTO `udhaar_transactions` (`id`, `transactionType`, `partyName`, `phoneNumber`, `currency`, `principalAmount`, `amountPaid`, `paymentMode`, `isInterestEnabled`, `interestType`, `interestRate`, `interestRatePeriod`, `compoundFrequency`, `startDateMillis`, `gracePeriodDays`, `notes`, `isSettled`, `createdAtMillis`, `updatedAtMillis`) VALUES (1, 'GIVEN', 'Aarav', '9876543210', 'INR', 5000.0, 0.0, 'CASH', 0, 'SIMPLE', 0.0, 'PER_ANNUM', 'YEARLY', 1700000000, 0, '', 0, 1700000000, 1700000000)")
+
+        // Apply migrations 1->2, 2->3, 3->4, 4->5, 5->6, 6->7
+        com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_1_2.migrate(v1Db)
+        com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_2_3.migrate(v1Db)
+        com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_3_4.migrate(v1Db)
+        com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_4_5.migrate(v1Db)
+        com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_5_6.migrate(v1Db)
+        com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_6_7.migrate(v1Db)
+
+        val cursor = v1Db.query("SELECT partyId, remoteId, verificationStatus, contentHash FROM udhaar_transactions WHERE id = 1")
+        assertTrue(cursor.moveToFirst())
+        assertEquals("LOCAL_ONLY", cursor.getString(cursor.getColumnIndexOrThrow("verificationStatus")))
+        cursor.close()
+
+        // Check that new tables exist
+        val partyCursor = v1Db.query("SELECT count(*) FROM parties")
+        assertTrue(partyCursor.moveToFirst())
+        partyCursor.close()
+
+        val attachmentCursor = v1Db.query("SELECT count(*) FROM attachments")
+        assertTrue(attachmentCursor.moveToFirst())
+        attachmentCursor.close()
+
+        v1Db.close()
+        helper.close()
+        dbFile.delete()
+    }
+
+    @Test
+    fun `pdfStatementGenerator generates valid non-empty PDF document`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val party = PartyEntity(partyId = 1L, name = "Harish Traders", phoneNumber = "+91 9876543210")
+        val tx = UdhaarTransaction(
+            id = 1L,
+            transactionType = TransactionType.GIVEN,
+            partyName = "Harish Traders",
+            principalAmount = 25_000.0,
+            currency = CurrencyType.INR,
+            startDateMillis = System.currentTimeMillis() - 86400000L * 30
+        )
+        val summary = InterestCalculator.calculate(tx)
+        val khata = com.jyotirmoyb.udhaar.ui.PartyKhataSummary(
+            party = party,
+            transactions = listOf(summary)
+        )
+        val file = com.jyotirmoyb.udhaar.util.PdfStatementGenerator.generatePartyStatementPdf(
+            context = context,
+            khata = khata,
+            userSettings = UserSettings(payeeName = "Shop Owner", upiId = "owner@upi")
+        )
+        assertNotNull(file)
+        assertTrue("PDF file must exist and have content", file.exists() && file.length() > 0)
+    }
 }
+
 

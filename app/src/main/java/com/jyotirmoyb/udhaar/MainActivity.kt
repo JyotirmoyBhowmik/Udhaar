@@ -18,6 +18,7 @@ import com.google.android.gms.common.api.Scope
 import com.jyotirmoyb.udhaar.ui.components.ContactsPermissionRationaleDialog
 import com.jyotirmoyb.udhaar.ui.components.InAppContactPickerModal
 import com.jyotirmoyb.udhaar.ui.components.MergeDuplicatesModal
+import com.jyotirmoyb.udhaar.ui.components.OnboardingModal
 import com.jyotirmoyb.udhaar.ui.components.RestorePreviewDialog
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -75,6 +76,7 @@ import com.jyotirmoyb.udhaar.ui.theme.UdhaarTheme
 import com.jyotirmoyb.udhaar.util.AttachmentManager
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 import com.jyotirmoyb.udhaar.util.LedgerBackupManager
+import com.jyotirmoyb.udhaar.util.PdfStatementGenerator
 import com.jyotirmoyb.udhaar.util.ThermalReceiptGenerator
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -434,7 +436,14 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                 onPartySortOptionChange = viewModel::setPartySortOption,
                 onOpenMergeDuplicates = viewModel::openMergeDuplicatesModal,
                 onOpenContactPicker = requestContactsFlow,
-                onToggleFavoriteParty = viewModel::togglePartyFavorite
+                onToggleFavoriteParty = viewModel::togglePartyFavorite,
+                onTransactionSortOptionChange = viewModel::setTransactionSortOption,
+                onDateRangeFilterChange = viewModel::setDateRangeFilter,
+                onExportFullLedgerPdf = {
+                    viewModel.generateFullLedgerPdf { file ->
+                        PdfStatementGenerator.sharePdfFile(context, file, "Udhaar Full Ledger Statement")
+                    }
+                }
             )
         }
         ActiveScreen.PARTY_DETAIL -> {
@@ -507,6 +516,15 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                                 context = context,
                                 jsonContent = json,
                                 fileNamePrefix = "udhaar_statement_${safeName}"
+                            )
+                        }
+                    },
+                    onExportPartyPdfStatement = {
+                        viewModel.generatePartyStatementPdf(selectedKhata) { file ->
+                            PdfStatementGenerator.sharePdfFile(
+                                context = context,
+                                file = file,
+                                subject = "Udhaar Statement - ${selectedKhata.party.name}"
                             )
                         }
                     }
@@ -1131,6 +1149,16 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                 ).show()
             },
             onDismiss = viewModel::closeMergeDuplicatesModal
+        )
+    }
+
+    // Phase 8: Onboarding Flow for First-Time Users
+    if (uiState.showOnboardingModal) {
+        OnboardingModal(
+            onFinish = { pin, upiId, payeeName ->
+                viewModel.completeOnboarding(pin, upiId, payeeName)
+                Toast.makeText(context, "Welcome to Udhaar!", Toast.LENGTH_SHORT).show()
+            }
         )
     }
 }
