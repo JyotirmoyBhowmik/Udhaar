@@ -25,7 +25,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [36])
 abstract class FirestoreEmulatorTestBase {
 
     lateinit var db: FirebaseFirestore
@@ -76,11 +76,24 @@ abstract class FirestoreEmulatorTestBase {
         runCatching { FirebaseApp.clearInstancesForTest() }
     }
 
+    private fun isEmulatorRunning(): Boolean {
+        return runCatching {
+            val url = URL("http://$authHost:$authPort")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 400
+            conn.readTimeout = 400
+            conn.responseCode
+            conn.disconnect()
+            true
+        }.getOrDefault(false)
+    }
+
     /**
      * Runs a coroutine test block on a worker thread while pumping Robolectric's main looper
      * so Firebase Auth & Firestore Task callbacks posted to Android's main thread execute immediately.
      */
     protected fun runEmulatorTest(block: suspend CoroutineScope.() -> Unit) {
+        org.junit.Assume.assumeTrue("Firebase emulator is not running on $authHost:$authPort", isEmulatorRunning())
         val latch = CountDownLatch(1)
         var thrown: Throwable? = null
         val worker = Thread {

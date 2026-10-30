@@ -144,15 +144,96 @@ class UdhaarRepository(
             party.phoneNumber,
             party.preferredCurrency
         )
+        val formattedAltPhone = if (party.alternatePhoneNumber.isNotBlank()) {
+            InterestCalculator.formatPhoneWithCountryCode(
+                party.alternatePhoneNumber,
+                party.preferredCurrency
+            )
+        } else {
+            ""
+        }
         return dao.insertParty(
             party.copy(
                 name = party.name.trim(),
                 phoneNumber = formattedPhone,
+                alternatePhoneNumber = formattedAltPhone,
                 upiId = party.upiId.trim(),
                 email = party.email.trim(),
-                tagOrNotes = party.tagOrNotes.trim()
+                tagOrNotes = party.tagOrNotes.trim(),
+                notes = party.notes.trim(),
+                photoUri = party.photoUri.trim(),
+                linkedUserId = party.linkedUserId.trim(),
+                isFavorite = party.isFavorite,
+                lastInteractionMillis = if (party.lastInteractionMillis > 0L) party.lastInteractionMillis else System.currentTimeMillis()
             )
         )
+    }
+
+    suspend fun saveParties(parties: List<PartyEntity>): List<Long> {
+        val mapped = parties.map { p ->
+            val formattedPhone = InterestCalculator.formatPhoneWithCountryCode(p.phoneNumber, p.preferredCurrency)
+            val formattedAltPhone = if (p.alternatePhoneNumber.isNotBlank()) {
+                InterestCalculator.formatPhoneWithCountryCode(p.alternatePhoneNumber, p.preferredCurrency)
+            } else ""
+            p.copy(
+                name = p.name.trim(),
+                phoneNumber = formattedPhone,
+                alternatePhoneNumber = formattedAltPhone,
+                upiId = p.upiId.trim(),
+                email = p.email.trim(),
+                tagOrNotes = p.tagOrNotes.trim(),
+                notes = p.notes.trim(),
+                photoUri = p.photoUri.trim(),
+                linkedUserId = p.linkedUserId.trim()
+            )
+        }
+        return dao.insertParties(mapped)
+    }
+
+    suspend fun togglePartyFavorite(partyId: Long, isFavorite: Boolean) {
+        dao.setPartyFavorite(partyId, isFavorite)
+    }
+
+    suspend fun updatePartyLastInteraction(partyId: Long, millis: Long = System.currentTimeMillis()) {
+        dao.updatePartyLastInteraction(partyId, millis)
+    }
+
+    /**
+     * Merges a source party into a primary (target) party.
+     * Re-links all transactions, chat threads, and chat messages to targetParty.
+     * Keeps target party's non-empty fields or populates empty ones from source party.
+     * Deletes sourceParty from the database.
+     */
+    suspend fun mergeParties(primaryParty: PartyEntity, secondaryParty: PartyEntity): PartyEntity {
+        val merged = primaryParty.copy(
+            phoneNumber = primaryParty.phoneNumber.ifBlank { secondaryParty.phoneNumber },
+            alternatePhoneNumber = primaryParty.alternatePhoneNumber.ifBlank {
+                if (secondaryParty.phoneNumber != primaryParty.phoneNumber) secondaryParty.phoneNumber
+                else secondaryParty.alternatePhoneNumber
+            },
+            upiId = primaryParty.upiId.ifBlank { secondaryParty.upiId },
+            email = primaryParty.email.ifBlank { secondaryParty.email },
+            tagOrNotes = primaryParty.tagOrNotes.ifBlank { secondaryParty.tagOrNotes },
+            notes = if (primaryParty.notes.isNotBlank() && secondaryParty.notes.isNotBlank() && primaryParty.notes != secondaryParty.notes) {
+                "${primaryParty.notes}\n[Merged]: ${secondaryParty.notes}"
+            } else {
+                primaryParty.notes.ifBlank { secondaryParty.notes }
+            },
+            photoUri = primaryParty.photoUri.ifBlank { secondaryParty.photoUri },
+            linkedUserId = primaryParty.linkedUserId.ifBlank { secondaryParty.linkedUserId },
+            isFavorite = primaryParty.isFavorite || secondaryParty.isFavorite,
+            lastInteractionMillis = maxOf(primaryParty.lastInteractionMillis, secondaryParty.lastInteractionMillis)
+        )
+        dao.insertParty(merged)
+
+        // Relink records from secondary party to primary party
+        if (secondaryParty.partyId > 0L && primaryParty.partyId > 0L) {
+            dao.relinkTransactionsForPartyId(secondaryParty.partyId, primaryParty.partyId, primaryParty.name)
+            dao.relinkChatMessagesForPartyId(secondaryParty.partyId, primaryParty.partyId, primaryParty.name)
+            dao.relinkChatThreadsForPartyId(secondaryParty.partyId, primaryParty.partyId, primaryParty.name)
+            dao.deletePartyById(secondaryParty.partyId)
+        }
+        return merged
     }
 
     suspend fun deleteParty(party: PartyEntity) {

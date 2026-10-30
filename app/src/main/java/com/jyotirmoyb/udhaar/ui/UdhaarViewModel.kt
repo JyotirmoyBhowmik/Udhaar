@@ -73,18 +73,36 @@ data class CurrencyLedgerTotals(
     val netPosition: Double get() = totalToReceive - totalToPay
 }
 
+enum class PartySortOption(val label: String) {
+    NAME("Name (A-Z)"),
+    HIGHEST_BALANCE("Highest Net Balance"),
+    MOST_OVERDUE("Most Overdue"),
+    RECENT_INTERACTION("Recently Active")
+}
+
 data class PartyKhataSummary(
     val party: PartyEntity,
     val transactions: List<CalculatedUdhaarSummary>,
     val inrToReceive: Double,
     val inrToPay: Double,
     val nprToReceive: Double,
-    val nprToPay: Double
+    val nprToPay: Double,
+    val oldestOverdueDays: Long = 0L,
+    val averageRepaymentDays: Double = 0.0,
+    val trustScorePercent: Int = 100, // 0 to 100 based on on-time repayments
+    val trustBadge: String = "EXCELLENT" // EXCELLENT, GOOD, FAIR, CAUTION, NEW
 ) {
     val inrNet: Double get() = inrToReceive - inrToPay
     val nprNet: Double get() = nprToReceive - nprToPay
     val activeLoanCount: Int get() = transactions.count { !it.transaction.isSettled }
+    val maxNetBalance: Double get() = maxOf(Math.abs(inrNet), Math.abs(nprNet))
 }
+
+data class DuplicatePartyPair(
+    val primaryParty: PartyEntity,
+    val duplicateParty: PartyEntity,
+    val matchReason: String // e.g. "Same Normalized Phone: +91 9876543210" or "Matching Name"
+)
 
 data class PreselectedPartyDraft(
     val partyId: Long?,
@@ -156,7 +174,14 @@ data class UdhaarUiState(
     val attachmentsByTx: Map<Long, List<Attachment>> = emptyMap(),
     val attachmentsByPayment: Map<Long, List<Attachment>> = emptyMap(),
     val activeViewerAttachment: Attachment? = null,
-    val draftAttachments: List<Attachment> = emptyList()
+    val draftAttachments: List<Attachment> = emptyList(),
+    // --- Phase 7: Better Contacts State ---
+    val partySortOption: PartySortOption = PartySortOption.NAME,
+    val duplicatePartyPairs: List<DuplicatePartyPair> = emptyList(),
+    val showMergeDuplicatesModal: Boolean = false,
+    val showInAppContactPicker: Boolean = false,
+    val deviceContacts: List<com.jyotirmoyb.udhaar.util.DeviceContact> = emptyList(),
+    val isLoadingContacts: Boolean = false
 ) {
     val activeSummaryTotals: CurrencyLedgerTotals
         get() = if (summaryCurrency == CurrencyType.INR) inrTotals else nprTotals
@@ -207,7 +232,12 @@ private data class LocalUiFilterState(
     val showRestorePassphraseDialog: Boolean = false,
     val restoreSelectedBackup: DriveRemoteBackup? = null,
     val activeViewerAttachment: Attachment? = null,
-    val draftAttachments: List<Attachment> = emptyList()
+    val draftAttachments: List<Attachment> = emptyList(),
+    val partySortOption: PartySortOption = PartySortOption.NAME,
+    val showMergeDuplicatesModal: Boolean = false,
+    val showInAppContactPicker: Boolean = false,
+    val deviceContacts: List<com.jyotirmoyb.udhaar.util.DeviceContact> = emptyList(),
+    val isLoadingContacts: Boolean = false
 )
 
 class UdhaarViewModel(
@@ -386,27 +416,138 @@ class UdhaarViewModel(
                 it.transaction.currency == CurrencyType.NPR && it.transaction.transactionType == TransactionType.TAKEN
             }.sumOf { it.netBalanceDue }
 
+            val overdueTxs = activePartyTxs.filter { it.isOverdue }
+            val oldestOverdueDays = if (overdueTxs.isNotEmpty()) {
+                val oldestExpiry = overdueTxs.mapNotNull { it.transaction.expiryDateMillis }.minOrNull()
+                if (oldestExpiry != null && nowMillis > oldestExpiry) {
+                    (nowMillis - oldestExpiry) / 86_400_000L
+                } else 0L
+            } else 0L
+
+            // Calculate average repayment time for settled transactions
+            val settledTxs = partyTxs.filter { it.transaction.isSettled }
+            val averageRepaymentDays = if (settledTxs.isNotEmpty()) {
+                val totalDays = settledTxs.sumOf { s ->
+                    val end = s.transaction.settledAtMillis ?: nowMillis
+                    maxOf(1L, (end - s.transaction.startDateMillis) / 86_400_000L)
+                }
+                totalDays.toDouble() / settledTxs.size
+            } else 0.0
+
+            // Trust score calculation (0 - 100%)
+            // On-time settled transactions increase trust; overdue active ones decrease it
+            val totalCompleted = settledTxs.size
+            val onTimeSettled = settledTxs.count { s ->
+                val expiry = s.transaction.expiryDateMillis
+                val settledAt = s.transaction.settledAtMillis ?: nowMillis
+                expiry == null || settledAt <= (expiry + 86_400_000L)
+            }
+            val overdueCount = overdueTxs.size
+
+            val (trustScore, trustBadge) = when {
+                partyTxs.isEmpty() -> Pair(100, "NEW")
+                overdueCount == 0 && totalCompleted > 0 -> Pair(100, "EXCELLENT")
+                overdueCount == 0 && totalCompleted == 0 -> Pair(95, "GOOD")
+                overdueCount > 0 && totalCompleted > overdueCount -> {
+                    val score = maxOf(40, (100 - (overdueCount * 25)))
+                    Pair(score, "FAIR")
+                }
+                overdueCount > 0 -> {
+                    val score = maxOf(10, (60 - (overdueCount * 20)))
+                    Pair(score, "CAUTION")
+                }
+                else -> Pair(80, "GOOD")
+            }
+
             PartyKhataSummary(
                 party = party,
                 transactions = partyTxs,
                 inrToReceive = inrGiven,
                 inrToPay = inrTaken,
                 nprToReceive = nprGiven,
-                nprToPay = nprTaken
+                nprToPay = nprTaken,
+                oldestOverdueDays = oldestOverdueDays,
+                averageRepaymentDays = averageRepaymentDays,
+                trustScorePercent = trustScore,
+                trustBadge = trustBadge
+            )
+        }
+
+        // Detect duplicates among parties (by normalized phone or identical clean name)
+        val duplicatePairs = mutableListOf<DuplicatePartyPair>()
+        val phonePartyMap = mutableMapOf<String, PartyEntity>()
+        val namePartyMap = mutableMapOf<String, PartyEntity>()
+
+        for (p in parties) {
+            val normPhone = InterestCalculator.normalizeToE164(p.phoneNumber, p.preferredCurrency)
+            if (normPhone.isNotBlank()) {
+                val existing = phonePartyMap[normPhone]
+                if (existing != null && existing.partyId != p.partyId) {
+                    duplicatePairs.add(
+                        DuplicatePartyPair(
+                            primaryParty = existing,
+                            duplicateParty = p,
+                            matchReason = "Same Phone Number ($normPhone)"
+                        )
+                    )
+                } else {
+                    phonePartyMap[normPhone] = p
+                }
+            }
+            val cleanName = p.name.trim().lowercase()
+            if (cleanName.isNotBlank()) {
+                val existing = namePartyMap[cleanName]
+                if (existing != null && existing.partyId != p.partyId && !duplicatePairs.any { it.duplicateParty.partyId == p.partyId && it.primaryParty.partyId == existing.partyId }) {
+                    duplicatePairs.add(
+                        DuplicatePartyPair(
+                            primaryParty = existing,
+                            duplicateParty = p,
+                            matchReason = "Identical Name (${p.name})"
+                        )
+                    )
+                } else {
+                    namePartyMap[cleanName] = p
+                }
+            }
+        }
+
+        // Apply Sorting to khataList
+        val sortedKhataList = when (local.partySortOption) {
+            PartySortOption.NAME -> khataList.sortedWith(
+                compareByDescending<PartyKhataSummary> { it.party.isFavorite }
+                    .thenBy { it.party.name.lowercase() }
+            )
+            PartySortOption.HIGHEST_BALANCE -> khataList.sortedWith(
+                compareByDescending<PartyKhataSummary> { it.party.isFavorite }
+                    .thenByDescending { it.maxNetBalance }
+                    .thenBy { it.party.name.lowercase() }
+            )
+            PartySortOption.MOST_OVERDUE -> khataList.sortedWith(
+                compareByDescending<PartyKhataSummary> { it.party.isFavorite }
+                    .thenByDescending { it.oldestOverdueDays }
+                    .thenByDescending { it.transactions.count { t -> t.isOverdue } }
+                    .thenBy { it.party.name.lowercase() }
+            )
+            PartySortOption.RECENT_INTERACTION -> khataList.sortedWith(
+                compareByDescending<PartyKhataSummary> { it.party.isFavorite }
+                    .thenByDescending { maxOf(it.party.lastInteractionMillis, it.party.createdAtMillis) }
+                    .thenBy { it.party.name.lowercase() }
             )
         }
 
         val pQuery = local.peopleSearchQuery.trim().lowercase()
         val filteredKhataList = if (pQuery.isEmpty()) {
-            khataList
+            sortedKhataList
         } else {
-            khataList.filter { khata ->
+            sortedKhataList.filter { khata ->
                 val p = khata.party
                 p.name.lowercase().contains(pQuery) ||
                     p.phoneNumber.lowercase().contains(pQuery) ||
+                    p.alternatePhoneNumber.lowercase().contains(pQuery) ||
                     p.upiId.lowercase().contains(pQuery) ||
                     p.email.lowercase().contains(pQuery) ||
-                    p.tagOrNotes.lowercase().contains(pQuery)
+                    p.tagOrNotes.lowercase().contains(pQuery) ||
+                    p.notes.lowercase().contains(pQuery)
             }
         }
 
@@ -478,7 +619,13 @@ class UdhaarViewModel(
             attachmentsByTx = attachmentsByTx,
             attachmentsByPayment = attachmentsByPayment,
             activeViewerAttachment = local.activeViewerAttachment,
-            draftAttachments = local.draftAttachments
+            draftAttachments = local.draftAttachments,
+            partySortOption = local.partySortOption,
+            duplicatePartyPairs = duplicatePairs,
+            showMergeDuplicatesModal = local.showMergeDuplicatesModal,
+            showInAppContactPicker = local.showInAppContactPicker,
+            deviceContacts = local.deviceContacts,
+            isLoadingContacts = local.isLoadingContacts
         )
     }.stateIn(
         scope = viewModelScope,
@@ -660,6 +807,81 @@ class UdhaarViewModel(
                 editingParty = null,
                 showAddEditPartyModal = false
             )
+        }
+    }
+
+    fun setPartySortOption(option: PartySortOption) {
+        localState.update { it.copy(partySortOption = option) }
+    }
+
+    fun togglePartyFavorite(party: PartyEntity) {
+        viewModelScope.launch {
+            if (party.partyId > 0L) {
+                repository.togglePartyFavorite(party.partyId, !party.isFavorite)
+            } else {
+                // If it's a synthetic party, persist it as a real party entity with favorite = true
+                repository.saveParty(party.copy(partyId = 0L, isFavorite = true))
+            }
+        }
+    }
+
+    fun openMergeDuplicatesModal() {
+        localState.update { it.copy(showMergeDuplicatesModal = true) }
+    }
+
+    fun closeMergeDuplicatesModal() {
+        localState.update { it.copy(showMergeDuplicatesModal = false) }
+    }
+
+    fun mergeDuplicatePair(pair: DuplicatePartyPair) {
+        viewModelScope.launch {
+            repository.mergeParties(pair.primaryParty, pair.duplicateParty)
+        }
+    }
+
+    fun openInAppContactPicker() {
+        localState.update { it.copy(showInAppContactPicker = true) }
+        loadDeviceContacts()
+    }
+
+    fun closeInAppContactPicker() {
+        localState.update { it.copy(showInAppContactPicker = false) }
+    }
+
+    fun loadDeviceContacts() {
+        if (appContext == null) return
+        localState.update { it.copy(isLoadingContacts = true) }
+        viewModelScope.launch {
+            val contacts = com.jyotirmoyb.udhaar.util.DeviceContactHelper.fetchDeviceContacts(
+                context = appContext,
+                currency = localState.value.summaryCurrency ?: CurrencyType.INR,
+                existingParties = uiState.value.allParties
+            )
+            localState.update {
+                it.copy(
+                    deviceContacts = contacts,
+                    isLoadingContacts = false
+                )
+            }
+        }
+    }
+
+    fun importSelectedContacts(selectedContacts: List<com.jyotirmoyb.udhaar.util.DeviceContact>) {
+        viewModelScope.launch {
+            val newParties = selectedContacts.map { c ->
+                PartyEntity(
+                    partyId = 0L,
+                    name = c.name,
+                    phoneNumber = c.normalizedPhoneNumber.ifBlank { c.rawPhoneNumber },
+                    photoUri = c.photoUri,
+                    email = c.email,
+                    preferredCurrency = localState.value.summaryCurrency ?: CurrencyType.INR,
+                    createdAtMillis = System.currentTimeMillis(),
+                    lastInteractionMillis = System.currentTimeMillis()
+                )
+            }
+            repository.saveParties(newParties)
+            closeInAppContactPicker()
         }
     }
 

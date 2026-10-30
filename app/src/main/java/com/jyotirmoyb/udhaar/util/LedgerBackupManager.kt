@@ -26,7 +26,7 @@ import java.io.File
 
 data class ParsedLedgerBackup(
     val exportType: String,
-    val schemaVersion: Int = 6,
+    val schemaVersion: Int = 7,
     val parties: List<PartyEntity>,
     val transactions: List<UdhaarTransaction>,
     val partialPayments: List<PartialPayment>,
@@ -52,7 +52,7 @@ object LedgerBackupManager {
         statementPartyName: String? = null
     ): String {
         val root = JSONObject()
-        root.put("schemaVersion", 6)
+        root.put("schemaVersion", 7)
         root.put("app", "Udhaar")
         root.put("packageName", "com.jyotirmoyb.udhaar")
         root.put("exportType", exportType)
@@ -67,9 +67,15 @@ object LedgerBackupManager {
                 put("partyId", party.partyId)
                 put("name", party.name)
                 put("phoneNumber", party.phoneNumber)
+                put("alternatePhoneNumber", party.alternatePhoneNumber)
                 put("upiId", party.upiId)
                 put("email", party.email)
                 put("tagOrNotes", party.tagOrNotes)
+                put("notes", party.notes)
+                put("photoUri", party.photoUri)
+                put("linkedUserId", party.linkedUserId)
+                put("isFavorite", party.isFavorite)
+                put("lastInteractionMillis", party.lastInteractionMillis)
                 put("preferredCurrency", party.preferredCurrency.name)
                 put("createdAtMillis", party.createdAtMillis)
             }
@@ -250,10 +256,16 @@ object LedgerBackupManager {
                     partyId = obj.optLong("partyId", 0L),
                     name = obj.optString("name", ""),
                     phoneNumber = obj.optString("phoneNumber", ""),
+                    alternatePhoneNumber = obj.optString("alternatePhoneNumber", ""),
                     upiId = obj.optString("upiId", ""),
                     email = obj.optString("email", ""),
                     tagOrNotes = obj.optString("tagOrNotes", ""),
+                    notes = obj.optString("notes", ""),
+                    photoUri = obj.optString("photoUri", ""),
+                    linkedUserId = obj.optString("linkedUserId", ""),
+                    isFavorite = obj.optBoolean("isFavorite", false),
                     preferredCurrency = prefCurr,
+                    lastInteractionMillis = obj.optLong("lastInteractionMillis", obj.optLong("createdAtMillis", System.currentTimeMillis())),
                     createdAtMillis = obj.optLong("createdAtMillis", System.currentTimeMillis())
                 )
             )

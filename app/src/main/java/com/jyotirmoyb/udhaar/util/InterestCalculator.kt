@@ -274,6 +274,42 @@ object InterestCalculator {
     }
 
     /**
+     * Normalizes a phone number to standard E.164 string format (+[countryCode][nationalNumber]).
+     * Strips whitespace, dashes, leading zero, handles +91 / +977 or un-prefixed 10-digit numbers.
+     * E.g. "98765 43210", "+91 98765-43210" and "09876543210" with INR all normalize to "+919876543210".
+     */
+    fun normalizeToE164(rawPhone: String, currency: CurrencyType = CurrencyType.INR): String {
+        val trimmed = rawPhone.trim()
+        if (trimmed.isEmpty()) return ""
+        val digitsOnly = trimmed.filter { it.isDigit() }
+        if (digitsOnly.isEmpty()) return ""
+
+        val defaultPrefix = if (currency == CurrencyType.NPR) "977" else "91"
+
+        return when {
+            trimmed.startsWith("+") -> "+$digitsOnly"
+            // Handle leading 0 (common domestic trunk prefix like 09876543210)
+            digitsOnly.length == 11 && digitsOnly.startsWith("0") -> "+$defaultPrefix${digitsOnly.substring(1)}"
+            // 10-digit national number
+            digitsOnly.length == 10 -> "+$defaultPrefix$digitsOnly"
+            // Already includes 91 (12 digits) or 977 (13 digits) without +
+            digitsOnly.length == 12 && digitsOnly.startsWith("91") -> "+$digitsOnly"
+            digitsOnly.length == 13 && digitsOnly.startsWith("977") -> "+$digitsOnly"
+            else -> "+$digitsOnly"
+        }
+    }
+
+    /**
+     * Checks if two raw phone numbers represent the same person by comparing normalized E.164.
+     */
+    fun arePhonesEquivalent(phoneA: String, phoneB: String, currency: CurrencyType = CurrencyType.INR): Boolean {
+        val normA = normalizeToE164(phoneA, currency)
+        val normB = normalizeToE164(phoneB, currency)
+        if (normA.isEmpty() || normB.isEmpty()) return false
+        return normA == normB
+    }
+
+    /**
      * Auto-sanitizes 10-digit phone numbers with +91 for INR or +977 for NPR.
      */
     fun formatPhoneWithCountryCode(rawPhone: String, currency: CurrencyType): String {

@@ -1,7 +1,9 @@
 package com.jyotirmoyb.udhaar
 
+import android.Manifest
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -9,9 +11,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
+import com.jyotirmoyb.udhaar.ui.components.ContactsPermissionRationaleDialog
+import com.jyotirmoyb.udhaar.ui.components.InAppContactPickerModal
+import com.jyotirmoyb.udhaar.ui.components.MergeDuplicatesModal
 import com.jyotirmoyb.udhaar.ui.components.RestorePreviewDialog
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
@@ -181,6 +187,33 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
     val coroutineScope = rememberCoroutineScope()
 
     var pendingJsonToSave by remember { mutableStateOf<String?>(null) }
+    var showContactsRationaleDialog by remember { mutableStateOf(false) }
+
+    val contactsPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.openInAppContactPicker()
+        } else {
+            Toast.makeText(
+                context,
+                "Permission denied. You can still enter contacts manually or pick from system contacts.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    val requestContactsFlow: () -> Unit = {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.READ_CONTACTS
+        ) == PackageManager.PERMISSION_GRANTED
+        if (hasPermission) {
+            viewModel.openInAppContactPicker()
+        } else {
+            showContactsRationaleDialog = true
+        }
+    }
 
     // Storage Access Framework: CreateDocument for Exporting JSON Backup / Single-Party Statement
     val createDocumentLauncher = rememberLauncherForActivityResult(
@@ -397,7 +430,11 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                 },
                 onShareAppClick = viewModel::openShareAppModal,
                 onLockAppClick = viewModel::lockApplicationNow,
-                onSettingsClick = viewModel::openSettingsModal
+                onSettingsClick = viewModel::openSettingsModal,
+                onPartySortOptionChange = viewModel::setPartySortOption,
+                onOpenMergeDuplicates = viewModel::openMergeDuplicatesModal,
+                onOpenContactPicker = requestContactsFlow,
+                onToggleFavoriteParty = viewModel::togglePartyFavorite
             )
         }
         ActiveScreen.PARTY_DETAIL -> {
@@ -443,6 +480,15 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                     },
                     onRequestPartyPaymentDetails = {
                         viewModel.openRequestPartyPaymentDetailsModal(selectedKhata.party)
+                    },
+                    onToggleFavorite = viewModel::togglePartyFavorite,
+                    onRequestVerification = {
+                        val firstTx = selectedKhata.transactions.firstOrNull()?.transaction
+                        if (firstTx != null) {
+                            viewModel.requestVerificationForTransaction(firstTx)
+                        } else {
+                            Toast.makeText(context, "No transactions to verify for this party yet.", Toast.LENGTH_SHORT).show()
+                        }
                     },
                     onShareThermalReceipt = {
                         viewModel.openPartyStatementReceiptModal(selectedKhata.party.partyId)
@@ -494,6 +540,7 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                 onRemoveDraftAttachment = viewModel::removeDraftAttachment,
                 onDeleteExistingAttachment = viewModel::deleteAttachment,
                 onOpenAttachmentViewer = viewModel::openAttachmentViewer,
+                onOpenInAppContactPicker = requestContactsFlow,
                 onSave = viewModel::saveUdhaarTransaction,
                 onCancel = viewModel::navigateBackToDashboard
             )
@@ -1038,6 +1085,52 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
             onDelete = {
                 viewModel.deleteAttachment(viewerAttachment)
             }
+        )
+    }
+
+    // Phase 7: Contacts Permission Rationale Dialog
+    if (showContactsRationaleDialog) {
+        ContactsPermissionRationaleDialog(
+            onRequestPermission = {
+                showContactsRationaleDialog = false
+                contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+            },
+            onDismiss = {
+                showContactsRationaleDialog = false
+            }
+        )
+    }
+
+    // Phase 7: In-App Contact Picker Bottom Sheet Modal
+    if (uiState.showInAppContactPicker) {
+        InAppContactPickerModal(
+            contacts = uiState.deviceContacts,
+            isLoading = uiState.isLoadingContacts,
+            onImportContacts = { selected ->
+                viewModel.importSelectedContacts(selected)
+                Toast.makeText(
+                    context,
+                    "Imported ${selected.size} contacts to People directory.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            },
+            onDismiss = viewModel::closeInAppContactPicker
+        )
+    }
+
+    // Phase 7: Merge Duplicate Parties Modal
+    if (uiState.showMergeDuplicatesModal) {
+        MergeDuplicatesModal(
+            duplicatePairs = uiState.duplicatePartyPairs,
+            onMergePair = { pair ->
+                viewModel.mergeDuplicatePair(pair)
+                Toast.makeText(
+                    context,
+                    "Merged ${pair.duplicateParty.name} into ${pair.primaryParty.name}.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            },
+            onDismiss = viewModel::closeMergeDuplicatesModal
         )
     }
 }

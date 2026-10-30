@@ -490,7 +490,7 @@ class ExampleRobolectricTest {
         )
 
         val parsed = LedgerBackupManager.parseBackupJson(jsonString)
-        assertEquals(5, parsed.schemaVersion)
+        assertEquals(7, parsed.schemaVersion)
         assertEquals(1, parsed.parties.size)
         assertEquals(1, parsed.transactions.size)
         assertEquals(1, parsed.partialPayments.size)

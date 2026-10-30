@@ -107,10 +107,16 @@ data class PartyEntity(
     val partyId: Long = 0L,
     val name: String,
     val phoneNumber: String = "",
+    val alternatePhoneNumber: String = "",
     val upiId: String = "",
     val email: String = "",
     val tagOrNotes: String = "",
+    val notes: String = "",
+    val photoUri: String = "",
+    val linkedUserId: String = "",
+    val isFavorite: Boolean = false,
     val preferredCurrency: CurrencyType = CurrencyType.INR,
+    val lastInteractionMillis: Long = System.currentTimeMillis(),
     val createdAtMillis: Long = System.currentTimeMillis()
 )
 
@@ -292,7 +298,7 @@ data class Attachment(
     val mimeType: String,
     val sizeBytes: Long,
     val localPath: String,
-    val remoteUrl: String = "",
+    val remoteUrl: String? = null,
     val addedAtMillis: Long = System.currentTimeMillis(),
     val addedBy: String = "You",
     val sha256: String = ""

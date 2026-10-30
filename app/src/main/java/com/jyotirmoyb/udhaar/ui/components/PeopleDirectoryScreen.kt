@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -52,10 +53,16 @@ import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Merge
+import androidx.compose.material.icons.filled.Message
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -79,6 +86,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -88,10 +97,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.TransactionType
 import com.jyotirmoyb.udhaar.ui.PartyKhataSummary
+import com.jyotirmoyb.udhaar.ui.PartySortOption
 import com.jyotirmoyb.udhaar.ui.theme.BorderGrey
 import com.jyotirmoyb.udhaar.ui.theme.MutedChipGrey
 import com.jyotirmoyb.udhaar.ui.theme.PureBlack
@@ -101,6 +113,7 @@ import com.jyotirmoyb.udhaar.ui.theme.SubtleSurfaceGrey
 import com.jyotirmoyb.udhaar.util.CalculatedUdhaarSummary
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PeopleDirectoryContent(
     partyKhataList: List<PartyKhataSummary>,
@@ -111,7 +124,13 @@ fun PeopleDirectoryContent(
     onPartyClick: (PartyKhataSummary) -> Unit,
     onQuickAddLoanForParty: (PartyEntity) -> Unit,
     unreadCountByPartyName: Map<String, Int> = emptyMap(),
-    onOpenPartyGeneralChat: (PartyEntity) -> Unit = {}
+    onOpenPartyGeneralChat: (PartyEntity) -> Unit = {},
+    partySortOption: PartySortOption = PartySortOption.NAME,
+    onSortOptionChange: (PartySortOption) -> Unit = {},
+    duplicatePairsCount: Int = 0,
+    onOpenMergeDuplicates: () -> Unit = {},
+    onOpenContactPicker: () -> Unit = {},
+    onToggleFavorite: (PartyEntity) -> Unit = {}
 ) {
     LazyColumn(
         modifier = Modifier
@@ -153,26 +172,97 @@ fun PeopleDirectoryContent(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                OutlinedButton(
-                    onClick = onAddPartyClick,
-                    shape = RoundedCornerShape(4.dp),
-                    border = BorderStroke(1.dp, PureWhite),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = PureWhite,
-                        contentColor = PureBlack
-                    ),
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(
+                        onClick = onOpenContactPicker,
+                        shape = RoundedCornerShape(4.dp),
+                        border = BorderStroke(1.dp, PureWhite),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = SubtleSurfaceGrey,
+                            contentColor = PureBlack
+                        ),
+                        modifier = Modifier
+                            .height(34.dp)
+                            .testTag("import_contacts_directory_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Contacts,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("IMPORT", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    }
+
+                    OutlinedButton(
+                        onClick = onAddPartyClick,
+                        shape = RoundedCornerShape(4.dp),
+                        border = BorderStroke(1.dp, PureWhite),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = PureWhite,
+                            contentColor = PureBlack
+                        ),
+                        modifier = Modifier
+                            .height(34.dp)
+                            .testTag("add_party_directory_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PersonAdd,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("ADD PARTY", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // Duplicate Parties Alert Banner
+        if (duplicatePairsCount > 0) {
+            item {
+                Row(
                     modifier = Modifier
-                        .height(34.dp)
-                        .testTag("add_party_directory_button")
+                        .fillMaxWidth()
+                        .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp))
+                        .background(SubtleSurfaceGrey, RoundedCornerShape(4.dp))
+                        .padding(10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.PersonAdd,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("ADD PARTY", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f).padding(end = 8.dp)
+                    ) {
+                        Icon(Icons.Default.Warning, contentDescription = null, tint = PureBlack, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Column {
+                            Text(
+                                text = "$duplicatePairsCount DUPLICATE PARTIES DETECTED",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = PureBlack
+                            )
+                            Text(
+                                text = "Matching normalized phone or name",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = SecondaryInkGrey
+                            )
+                        }
+                    }
+                    Button(
+                        onClick = onOpenMergeDuplicates,
+                        shape = RoundedCornerShape(3.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = PureBlack, contentColor = PureWhite),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                        modifier = Modifier.height(32.dp).testTag("open_merge_duplicates_button")
+                    ) {
+                        Icon(Icons.Default.Merge, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("MERGE", style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         }
@@ -220,6 +310,25 @@ fun PeopleDirectoryContent(
                     .fillMaxWidth()
                     .testTag("people_search_input")
             )
+        }
+
+        // Sort Options Filter Chips
+        item {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                PartySortOption.entries.forEach { option ->
+                    val isSelected = partySortOption == option
+                    MonochromeTogglePill(
+                        text = "SORT: ${option.label.uppercase()}",
+                        selected = isSelected,
+                        onClick = { onSortOptionChange(option) },
+                        modifier = Modifier.testTag("sort_party_${option.name.lowercase()}")
+                    )
+                }
+            }
         }
 
         if (partyKhataList.isEmpty()) {
@@ -274,7 +383,8 @@ fun PeopleDirectoryContent(
                     unreadCount = partyUnread,
                     onClick = { onPartyClick(khata) },
                     onChatClick = { onOpenPartyGeneralChat(khata.party) },
-                    onAddLoanClick = { onQuickAddLoanForParty(khata.party) }
+                    onAddLoanClick = { onQuickAddLoanForParty(khata.party) },
+                    onToggleFavorite = { onToggleFavorite(khata.party) }
                 )
             }
         }
@@ -288,7 +398,8 @@ private fun PartyDirectoryCard(
     unreadCount: Int = 0,
     onClick: () -> Unit,
     onChatClick: () -> Unit = {},
-    onAddLoanClick: () -> Unit
+    onAddLoanClick: () -> Unit,
+    onToggleFavorite: () -> Unit = {}
 ) {
     val party = khata.party
     val inrEnabled = CurrencyType.INR in enabledCurrencies
@@ -323,6 +434,19 @@ private fun PartyDirectoryCard(
                         text = party.preferredCurrency.code,
                         style = MaterialTheme.typography.labelSmall,
                         color = PureWhite,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .background(SubtleSurfaceGrey, RoundedCornerShape(2.dp))
+                        .border(0.5.dp, BorderGrey, RoundedCornerShape(2.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "★ ${khata.trustScorePercent}% ${khata.trustBadge}",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = PureBlack,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -374,11 +498,25 @@ private fun PartyDirectoryCard(
                 }
             }
 
-            Text(
-                text = "${khata.transactions.size} RECORDS",
-                style = MaterialTheme.typography.labelSmall,
-                color = SecondaryInkGrey
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = onToggleFavorite,
+                    modifier = Modifier.size(28.dp).testTag("party_fav_button_${party.name}")
+                ) {
+                    Icon(
+                        imageVector = if (party.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
+                        contentDescription = if (party.isFavorite) "Favorite" else "Not favorite",
+                        tint = PureBlack,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "${khata.transactions.size} RECORDS",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SecondaryInkGrey
+                )
+            }
         }
 
         Row(
@@ -386,25 +524,64 @@ private fun PartyDirectoryCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = party.name,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = PureBlack
-                )
-                val contactSub = buildString {
-                    if (party.phoneNumber.isNotBlank()) append(party.phoneNumber)
-                    if (party.email.isNotBlank()) {
-                        if (isNotEmpty()) append(" • ")
-                        append(party.email)
+            Row(
+                modifier = Modifier.weight(1f).padding(end = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Avatar (Photo or Colored/Monochrome Initial)
+                if (party.photoUri.isNotBlank()) {
+                    AsyncImage(
+                        model = party.photoUri,
+                        contentDescription = party.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .border(1.dp, BorderGrey, CircleShape)
+                    )
+                } else {
+                    val initial = party.name.trim().take(1).uppercase()
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .background(PureBlack, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = initial.ifEmpty { "?" },
+                            style = MaterialTheme.typography.titleMedium,
+                            color = PureWhite,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
-                if (contactSub.isNotBlank()) {
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = contactSub,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = SecondaryInkGrey
+                        text = party.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = PureBlack
                     )
+                    val contactSub = buildString {
+                        if (party.phoneNumber.isNotBlank()) append(party.phoneNumber)
+                        if (party.alternatePhoneNumber.isNotBlank()) {
+                            if (isNotEmpty()) append(" • Alt: ") else append("Alt: ")
+                            append(party.alternatePhoneNumber)
+                        }
+                        if (party.email.isNotBlank()) {
+                            if (isNotEmpty()) append(" • ")
+                            append(party.email)
+                        }
+                    }
+                    if (contactSub.isNotBlank()) {
+                        Text(
+                            text = contactSub,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SecondaryInkGrey
+                        )
+                    }
                 }
             }
 
@@ -516,8 +693,10 @@ fun PartyDetailScreen(
     onSharePartyStatement: () -> Unit,
     onShareMyPaymentDetails: () -> Unit = {},
     onRequestPartyPaymentDetails: () -> Unit = {},
+    onRequestVerification: () -> Unit = {},
     onOpenTransactionChat: (CalculatedUdhaarSummary) -> Unit = {},
     onOpenPartyGeneralChat: () -> Unit = {},
+    onToggleFavorite: (PartyEntity) -> Unit = {},
     unreadPartyChatCount: Int = 0,
     unreadCountByTx: Map<Long, Int> = emptyMap()
 ) {
@@ -583,6 +762,20 @@ fun PartyDetailScreen(
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        IconButton(
+                            onClick = { onToggleFavorite(party) },
+                            modifier = Modifier
+                                .size(36.dp)
+                                .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
+                                .testTag("party_top_favorite_button")
+                        ) {
+                            Icon(
+                                imageVector = if (party.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
+                                contentDescription = if (party.isFavorite) "Favorite" else "Not favorite",
+                                tint = PureBlack,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                         IconButton(
                             onClick = onShareThermalReceipt,
                             modifier = Modifier
@@ -709,6 +902,70 @@ fun PartyDetailScreen(
                             )
                         }
 
+                        // Phase 7: Owner Trust Score & Repayment Metrics Card
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, PureBlack, RoundedCornerShape(4.dp))
+                                .background(SubtleSurfaceGrey, RoundedCornerShape(4.dp))
+                                .padding(12.dp)
+                                .testTag("party_trust_profile_card"),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "REPAYMENT TRUST & SUMMARY",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PureBlack
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .background(PureBlack, RoundedCornerShape(2.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "${khata.trustBadge} (${khata.trustScorePercent}%)",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = PureWhite,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("OLDEST OVERDUE", style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = SecondaryInkGrey)
+                                    Text(
+                                        text = if (khata.oldestOverdueDays > 0) "${khata.oldestOverdueDays} days" else "None (On-time)",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = PureBlack
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("AVG REPAYMENT TIME", style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = SecondaryInkGrey)
+                                    Text(
+                                        text = if (khata.averageRepaymentDays > 0) "${khata.averageRepaymentDays.toInt()} days" else "No settlements",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = PureBlack
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "Trust rating visible only to you (ledger owner). Calculated from on-time settlements vs overdue active records.",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                color = SecondaryInkGrey
+                            )
+                        }
+
                         // Enabled Currencies Net Balance Box
                         Row(
                             modifier = Modifier
@@ -788,7 +1045,7 @@ fun PartyDetailScreen(
                             }
                         }
 
-                        // Quick Actions: Call, WhatsApp, Email
+                        // Quick Actions: Call, WhatsApp, SMS, Email
                         FlowRow(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -821,7 +1078,7 @@ fun PartyDetailScreen(
                                         val msg = "Hello ${party.name}, sharing our current Udhaar ledger summary."
                                         val url = "https://wa.me/$sanitized?text=${Uri.encode(msg)}"
                                         runCatching {
-                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                                         }
                                     },
                                     shape = RoundedCornerShape(4.dp),
@@ -831,6 +1088,24 @@ fun PartyDetailScreen(
                                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text("WHATSAPP", style = MaterialTheme.typography.labelMedium)
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        val smsIntent = Intent(
+                                            Intent.ACTION_SENDTO,
+                                            Uri.parse("smsto:${party.phoneNumber.filter { it.isDigit() || it == '+' }}")
+                                        )
+                                        runCatching { context.startActivity(smsIntent) }
+                                    },
+                                    shape = RoundedCornerShape(4.dp),
+                                    border = BorderStroke(1.dp, PureBlack),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack),
+                                    modifier = Modifier.testTag("party_sms_quick_action_button")
+                                ) {
+                                    Icon(Icons.Default.Message, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("SMS", style = MaterialTheme.typography.labelMedium)
                                 }
                             }
 
@@ -854,6 +1129,26 @@ fun PartyDetailScreen(
                                     Text("EMAIL", style = MaterialTheme.typography.labelMedium)
                                 }
                             }
+                        }
+
+                        // Quick Action: Request Verification / Link User ID
+                        OutlinedButton(
+                            onClick = onRequestVerification,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
+                                .testTag("party_request_verification_button"),
+                            shape = RoundedCornerShape(4.dp),
+                            border = BorderStroke(1.5.dp, PureBlack),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                        ) {
+                            Icon(Icons.Default.VerifiedUser, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (party.linkedUserId.isNotBlank()) "VERIFIED CONTACT ✓ (${party.linkedUserId})" else "REQUEST VERIFICATION / LINK ID",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
 
                         // Enhancement B: Thermal-Style Monochrome Statement Receipt (Image & PDF Share)
@@ -1217,9 +1512,12 @@ fun AddEditPartyModal(
 
     var name by rememberSaveable { mutableStateOf(initialParty?.name ?: "") }
     var phoneNumber by rememberSaveable { mutableStateOf(initialParty?.phoneNumber ?: "") }
+    var alternatePhoneNumber by rememberSaveable { mutableStateOf(initialParty?.alternatePhoneNumber ?: "") }
     var upiId by rememberSaveable { mutableStateOf(initialParty?.upiId ?: "") }
     var email by rememberSaveable { mutableStateOf(initialParty?.email ?: "") }
     var tagOrNotes by rememberSaveable { mutableStateOf(initialParty?.tagOrNotes ?: "") }
+    var notes by rememberSaveable { mutableStateOf(initialParty?.notes ?: "") }
+    var photoUri by rememberSaveable { mutableStateOf(initialParty?.photoUri ?: "") }
     var preferredCurrency by rememberSaveable {
         mutableStateOf(
             initialParty?.preferredCurrency?.takeIf { it in enabledCurrencies }
@@ -1227,6 +1525,14 @@ fun AddEditPartyModal(
         )
     }
     var errorText by rememberSaveable { mutableStateOf<String?>(null) }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            photoUri = uri.toString()
+        }
+    }
 
     // Zero-permission Phone Contact Picker
     val contactPickerLauncher = rememberLauncherForActivityResult(
@@ -1317,6 +1623,86 @@ fun AddEditPartyModal(
                     )
                 }
 
+                // Avatar & Photo Picker Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
+                        .background(SubtleSurfaceGrey, RoundedCornerShape(4.dp))
+                        .padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (photoUri.isNotBlank()) {
+                        AsyncImage(
+                            model = photoUri,
+                            contentDescription = "Party Photo",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .border(1.dp, BorderGrey, CircleShape)
+                        )
+                    } else {
+                        val init = name.trim().take(1).uppercase()
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(PureBlack, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = init.ifEmpty { "?" },
+                                style = MaterialTheme.typography.titleMedium,
+                                color = PureWhite,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "CONTACT AVATAR / PHOTO",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = PureBlack
+                        )
+                        Text(
+                            text = "Add a photo from your gallery",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SecondaryInkGrey
+                        )
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                photoPickerLauncher.launch(
+                                    androidx.activity.result.PickVisualMediaRequest(
+                                        ActivityResultContracts.PickVisualMedia.ImageOnly
+                                    )
+                                )
+                            },
+                            shape = RoundedCornerShape(3.dp),
+                            border = BorderStroke(1.dp, PureBlack),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                            modifier = Modifier.height(32.dp).testTag("party_pick_photo_button")
+                        ) {
+                            Text("PICK PHOTO", style = MaterialTheme.typography.labelSmall)
+                        }
+                        if (photoUri.isNotBlank()) {
+                            OutlinedButton(
+                                onClick = { photoUri = "" },
+                                shape = RoundedCornerShape(3.dp),
+                                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text("CLEAR", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1363,7 +1749,7 @@ fun AddEditPartyModal(
                 OutlinedTextField(
                     value = phoneNumber,
                     onValueChange = { phoneNumber = it },
-                    label = { Text("Phone Number (Auto-formats ${preferredCurrency.defaultCountryCode})") },
+                    label = { Text("Primary Phone (Auto-formats ${preferredCurrency.defaultCountryCode})") },
                     placeholder = { Text("${preferredCurrency.defaultCountryCode} 98XXXXXXXX") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
@@ -1371,6 +1757,19 @@ fun AddEditPartyModal(
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("party_modal_phone_input")
+                )
+
+                OutlinedTextField(
+                    value = alternatePhoneNumber,
+                    onValueChange = { alternatePhoneNumber = it },
+                    label = { Text("Alternate Phone (Optional)") },
+                    placeholder = { Text("${preferredCurrency.defaultCountryCode} 98XXXXXXXX") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    colors = textFieldColors,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("party_modal_alternate_phone_input")
                 )
 
                 OutlinedTextField(
@@ -1401,7 +1800,7 @@ fun AddEditPartyModal(
                 OutlinedTextField(
                     value = tagOrNotes,
                     onValueChange = { tagOrNotes = it },
-                    label = { Text("Tag or Notes (e.g. Friend, Supplier, Client)") },
+                    label = { Text("Tag (e.g. Friend, Supplier, Client)") },
                     singleLine = true,
                     colors = textFieldColors,
                     modifier = Modifier
@@ -1422,6 +1821,17 @@ fun AddEditPartyModal(
                         )
                     }
                 }
+
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("Private Notes (Optional)") },
+                    placeholder = { Text("e.g. Preferred repayment timing, mutual guarantor...") },
+                    colors = textFieldColors,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("party_modal_notes_input")
+                )
 
                 if (enabledCurrencies.size > 1) {
                     Text(
@@ -1454,9 +1864,12 @@ fun AddEditPartyModal(
                             partyId = initialParty?.partyId?.takeIf { it > 0L } ?: 0L,
                             name = name.trim(),
                             phoneNumber = phoneNumber.trim(),
+                            alternatePhoneNumber = alternatePhoneNumber.trim(),
                             upiId = upiId.trim(),
                             email = email.trim(),
                             tagOrNotes = tagOrNotes.trim(),
+                            notes = notes.trim(),
+                            photoUri = photoUri.trim(),
                             preferredCurrency = preferredCurrency
                         )
                         onSave(entity)

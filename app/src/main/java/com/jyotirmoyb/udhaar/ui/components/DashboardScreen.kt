@@ -83,6 +83,7 @@ import com.jyotirmoyb.udhaar.data.VerificationStatus
 import com.jyotirmoyb.udhaar.ui.ActiveScreen
 import com.jyotirmoyb.udhaar.ui.CurrencyLedgerTotals
 import com.jyotirmoyb.udhaar.ui.PartyKhataSummary
+import com.jyotirmoyb.udhaar.ui.PartySortOption
 import com.jyotirmoyb.udhaar.ui.UdhaarUiState
 import com.jyotirmoyb.udhaar.ui.theme.BorderGrey
 import com.jyotirmoyb.udhaar.ui.theme.MutedChipGrey
@@ -116,7 +117,11 @@ fun DashboardScreen(
     onSettingsClick: () -> Unit,
     onShareMyPaymentDetailsClick: () -> Unit = {},
     onOpenTransactionChat: (CalculatedUdhaarSummary) -> Unit = {},
-    onOpenPartyGeneralChat: (PartyEntity) -> Unit = {}
+    onOpenPartyGeneralChat: (PartyEntity) -> Unit = {},
+    onPartySortOptionChange: (PartySortOption) -> Unit = {},
+    onOpenMergeDuplicates: () -> Unit = {},
+    onOpenContactPicker: () -> Unit = {},
+    onToggleFavoriteParty: (PartyEntity) -> Unit = {}
 ) {
     val isPeopleTab = uiState.activeScreen == ActiveScreen.PEOPLE_DIRECTORY
     val enabledCurrencies = uiState.userSettings.enabledCurrencies
@@ -474,7 +479,13 @@ fun DashboardScreen(
                     onPartyClick = onPartyClick,
                     onQuickAddLoanForParty = onQuickAddLoanForParty,
                     unreadCountByPartyName = uiState.unreadCountByPartyName,
-                    onOpenPartyGeneralChat = onOpenPartyGeneralChat
+                    onOpenPartyGeneralChat = onOpenPartyGeneralChat,
+                    partySortOption = uiState.partySortOption,
+                    onSortOptionChange = onPartySortOptionChange,
+                    duplicatePairsCount = uiState.duplicatePartyPairs.size,
+                    onOpenMergeDuplicates = onOpenMergeDuplicates,
+                    onOpenContactPicker = onOpenContactPicker,
+                    onToggleFavorite = onToggleFavoriteParty
                 )
             } else {
                 LazyColumn(

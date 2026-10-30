@@ -27,11 +27,32 @@ interface UdhaarDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertParty(party: PartyEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertParties(parties: List<PartyEntity>): List<Long>
+
     @Update
     suspend fun updateParty(party: PartyEntity)
 
     @Delete
     suspend fun deleteParty(party: PartyEntity)
+
+    @Query("DELETE FROM parties WHERE partyId = :partyId")
+    suspend fun deletePartyById(partyId: Long)
+
+    @Query("UPDATE udhaar_transactions SET partyId = :targetPartyId, partyName = :targetPartyName WHERE partyId = :sourcePartyId")
+    suspend fun relinkTransactionsForPartyId(sourcePartyId: Long, targetPartyId: Long, targetPartyName: String)
+
+    @Query("UPDATE chat_messages SET partyId = :targetPartyId, partyName = :targetPartyName WHERE partyId = :sourcePartyId")
+    suspend fun relinkChatMessagesForPartyId(sourcePartyId: Long, targetPartyId: Long, targetPartyName: String)
+
+    @Query("UPDATE chat_thread_metadata SET partyId = :targetPartyId, partyName = :targetPartyName WHERE partyId = :sourcePartyId")
+    suspend fun relinkChatThreadsForPartyId(sourcePartyId: Long, targetPartyId: Long, targetPartyName: String)
+
+    @Query("UPDATE parties SET isFavorite = :isFavorite WHERE partyId = :partyId")
+    suspend fun setPartyFavorite(partyId: Long, isFavorite: Boolean)
+
+    @Query("UPDATE parties SET lastInteractionMillis = :millis WHERE partyId = :partyId")
+    suspend fun updatePartyLastInteraction(partyId: Long, millis: Long)
 
     // --- Udhaar Transaction Queries ---
     @Query("SELECT * FROM udhaar_transactions ORDER BY isSettled ASC, createdAtMillis DESC")

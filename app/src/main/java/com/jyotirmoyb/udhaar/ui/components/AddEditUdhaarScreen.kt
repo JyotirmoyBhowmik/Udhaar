@@ -127,6 +127,7 @@ fun AddEditUdhaarScreen(
     onRemoveDraftAttachment: (Attachment) -> Unit = {},
     onDeleteExistingAttachment: (Attachment) -> Unit = {},
     onOpenAttachmentViewer: (Attachment) -> Unit = {},
+    onOpenInAppContactPicker: () -> Unit = {},
     onSave: (UdhaarTransaction) -> Unit,
     onCancel: () -> Unit
 ) {
@@ -524,16 +525,29 @@ fun AddEditUdhaarScreen(
                 }
 
                 SectionHeader("2. PARTY / CONTACT DETAILS")
-                if (savedParties.isNotEmpty()) {
+                val topRecentAndFavorites = remember(savedParties) {
+                    savedParties.sortedWith(
+                        compareByDescending<PartyEntity> { it.isFavorite }
+                            .thenByDescending { it.lastInteractionMillis }
+                    ).take(8)
+                }
+                if (topRecentAndFavorites.isNotEmpty()) {
+                    Text(
+                        text = "FAVORITES & RECENT PARTIES",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SecondaryInkGrey,
+                        fontWeight = FontWeight.Bold
+                    )
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        savedParties.take(6).forEach { savedParty ->
+                        topRecentAndFavorites.forEach { savedParty ->
                             val isChosen = partyName.equals(savedParty.name, ignoreCase = true)
+                            val pillText = if (savedParty.isFavorite) "★ ${savedParty.name}" else savedParty.name
                             MonochromeTogglePill(
-                                text = savedParty.name,
+                                text = pillText,
                                 selected = isChosen,
                                 onClick = {
                                     selectedPartyId = savedParty.partyId.takeIf { it > 0L }
@@ -567,13 +581,7 @@ fun AddEditUdhaarScreen(
                     )
                     OutlinedButton(
                         onClick = {
-                            val pickIntent = com.jyotirmoyb.udhaar.util.ContactPickerHelper.createPickContactIntent()
-                            runCatching {
-                                contactPickerLauncher.launch(pickIntent)
-                            }.onFailure {
-                                val fallbackIntent = com.jyotirmoyb.udhaar.util.ContactPickerHelper.createFallbackPickContactIntent()
-                                runCatching { contactPickerLauncher.launch(fallbackIntent) }
-                            }
+                            onOpenInAppContactPicker()
                         },
                         modifier = Modifier
                             .height(56.dp)
