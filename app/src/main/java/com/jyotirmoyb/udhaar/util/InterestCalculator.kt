@@ -97,7 +97,7 @@ object InterestCalculator {
         val dueStatusText = when {
             transaction.isSettled -> "SETTLED"
             isOverdue -> "OVERDUE • ${formatDate(transaction.expiryDateMillis!!)}"
-            transaction.expiryDateMillis != null -> "DUE ${formatDate(transaction.expiryDateMillis)}"
+            transaction.expiryDateMillis != null -> "DUE: ${formatDate(transaction.expiryDateMillis)}"
             else -> "NO EXPIRY"
         }
 

@@ -117,7 +117,7 @@ fun VerificationShareSheet(
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
     ) {
         Column(
@@ -162,7 +162,7 @@ fun VerificationShareSheet(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                     modifier = Modifier.fillMaxWidth()
@@ -224,7 +224,7 @@ fun VerificationShareSheet(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                     modifier = Modifier.fillMaxWidth()
@@ -240,7 +240,7 @@ fun VerificationShareSheet(
                         Text(
                             text = transaction.contentHash.ifBlank { "Generating..." },
                             fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(6.dp))
@@ -254,7 +254,7 @@ fun VerificationShareSheet(
 
                 if (attachments.isNotEmpty()) {
                     Surface(
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant,
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                         modifier = Modifier.fillMaxWidth()
@@ -526,7 +526,7 @@ fun IncomingVerificationReviewSheet(
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
     ) {
         Column(
@@ -590,7 +590,7 @@ fun IncomingVerificationReviewSheet(
                             ),
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(10.dp))
@@ -621,7 +621,7 @@ fun IncomingVerificationReviewSheet(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                     modifier = Modifier.fillMaxWidth()
@@ -637,7 +637,7 @@ fun IncomingVerificationReviewSheet(
                         Text(
                             text = payload.contentHash,
                             fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(4.dp))
@@ -803,7 +803,7 @@ fun ShareMyPaymentDetailsSheet(
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
     ) {
         Column(
@@ -887,7 +887,7 @@ fun ShareMyPaymentDetailsSheet(
                             Text(
                                 text = if (settings.upiId.isNotBlank()) "UPI: ${InterestCalculator.maskUpiId(settings.upiId)}" else "UPI ID not set in Settings",
                                 style = MaterialTheme.typography.bodySmall,
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -1026,7 +1026,7 @@ fun RequestPartyPaymentDetailsSheet(
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
     ) {
         Column(
@@ -1181,7 +1181,7 @@ fun IncomingPaymentProfileAcceptSheet(
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface,
-        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
     ) {
         Column(

@@ -5,7 +5,7 @@
     <string name="total_to_receive">TOTAL TO RECEIVE (GIVEN)</string>
     <string name="total_to_pay">TOTAL TO PAY (TAKEN)</string>
     <string name="net_balance_label">NET POSITION</string>
-    <string name="search_placeholder">Search party, phone, notes or attachments…</string>
+    <string name="search_placeholder">Find a transaction or person…</string>
     <string name="add_udhaar_button">New Udhaar</string>
     <string name="empty_ledger_title">No Ledger Records Found</string>
     <string name="empty_ledger_subtitle">Tap + New Udhaar to record money given or taken in INR (₹) or NPR (रू).</string>

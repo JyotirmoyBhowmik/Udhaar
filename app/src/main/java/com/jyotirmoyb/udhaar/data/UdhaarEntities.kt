@@ -94,11 +94,11 @@ enum class LedgerFilter(val label: String) {
     ALL("All"),
     GIVEN("Given"),
     TAKEN("Taken"),
-    NEEDS_CONFIRMATION("Needs my confirmation"),
-    OVERDUE("Overdue/Expired"),
+    OVERDUE("Overdue"),
+    SETTLED("Settled"),
+    NEEDS_CONFIRMATION("Needs Confirmation"),
     INR("INR (₹)"),
-    NPR("NPR (रू)"),
-    SETTLED("Settled")
+    NPR("NPR (रू)")
 }
 
 enum class TransactionSortOption(val label: String) {
@@ -341,7 +341,7 @@ data class UserSettings(
     val defaultCurrency: CurrencyType = CurrencyType.INR,
     val inrEnabled: Boolean = true,
     val nprEnabled: Boolean = false, // Disabled by default per user specification
-    val themeMode: AppThemeMode = AppThemeMode.MONOCHROME_LIGHT,
+    val themeMode: AppThemeMode = AppThemeMode.EMERALD_FINANCE,
     val fontScale: AppFontScale = AppFontScale.STANDARD,
     val biometricLockEnabled: Boolean = false,
     val hasPinConfigured: Boolean = false,

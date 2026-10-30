@@ -24,94 +24,100 @@ val InterFamily = FontFamily(
 val IbmPlexMonoFamily = FontFamily(
     Font(R.font.ibm_plex_mono, FontWeight.Normal),
     Font(R.font.ibm_plex_mono, FontWeight.Medium),
-    Font(R.font.ibm_plex_mono, FontWeight.SemiBold)
+    Font(R.font.ibm_plex_mono, FontWeight.SemiBold),
+    Font(R.font.ibm_plex_mono, FontWeight.Bold)
 )
 
+/**
+ * Typography rules:
+ * - Space Grotesk: used ONLY for the app title (`displayLarge`)
+ * - Inter: used for ALL general text, titles, labels, buttons, and sentences
+ * - IBM Plex Mono: applied explicitly via `IbmPlexMonoFamily` only on amounts, dates, and IDs
+ */
 fun scaledTypography(multiplier: Float = 1.0f): Typography = Typography(
     displayLarge = TextStyle(
         fontFamily = SpaceGroteskFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = (26f * multiplier).sp,
-        lineHeight = (32f * multiplier).sp,
-        letterSpacing = (-0.4).sp
+        fontWeight = FontWeight.Medium,
+        fontSize = (24f * multiplier).sp,
+        lineHeight = (30f * multiplier).sp,
+        letterSpacing = 0.4.sp
     ),
     displayMedium = TextStyle(
-        fontFamily = SpaceGroteskFamily,
+        fontFamily = InterFamily,
         fontWeight = FontWeight.Bold,
         fontSize = (21f * multiplier).sp,
         lineHeight = (26f * multiplier).sp,
-        letterSpacing = (-0.25).sp
-    ),
-    headlineLarge = TextStyle(
-        fontFamily = SpaceGroteskFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = (18f * multiplier).sp,
-        lineHeight = (23f * multiplier).sp,
         letterSpacing = (-0.2).sp
     ),
-    headlineMedium = TextStyle(
-        fontFamily = SpaceGroteskFamily,
+    headlineLarge = TextStyle(
+        fontFamily = InterFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = (16f * multiplier).sp,
-        lineHeight = (21f * multiplier).sp
+        fontSize = (19f * multiplier).sp,
+        lineHeight = (24f * multiplier).sp,
+        letterSpacing = (-0.15).sp
+    ),
+    headlineMedium = TextStyle(
+        fontFamily = InterFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = (17f * multiplier).sp,
+        lineHeight = (22f * multiplier).sp
     ),
     titleLarge = TextStyle(
-        fontFamily = SpaceGroteskFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = (15f * multiplier).sp,
-        lineHeight = (20f * multiplier).sp
+        fontFamily = InterFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = (16f * multiplier).sp,
+        lineHeight = (21f * multiplier).sp
     ),
     titleMedium = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = (13.5f * multiplier).sp,
-        lineHeight = (18f * multiplier).sp
+        fontSize = (14f * multiplier).sp,
+        lineHeight = (19f * multiplier).sp
     ),
     titleSmall = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = (12f * multiplier).sp,
-        lineHeight = (16f * multiplier).sp,
-        letterSpacing = 0.2.sp
+        fontSize = (12.5f * multiplier).sp,
+        lineHeight = (17f * multiplier).sp
     ),
     bodyLarge = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = (13.5f * multiplier).sp,
-        lineHeight = (19f * multiplier).sp
+        fontSize = (14f * multiplier).sp,
+        lineHeight = (20f * multiplier).sp
     ),
     bodyMedium = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = (12f * multiplier).sp,
-        lineHeight = (17f * multiplier).sp
+        fontSize = (13f * multiplier).sp,
+        lineHeight = (18f * multiplier).sp
     ),
     bodySmall = TextStyle(
-        fontFamily = IbmPlexMonoFamily,
+        fontFamily = InterFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = (10.5f * multiplier).sp,
-        lineHeight = (14.5f * multiplier).sp
+        fontSize = (11.5f * multiplier).sp,
+        lineHeight = (16f * multiplier).sp
     ),
     labelLarge = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = (11.5f * multiplier).sp,
-        lineHeight = (16f * multiplier).sp,
-        letterSpacing = 0.2.sp
+        fontSize = (12.5f * multiplier).sp,
+        lineHeight = (17f * multiplier).sp,
+        letterSpacing = 0.1.sp
     ),
     labelMedium = TextStyle(
-        fontFamily = IbmPlexMonoFamily,
+        fontFamily = InterFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = (10f * multiplier).sp,
-        lineHeight = (14f * multiplier).sp,
-        letterSpacing = 0.3.sp
+        fontSize = (11.5f * multiplier).sp,
+        lineHeight = (15.5f * multiplier).sp,
+        letterSpacing = 0.1.sp
     ),
     labelSmall = TextStyle(
-        fontFamily = IbmPlexMonoFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = (9f * multiplier).sp,
-        lineHeight = (12.5f * multiplier).sp,
-        letterSpacing = 0.3.sp
+        fontFamily = InterFamily,
+        fontWeight = FontWeight.Medium,
+        fontSize = (10.5f * multiplier).sp,
+        lineHeight = (14f * multiplier).sp,
+        letterSpacing = 0.1.sp
     )
 )
 

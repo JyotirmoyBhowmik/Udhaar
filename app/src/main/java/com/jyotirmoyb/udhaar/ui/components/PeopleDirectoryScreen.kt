@@ -153,8 +153,8 @@ fun PeopleDirectoryContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp))
-                    .background(PureBlack, RoundedCornerShape(4.dp))
+                    .border(1.5.dp, PureBlack, RoundedCornerShape(12.dp))
+                    .background(PureBlack, RoundedCornerShape(12.dp))
                     .padding(12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -178,7 +178,7 @@ fun PeopleDirectoryContent(
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     OutlinedButton(
                         onClick = onOpenContactPicker,
-                        shape = RoundedCornerShape(4.dp),
+                        shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, PureWhite),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
@@ -200,7 +200,7 @@ fun PeopleDirectoryContent(
 
                     OutlinedButton(
                         onClick = onAddPartyClick,
-                        shape = RoundedCornerShape(4.dp),
+                        shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, PureWhite),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
@@ -229,8 +229,8 @@ fun PeopleDirectoryContent(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp))
-                        .background(SubtleSurfaceGrey, RoundedCornerShape(4.dp))
+                        .border(1.5.dp, PureBlack, RoundedCornerShape(12.dp))
+                        .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
                         .padding(10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -257,7 +257,7 @@ fun PeopleDirectoryContent(
                     }
                     Button(
                         onClick = onOpenMergeDuplicates,
-                        shape = RoundedCornerShape(3.dp),
+                        shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = PureBlack, contentColor = PureWhite),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                         modifier = Modifier.height(32.dp).testTag("open_merge_duplicates_button")
@@ -301,7 +301,7 @@ fun PeopleDirectoryContent(
                     }
                 },
                 singleLine = true,
-                shape = RoundedCornerShape(4.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = PureBlack,
                     unfocusedBorderColor = BorderGrey,
@@ -339,8 +339,8 @@ fun PeopleDirectoryContent(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
-                        .background(SubtleSurfaceGrey, RoundedCornerShape(4.dp))
+                        .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
+                        .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
                         .padding(28.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -358,7 +358,7 @@ fun PeopleDirectoryContent(
                     )
                     Button(
                         onClick = onAddPartyClick,
-                        shape = RoundedCornerShape(4.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = PureBlack,
                             contentColor = PureWhite
@@ -411,8 +411,8 @@ private fun PartyDirectoryCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
-            .background(PureWhite, RoundedCornerShape(4.dp))
+            .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
+            .background(PureWhite, RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
             .padding(12.dp)
             .testTag("party_card_${party.name}"),
@@ -430,7 +430,7 @@ private fun PartyDirectoryCard(
             ) {
                 Box(
                     modifier = Modifier
-                        .background(PureBlack, RoundedCornerShape(2.dp))
+                        .background(PureBlack, RoundedCornerShape(8.dp))
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
@@ -442,8 +442,8 @@ private fun PartyDirectoryCard(
                 }
                 Box(
                     modifier = Modifier
-                        .background(SubtleSurfaceGrey, RoundedCornerShape(2.dp))
-                        .border(0.5.dp, BorderGrey, RoundedCornerShape(2.dp))
+                        .background(SubtleSurfaceGrey, RoundedCornerShape(8.dp))
+                        .border(0.5.dp, BorderGrey, RoundedCornerShape(8.dp))
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
@@ -456,8 +456,8 @@ private fun PartyDirectoryCard(
                 if (party.tagOrNotes.isNotBlank()) {
                     Box(
                         modifier = Modifier
-                            .background(MutedChipGrey, RoundedCornerShape(2.dp))
-                            .border(0.5.dp, BorderGrey, RoundedCornerShape(2.dp))
+                            .background(MutedChipGrey, RoundedCornerShape(8.dp))
+                            .border(0.5.dp, BorderGrey, RoundedCornerShape(8.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
@@ -472,7 +472,7 @@ private fun PartyDirectoryCard(
                 if (party.upiId.isNotBlank()) {
                     Box(
                         modifier = Modifier
-                            .background(MutedChipGrey, RoundedCornerShape(2.dp))
+                            .background(MutedChipGrey, RoundedCornerShape(8.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
@@ -487,7 +487,7 @@ private fun PartyDirectoryCard(
                 if (unreadCount > 0) {
                     Box(
                         modifier = Modifier
-                            .background(PureBlack, RoundedCornerShape(2.dp))
+                            .background(PureBlack, RoundedCornerShape(8.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                             .testTag("party_unread_badge_${party.name}")
                     ) {
@@ -641,7 +641,7 @@ private fun PartyDirectoryCard(
                     modifier = Modifier
                         .height(32.dp)
                         .testTag("party_card_chat_${party.name}"),
-                    shape = RoundedCornerShape(3.dp),
+                    shape = RoundedCornerShape(8.dp),
                     border = BorderStroke(1.dp, PureBlack),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
@@ -658,7 +658,7 @@ private fun PartyDirectoryCard(
                 OutlinedButton(
                     onClick = onAddLoanClick,
                     modifier = Modifier.height(32.dp),
-                    shape = RoundedCornerShape(3.dp),
+                    shape = RoundedCornerShape(8.dp),
                     border = BorderStroke(1.dp, PureBlack),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
@@ -770,7 +770,7 @@ fun PartyDetailScreen(
                             onClick = { onToggleFavorite(party) },
                             modifier = Modifier
                                 .size(36.dp)
-                                .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
+                                .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
                                 .testTag("party_top_favorite_button")
                         ) {
                             Icon(
@@ -784,7 +784,7 @@ fun PartyDetailScreen(
                             onClick = onShareThermalReceipt,
                             modifier = Modifier
                                 .size(36.dp)
-                                .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
+                                .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
                                 .testTag("party_top_thermal_receipt_button")
                         ) {
                             Icon(
@@ -798,7 +798,7 @@ fun PartyDetailScreen(
                             onClick = onEditParty,
                             modifier = Modifier
                                 .size(36.dp)
-                                .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
+                                .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
                                 .testTag("edit_party_top_button")
                         ) {
                             Icon(
@@ -813,7 +813,7 @@ fun PartyDetailScreen(
                                 onClick = onDeleteParty,
                                 modifier = Modifier
                                     .size(36.dp)
-                                    .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
+                                    .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
                                     .testTag("delete_party_top_button")
                             ) {
                                 Icon(
@@ -834,9 +834,9 @@ fun PartyDetailScreen(
                 onClick = onAddLoanForParty,
                 containerColor = PureBlack,
                 contentColor = PureWhite,
-                shape = RoundedCornerShape(4.dp),
+                shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
-                    .border(1.dp, PureWhite, RoundedCornerShape(4.dp))
+                    .border(1.dp, PureWhite, RoundedCornerShape(12.dp))
                     .testTag("party_add_loan_fab")
             ) {
                 Row(
@@ -878,8 +878,8 @@ fun PartyDetailScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp))
-                            .background(PureWhite, RoundedCornerShape(4.dp))
+                            .border(1.5.dp, PureBlack, RoundedCornerShape(12.dp))
+                            .background(PureWhite, RoundedCornerShape(12.dp))
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
@@ -910,8 +910,8 @@ fun PartyDetailScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .border(1.dp, PureBlack, RoundedCornerShape(4.dp))
-                                .background(SubtleSurfaceGrey, RoundedCornerShape(4.dp))
+                                .border(1.dp, PureBlack, RoundedCornerShape(12.dp))
+                                .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
                                 .padding(12.dp)
                                 .testTag("party_trust_profile_card"),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -929,7 +929,7 @@ fun PartyDetailScreen(
                                 )
                                 Box(
                                     modifier = Modifier
-                                        .background(PureBlack, RoundedCornerShape(2.dp))
+                                        .background(PureBlack, RoundedCornerShape(8.dp))
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
                                     Text(
@@ -974,7 +974,7 @@ fun PartyDetailScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .border(1.dp, PureBlack, RoundedCornerShape(4.dp))
+                                .border(1.dp, PureBlack, RoundedCornerShape(12.dp))
                         ) {
                             if (inrEnabled) {
                                 Column(
@@ -1064,7 +1064,7 @@ fun PartyDetailScreen(
                                         )
                                         runCatching { context.startActivity(dialIntent) }
                                     },
-                                    shape = RoundedCornerShape(4.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     border = BorderStroke(1.dp, PureBlack),
                                     colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
                                 ) {
@@ -1085,7 +1085,7 @@ fun PartyDetailScreen(
                                              context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                                         }
                                     },
-                                    shape = RoundedCornerShape(4.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     border = BorderStroke(1.dp, PureBlack),
                                     colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
                                 ) {
@@ -1102,7 +1102,7 @@ fun PartyDetailScreen(
                                         )
                                         runCatching { context.startActivity(smsIntent) }
                                     },
-                                    shape = RoundedCornerShape(4.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     border = BorderStroke(1.dp, PureBlack),
                                     colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack),
                                     modifier = Modifier.testTag("party_sms_quick_action_button")
@@ -1124,7 +1124,7 @@ fun PartyDetailScreen(
                                             context.startActivity(Intent.createChooser(mailIntent, "Email ${party.name}"))
                                         }
                                     },
-                                    shape = RoundedCornerShape(4.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     border = BorderStroke(1.dp, PureBlack),
                                     colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
                                 ) {
@@ -1142,7 +1142,7 @@ fun PartyDetailScreen(
                                 .fillMaxWidth()
                                 .height(46.dp)
                                 .testTag("party_request_verification_button"),
-                            shape = RoundedCornerShape(4.dp),
+                            shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.5.dp, PureBlack),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
                         ) {
@@ -1162,7 +1162,7 @@ fun PartyDetailScreen(
                                 .fillMaxWidth()
                                 .height(48.dp)
                                 .testTag("party_share_thermal_receipt_button"),
-                            shape = RoundedCornerShape(4.dp),
+                            shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = PureBlack,
                                 contentColor = PureWhite
@@ -1187,7 +1187,7 @@ fun PartyDetailScreen(
                                 .fillMaxWidth()
                                 .height(48.dp)
                                 .testTag("party_export_pdf_statement_button"),
-                            shape = RoundedCornerShape(4.dp),
+                            shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.5.dp, PureBlack),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
                         ) {
@@ -1224,7 +1224,7 @@ fun PartyDetailScreen(
                                     .fillMaxWidth()
                                     .height(48.dp)
                                     .testTag("pay_party_via_upi_button"),
-                                shape = RoundedCornerShape(4.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.5.dp, PureBlack),
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
                             ) {
@@ -1253,7 +1253,7 @@ fun PartyDetailScreen(
                                     .weight(1f)
                                     .height(46.dp)
                                     .testTag("party_share_my_payment_details_button"),
-                                shape = RoundedCornerShape(4.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.5.dp, PureBlack),
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
                             ) {
@@ -1273,7 +1273,7 @@ fun PartyDetailScreen(
                                     .weight(1f)
                                     .height(46.dp)
                                     .testTag("party_request_payment_details_button"),
-                                shape = RoundedCornerShape(4.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.5.dp, PureBlack),
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
                             ) {
@@ -1296,7 +1296,7 @@ fun PartyDetailScreen(
                                 .fillMaxWidth()
                                 .height(46.dp)
                                 .testTag("party_open_general_chat_button"),
-                            shape = RoundedCornerShape(4.dp),
+                            shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = PureBlack,
                                 contentColor = PureWhite
@@ -1325,7 +1325,7 @@ fun PartyDetailScreen(
                                     .weight(1f)
                                     .height(44.dp)
                                     .testTag("export_party_statement_button"),
-                                shape = RoundedCornerShape(4.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.dp, PureBlack),
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
                             ) {
@@ -1337,7 +1337,7 @@ fun PartyDetailScreen(
                                     .weight(1f)
                                     .height(44.dp)
                                     .testTag("share_party_statement_button"),
-                                shape = RoundedCornerShape(4.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.dp, PureBlack),
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
                             ) {
@@ -1363,8 +1363,8 @@ fun PartyDetailScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
-                                .background(SubtleSurfaceGrey, RoundedCornerShape(4.dp))
+                                .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
+                                .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
                                 .padding(24.dp),
                             contentAlignment = Alignment.Center
                         ) {
@@ -1390,9 +1390,9 @@ fun PartyDetailScreen(
                                 .border(
                                     width = if (txUnread > 0) 1.5.dp else 1.dp,
                                     color = if (txUnread > 0) PureBlack else BorderGrey,
-                                    shape = RoundedCornerShape(4.dp)
+                                    shape = RoundedCornerShape(12.dp)
                                 )
-                                .background(if (tx.isSettled) SubtleSurfaceGrey else PureWhite, RoundedCornerShape(4.dp))
+                                .background(if (tx.isSettled) SubtleSurfaceGrey else PureWhite, RoundedCornerShape(12.dp))
                                 .clickable { onTransactionClick(summary) }
                                 .padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -1405,8 +1405,8 @@ fun PartyDetailScreen(
                                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Box(
                                         modifier = Modifier
-                                            .background(if (isGiven) PureBlack else PureWhite, RoundedCornerShape(2.dp))
-                                            .border(1.dp, PureBlack, RoundedCornerShape(2.dp))
+                                            .background(if (isGiven) PureBlack else PureWhite, RoundedCornerShape(8.dp))
+                                            .border(1.dp, PureBlack, RoundedCornerShape(8.dp))
                                             .padding(horizontal = 6.dp, vertical = 2.dp)
                                     ) {
                                         Text(
@@ -1418,7 +1418,7 @@ fun PartyDetailScreen(
                                     }
                                     Box(
                                         modifier = Modifier
-                                            .background(MutedChipGrey, RoundedCornerShape(2.dp))
+                                            .background(MutedChipGrey, RoundedCornerShape(8.dp))
                                             .padding(horizontal = 6.dp, vertical = 2.dp)
                                     ) {
                                         Text(
@@ -1430,7 +1430,7 @@ fun PartyDetailScreen(
                                     if (txUnread > 0) {
                                         Box(
                                             modifier = Modifier
-                                                .background(PureBlack, RoundedCornerShape(2.dp))
+                                                .background(PureBlack, RoundedCornerShape(8.dp))
                                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                                         ) {
                                             Text(
@@ -1484,7 +1484,7 @@ fun PartyDetailScreen(
                                     OutlinedButton(
                                         onClick = { onOpenTransactionChat(summary) },
                                         modifier = Modifier.height(34.dp),
-                                        shape = RoundedCornerShape(3.dp),
+                                        shape = RoundedCornerShape(8.dp),
                                         border = BorderStroke(1.dp, PureBlack),
                                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(
@@ -1501,7 +1501,7 @@ fun PartyDetailScreen(
                                     OutlinedButton(
                                         onClick = { onWhatsAppClick(summary) },
                                         modifier = Modifier.height(34.dp),
-                                        shape = RoundedCornerShape(3.dp),
+                                        shape = RoundedCornerShape(8.dp),
                                         border = BorderStroke(1.dp, PureBlack),
                                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(
@@ -1655,8 +1655,8 @@ fun AddEditPartyModal(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
-                        .background(SubtleSurfaceGrey, RoundedCornerShape(4.dp))
+                        .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
+                        .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
                         .padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -1711,7 +1711,7 @@ fun AddEditPartyModal(
                                     )
                                 )
                             },
-                            shape = RoundedCornerShape(3.dp),
+                            shape = RoundedCornerShape(8.dp),
                             border = BorderStroke(1.dp, PureBlack),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                             modifier = Modifier.height(32.dp).testTag("party_pick_photo_button")
@@ -1721,7 +1721,7 @@ fun AddEditPartyModal(
                         if (photoUri.isNotBlank()) {
                             OutlinedButton(
                                 onClick = { photoUri = "" },
-                                shape = RoundedCornerShape(3.dp),
+                                shape = RoundedCornerShape(8.dp),
                                 contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                                 modifier = Modifier.height(32.dp)
                             ) {
@@ -1764,7 +1764,7 @@ fun AddEditPartyModal(
                             .height(56.dp)
                             .padding(top = 6.dp)
                             .testTag("party_modal_import_contact_button"),
-                        shape = RoundedCornerShape(4.dp),
+                        shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, PureBlack),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
                     ) {
@@ -1955,7 +1955,7 @@ fun AddEditPartyModal(
                         .fillMaxWidth()
                         .height(50.dp)
                         .testTag("save_party_modal_button"),
-                    shape = RoundedCornerShape(4.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = PureBlack,
                         contentColor = PureWhite

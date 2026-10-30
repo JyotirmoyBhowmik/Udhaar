@@ -259,8 +259,8 @@ fun BiometricSecurityScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .widthIn(max = 440.dp)
-                    .border(2.dp, PureBlack, RoundedCornerShape(4.dp))
-                    .background(PureWhite, RoundedCornerShape(4.dp))
+                    .border(2.dp, PureBlack, RoundedCornerShape(12.dp))
+                    .background(PureWhite, RoundedCornerShape(12.dp))
                     .padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -268,7 +268,7 @@ fun BiometricSecurityScreen(
                 Box(
                     modifier = Modifier
                         .size(60.dp)
-                        .background(PureBlack, RoundedCornerShape(4.dp)),
+                        .background(PureBlack, RoundedCornerShape(12.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -311,8 +311,8 @@ fun BiometricSecurityScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.5.dp, PureBlack, RoundedCornerShape(4.dp))
-                            .background(PureBlack, RoundedCornerShape(4.dp))
+                            .border(1.5.dp, PureBlack, RoundedCornerShape(12.dp))
+                            .background(PureBlack, RoundedCornerShape(12.dp))
                             .padding(10.dp)
                             .testTag("pin_lockout_banner")
                     ) {
@@ -329,8 +329,8 @@ fun BiometricSecurityScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, PureBlack, RoundedCornerShape(4.dp))
-                            .background(SubtleSurfaceGrey, RoundedCornerShape(4.dp))
+                            .border(1.dp, PureBlack, RoundedCornerShape(12.dp))
+                            .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
                             .padding(10.dp)
                     ) {
                         Text(
@@ -350,7 +350,7 @@ fun BiometricSecurityScreen(
                         .fillMaxWidth()
                         .height(48.dp)
                         .testTag("biometric_authenticate_button"),
-                    shape = RoundedCornerShape(4.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = PureBlack,
                         contentColor = PureWhite
@@ -375,7 +375,7 @@ fun BiometricSecurityScreen(
                         .fillMaxWidth()
                         .height(48.dp)
                         .testTag("use_phone_pin_button"),
-                    shape = RoundedCornerShape(4.dp),
+                    shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(1.5.dp, PureBlack),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
                 ) {
@@ -447,7 +447,7 @@ fun BiometricSecurityScreen(
                                     modifier = Modifier
                                         .height(54.dp)
                                         .testTag("verify_pin_button"),
-                                    shape = RoundedCornerShape(4.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     border = BorderStroke(1.5.dp, PureBlack),
                                     colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
                                 ) {
@@ -486,7 +486,7 @@ fun BiometricSecurityScreen(
                             .fillMaxWidth()
                             .height(44.dp)
                             .testTag("unlock_ledger_fallback_button"),
-                        shape = RoundedCornerShape(4.dp),
+                        shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, BorderGrey),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = SecondaryInkGrey)
                     ) {

@@ -393,7 +393,7 @@ fun AddEditUdhaarScreen(
                             .weight(1f)
                             .height(48.dp)
                             .testTag("cancel_udhaar_button"),
-                        shape = RoundedCornerShape(4.dp),
+                        shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, PureBlack),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
                     ) {
@@ -440,7 +440,7 @@ fun AddEditUdhaarScreen(
                             .weight(1.5f)
                             .height(48.dp)
                             .testTag("save_udhaar_button"),
-                        shape = RoundedCornerShape(4.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = PureBlack,
                             contentColor = PureWhite
@@ -477,8 +477,8 @@ fun AddEditUdhaarScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, PureBlack, RoundedCornerShape(4.dp))
-                            .background(SubtleSurfaceGrey, RoundedCornerShape(4.dp))
+                            .border(1.dp, PureBlack, RoundedCornerShape(12.dp))
+                            .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
                             .padding(12.dp)
                     ) {
                         Text(
@@ -590,7 +590,7 @@ fun AddEditUdhaarScreen(
                             .height(56.dp)
                             .padding(top = 6.dp)
                             .testTag("pick_contact_button"),
-                        shape = RoundedCornerShape(4.dp),
+                        shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, PureBlack),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
                     ) {
@@ -683,8 +683,8 @@ fun AddEditUdhaarScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
-                        .background(SubtleSurfaceGrey, RoundedCornerShape(4.dp))
+                        .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
+                        .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -719,7 +719,7 @@ fun AddEditUdhaarScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, PureBlack, RoundedCornerShape(4.dp))
+                            .border(1.dp, PureBlack, RoundedCornerShape(12.dp))
                             .padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
@@ -819,8 +819,8 @@ fun AddEditUdhaarScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(SubtleSurfaceGrey, RoundedCornerShape(4.dp))
-                                .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
+                                .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
+                                .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
                                 .padding(10.dp)
                         ) {
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -900,7 +900,7 @@ fun AddEditUdhaarScreen(
                             .weight(1f)
                             .height(38.dp)
                             .testTag("add_attachment_camera_button"),
-                        shape = RoundedCornerShape(4.dp),
+                        shape = RoundedCornerShape(12.dp),
                         contentPadding = PaddingValues(horizontal = 4.dp)
                     ) {
                         Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(14.dp))
@@ -915,7 +915,7 @@ fun AddEditUdhaarScreen(
                             .weight(1f)
                             .height(38.dp)
                             .testTag("add_attachment_gallery_button"),
-                        shape = RoundedCornerShape(4.dp),
+                        shape = RoundedCornerShape(12.dp),
                         contentPadding = PaddingValues(horizontal = 4.dp)
                     ) {
                         Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(14.dp))
@@ -930,7 +930,7 @@ fun AddEditUdhaarScreen(
                             .weight(1f)
                             .height(38.dp)
                             .testTag("add_attachment_doc_button"),
-                        shape = RoundedCornerShape(4.dp),
+                        shape = RoundedCornerShape(12.dp),
                         contentPadding = PaddingValues(horizontal = 4.dp)
                     ) {
                         Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(14.dp))
@@ -1131,11 +1131,11 @@ fun MonochromeTogglePill(
             .border(
                 width = if (selected) 1.5.dp else 1.dp,
                 color = if (selected) PureBlack else BorderGrey,
-                shape = RoundedCornerShape(4.dp)
+                shape = RoundedCornerShape(12.dp)
             )
             .background(
                 color = if (selected) PureBlack else PureWhite,
-                shape = RoundedCornerShape(4.dp)
+                shape = RoundedCornerShape(12.dp)
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp),
@@ -1163,8 +1163,8 @@ private fun DateSelectorRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
-            .background(SubtleSurfaceGrey, RoundedCornerShape(4.dp))
+            .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
+            .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
             .clickable(onClick = onSelectClick)
             .padding(horizontal = 14.dp, vertical = 12.dp)
             .testTag(testTag),

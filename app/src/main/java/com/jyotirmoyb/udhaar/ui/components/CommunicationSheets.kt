@@ -276,7 +276,7 @@ fun ChatThreadBottomSheet(
                         if (isMuted) {
                             Surface(
                                 color = MaterialTheme.colorScheme.surfaceVariant,
-                                shape = RoundedCornerShape(4.dp)
+                                shape = RoundedCornerShape(8.dp)
                             ) {
                                 Text(
                                     text = "MUTED",
@@ -445,7 +445,7 @@ fun ChatThreadBottomSheet(
                             .weight(1f)
                             .height(40.dp)
                             .testTag("toggle_request_extension_button"),
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(12.dp),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
                     ) {
                         Icon(
@@ -497,7 +497,7 @@ fun ChatThreadBottomSheet(
                         .weight(1f)
                         .height(40.dp)
                         .testTag("chat_whatsapp_fallback_button"),
-                    shape = RoundedCornerShape(6.dp),
+                    shape = RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
                 ) {
                     Icon(
@@ -570,7 +570,7 @@ fun ChatThreadBottomSheet(
                                         .weight(1f)
                                         .height(40.dp)
                                         .testTag("request_ext_${days}d_button"),
-                                    shape = RoundedCornerShape(6.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     contentPadding = PaddingValues(horizontal = 6.dp)
                                 ) {
                                     Text(
@@ -605,7 +605,7 @@ fun ChatThreadBottomSheet(
                                 modifier = Modifier
                                     .height(40.dp)
                                     .testTag("request_ext_custom_date_button"),
-                                shape = RoundedCornerShape(6.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp)
                             ) {
                                 Icon(
@@ -706,7 +706,7 @@ fun ChatThreadBottomSheet(
                         .fillMaxWidth()
                         .padding(bottom = 8.dp)
                         .testTag("thread_blocked_banner"),
-                    shape = RoundedCornerShape(6.dp),
+                    shape = RoundedCornerShape(12.dp),
                     color = financeColors.payContainer,
                     border = BorderStroke(1.dp, financeColors.payAccent.copy(alpha = 0.45f))
                 ) {
@@ -1082,7 +1082,7 @@ private fun ChatMessageBubbleItem(
                 // Payment proof card if attachment present
                 if (message.messageType == ChatMessageType.PAYMENT_PROOF || message.attachmentUri.isNotBlank()) {
                     Surface(
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                     ) {
@@ -1120,7 +1120,7 @@ private fun ChatMessageBubbleItem(
                                     text = message.attachmentUri.takeLast(36).ifBlank { "Verified local attachment" },
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontSize = 9.sp,
-                                        fontFamily = FontFamily.Monospace
+                                        fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily
                                     ),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
@@ -1142,7 +1142,7 @@ private fun ChatMessageBubbleItem(
                 if (message.messageType == ChatMessageType.EXTENSION_REQUEST) {
                     val proposedDateText = message.proposedDueDateMillis?.let { dateFmt.format(Date(it)) } ?: "New Date"
                     Surface(
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.surface,
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                     ) {
@@ -1163,7 +1163,7 @@ private fun ChatMessageBubbleItem(
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Surface(
-                                    shape = RoundedCornerShape(4.dp),
+                                    shape = RoundedCornerShape(8.dp),
                                     color = when (message.extensionStatus) {
                                         ExtensionRequestStatus.ACCEPTED -> financeColors.receiveContainer
                                         ExtensionRequestStatus.DECLINED -> financeColors.payContainer
@@ -1201,7 +1201,7 @@ private fun ChatMessageBubbleItem(
                                             containerColor = financeColors.receiveAccent,
                                             contentColor = Color.White
                                         ),
-                                        shape = RoundedCornerShape(6.dp),
+                                        shape = RoundedCornerShape(12.dp),
                                         contentPadding = PaddingValues(horizontal = 8.dp)
                                     ) {
                                         Text(
@@ -1215,7 +1215,7 @@ private fun ChatMessageBubbleItem(
                                             .weight(1f)
                                             .height(36.dp)
                                             .testTag("decline_extension_button_${message.id}"),
-                                        shape = RoundedCornerShape(6.dp),
+                                        shape = RoundedCornerShape(12.dp),
                                         contentPadding = PaddingValues(horizontal = 8.dp)
                                     ) {
                                         Text(

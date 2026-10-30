@@ -125,7 +125,7 @@ fun ContactsPermissionRationaleDialog(
                     onDismiss()
                     onRequestPermission()
                 },
-                shape = RoundedCornerShape(4.dp),
+                shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = PureBlack,
                     contentColor = PureWhite
@@ -138,7 +138,7 @@ fun ContactsPermissionRationaleDialog(
         dismissButton = {
             OutlinedButton(
                 onClick = onDismiss,
-                shape = RoundedCornerShape(4.dp),
+                shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(1.dp, PureBlack),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack),
                 modifier = Modifier.testTag("skip_contacts_permission_button")
@@ -146,7 +146,7 @@ fun ContactsPermissionRationaleDialog(
                 Text("MANUAL ENTRY / SKIP", style = MaterialTheme.typography.labelLarge)
             }
         },
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(12.dp),
         containerColor = PureWhite
     )
 }
@@ -272,7 +272,7 @@ fun InAppContactPickerModal(
                         }
                     },
                     singleLine = true,
-                    shape = RoundedCornerShape(4.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = PureBlack,
                         unfocusedBorderColor = BorderGrey,
@@ -307,7 +307,7 @@ fun InAppContactPickerModal(
                             selectedLookupKeys.clear()
                             selectedLookupKeys.addAll(allVisibleKeys)
                         },
-                        shape = RoundedCornerShape(3.dp),
+                        shape = RoundedCornerShape(8.dp),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                         modifier = Modifier.height(30.dp)
                     ) {
@@ -316,7 +316,7 @@ fun InAppContactPickerModal(
                     if (selectedLookupKeys.isNotEmpty()) {
                         OutlinedButton(
                             onClick = { selectedLookupKeys.clear() },
-                            shape = RoundedCornerShape(3.dp),
+                            shape = RoundedCornerShape(8.dp),
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                             modifier = Modifier.height(30.dp)
                         ) {
@@ -450,7 +450,7 @@ fun InAppContactPickerModal(
             ) {
                 OutlinedButton(
                     onClick = onDismiss,
-                    shape = RoundedCornerShape(4.dp),
+                    shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(1.dp, PureBlack),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack),
                     modifier = Modifier
@@ -466,7 +466,7 @@ fun InAppContactPickerModal(
                         onImportContacts(toImport)
                     },
                     enabled = selectedLookupKeys.isNotEmpty(),
-                    shape = RoundedCornerShape(4.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = PureBlack,
                         contentColor = PureWhite,
@@ -579,7 +579,7 @@ private fun ContactRowItem(
                     if (contact.isInLedger) {
                         Box(
                             modifier = Modifier
-                                .background(PureBlack, RoundedCornerShape(2.dp))
+                                .background(PureBlack, RoundedCornerShape(8.dp))
                                 .padding(horizontal = 5.dp, vertical = 1.dp)
                         ) {
                             Text(
@@ -593,8 +593,8 @@ private fun ContactRowItem(
                     if (contact.hasUdhaarApp) {
                         Box(
                             modifier = Modifier
-                                .background(MutedChipGrey, RoundedCornerShape(2.dp))
-                                .border(0.5.dp, PureBlack, RoundedCornerShape(2.dp))
+                                .background(MutedChipGrey, RoundedCornerShape(8.dp))
+                                .border(0.5.dp, PureBlack, RoundedCornerShape(8.dp))
                                 .padding(horizontal = 5.dp, vertical = 1.dp)
                         ) {
                             Text(
@@ -734,8 +734,8 @@ private fun DuplicatePairCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, PureBlack, RoundedCornerShape(4.dp))
-            .background(PureWhite, RoundedCornerShape(4.dp))
+            .border(1.dp, PureBlack, RoundedCornerShape(12.dp))
+            .background(PureWhite, RoundedCornerShape(12.dp))
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -746,7 +746,7 @@ private fun DuplicatePairCard(
         ) {
             Box(
                 modifier = Modifier
-                    .background(PureBlack, RoundedCornerShape(2.dp))
+                    .background(PureBlack, RoundedCornerShape(8.dp))
                     .padding(horizontal = 6.dp, vertical = 2.dp)
             ) {
                 Text(
@@ -759,7 +759,7 @@ private fun DuplicatePairCard(
 
             Button(
                 onClick = onMerge,
-                shape = RoundedCornerShape(3.dp),
+                shape = RoundedCornerShape(8.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = PureBlack,
                     contentColor = PureWhite
@@ -783,8 +783,8 @@ private fun DuplicatePairCard(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .border(1.dp, BorderGrey, RoundedCornerShape(3.dp))
-                    .background(SubtleSurfaceGrey, RoundedCornerShape(3.dp))
+                    .border(1.dp, BorderGrey, RoundedCornerShape(8.dp))
+                    .background(SubtleSurfaceGrey, RoundedCornerShape(8.dp))
                     .padding(8.dp)
             ) {
                 Text(
@@ -823,8 +823,8 @@ private fun DuplicatePairCard(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .border(1.dp, BorderGrey, RoundedCornerShape(3.dp))
-                    .background(PureWhite, RoundedCornerShape(3.dp))
+                    .border(1.dp, BorderGrey, RoundedCornerShape(8.dp))
+                    .background(PureWhite, RoundedCornerShape(8.dp))
                     .padding(8.dp)
             ) {
                 Text(

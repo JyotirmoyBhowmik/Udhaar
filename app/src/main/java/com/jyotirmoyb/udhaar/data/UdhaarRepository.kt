@@ -97,8 +97,8 @@ class UdhaarRepository(
                 else -> rawCurrency
             }
 
-            val themeStr = prefs[PrefKeys.THEME_MODE] ?: AppThemeMode.MONOCHROME_LIGHT.name
-            val themeMode = runCatching { AppThemeMode.valueOf(themeStr) }.getOrDefault(AppThemeMode.MONOCHROME_LIGHT)
+            val themeStr = prefs[PrefKeys.THEME_MODE] ?: AppThemeMode.EMERALD_FINANCE.name
+            val themeMode = runCatching { AppThemeMode.valueOf(themeStr) }.getOrDefault(AppThemeMode.EMERALD_FINANCE)
             val fontStr = prefs[PrefKeys.FONT_SCALE] ?: AppFontScale.STANDARD.name
             val fontScale = runCatching { AppFontScale.valueOf(fontStr) }.getOrDefault(AppFontScale.STANDARD)
 

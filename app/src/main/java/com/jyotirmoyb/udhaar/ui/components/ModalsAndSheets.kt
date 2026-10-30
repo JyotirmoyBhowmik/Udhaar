@@ -394,7 +394,7 @@ fun TransactionDetailModal(
                         )
                         Box(
                             modifier = Modifier
-                                .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
                                 .padding(horizontal = 8.dp, vertical = 2.dp)
                         ) {
                             Text(
@@ -410,7 +410,7 @@ fun TransactionDetailModal(
                         Text(
                             text = "SHA-256: ${tx.contentHash.take(24)}...",
                             style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -438,7 +438,7 @@ fun TransactionDetailModal(
                             .fillMaxWidth()
                             .height(46.dp)
                             .testTag("request_verification_button"),
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                     ) {
                         Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -474,7 +474,7 @@ fun TransactionDetailModal(
                                 OutlinedButton(
                                     onClick = { showDisputeInput = false },
                                     modifier = Modifier.weight(1f).height(44.dp),
-                                    shape = RoundedCornerShape(6.dp)
+                                    shape = RoundedCornerShape(12.dp)
                                 ) {
                                     Text("CANCEL", style = MaterialTheme.typography.labelSmall)
                                 }
@@ -490,7 +490,7 @@ fun TransactionDetailModal(
                                         .weight(1f)
                                         .height(44.dp)
                                         .testTag("detail_submit_dispute_button"),
-                                    shape = RoundedCornerShape(6.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = MaterialTheme.colorScheme.error,
                                         contentColor = MaterialTheme.colorScheme.onError
@@ -510,7 +510,7 @@ fun TransactionDetailModal(
                                         .weight(1f)
                                         .height(44.dp)
                                         .testTag("detail_confirm_verification_button"),
-                                    shape = RoundedCornerShape(6.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = MaterialTheme.colorScheme.primary,
                                         contentColor = MaterialTheme.colorScheme.onPrimary
@@ -526,7 +526,7 @@ fun TransactionDetailModal(
                                         .weight(1f)
                                         .height(44.dp)
                                         .testTag("detail_dispute_verification_button"),
-                                    shape = RoundedCornerShape(6.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
                                 ) {
                                     Text(
@@ -587,7 +587,7 @@ fun TransactionDetailModal(
                                 .weight(1f)
                                 .height(38.dp)
                                 .testTag("attach_camera_button"),
-                            shape = RoundedCornerShape(4.dp),
+                            shape = RoundedCornerShape(8.dp),
                             contentPadding = PaddingValues(horizontal = 4.dp)
                         ) {
                             Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(14.dp))
@@ -606,7 +606,7 @@ fun TransactionDetailModal(
                                 .weight(1f)
                                 .height(38.dp)
                                 .testTag("attach_gallery_button"),
-                            shape = RoundedCornerShape(4.dp),
+                            shape = RoundedCornerShape(8.dp),
                             contentPadding = PaddingValues(horizontal = 4.dp)
                         ) {
                             Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(14.dp))
@@ -623,7 +623,7 @@ fun TransactionDetailModal(
                                 .weight(1f)
                                 .height(38.dp)
                                 .testTag("attach_doc_button"),
-                            shape = RoundedCornerShape(4.dp),
+                            shape = RoundedCornerShape(8.dp),
                             contentPadding = PaddingValues(horizontal = 4.dp)
                         ) {
                             Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(14.dp))
@@ -746,8 +746,8 @@ fun TransactionDetailModal(
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
-                                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))
+                                        .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
                                         .clickable {
                                             val computed = kotlin.math.round(summary.netBalanceDue * fraction * 100.0) / 100.0
                                             partialAmountText = if (computed % 1.0 == 0.0) {
@@ -784,11 +784,11 @@ fun TransactionDetailModal(
                                         .border(
                                             width = if (isSelected) 1.5.dp else 1.dp,
                                             color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                                            shape = RoundedCornerShape(4.dp)
+                                            shape = RoundedCornerShape(8.dp)
                                         )
                                         .background(
                                             color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                                            shape = RoundedCornerShape(4.dp)
+                                            shape = RoundedCornerShape(8.dp)
                                         )
                                         .clickable { partialPaymentMode = mode }
                                         .padding(vertical = 6.dp)
@@ -853,7 +853,7 @@ fun TransactionDetailModal(
                                         .weight(1f)
                                         .height(36.dp)
                                         .testTag("proof_camera_button"),
-                                    shape = RoundedCornerShape(4.dp),
+                                    shape = RoundedCornerShape(8.dp),
                                     contentPadding = PaddingValues(horizontal = 4.dp)
                                 ) {
                                     Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(14.dp))
@@ -870,7 +870,7 @@ fun TransactionDetailModal(
                                         .weight(1f)
                                         .height(36.dp)
                                         .testTag("proof_gallery_button"),
-                                    shape = RoundedCornerShape(4.dp),
+                                    shape = RoundedCornerShape(8.dp),
                                     contentPadding = PaddingValues(horizontal = 4.dp)
                                 ) {
                                     Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(14.dp))
@@ -882,8 +882,8 @@ fun TransactionDetailModal(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))
-                                    .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
                                     .padding(horizontal = 10.dp, vertical = 6.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
@@ -972,7 +972,7 @@ fun TransactionDetailModal(
                                 .fillMaxWidth()
                                 .height(48.dp)
                                 .testTag("submit_partial_payment_button"),
-                            shape = RoundedCornerShape(6.dp),
+                            shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary
@@ -1003,7 +1003,7 @@ fun TransactionDetailModal(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
                                     .padding(horizontal = 10.dp, vertical = 8.dp),
                                 verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
@@ -1025,7 +1025,7 @@ fun TransactionDetailModal(
                                             )
                                             Box(
                                                 modifier = Modifier
-                                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(3.dp))
+                                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
                                                     .padding(horizontal = 5.dp, vertical = 1.dp)
                                             ) {
                                                 Text(
@@ -1068,7 +1068,7 @@ fun TransactionDetailModal(
                                             ) {
                                                 items(paymentProofs, key = { it.id }) { proof ->
                                                     Surface(
-                                                        shape = RoundedCornerShape(4.dp),
+                                                        shape = RoundedCornerShape(8.dp),
                                                         color = MaterialTheme.colorScheme.surface,
                                                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                                                         modifier = Modifier
@@ -1121,7 +1121,7 @@ fun TransactionDetailModal(
                                             .fillMaxWidth()
                                             .height(40.dp)
                                             .testTag("acknowledge_payment_${payment.id}"),
-                                        shape = RoundedCornerShape(6.dp),
+                                        shape = RoundedCornerShape(12.dp),
                                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                                     ) {
                                         Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp))
@@ -1159,7 +1159,7 @@ fun TransactionDetailModal(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
                                     .padding(horizontal = 10.dp, vertical = 6.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.Top
@@ -1182,7 +1182,7 @@ fun TransactionDetailModal(
                                         Text(
                                             text = "Hash: ${entry.contentHashSnapshot.take(16)}...",
                                             style = MaterialTheme.typography.labelSmall,
-                                            fontFamily = FontFamily.Monospace,
+                                            fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
@@ -1204,7 +1204,7 @@ fun TransactionDetailModal(
                         .fillMaxWidth()
                         .height(48.dp)
                         .testTag("detail_open_chat_button"),
-                    shape = RoundedCornerShape(6.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
@@ -1235,7 +1235,7 @@ fun TransactionDetailModal(
                                 .weight(1f)
                                 .height(48.dp)
                                 .testTag("detail_whatsapp_button"),
-                            shape = RoundedCornerShape(6.dp),
+                            shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                         ) {
                             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -1249,7 +1249,7 @@ fun TransactionDetailModal(
                                 .weight(1f)
                                 .height(48.dp)
                                 .testTag("detail_thermal_receipt_button"),
-                            shape = RoundedCornerShape(6.dp),
+                            shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                         ) {
                             Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -1270,7 +1270,7 @@ fun TransactionDetailModal(
                                         .weight(1f)
                                         .height(48.dp)
                                         .testTag("detail_upi_qr_button"),
-                                    shape = RoundedCornerShape(6.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                                 ) {
                                     Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -1291,7 +1291,7 @@ fun TransactionDetailModal(
                                         .weight(1f)
                                         .height(48.dp)
                                         .testTag("detail_pay_party_upi_button"),
-                                    shape = RoundedCornerShape(6.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                                 ) {
                                     Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -1315,7 +1315,7 @@ fun TransactionDetailModal(
                         .fillMaxWidth()
                         .height(48.dp)
                         .testTag("toggle_settled_button"),
-                    shape = RoundedCornerShape(6.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (tx.isSettled) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary,
                         contentColor = if (tx.isSettled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary
@@ -1341,7 +1341,7 @@ fun TransactionDetailModal(
                             .weight(1f)
                             .height(48.dp)
                             .testTag("edit_transaction_button"),
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                     ) {
                         Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -1360,7 +1360,7 @@ fun TransactionDetailModal(
                             .weight(1f)
                             .height(48.dp)
                             .testTag("delete_transaction_button"),
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
                     ) {
                         Icon(
@@ -1555,7 +1555,7 @@ fun AttachmentViewerModal(
                         Text(
                             text = "SHA-256: ${attachment.sha256.take(24)}...",
                             style = MaterialTheme.typography.labelSmall,
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
                             color = SecondaryInkGrey
                         )
                     }
@@ -1567,7 +1567,7 @@ fun AttachmentViewerModal(
                             .fillMaxWidth()
                             .height(44.dp)
                             .testTag("open_external_document_button"),
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = PureBlack,
                             contentColor = PureWhite
@@ -1653,8 +1653,8 @@ fun ThermalReceiptModal(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.5.dp, PureBlack, RoundedCornerShape(6.dp))
-                        .background(PureWhite, RoundedCornerShape(6.dp))
+                        .border(1.5.dp, PureBlack, RoundedCornerShape(12.dp))
+                        .background(PureWhite, RoundedCornerShape(12.dp))
                         .padding(8.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -1685,7 +1685,7 @@ fun ThermalReceiptModal(
                             .weight(1f)
                             .height(48.dp)
                             .testTag("share_thermal_receipt_image_button"),
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary
@@ -1709,7 +1709,7 @@ fun ThermalReceiptModal(
                             .weight(1f)
                             .height(48.dp)
                             .testTag("share_thermal_receipt_pdf_button"),
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                     ) {
                         Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -1908,7 +1908,7 @@ fun UpiQrCodeModal(
                             .fillMaxWidth()
                             .height(44.dp)
                             .testTag("save_upi_from_qr_button"),
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                     ) {
                         Text("SAVE AS DEFAULT UPI PROFILE", style = MaterialTheme.typography.labelMedium)
@@ -1935,7 +1935,7 @@ fun UpiQrCodeModal(
                     Text(
                         text = "VPA: ${InterestCalculator.maskUpiId(effectiveUpiId)}",
                         style = MaterialTheme.typography.bodySmall,
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                         maxLines = 2,
@@ -1956,7 +1956,7 @@ fun UpiQrCodeModal(
                                 .weight(1f)
                                 .height(48.dp)
                                 .testTag("copy_upi_uri_button"),
-                            shape = RoundedCornerShape(6.dp),
+                            shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                         ) {
                             Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -1977,7 +1977,7 @@ fun UpiQrCodeModal(
                                 .weight(1.3f)
                                 .height(48.dp)
                                 .testTag("launch_upi_app_button"),
-                            shape = RoundedCornerShape(6.dp),
+                            shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary
@@ -1992,8 +1992,8 @@ fun UpiQrCodeModal(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
+                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
                             .padding(20.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -2125,7 +2125,7 @@ fun ShareUdhaarAppModal(
                         .fillMaxWidth()
                         .height(48.dp)
                         .testTag("share_app_native_button"),
-                    shape = RoundedCornerShape(6.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
@@ -2146,7 +2146,7 @@ fun ShareUdhaarAppModal(
                         .fillMaxWidth()
                         .height(48.dp)
                         .testTag("copy_app_link_button"),
-                    shape = RoundedCornerShape(6.dp),
+                    shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                 ) {
                     Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -2241,8 +2241,8 @@ fun WhatsAppReminderModal(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -2309,7 +2309,7 @@ fun WhatsAppReminderModal(
                         .fillMaxWidth()
                         .height(48.dp)
                         .testTag("launch_whatsapp_send_button"),
-                    shape = RoundedCornerShape(6.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
@@ -2561,7 +2561,7 @@ fun ProfileSettingsModal(
                             .weight(1f)
                             .height(48.dp)
                             .testTag("cancel_settings_button"),
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                     ) {
                         Text("CANCEL", style = MaterialTheme.typography.labelLarge)
@@ -2572,7 +2572,7 @@ fun ProfileSettingsModal(
                             .weight(1.6f)
                             .height(48.dp)
                             .testTag("save_settings_button"),
-                        shape = RoundedCornerShape(6.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary
@@ -2719,7 +2719,7 @@ fun ProfileSettingsModal(
                                     .weight(1f)
                                     .height(48.dp)
                                     .testTag("settings_pick_profile_photo_button"),
-                                shape = RoundedCornerShape(6.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                             ) {
                                 Text(
@@ -2737,7 +2737,7 @@ fun ProfileSettingsModal(
                                     .weight(1.2f)
                                     .height(48.dp)
                                     .testTag("settings_share_payment_profile_button"),
-                                shape = RoundedCornerShape(6.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                             ) {
                                 Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -2755,7 +2755,7 @@ fun ProfileSettingsModal(
                                 .fillMaxWidth()
                                 .height(48.dp)
                                 .testTag("settings_open_upi_qr_button"),
-                            shape = RoundedCornerShape(6.dp),
+                            shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                         ) {
                             Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -2912,7 +2912,7 @@ fun ProfileSettingsModal(
                                     .fillMaxWidth()
                                     .height(48.dp)
                                     .testTag("lock_app_now_button"),
-                                shape = RoundedCornerShape(6.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                             ) {
                                 Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -2948,8 +2948,8 @@ fun ProfileSettingsModal(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
-                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
                                 .padding(horizontal = 12.dp, vertical = 6.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -2986,8 +2986,8 @@ fun ProfileSettingsModal(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
-                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
                                 .padding(horizontal = 12.dp, vertical = 6.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -3066,11 +3066,11 @@ fun ProfileSettingsModal(
                                         .border(
                                             width = if (isSelected) 2.dp else 1.dp,
                                             color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                                            shape = RoundedCornerShape(6.dp)
+                                            shape = RoundedCornerShape(12.dp)
                                         )
                                         .background(
                                             color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                                            shape = RoundedCornerShape(6.dp)
+                                            shape = RoundedCornerShape(12.dp)
                                         )
                                         .clickable {
                                             fontScale = scaleOption
@@ -3124,11 +3124,11 @@ fun ProfileSettingsModal(
                                         .border(
                                             width = if (isSelected) 2.dp else 1.dp,
                                             color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                                            shape = RoundedCornerShape(6.dp)
+                                            shape = RoundedCornerShape(12.dp)
                                         )
                                         .background(
                                             color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                                            shape = RoundedCornerShape(6.dp)
+                                            shape = RoundedCornerShape(12.dp)
                                         )
                                         .clickable {
                                             themeMode = mode
@@ -3183,7 +3183,7 @@ fun ProfileSettingsModal(
                                     .weight(1f)
                                     .height(44.dp)
                                     .testTag("open_phone_display_settings_button"),
-                                shape = RoundedCornerShape(6.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                             ) {
                                 Text(
@@ -3205,7 +3205,7 @@ fun ProfileSettingsModal(
                                     .weight(1f)
                                     .height(44.dp)
                                     .testTag("open_phone_security_settings_button"),
-                                shape = RoundedCornerShape(6.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                             ) {
                                 Text(
@@ -3232,7 +3232,7 @@ fun ProfileSettingsModal(
                                 .fillMaxWidth()
                                 .height(44.dp)
                                 .testTag("open_app_system_settings_button"),
-                            shape = RoundedCornerShape(6.dp),
+                            shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                         ) {
                             Text(
@@ -3261,8 +3261,8 @@ fun ProfileSettingsModal(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(6.dp))
-                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
                                     .padding(12.dp)
                                     .testTag("drive_operation_progress_card"),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -3297,8 +3297,8 @@ fun ProfileSettingsModal(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .border(1.dp, MaterialTheme.colorScheme.error, RoundedCornerShape(6.dp))
-                                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f), RoundedCornerShape(6.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.error, RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
                                     .padding(12.dp)
                                     .testTag("drive_error_banner"),
                                 verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -3331,7 +3331,7 @@ fun ProfileSettingsModal(
                                         .align(Alignment.End)
                                         .height(34.dp)
                                         .testTag("dismiss_drive_error_button"),
-                                    shape = RoundedCornerShape(4.dp),
+                                    shape = RoundedCornerShape(8.dp),
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
                                 ) {
                                     Text("DISMISS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
@@ -3359,7 +3359,7 @@ fun ProfileSettingsModal(
                                     .fillMaxWidth()
                                     .height(48.dp)
                                     .testTag("google_drive_sign_in_button"),
-                                shape = RoundedCornerShape(6.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.primary,
                                     contentColor = MaterialTheme.colorScheme.onPrimary
@@ -3373,8 +3373,8 @@ fun ProfileSettingsModal(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
-                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
                                     .padding(12.dp)
                                     .testTag("drive_account_connected_card"),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -3433,7 +3433,7 @@ fun ProfileSettingsModal(
                                             .weight(1.3f)
                                             .height(44.dp)
                                             .testTag("drive_backup_now_button"),
-                                        shape = RoundedCornerShape(6.dp),
+                                        shape = RoundedCornerShape(12.dp),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = MaterialTheme.colorScheme.primary,
                                             contentColor = MaterialTheme.colorScheme.onPrimary
@@ -3450,7 +3450,7 @@ fun ProfileSettingsModal(
                                             .weight(1f)
                                             .height(44.dp)
                                             .testTag("drive_sign_out_button"),
-                                        shape = RoundedCornerShape(6.dp),
+                                        shape = RoundedCornerShape(12.dp),
                                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                                     ) {
                                         Text("SIGN OUT", style = MaterialTheme.typography.labelMedium)
@@ -3462,8 +3462,8 @@ fun ProfileSettingsModal(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
-                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
                                     .padding(12.dp)
                                     .testTag("drive_auto_backup_config_card"),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -3492,11 +3492,11 @@ fun ProfileSettingsModal(
                                                 .border(
                                                     width = if (isSelected) 2.dp else 1.dp,
                                                     color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                                                    shape = RoundedCornerShape(6.dp)
+                                                    shape = RoundedCornerShape(12.dp)
                                                 )
                                                 .background(
                                                     color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                                                    shape = RoundedCornerShape(6.dp)
+                                                    shape = RoundedCornerShape(12.dp)
                                                 )
                                                 .clickable {
                                                     onUpdateAutoBackupSettings(
@@ -3562,8 +3562,8 @@ fun ProfileSettingsModal(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
-                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
                                     .padding(12.dp)
                                     .testTag("drive_earlier_backups_card"),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -3586,8 +3586,8 @@ fun ProfileSettingsModal(
                                         Column(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
-                                                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
+                                                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                                                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
                                                 .padding(10.dp),
                                             verticalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
@@ -3638,7 +3638,7 @@ fun ProfileSettingsModal(
                                                         .weight(1f)
                                                         .height(38.dp)
                                                         .testTag("restore_backup_${backup.fileId}_button"),
-                                                    shape = RoundedCornerShape(4.dp),
+                                                    shape = RoundedCornerShape(8.dp),
                                                     colors = ButtonDefaults.buttonColors(
                                                         containerColor = MaterialTheme.colorScheme.primary,
                                                         contentColor = MaterialTheme.colorScheme.onPrimary
@@ -3655,7 +3655,7 @@ fun ProfileSettingsModal(
                                                         .weight(0.8f)
                                                         .height(38.dp)
                                                         .testTag("delete_backup_${backup.fileId}_button"),
-                                                    shape = RoundedCornerShape(4.dp),
+                                                    shape = RoundedCornerShape(8.dp),
                                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
                                                 ) {
                                                     Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.error)
@@ -3694,7 +3694,7 @@ fun ProfileSettingsModal(
                                     .weight(1f)
                                     .height(48.dp)
                                     .testTag("export_ledger_json_button"),
-                                shape = RoundedCornerShape(6.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                             ) {
                                 Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -3708,7 +3708,7 @@ fun ProfileSettingsModal(
                                     .weight(1f)
                                     .height(48.dp)
                                     .testTag("share_ledger_json_button"),
-                                shape = RoundedCornerShape(6.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                             ) {
                                 Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -3723,7 +3723,7 @@ fun ProfileSettingsModal(
                                 .fillMaxWidth()
                                 .height(48.dp)
                                 .testTag("import_ledger_json_button"),
-                            shape = RoundedCornerShape(6.dp),
+                            shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                         ) {
                             Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -3749,8 +3749,8 @@ fun ProfileSettingsModal(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
-                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
                                 .padding(horizontal = 12.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -3786,7 +3786,7 @@ fun ProfileSettingsModal(
                                 .fillMaxWidth()
                                 .height(48.dp)
                                 .testTag("google_sign_in_verification_button"),
-                            shape = RoundedCornerShape(6.dp),
+                            shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                         ) {
                             Text(
@@ -3821,7 +3821,7 @@ fun ProfileSettingsModal(
                                     .fillMaxWidth()
                                     .height(46.dp)
                                     .testTag("settings_open_verification_link_button"),
-                                shape = RoundedCornerShape(6.dp)
+                                shape = RoundedCornerShape(12.dp)
                             ) {
                                 Text("INSPECT SHARED LINK", style = MaterialTheme.typography.labelMedium)
                             }
@@ -3841,7 +3841,7 @@ fun ProfileSettingsModal(
                                 .fillMaxWidth()
                                 .height(48.dp)
                                 .testTag("delete_my_cloud_data_button"),
-                            shape = RoundedCornerShape(6.dp),
+                            shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
                         ) {
                             Icon(
@@ -3874,8 +3874,8 @@ fun ProfileSettingsModal(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
-                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
                                 .padding(12.dp)
                                 .testTag("share_give_access_card"),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -3897,7 +3897,7 @@ fun ProfileSettingsModal(
                                     .fillMaxWidth()
                                     .height(48.dp)
                                     .testTag("open_share_app_modal_from_settings"),
-                                shape = RoundedCornerShape(6.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                             ) {
                                 Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -3910,8 +3910,8 @@ fun ProfileSettingsModal(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
-                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
                                 .padding(12.dp)
                                 .testTag("about_and_support_card"),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -3943,7 +3943,7 @@ fun ProfileSettingsModal(
                             Text(
                                 text = "Support Email: jyotirmoybhowmik@gmail.com",
                                 style = MaterialTheme.typography.bodySmall,
-                                fontFamily = FontFamily.Monospace,
+                                fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             OutlinedButton(
@@ -3962,7 +3962,7 @@ fun ProfileSettingsModal(
                                     .fillMaxWidth()
                                     .height(48.dp)
                                     .testTag("contact_admin_button"),
-                                shape = RoundedCornerShape(6.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                             ) {
                                 Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -4208,8 +4208,8 @@ fun RestorePreviewDialog(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
                         .padding(10.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -4286,8 +4286,8 @@ private fun SettingsSectionCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp))
             .padding(14.dp)
             .testTag(testTag),
         verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -4299,7 +4299,7 @@ private fun SettingsSectionCard(
             Box(
                 modifier = Modifier
                     .size(24.dp)
-                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp)),
+                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(

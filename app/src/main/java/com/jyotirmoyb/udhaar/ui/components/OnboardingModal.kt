@@ -252,7 +252,7 @@ fun OnboardingModal(
                 if (step > 1) {
                     OutlinedButton(
                         onClick = { step-- },
-                        shape = RoundedCornerShape(4.dp),
+                        shape = RoundedCornerShape(12.dp),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                         modifier = Modifier
                             .height(48.dp)
@@ -271,7 +271,7 @@ fun OnboardingModal(
                     Button(
                         onClick = { step++ },
                         colors = ButtonDefaults.buttonColors(containerColor = PureBlack, contentColor = PureWhite),
-                        shape = RoundedCornerShape(4.dp),
+                        shape = RoundedCornerShape(12.dp),
                         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
                         modifier = Modifier
                             .height(48.dp)
@@ -286,7 +286,7 @@ fun OnboardingModal(
                     Button(
                         onClick = { onFinish(pin, upiId, payeeName) },
                         colors = ButtonDefaults.buttonColors(containerColor = PureBlack, contentColor = PureWhite),
-                        shape = RoundedCornerShape(4.dp),
+                        shape = RoundedCornerShape(12.dp),
                         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
                         modifier = Modifier
                             .height(48.dp)
@@ -351,8 +351,8 @@ private fun OnboardingPageContent(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(SubtleSurfaceGrey, RoundedCornerShape(4.dp))
-                        .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
+                        .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
+                        .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
                         .padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {

@@ -190,21 +190,29 @@ class ExampleRobolectricTest {
 
     @Test
     @Config(sdk = [36], qualifiers = "w360dp-h640dp-normal-long-port-hdpi")
-    fun `small phone 360dp - header groups Lock Settings More and filter chips scroll to Settled with count badges`() {
+    fun `small phone 360dp - header shows UDHAAR Emerald Slate and single gear icon while pill tabs summary cards and filter chips render`() {
         composeRule.waitForIdle()
 
-        // Top bar keeps Lock, Settings, and More visible
-        composeRule.onNode(androidx.compose.ui.test.hasTestTag("lock_app_top_button")).assertExists()
+        // Default theme mode is EMERALD_FINANCE ("Emerald Slate") and is first in AppThemeMode
+        assertEquals(com.jyotirmoyb.udhaar.ui.theme.AppThemeMode.EMERALD_FINANCE, com.jyotirmoyb.udhaar.ui.theme.AppThemeMode.entries.first())
+        assertEquals("Emerald Slate", com.jyotirmoyb.udhaar.ui.theme.AppThemeMode.EMERALD_FINANCE.label)
+        assertEquals(5, com.jyotirmoyb.udhaar.ui.theme.AppThemeMode.entries.size)
+
+        // Header shows UDHAAR, theme subtitle "Emerald Slate", and single Settings gear icon on right
+        composeRule.onNode(androidx.compose.ui.test.hasText("UDHAAR")).assertExists()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("header_theme_subtitle")).assertExists()
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("open_settings_button")).assertExists()
-        composeRule.onNode(androidx.compose.ui.test.hasTestTag("more_options_top_button")).assertExists()
 
-        // Opening More menu reveals QR, Theme, and Share
-        composeRule.onNode(androidx.compose.ui.test.hasTestTag("more_options_top_button"))
-            .performClick()
-        composeRule.waitForIdle()
-        composeRule.onNode(androidx.compose.ui.test.hasTestTag("global_upi_qr_button")).assertExists()
-        composeRule.onNode(androidx.compose.ui.test.hasTestTag("cycle_theme_top_button")).assertExists()
-        composeRule.onNode(androidx.compose.ui.test.hasTestTag("share_app_top_button")).assertExists()
+        // Three rounded pill tabs: Active, People, History
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("nav_tab_ledger")).assertExists()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("nav_tab_people_directory")).assertExists()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("nav_tab_history")).assertExists()
+
+        // Two soft summary cards side-by-side + Net INR Position row + Search bar
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("summary_receivable_card")).assertExists()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("summary_payable_card")).assertExists()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("net_position_row")).assertExists()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("dashboard_search_input")).assertExists()
 
         // Filter chips LazyRow scrolls to Settled chip and displays count badge
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("filter_chips_lazy_row"))
@@ -253,20 +261,6 @@ class ExampleRobolectricTest {
     fun `font scale 1_3 on 360dp phone - modals and Settings keep last buttons reachable`() {
         composeRule.waitForIdle()
 
-        // Open More -> Share App ModalBottomSheet and verify last button (copy_app_link_button) is reachable
-        composeRule.onNode(androidx.compose.ui.test.hasTestTag("more_options_top_button"))
-            .performClick()
-        composeRule.waitForIdle()
-        composeRule.onNode(androidx.compose.ui.test.hasTestTag("share_app_top_button"))
-            .performClick()
-        composeRule.waitForIdle()
-        composeRule.onNode(androidx.compose.ui.test.hasTestTag("copy_app_link_button"))
-            .performScrollTo()
-            .assertExists()
-        composeRule.onNode(androidx.compose.ui.test.hasTestTag("close_share_app_modal_button"))
-            .performClick()
-        composeRule.waitForIdle()
-
         // Open Settings at 1.3x font scale and scroll to the very last section
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("open_settings_button"))
             .performClick()
@@ -276,6 +270,17 @@ class ExampleRobolectricTest {
         composeRule.waitForIdle()
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("contact_admin_button")).assertExists()
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("save_settings_button")).assertExists()
+
+        // Open Share App ModalBottomSheet from Settings and verify last button (copy_app_link_button) is reachable
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("open_share_app_modal_from_settings"))
+            .performClick()
+        composeRule.waitForIdle()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("copy_app_link_button"))
+            .performScrollTo()
+            .assertExists()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("close_share_app_modal_button"))
+            .performClick()
+        composeRule.waitForIdle()
     }
 
     @Test
@@ -283,11 +288,12 @@ class ExampleRobolectricTest {
     fun `landscape 640x360 - Settings and UPI QR ModalBottomSheet scroll to last button`() {
         composeRule.waitForIdle()
 
-        // Open More -> UPI QR ModalBottomSheet in landscape and verify QR input + close button work
-        composeRule.onNode(androidx.compose.ui.test.hasTestTag("more_options_top_button"))
+        // Open Settings in landscape and launch UPI QR ModalBottomSheet
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("open_settings_button"))
             .performClick()
         composeRule.waitForIdle()
-        composeRule.onNode(androidx.compose.ui.test.hasTestTag("global_upi_qr_button"))
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("settings_open_upi_qr_button"))
+            .performScrollTo()
             .performClick()
         composeRule.waitForIdle()
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("qr_upi_id_input")).assertExists()
@@ -295,14 +301,13 @@ class ExampleRobolectricTest {
             .performClick()
         composeRule.waitForIdle()
 
-        // Open Settings in landscape and scroll to About section while sticky Save button stays accessible
-        composeRule.onNode(androidx.compose.ui.test.hasTestTag("open_settings_button"))
-            .performClick()
-        composeRule.waitForIdle()
+        // Scroll Settings in landscape to About section while sticky Save button stays accessible
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("settings_lazy_column"))
             .performScrollToNode(androidx.compose.ui.test.hasTestTag("section_about"))
         composeRule.waitForIdle()
-        composeRule.onNode(androidx.compose.ui.test.hasTestTag("contact_admin_button")).assertExists()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("contact_admin_button"))
+            .performScrollTo()
+            .assertExists()
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("save_settings_button")).assertExists()
     }
 
