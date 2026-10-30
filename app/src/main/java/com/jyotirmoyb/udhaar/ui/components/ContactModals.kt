@@ -1,5 +1,6 @@
 package com.jyotirmoyb.udhaar.ui.components
 
+import com.jyotirmoyb.udhaar.util.InterestCalculator
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -561,7 +562,9 @@ private fun ContactRowItem(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
-                    text = contact.normalizedPhoneNumber.ifEmpty { contact.rawPhoneNumber },
+                    text = InterestCalculator.maskPhoneNumber(
+                        contact.normalizedPhoneNumber.ifEmpty { contact.rawPhoneNumber }
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = SecondaryInkGrey,
                     maxLines = 1,
@@ -799,13 +802,17 @@ private fun DuplicatePairCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = pair.primaryParty.phoneNumber.ifBlank { "No phone" },
+                    text = if (pair.primaryParty.phoneNumber.isNotBlank()) {
+                        InterestCalculator.maskPhoneNumber(pair.primaryParty.phoneNumber)
+                    } else {
+                        "No phone"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = SecondaryInkGrey
                 )
                 if (pair.primaryParty.upiId.isNotBlank()) {
                     Text(
-                        text = "UPI: ${pair.primaryParty.upiId}",
+                        text = "UPI: ${InterestCalculator.maskUpiId(pair.primaryParty.upiId)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = SecondaryInkGrey
                     )
@@ -835,13 +842,17 @@ private fun DuplicatePairCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = pair.duplicateParty.phoneNumber.ifBlank { "No phone" },
+                    text = if (pair.duplicateParty.phoneNumber.isNotBlank()) {
+                        InterestCalculator.maskPhoneNumber(pair.duplicateParty.phoneNumber)
+                    } else {
+                        "No phone"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = SecondaryInkGrey
                 )
                 if (pair.duplicateParty.upiId.isNotBlank()) {
                     Text(
-                        text = "UPI: ${pair.duplicateParty.upiId}",
+                        text = "UPI: ${InterestCalculator.maskUpiId(pair.duplicateParty.upiId)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = SecondaryInkGrey
                     )

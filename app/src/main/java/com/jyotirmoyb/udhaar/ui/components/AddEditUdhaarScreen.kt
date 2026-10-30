@@ -73,9 +73,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import android.net.Uri
@@ -601,12 +604,28 @@ fun AddEditUdhaarScreen(
                     }
                 }
 
+                var showPhoneText by rememberSaveable { mutableStateOf(false) }
                 OutlinedTextField(
                     value = phoneNumber,
-                    onValueChange = { phoneNumber = it },
+                    onValueChange = {
+                        phoneNumber = it
+                        showPhoneText = true
+                    },
                     label = { Text("Phone / WhatsApp Number (Optional)") },
-                    placeholder = { Text("${currency.defaultCountryCode} 98XXXXXXXX") },
+                    placeholder = { Text("${currency.defaultCountryCode} 98*** ***10") },
                     singleLine = true,
+                    visualTransformation = if (showPhoneText) VisualTransformation.None else PhoneMaskVisualTransformation,
+                    trailingIcon = if (phoneNumber.isNotBlank()) {
+                        {
+                            IconButton(onClick = { showPhoneText = !showPhoneText }) {
+                                Icon(
+                                    imageVector = if (showPhoneText) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (showPhoneText) "Mask phone number" else "Show phone number",
+                                    tint = PureBlack
+                                )
+                            }
+                        }
+                    } else null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     colors = textFieldColors,
                     modifier = Modifier

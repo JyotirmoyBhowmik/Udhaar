@@ -991,7 +991,7 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                 viewModel.acceptIncomingPaymentProfile()
                 Toast.makeText(
                     context,
-                    "Saved ${incomingProfile.displayName}'s UPI ID (${incomingProfile.upiId})",
+                    "Saved ${incomingProfile.displayName}'s UPI ID (${InterestCalculator.maskUpiId(incomingProfile.upiId)})",
                     Toast.LENGTH_LONG
                 ).show()
             }

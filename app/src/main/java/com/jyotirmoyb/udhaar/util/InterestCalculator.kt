@@ -326,4 +326,54 @@ object InterestCalculator {
             else -> trimmed
         }
     }
+
+    /**
+     * Masks a phone number for privacy so full digits are never exposed on screen.
+     * Formats 10-digit subscriber numbers as "98*** ***10" (first 2 digits + "*** ***" + last 2 digits).
+     */
+    fun maskPhoneNumber(rawPhone: String): String {
+        val trimmed = rawPhone.trim()
+        if (trimmed.isEmpty()) return ""
+        val digitsOnly = trimmed.filter { it.isDigit() }
+        if (digitsOnly.isEmpty()) return trimmed
+
+        val subscriberDigits = if (digitsOnly.length >= 10) {
+            digitsOnly.takeLast(10)
+        } else {
+            digitsOnly
+        }
+        return when {
+            subscriberDigits.length >= 4 -> {
+                val firstTwo = subscriberDigits.take(2)
+                val lastTwo = subscriberDigits.takeLast(2)
+                "$firstTwo*** ***$lastTwo"
+            }
+            subscriberDigits.length >= 2 -> "${subscriberDigits.first()}*** ***${subscriberDigits.last()}"
+            else -> "***"
+        }
+    }
+
+    /**
+     * Masks a UPI ID (VPA) in the same style as phone numbers (e.g. "98*** ***10@ybl" or "me*** ***nt@okaxis").
+     */
+    fun maskUpiId(rawUpiId: String): String {
+        val trimmed = rawUpiId.trim()
+        if (trimmed.isEmpty()) return ""
+        if (trimmed.contains("@")) {
+            val userPart = trimmed.substringBefore("@")
+            val handlePart = trimmed.substringAfter("@")
+            val maskedUser = when {
+                userPart.length >= 4 -> "${userPart.take(2)}*** ***${userPart.takeLast(2)}"
+                userPart.length >= 2 -> "${userPart.first()}*** ***${userPart.last()}"
+                userPart.isNotEmpty() -> "${userPart.first()}*** ***"
+                else -> "*** ***"
+            }
+            return if (handlePart.isNotEmpty()) "$maskedUser@$handlePart" else maskedUser
+        }
+        return when {
+            trimmed.length >= 4 -> "${trimmed.take(2)}*** ***${trimmed.takeLast(2)}"
+            trimmed.length >= 2 -> "${trimmed.first()}*** ***${trimmed.last()}"
+            else -> "*** ***"
+        }
+    }
 }

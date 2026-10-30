@@ -646,12 +646,17 @@ class ExampleRobolectricTest {
         val summary = InterestCalculator.calculate(tx)
         val khata = com.jyotirmoyb.udhaar.ui.PartyKhataSummary(
             party = party,
-            transactions = listOf(summary)
+            transactions = listOf(summary),
+            inrToReceive = 25_000.0,
+            inrToPay = 0.0,
+            nprToReceive = 0.0,
+            nprToPay = 0.0
         )
         val file = com.jyotirmoyb.udhaar.util.PdfStatementGenerator.generatePartyStatementPdf(
             context = context,
             khata = khata,
-            userSettings = UserSettings(payeeName = "Shop Owner", upiId = "owner@upi")
+            userSettings = UserSettings(payeeName = "Shop Owner", upiId = "owner@upi"),
+            enabledCurrencies = listOf(CurrencyType.INR)
         )
         assertNotNull(file)
         assertTrue("PDF file must exist and have content", file.exists() && file.length() > 0)

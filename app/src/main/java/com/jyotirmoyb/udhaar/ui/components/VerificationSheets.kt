@@ -787,10 +787,10 @@ fun ShareMyPaymentDetailsSheet(
             append("Here are my payment details from Udhaar:\n")
             append("• Name: $myName\n")
             if (settings.phoneNumber.isNotBlank()) {
-                append("• Phone: ${settings.phoneNumber}\n")
+                append("• Phone: ${InterestCalculator.maskPhoneNumber(settings.phoneNumber)}\n")
             }
             if (settings.upiId.isNotBlank()) {
-                append("• UPI ID: ${settings.upiId}\n")
+                append("• UPI ID: ${InterestCalculator.maskUpiId(settings.upiId)}\n")
             }
             append("\nTap to save my UPI ID directly to your Udhaar Party book:\n")
             append(profileLink)
@@ -880,12 +880,12 @@ fun ShareMyPaymentDetailsSheet(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = if (settings.phoneNumber.isNotBlank()) "Phone: ${settings.phoneNumber}" else "Phone not set in Settings",
+                                text = if (settings.phoneNumber.isNotBlank()) "Phone: ${InterestCalculator.maskPhoneNumber(settings.phoneNumber)}" else "Phone not set in Settings",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = if (settings.upiId.isNotBlank()) "UPI: ${settings.upiId}" else "UPI ID not set in Settings",
+                                text = if (settings.upiId.isNotBlank()) "UPI: ${InterestCalculator.maskUpiId(settings.upiId)}" else "UPI ID not set in Settings",
                                 style = MaterialTheme.typography.bodySmall,
                                 fontFamily = FontFamily.Monospace,
                                 color = MaterialTheme.colorScheme.primary,
@@ -1215,9 +1215,12 @@ fun IncomingPaymentProfileAcceptSheet(
                 Column(modifier = Modifier.padding(14.dp)) {
                     VerificationDetailRow("Party Name", payload.displayName)
                     if (payload.phoneNumber.isNotBlank()) {
-                        VerificationDetailRow("Phone Number", payload.phoneNumber)
+                        VerificationDetailRow("Phone Number", InterestCalculator.maskPhoneNumber(payload.phoneNumber))
                     }
-                    VerificationDetailRow("UPI ID", payload.upiId.ifBlank { "None" })
+                    VerificationDetailRow(
+                        "UPI ID",
+                        if (payload.upiId.isNotBlank()) InterestCalculator.maskUpiId(payload.upiId) else "None"
+                    )
                 }
             }
 

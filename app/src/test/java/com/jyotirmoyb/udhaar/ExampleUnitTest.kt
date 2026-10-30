@@ -230,10 +230,19 @@ class ExampleUnitTest {
     }
 
     @Test
-    fun interestCalculator_quarterlyAndHalfYearlyCompounding_andGracePeriod() {
+    fun interestCalculator_quarterlyAndMonthlyCompounding_andSettledFreeze() {
         val principal = 20_000.0
         val rate = 10.0
         val days = 365L
+
+        val monthly = InterestCalculator.computeInterestAmount(
+            principal = principal,
+            rate = rate,
+            ratePeriod = InterestRatePeriod.PER_ANNUM,
+            interestType = InterestType.COMPOUND,
+            compoundFrequency = CompoundFrequency.MONTHLY,
+            elapsedDays = days
+        )
 
         val quarterly = InterestCalculator.computeInterestAmount(
             principal = principal,
@@ -241,15 +250,6 @@ class ExampleUnitTest {
             ratePeriod = InterestRatePeriod.PER_ANNUM,
             interestType = InterestType.COMPOUND,
             compoundFrequency = CompoundFrequency.QUARTERLY,
-            elapsedDays = days
-        )
-
-        val halfYearly = InterestCalculator.computeInterestAmount(
-            principal = principal,
-            rate = rate,
-            ratePeriod = InterestRatePeriod.PER_ANNUM,
-            interestType = InterestType.COMPOUND,
-            compoundFrequency = CompoundFrequency.HALF_YEARLY,
             elapsedDays = days
         )
 
@@ -263,25 +263,25 @@ class ExampleUnitTest {
         )
 
         // Compound interest with more frequent intervals yields more than simple interest
-        assertTrue("Quarterly compound ($quarterly) > Half-yearly ($halfYearly)", quarterly > halfYearly)
-        assertTrue("Half-yearly compound ($halfYearly) > Simple ($simple)", halfYearly > simple)
+        assertTrue("Monthly compound ($monthly) > Quarterly ($quarterly)", monthly > quarterly)
+        assertTrue("Quarterly compound ($quarterly) > Simple ($simple)", quarterly > simple)
 
-        // Grace period test
-        val txWithGrace = UdhaarTransaction(
+        // Settled freeze test
+        val start = 1_700_000_000_000L
+        val settledAt = start + 15L * 86_400_000L
+        val txSettled = UdhaarTransaction(
+            partyName = "Sita",
             principalAmount = 10_000.0,
             interestRate = 12.0,
             interestRatePeriod = InterestRatePeriod.PER_ANNUM,
             isInterestEnabled = true,
-            gracePeriodDays = 15,
-            startDateMillis = 1_700_000_000_000L
+            isSettled = true,
+            settledAtMillis = settledAt,
+            startDateMillis = start
         )
-        // 10 days elapsed (within 15-day grace period): interest must be 0
-        val withinGrace = InterestCalculator.calculate(txWithGrace, nowMillis = 1_700_000_000_000L + 10L * 86_400_000L)
-        assertEquals(0.0, withinGrace.accruedInterest, 0.001)
-
-        // 20 days elapsed (outside 15-day grace period): interest starts accruing
-        val outsideGrace = InterestCalculator.calculate(txWithGrace, nowMillis = 1_700_000_000_000L + 20L * 86_400_000L)
-        assertTrue("Interest should accrue after grace period", outsideGrace.accruedInterest > 0.0)
+        val atSettled = InterestCalculator.calculate(txSettled, asOfMillis = settledAt)
+        val muchLater = InterestCalculator.calculate(txSettled, asOfMillis = start + 90L * 86_400_000L)
+        assertEquals(atSettled.accruedInterest, muchLater.accruedInterest, 0.001)
     }
 
     @Test
@@ -296,6 +296,7 @@ class ExampleUnitTest {
             principalAmount = 10_000.0,
             startDateMillis = 1_700_000_000_000L,
             expiryDateMillis = 1_720_000_000_000L,
+            isInterestEnabled = true,
             interestRate = 5.0
         )
         val originalHash = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.computeTransactionContentHash(original, "Owner")
@@ -314,6 +315,18 @@ class ExampleUnitTest {
         val tamperedDue = original.copy(expiryDateMillis = 1_725_000_000_000L)
         val tamperedDueHash = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.computeTransactionContentHash(tamperedDue, "Owner")
         org.junit.Assert.assertNotEquals(originalHash, tamperedDueHash)
+    }
+
+    @Test
+    fun maskPhoneNumberAndMaskUpiId_masksAsFirstTwoAndLastTwoWithMiddleStars() {
+        assertEquals("98*** ***10", InterestCalculator.maskPhoneNumber("9876543210"))
+        assertEquals("98*** ***10", InterestCalculator.maskPhoneNumber("+91 98765-43210"))
+        assertEquals("98*** ***10", InterestCalculator.maskPhoneNumber("09876543210"))
+        assertEquals("98*** ***67", InterestCalculator.maskPhoneNumber("+977 9841234567"))
+
+        assertEquals("98*** ***10@ybl", InterestCalculator.maskUpiId("9876543210@ybl"))
+        assertEquals("me*** ***nt@okicici", InterestCalculator.maskUpiId("merchant@okicici"))
+        assertEquals("ba*** ***an@okaxis", InterestCalculator.maskUpiId("bapan@okaxis"))
     }
 }
 

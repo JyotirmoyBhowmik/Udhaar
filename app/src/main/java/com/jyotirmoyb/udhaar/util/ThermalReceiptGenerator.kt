@@ -160,7 +160,7 @@ object ThermalReceiptGenerator {
         // Party & Record Metadata
         drawRow("PARTY NAME", tx.partyName.uppercase(), boldLabel = true)
         if (tx.phoneNumber.isNotBlank()) {
-            drawRow("CONTACT PHONE", tx.phoneNumber)
+            drawRow("CONTACT PHONE", InterestCalculator.maskPhoneNumber(tx.phoneNumber))
         }
         drawRow("RECORD TYPE", if (isGiven) "GIVEN (TO RECEIVE)" else "TAKEN (TO PAY)")
         drawRow("VERIFICATION", tx.verificationStatus.shortBadge, boldLabel = true)
@@ -274,7 +274,7 @@ object ThermalReceiptGenerator {
                 typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
                 textAlign = Paint.Align.CENTER
             }
-            canvas.drawText("SCAN TO SETTLE VIA UPI: $targetUpiId", width / 2f, y, qrCaptionPaint)
+            canvas.drawText("SCAN TO SETTLE VIA UPI: ${InterestCalculator.maskUpiId(targetUpiId)}", width / 2f, y, qrCaptionPaint)
             y += 38f
         }
 
@@ -407,8 +407,8 @@ object ThermalReceiptGenerator {
         }
 
         drawRow("PARTY / ACCOUNT", party.name.uppercase())
-        if (party.phoneNumber.isNotBlank()) drawRow("CONTACT PHONE", party.phoneNumber)
-        if (party.upiId.isNotBlank()) drawRow("PARTY UPI VPA", party.upiId)
+        if (party.phoneNumber.isNotBlank()) drawRow("CONTACT PHONE", InterestCalculator.maskPhoneNumber(party.phoneNumber))
+        if (party.upiId.isNotBlank()) drawRow("PARTY UPI VPA", InterestCalculator.maskUpiId(party.upiId))
         drawRow("TOTAL RECORDS", "${khata.transactions.size} (${khata.activeLoanCount} ACTIVE)")
 
         drawDashedDivider()
@@ -469,7 +469,7 @@ object ThermalReceiptGenerator {
                 typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
                 textAlign = Paint.Align.CENTER
             }
-            canvas.drawText("SCAN TO SETTLE NET INR BALANCE ($targetUpiId)", width / 2f, y, qrCaptionPaint)
+            canvas.drawText("SCAN TO SETTLE NET INR BALANCE (${InterestCalculator.maskUpiId(targetUpiId)})", width / 2f, y, qrCaptionPaint)
         }
 
         val footerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

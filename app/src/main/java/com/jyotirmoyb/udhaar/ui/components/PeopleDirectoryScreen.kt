@@ -90,9 +90,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -473,7 +476,7 @@ private fun PartyDirectoryCard(
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = "VPA: ${party.upiId}",
+                            text = "VPA: ${InterestCalculator.maskUpiId(party.upiId)}",
                             style = MaterialTheme.typography.labelSmall,
                             color = SecondaryInkGrey,
                             maxLines = 1,
@@ -565,10 +568,10 @@ private fun PartyDirectoryCard(
                         color = PureBlack
                     )
                     val contactSub = buildString {
-                        if (party.phoneNumber.isNotBlank()) append(party.phoneNumber)
+                        if (party.phoneNumber.isNotBlank()) append(InterestCalculator.maskPhoneNumber(party.phoneNumber))
                         if (party.alternatePhoneNumber.isNotBlank()) {
                             if (isNotEmpty()) append(" • Alt: ") else append("Alt: ")
-                            append(party.alternatePhoneNumber)
+                            append(InterestCalculator.maskPhoneNumber(party.alternatePhoneNumber))
                         }
                         if (party.email.isNotBlank()) {
                             if (isNotEmpty()) append(" • ")
@@ -884,11 +887,11 @@ fun PartyDetailScreen(
                             if (party.tagOrNotes.isNotBlank()) append("Tag: ${party.tagOrNotes}")
                             if (party.phoneNumber.isNotBlank()) {
                                 if (isNotEmpty()) append("  •  ")
-                                append("Phone: ${party.phoneNumber}")
+                                append("Phone: ${InterestCalculator.maskPhoneNumber(party.phoneNumber)}")
                             }
                             if (party.upiId.isNotBlank()) {
                                 if (isNotEmpty()) append("  •  ")
-                                append("UPI VPA: ${party.upiId}")
+                                append("UPI VPA: ${InterestCalculator.maskUpiId(party.upiId)}")
                             }
                             if (party.email.isNotBlank()) {
                                 if (isNotEmpty()) append("  •  ")
@@ -1229,7 +1232,7 @@ fun PartyDetailScreen(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = if (party.upiId.isNotBlank()) {
-                                        "PAY PARTY VIA UPI (${party.upiId})"
+                                        "PAY PARTY VIA UPI (${InterestCalculator.maskUpiId(party.upiId)})"
                                     } else {
                                         "SET PARTY UPI ID TO PAY DIRECTLY"
                                     },
@@ -1771,12 +1774,31 @@ fun AddEditPartyModal(
                     }
                 }
 
+                var showPrimaryPhone by rememberSaveable { mutableStateOf(false) }
+                var showAlternatePhone by rememberSaveable { mutableStateOf(false) }
+                var showPartyUpi by rememberSaveable { mutableStateOf(false) }
+
                 OutlinedTextField(
                     value = phoneNumber,
-                    onValueChange = { phoneNumber = it },
+                    onValueChange = {
+                        phoneNumber = it
+                        showPrimaryPhone = true
+                    },
                     label = { Text("Primary Phone (Auto-formats ${preferredCurrency.defaultCountryCode})") },
-                    placeholder = { Text("${preferredCurrency.defaultCountryCode} 98XXXXXXXX") },
+                    placeholder = { Text("${preferredCurrency.defaultCountryCode} 98*** ***10") },
                     singleLine = true,
+                    visualTransformation = if (showPrimaryPhone) VisualTransformation.None else PhoneMaskVisualTransformation,
+                    trailingIcon = if (phoneNumber.isNotBlank()) {
+                        {
+                            IconButton(onClick = { showPrimaryPhone = !showPrimaryPhone }) {
+                                Icon(
+                                    imageVector = if (showPrimaryPhone) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (showPrimaryPhone) "Mask phone number" else "Show phone number",
+                                    tint = PureBlack
+                                )
+                            }
+                        }
+                    } else null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     colors = textFieldColors,
                     modifier = Modifier
@@ -1786,10 +1808,25 @@ fun AddEditPartyModal(
 
                 OutlinedTextField(
                     value = alternatePhoneNumber,
-                    onValueChange = { alternatePhoneNumber = it },
+                    onValueChange = {
+                        alternatePhoneNumber = it
+                        showAlternatePhone = true
+                    },
                     label = { Text("Alternate Phone (Optional)") },
-                    placeholder = { Text("${preferredCurrency.defaultCountryCode} 98XXXXXXXX") },
+                    placeholder = { Text("${preferredCurrency.defaultCountryCode} 98*** ***10") },
                     singleLine = true,
+                    visualTransformation = if (showAlternatePhone) VisualTransformation.None else PhoneMaskVisualTransformation,
+                    trailingIcon = if (alternatePhoneNumber.isNotBlank()) {
+                        {
+                            IconButton(onClick = { showAlternatePhone = !showAlternatePhone }) {
+                                Icon(
+                                    imageVector = if (showAlternatePhone) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (showAlternatePhone) "Mask alternate phone" else "Show alternate phone",
+                                    tint = PureBlack
+                                )
+                            }
+                        }
+                    } else null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     colors = textFieldColors,
                     modifier = Modifier
@@ -1799,10 +1836,25 @@ fun AddEditPartyModal(
 
                 OutlinedTextField(
                     value = upiId,
-                    onValueChange = { upiId = it },
+                    onValueChange = {
+                        upiId = it
+                        showPartyUpi = true
+                    },
                     label = { Text("Party's Personal UPI ID (Optional • For Payback)") },
-                    placeholder = { Text("e.g. friend@okaxis") },
+                    placeholder = { Text("e.g. 98*** ***10@okaxis") },
                     singleLine = true,
+                    visualTransformation = if (showPartyUpi) VisualTransformation.None else UpiMaskVisualTransformation,
+                    trailingIcon = if (upiId.isNotBlank()) {
+                        {
+                            IconButton(onClick = { showPartyUpi = !showPartyUpi }) {
+                                Icon(
+                                    imageVector = if (showPartyUpi) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (showPartyUpi) "Mask UPI ID" else "Show UPI ID",
+                                    tint = PureBlack
+                                )
+                            }
+                        }
+                    } else null,
                     colors = textFieldColors,
                     modifier = Modifier
                         .fillMaxWidth()

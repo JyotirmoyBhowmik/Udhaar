@@ -577,7 +577,7 @@ fun DashboardScreen(
                             )
                             if (uiState.userSettings.upiId.isNotBlank() && uiState.userSettings.inrEnabled) {
                                 Text(
-                                    text = "VPA: ${uiState.userSettings.upiId}",
+                                    text = "VPA: ${InterestCalculator.maskUpiId(uiState.userSettings.upiId)}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = SecondaryInkGrey,
                                     maxLines = 1,
@@ -1264,7 +1264,7 @@ private fun TransactionCardItem(
                 )
                 if (tx.phoneNumber.isNotBlank()) {
                     Text(
-                        text = tx.phoneNumber,
+                        text = InterestCalculator.maskPhoneNumber(tx.phoneNumber),
                         style = MaterialTheme.typography.labelSmall,
                         color = SecondaryInkGrey,
                         maxLines = 1,

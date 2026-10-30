@@ -132,7 +132,7 @@ object UpiQrGenerator {
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
             textAlign = Paint.Align.CENTER
         }
-        canvas.drawText("VPA: ${upiId.trim()}", cardWidth / 2f, 265f, subPaint)
+        canvas.drawText("VPA: ${InterestCalculator.maskUpiId(upiId.trim())}", cardWidth / 2f, 265f, subPaint)
 
         val qrLeft = (cardWidth - qrBitmap.width) / 2f
         val qrTop = 300f

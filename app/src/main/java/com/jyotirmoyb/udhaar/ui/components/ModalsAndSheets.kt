@@ -123,10 +123,13 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -1833,12 +1836,31 @@ fun UpiQrCodeModal(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                var showQrUpiId by rememberSaveable { mutableStateOf(false) }
                 OutlinedTextField(
                     value = upiIdInput,
-                    onValueChange = { upiIdInput = it },
+                    onValueChange = {
+                        showQrUpiId = true
+                        upiIdInput = it
+                    },
                     label = { Text(if (isPayToParty) "Party UPI ID (VPA) *" else "Your UPI ID (VPA) *") },
                     placeholder = { Text("e.g. yourname@okaxis") },
                     singleLine = true,
+                    visualTransformation = if (showQrUpiId || upiIdInput.isBlank()) {
+                        VisualTransformation.None
+                    } else {
+                        UpiMaskVisualTransformation
+                    },
+                    trailingIcon = {
+                        if (upiIdInput.isNotBlank()) {
+                            IconButton(onClick = { showQrUpiId = !showQrUpiId }) {
+                                Icon(
+                                    imageVector = if (showQrUpiId) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (showQrUpiId) "Hide UPI ID" else "Show UPI ID"
+                                )
+                            }
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("qr_upi_id_input")
@@ -1911,7 +1933,7 @@ fun UpiQrCodeModal(
                         )
                     }
                     Text(
-                        text = upiUri,
+                        text = "VPA: ${InterestCalculator.maskUpiId(effectiveUpiId)}",
                         style = MaterialTheme.typography.bodySmall,
                         fontFamily = FontFamily.Monospace,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -2192,7 +2214,7 @@ fun WhatsAppReminderModal(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "TO: ${tx.partyName.uppercase()} ${if (tx.phoneNumber.isNotBlank()) "(${tx.phoneNumber})" else ""}",
+                        text = "TO: ${tx.partyName.uppercase()} ${if (tx.phoneNumber.isNotBlank()) "(${InterestCalculator.maskPhoneNumber(tx.phoneNumber)})" else ""}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -2351,8 +2373,8 @@ fun ProfileSettingsModal(
     onClearDriveOperationError: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
-    // Block screenshots on the Settings screen where PIN is configured
-    SecureScreenEffect(enabled = true)
+    // Ensure FLAG_SECURE is cleared on the Settings screen so it renders visibly on all displays & screenshots
+    SecureScreenEffect(enabled = false)
 
     BackHandler {
         onDismiss()
@@ -2362,6 +2384,8 @@ fun ProfileSettingsModal(
     var payeeName by rememberSaveable(currentSettings.payeeName) { mutableStateOf(currentSettings.payeeName) }
     var upiId by rememberSaveable(currentSettings.upiId) { mutableStateOf(currentSettings.upiId) }
     var phoneNumber by rememberSaveable(currentSettings.phoneNumber) { mutableStateOf(currentSettings.phoneNumber) }
+    var showFullUpiId by rememberSaveable { mutableStateOf(false) }
+    var showFullPhoneNumber by rememberSaveable { mutableStateOf(false) }
     var profilePhotoUri by rememberSaveable(currentSettings.profilePhotoUri) { mutableStateOf(currentSettings.profilePhotoUri) }
     var cloudVerificationConsent by rememberSaveable(currentSettings.cloudVerificationConsent) {
         mutableStateOf(currentSettings.cloudVerificationConsent)
@@ -2458,15 +2482,20 @@ fun ProfileSettingsModal(
         )
     }
 
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.onBackground
+    ) {
     Scaffold(
-        contentWindowInsets = WindowInsets.safeDrawing,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         containerColor = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.onBackground,
         topBar = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surface)
-                    .statusBarsPadding()
             ) {
                 Row(
                     modifier = Modifier
@@ -2516,7 +2545,6 @@ fun ProfileSettingsModal(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surface)
-                    .navigationBarsPadding()
                     .imePadding()
             ) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
@@ -2561,6 +2589,7 @@ fun ProfileSettingsModal(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding),
             contentAlignment = Alignment.TopCenter
         ) {
@@ -2595,10 +2624,40 @@ fun ProfileSettingsModal(
 
                         OutlinedTextField(
                             value = upiId,
-                            onValueChange = { upiId = it },
+                            onValueChange = {
+                                showFullUpiId = true
+                                upiId = it
+                            },
                             label = { Text("Your Default UPI ID (for INR QR)") },
                             placeholder = { Text("e.g. merchant@okicici") },
                             singleLine = true,
+                            visualTransformation = if (showFullUpiId || upiId.isBlank()) {
+                                VisualTransformation.None
+                            } else {
+                                UpiMaskVisualTransformation
+                            },
+                            trailingIcon = {
+                                if (upiId.isNotBlank()) {
+                                    IconButton(
+                                        onClick = { showFullUpiId = !showFullUpiId },
+                                        modifier = Modifier.testTag("toggle_settings_upi_visibility")
+                                    ) {
+                                        Icon(
+                                            imageVector = if (showFullUpiId) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                            contentDescription = if (showFullUpiId) "Hide UPI ID" else "Show UPI ID"
+                                        )
+                                    }
+                                }
+                            },
+                            supportingText = {
+                                if (upiId.isNotBlank()) {
+                                    Text(
+                                        text = "Displayed publicly as: ${InterestCalculator.maskUpiId(upiId)}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("settings_upi_id_input")
@@ -2606,11 +2665,41 @@ fun ProfileSettingsModal(
 
                         OutlinedTextField(
                             value = phoneNumber,
-                            onValueChange = { phoneNumber = it },
+                            onValueChange = {
+                                showFullPhoneNumber = true
+                                phoneNumber = it
+                            },
                             label = { Text("Your Phone Number (for Verification & Profile Share)") },
                             placeholder = { Text("e.g. +91 9876543210") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                            visualTransformation = if (showFullPhoneNumber || phoneNumber.isBlank()) {
+                                VisualTransformation.None
+                            } else {
+                                PhoneMaskVisualTransformation
+                            },
+                            trailingIcon = {
+                                if (phoneNumber.isNotBlank()) {
+                                    IconButton(
+                                        onClick = { showFullPhoneNumber = !showFullPhoneNumber },
+                                        modifier = Modifier.testTag("toggle_settings_phone_visibility")
+                                    ) {
+                                        Icon(
+                                            imageVector = if (showFullPhoneNumber) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                            contentDescription = if (showFullPhoneNumber) "Hide Phone Number" else "Show Phone Number"
+                                        )
+                                    }
+                                }
+                            },
+                            supportingText = {
+                                if (phoneNumber.isNotBlank()) {
+                                    Text(
+                                        text = "Displayed publicly as: ${InterestCalculator.maskPhoneNumber(phoneNumber)}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("settings_phone_number_input")
@@ -3839,7 +3928,7 @@ fun ProfileSettingsModal(
                                 )
                                 Column {
                                     Text(
-                                        text = "UDHAAR LEDGER v7.0",
+                                        text = "UDHAAR LEDGER v8.0",
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface
@@ -3885,6 +3974,7 @@ fun ProfileSettingsModal(
                 }
             }
         }
+    }
     }
 
     if (showBackupDialog) {
@@ -4264,4 +4354,35 @@ private fun BreakdownLine(
             textAlign = TextAlign.End
         )
     }
+}
+
+private fun proportionalOffsetMapping(originalLen: Int, transformedLen: Int): OffsetMapping =
+    object : OffsetMapping {
+        override fun originalToTransformed(offset: Int): Int {
+            if (originalLen <= 0) return 0
+            val clamped = offset.coerceIn(0, originalLen)
+            return ((clamped.toLong() * transformedLen) / originalLen).toInt().coerceIn(0, transformedLen)
+        }
+
+        override fun transformedToOriginal(offset: Int): Int {
+            if (transformedLen <= 0) return 0
+            val clamped = offset.coerceIn(0, transformedLen)
+            return ((clamped.toLong() * originalLen) / transformedLen).toInt().coerceIn(0, originalLen)
+        }
+    }
+
+val PhoneMaskVisualTransformation = VisualTransformation { text ->
+    val masked = InterestCalculator.maskPhoneNumber(text.text)
+    TransformedText(
+        text = AnnotatedString(masked),
+        offsetMapping = proportionalOffsetMapping(text.text.length, masked.length)
+    )
+}
+
+val UpiMaskVisualTransformation = VisualTransformation { text ->
+    val masked = InterestCalculator.maskUpiId(text.text)
+    TransformedText(
+        text = AnnotatedString(masked),
+        offsetMapping = proportionalOffsetMapping(text.text.length, masked.length)
+    )
 }
