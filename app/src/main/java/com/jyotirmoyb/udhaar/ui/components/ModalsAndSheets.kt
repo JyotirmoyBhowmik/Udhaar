@@ -40,7 +40,10 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -48,6 +51,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
@@ -57,38 +65,57 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SupportAgent
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import coil.compose.AsyncImage
+import com.jyotirmoyb.udhaar.data.Attachment
+import com.jyotirmoyb.udhaar.util.AttachmentManager
+import java.io.File
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -133,11 +160,17 @@ fun TransactionDetailModal(
     partialPayments: List<PartialPayment>,
     auditTrail: List<AuditTrailEntry> = emptyList(),
     linkedParty: PartyEntity? = null,
+    attachments: List<Attachment> = emptyList(),
+    attachmentsByPayment: Map<Long, List<Attachment>> = emptyMap(),
     onDismiss: () -> Unit,
     onRecordPartialPayment: (amount: Double, paymentMode: PaymentMode, note: String) -> Unit,
     onRecordCounterpartyPayment: (amount: Double, paymentMode: PaymentMode, note: String) -> Unit = { _, _, _ -> },
+    onRecordPartialPaymentWithProof: (amount: Double, paymentMode: PaymentMode, note: String, proof: Attachment?) -> Unit = { _, _, _, _ -> },
     onAcknowledgePartialPayment: (PartialPayment) -> Unit = {},
     onDeletePartialPayment: (PartialPayment) -> Unit,
+    onAddAttachment: (Attachment) -> Unit = {},
+    onDeleteAttachment: (Attachment) -> Unit = {},
+    onOpenAttachmentViewer: (Attachment) -> Unit = {},
     onRequestVerification: () -> Unit = {},
     onConfirmOrDisputeRecord: (confirm: Boolean, disputeReason: String) -> Unit = { _, _ -> },
     onToggleSettled: () -> Unit,
@@ -146,9 +179,12 @@ fun TransactionDetailModal(
     onOpenQr: () -> Unit,
     onPayPartyViaUpi: (partyName: String, partyUpiId: String, amountInr: Double) -> Unit = { _, _, _ -> },
     onShareReceipt: () -> Unit = {},
-    onOpenWhatsApp: () -> Unit
+    onOpenWhatsApp: () -> Unit,
+    unreadChatCount: Int = 0,
+    onOpenTransactionChat: () -> Unit = {}
 ) {
     val tx = summary.transaction
+    val context = LocalContext.current
     var partialAmountText by rememberSaveable { mutableStateOf("") }
     var partialPaymentMode by rememberSaveable { mutableStateOf(tx.paymentMode) }
     var partialNoteText by rememberSaveable { mutableStateOf("") }
@@ -157,6 +193,71 @@ fun TransactionDetailModal(
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     var showDisputeInput by rememberSaveable { mutableStateOf(false) }
     var disputeReasonInput by rememberSaveable { mutableStateOf("") }
+
+    var cameraTempUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingProofAttachment by remember { mutableStateOf<Attachment?>(null) }
+    var isAttachingToPayment by remember { mutableStateOf(false) }
+    var showProofPickerMenu by remember { mutableStateOf(false) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && cameraTempUri != null) {
+            val processed = AttachmentManager.processCapturedImage(
+                context = context,
+                sourceUri = cameraTempUri!!,
+                transactionId = tx.id,
+                addedBy = "You"
+            )
+            if (processed != null) {
+                if (isAttachingToPayment) {
+                    pendingProofAttachment = processed
+                } else {
+                    onAddAttachment(processed)
+                }
+            }
+        }
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            val processed = AttachmentManager.processCapturedImage(
+                context = context,
+                sourceUri = uri,
+                transactionId = tx.id,
+                addedBy = "You"
+            )
+            if (processed != null) {
+                if (isAttachingToPayment) {
+                    pendingProofAttachment = processed
+                } else {
+                    onAddAttachment(processed)
+                }
+            }
+        }
+    }
+
+    val documentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            val processed = AttachmentManager.copyDocumentToStorage(
+                context = context,
+                sourceUri = uri,
+                transactionId = tx.id,
+                addedBy = "You"
+            )
+            if (processed != null) {
+                if (isAttachingToPayment) {
+                    pendingProofAttachment = processed
+                } else {
+                    onAddAttachment(processed)
+                }
+            }
+        }
+    }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -436,6 +537,183 @@ fun TransactionDetailModal(
                     }
                 }
 
+                // Phase 6: Transaction Documents & Attachments Section
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+                        .padding(12.dp)
+                        .testTag("detail_attachments_section"),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.AttachFile,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "ATTACHED DOCUMENTS (${attachments.size})",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    // Quick Attach Action Buttons (Camera / Gallery / File Picker)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                val (uri, _) = AttachmentManager.createCameraTempFileUri(context)
+                                cameraTempUri = uri
+                                isAttachingToPayment = false
+                                cameraLauncher.launch(uri)
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(38.dp)
+                                .testTag("attach_camera_button"),
+                            shape = RoundedCornerShape(4.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
+                        ) {
+                            Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("CAMERA", style = MaterialTheme.typography.labelSmall)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                isAttachingToPayment = false
+                                galleryLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(38.dp)
+                                .testTag("attach_gallery_button"),
+                            shape = RoundedCornerShape(4.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
+                        ) {
+                            Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("GALLERY", style = MaterialTheme.typography.labelSmall)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                isAttachingToPayment = false
+                                documentLauncher.launch(arrayOf("application/pdf", "image/*", "text/*", "*/*"))
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(38.dp)
+                                .testTag("attach_doc_button"),
+                            shape = RoundedCornerShape(4.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
+                        ) {
+                            Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("DOC/PDF", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+
+                    if (attachments.isEmpty()) {
+                        Text(
+                            text = "No documents attached. Attach promissory notes, bills, or photo receipts.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        LazyRow(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .testTag("detail_attachments_lazy_row"),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(attachments, key = { it.id }) { att ->
+                                val isImg = att.mimeType.startsWith("image/")
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                                    modifier = Modifier
+                                        .size(width = 110.dp, height = 110.dp)
+                                        .clickable { onOpenAttachmentViewer(att) }
+                                        .testTag("attachment_thumb_${att.id}")
+                                ) {
+                                    Box(modifier = Modifier.fillMaxSize()) {
+                                        if (isImg) {
+                                            AsyncImage(
+                                                model = File(att.localPath),
+                                                contentDescription = att.fileName,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                        } else {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .padding(8.dp),
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                verticalArrangement = Arrangement.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Description,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(32.dp),
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = att.fileName,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    text = AttachmentManager.formatFileSize(att.sizeBytes),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.BottomCenter)
+                                                .fillMaxWidth()
+                                                .background(PureBlack.copy(alpha = 0.75f))
+                                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = att.fileName,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = PureWhite,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                textAlign = TextAlign.Center,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Partial Payment Entry Section (Only when not settled)
                 if (!tx.isSettled) {
                     Column(
@@ -555,6 +833,89 @@ fun TransactionDetailModal(
                                     .testTag("partial_payment_note_input")
                             )
                         }
+                        // Optional Payment Proof Attachment
+                        if (pendingProofAttachment == null) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        val (uri, _) = AttachmentManager.createCameraTempFileUri(context)
+                                        cameraTempUri = uri
+                                        isAttachingToPayment = true
+                                        cameraLauncher.launch(uri)
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(36.dp)
+                                        .testTag("proof_camera_button"),
+                                    shape = RoundedCornerShape(4.dp),
+                                    contentPadding = PaddingValues(horizontal = 4.dp)
+                                ) {
+                                    Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("PROOF CAM", style = MaterialTheme.typography.labelSmall)
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        isAttachingToPayment = true
+                                        galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(36.dp)
+                                        .testTag("proof_gallery_button"),
+                                    shape = RoundedCornerShape(4.dp),
+                                    contentPadding = PaddingValues(horizontal = 4.dp)
+                                ) {
+                                    Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("PROOF PIC", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Proof: ${pendingProofAttachment!!.fileName} (${AttachmentManager.formatFileSize(pendingProofAttachment!!.sizeBytes)})",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        AttachmentManager.deleteAttachmentFile(context, pendingProofAttachment!!.localPath)
+                                        pendingProofAttachment = null
+                                    },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(Icons.Default.Close, contentDescription = "Remove proof", modifier = Modifier.size(14.dp))
+                                }
+                            }
+                        }
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -590,13 +951,17 @@ fun TransactionDetailModal(
                                     errorText = "Enter a valid installment amount > 0"
                                     return@Button
                                 }
+                                val proof = pendingProofAttachment
                                 if (reportedByCounterparty) {
                                     onRecordCounterpartyPayment(amt, partialPaymentMode, partialNoteText.trim())
+                                } else if (proof != null) {
+                                    onRecordPartialPaymentWithProof(amt, partialPaymentMode, partialNoteText.trim(), proof)
                                 } else {
                                     onRecordPartialPayment(amt, partialPaymentMode, partialNoteText.trim())
                                 }
                                 partialAmountText = ""
                                 partialNoteText = ""
+                                pendingProofAttachment = null
                                 reportedByCounterparty = false
                                 errorText = null
                             },
@@ -691,6 +1056,45 @@ fun TransactionDetailModal(
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
+
+                                        val paymentProofs = attachmentsByPayment[payment.id].orEmpty()
+                                        if (paymentProofs.isNotEmpty()) {
+                                            LazyRow(
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
+                                            ) {
+                                                items(paymentProofs, key = { it.id }) { proof ->
+                                                    Surface(
+                                                        shape = RoundedCornerShape(4.dp),
+                                                        color = MaterialTheme.colorScheme.surface,
+                                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                                                        modifier = Modifier
+                                                            .clickable { onOpenAttachmentViewer(proof) }
+                                                            .testTag("payment_proof_badge_${payment.id}_${proof.id}")
+                                                    ) {
+                                                        Row(
+                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                                            verticalAlignment = Alignment.CenterVertically
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.AttachFile,
+                                                                contentDescription = null,
+                                                                tint = MaterialTheme.colorScheme.primary,
+                                                                modifier = Modifier.size(13.dp)
+                                                            )
+                                                            Spacer(modifier = Modifier.width(4.dp))
+                                                            Text(
+                                                                text = "Proof: ${proof.fileName}",
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = MaterialTheme.colorScheme.primary,
+                                                                maxLines = 1
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                     IconButton(
                                         onClick = { onDeletePartialPayment(payment) },
@@ -788,6 +1192,32 @@ fun TransactionDetailModal(
                             }
                         }
                     }
+                }
+
+                // Phase 4: In-App Transaction Chat & One-Tap Extension Button
+                Button(
+                    onClick = onOpenTransactionChat,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("detail_open_chat_button"),
+                    shape = RoundedCornerShape(6.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (unreadChatCount > 0) {
+                            "OPEN TRANSACTION CHAT ($unreadChatCount NEW)"
+                        } else {
+                            "OPEN TRANSACTION CHAT & EXTENSION"
+                        },
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
 
                 // Quick Actions Row (WhatsApp + Thermal Receipt + UPI QR / Pay Party UPI)
@@ -942,6 +1372,205 @@ fun TransactionDetailModal(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.error
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Full-screen attachment viewer with pinch-to-zoom, share, and delete.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AttachmentViewerModal(
+    attachment: Attachment,
+    onDismiss: () -> Unit,
+    onShare: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val context = LocalContext.current
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    val isImage = attachment.mimeType.startsWith("image/")
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete Attachment?") },
+            text = { Text("Permanently delete '${attachment.fileName}' from this device?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteConfirm = false
+                        onDelete()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text("DELETE")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("CANCEL")
+                }
+            }
+        )
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(
+                            text = attachment.fileName,
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "${AttachmentManager.formatFileSize(attachment.sizeBytes)} • ${attachment.addedBy}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = BorderGrey
+                        )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.testTag("close_attachment_viewer_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = PureWhite
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = onShare,
+                        modifier = Modifier.testTag("share_attachment_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Share",
+                            tint = PureWhite
+                        )
+                    }
+                    IconButton(
+                        onClick = { showDeleteConfirm = true },
+                        modifier = Modifier.testTag("delete_attachment_viewer_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = "Delete",
+                            tint = Color(0xFFFF5252)
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = PureBlack,
+                    titleContentColor = PureWhite,
+                    navigationIconContentColor = PureWhite,
+                    actionIconContentColor = PureWhite
+                )
+            )
+        },
+        containerColor = PureBlack
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isImage) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer(
+                            scaleX = scale,
+                            scaleY = scale,
+                            translationX = offset.x,
+                            translationY = offset.y
+                        )
+                        .pointerInput(Unit) {
+                            detectTransformGestures { _, pan, zoom, _ ->
+                                scale = (scale * zoom).coerceIn(1f, 5f)
+                                if (scale > 1f) {
+                                    offset += pan
+                                } else {
+                                    offset = Offset.Zero
+                                }
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    AsyncImage(
+                        model = File(attachment.localPath),
+                        contentDescription = attachment.fileName,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .background(PureWhite, RoundedCornerShape(12.dp))
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Description,
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = PureBlack
+                    )
+                    Text(
+                        text = attachment.fileName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = PureBlack,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "${attachment.mimeType} • ${AttachmentManager.formatFileSize(attachment.sizeBytes)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = SecondaryInkGrey
+                    )
+                    if (attachment.sha256.isNotBlank()) {
+                        Text(
+                            text = "SHA-256: ${attachment.sha256.take(24)}...",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontFamily = FontFamily.Monospace,
+                            color = SecondaryInkGrey
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            AttachmentManager.openAttachmentWithIntent(context, attachment.localPath, attachment.mimeType)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .testTag("open_external_document_button"),
+                        shape = RoundedCornerShape(6.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PureBlack,
+                            contentColor = PureWhite
+                        )
+                    ) {
+                        Text("OPEN IN DOCUMENT VIEWER")
                     }
                 }
             }
@@ -1708,6 +2337,18 @@ fun ProfileSettingsModal(
     onExportFullLedgerSaf: () -> Unit,
     onShareFullLedgerFile: () -> Unit,
     onImportLedgerSaf: () -> Unit,
+    driveRemoteBackups: List<com.jyotirmoyb.udhaar.backup.DriveRemoteBackup> = emptyList(),
+    isDriveOperationInProgress: Boolean = false,
+    driveOperationStatusMessage: String? = null,
+    driveOperationError: String? = null,
+    onSignInWithGoogleForDrive: () -> Unit = {},
+    onSignOutFromDrive: () -> Unit = {},
+    onBackupNowToDrive: (passphrase: String, savePassphraseForAuto: Boolean) -> Unit = { _, _ -> },
+    onRestoreDriveBackup: (com.jyotirmoyb.udhaar.backup.DriveRemoteBackup, passphrase: String) -> Unit = { _, _ -> },
+    onDeleteDriveBackup: (com.jyotirmoyb.udhaar.backup.DriveRemoteBackup) -> Unit = {},
+    onUpdateAutoBackupSettings: (com.jyotirmoyb.udhaar.data.AutoBackupFrequency, Boolean, String?) -> Unit = { _, _, _ -> },
+    onRefreshDriveBackups: () -> Unit = {},
+    onClearDriveOperationError: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     // Block screenshots on the Settings screen where PIN is configured
@@ -1750,6 +2391,18 @@ fun ProfileSettingsModal(
     }
     var showSecurityPin by rememberSaveable { mutableStateOf(false) }
     var pinValidationError by rememberSaveable { mutableStateOf<String?>(null) }
+
+    var showBackupDialog by rememberSaveable { mutableStateOf(false) }
+    var backupPassphrase by rememberSaveable { mutableStateOf("") }
+    var confirmBackupPassphrase by rememberSaveable { mutableStateOf("") }
+    var savePassphraseForAuto by rememberSaveable { mutableStateOf(currentSettings.driveAutoBackupPassphraseSaved) }
+    var backupPassphraseError by rememberSaveable { mutableStateOf<String?>(null) }
+    var backupPassphraseVisible by rememberSaveable { mutableStateOf(false) }
+
+    var showRestoreDialog by rememberSaveable { mutableStateOf(false) }
+    var selectedRestoreBackup by remember { mutableStateOf<com.jyotirmoyb.udhaar.backup.DriveRemoteBackup?>(null) }
+    var restorePassphrase by rememberSaveable { mutableStateOf("") }
+    var restorePassphraseVisible by rememberSaveable { mutableStateOf(false) }
 
     val validateAndSave: (Boolean) -> Unit = { closeAfterSave ->
         val trimmedPin = securityPin.trim()
@@ -2504,17 +3157,440 @@ fun ProfileSettingsModal(
                 }
 
                 // =========================================================================
+                // =========================================================================
                 // 4. BACKUP AND SYNC
                 // =========================================================================
                 item(key = "section_backup_and_sync") {
                     SettingsSectionCard(
                         sectionNumber = "4",
                         title = "BACKUP AND SYNC",
-                        subtitle = "Offline JSON ledger export, WhatsApp/Drive file share & restore",
+                        subtitle = "Google Drive AppData cloud backup, encrypted restore & offline JSON export",
                         testTag = "section_backup_and_sync"
                     ) {
+                        // Operation In Progress Indicator
+                        if (isDriveOperationInProgress) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                                    .padding(12.dp)
+                                    .testTag("drive_operation_progress_card"),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Sync,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = driveOperationStatusMessage ?: "Google Drive operation in progress...",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                LinearProgressIndicator(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(4.dp),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+
+                        // Drive Operation Error Banner
+                        if (driveOperationError != null) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, MaterialTheme.colorScheme.error, RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f), RoundedCornerShape(6.dp))
+                                    .padding(12.dp)
+                                    .testTag("drive_error_banner"),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Text(
+                                        text = "GOOGLE DRIVE NOTICE",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                                Text(
+                                    text = driveOperationError,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                OutlinedButton(
+                                    onClick = onClearDriveOperationError,
+                                    modifier = Modifier
+                                        .align(Alignment.End)
+                                        .height(34.dp)
+                                        .testTag("dismiss_drive_error_button"),
+                                    shape = RoundedCornerShape(4.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                                ) {
+                                    Text("DISMISS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                        }
+
+                        // Google Drive AppData Section
                         Text(
-                            text = "Export your entire ledger (all parties, INR & NPR transactions, and partial payment history) as a portable JSON file or restore from an existing backup.",
+                            text = "GOOGLE DRIVE APP DATA CLOUD BACKUP",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Backups are client-side encrypted with AES-256-GCM before upload and saved strictly in your hidden Google Drive AppData folder (Udhaar cannot access any of your other files).",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        if (currentSettings.driveAccountEmail.isBlank()) {
+                            Button(
+                                onClick = onSignInWithGoogleForDrive,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp)
+                                    .testTag("google_drive_sign_in_button"),
+                                shape = RoundedCornerShape(6.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            ) {
+                                Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("SIGN IN WITH GOOGLE DRIVE", style = MaterialTheme.typography.labelLarge)
+                            }
+                        } else {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                                    .padding(12.dp)
+                                    .testTag("drive_account_connected_card"),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "CONNECTED GOOGLE ACCOUNT",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            text = currentSettings.driveAccountEmail,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        val lastBackupStr = if (currentSettings.driveLastBackupMillis > 0) {
+                                            val dateStr = InterestCalculator.formatDate(currentSettings.driveLastBackupMillis)
+                                            val sizeKb = currentSettings.driveLastBackupSizeBytes / 1024
+                                            "$dateStr (${sizeKb} KB)"
+                                        } else {
+                                            "No backup yet"
+                                        }
+                                        Text(
+                                            text = "Last Backup: $lastBackupStr",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+
+                                    IconButton(
+                                        onClick = onRefreshDriveBackups,
+                                        modifier = Modifier.testTag("refresh_drive_backups_button")
+                                    ) {
+                                        Icon(Icons.Default.Refresh, contentDescription = "Refresh Backups", tint = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Button(
+                                        onClick = {
+                                            backupPassphrase = ""
+                                            confirmBackupPassphrase = ""
+                                            backupPassphraseError = null
+                                            showBackupDialog = true
+                                        },
+                                        modifier = Modifier
+                                            .weight(1.3f)
+                                            .height(44.dp)
+                                            .testTag("drive_backup_now_button"),
+                                        shape = RoundedCornerShape(6.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.primary,
+                                            contentColor = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                    ) {
+                                        Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("BACK UP NOW", style = MaterialTheme.typography.labelMedium)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = onSignOutFromDrive,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(44.dp)
+                                            .testTag("drive_sign_out_button"),
+                                        shape = RoundedCornerShape(6.dp),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                                    ) {
+                                        Text("SIGN OUT", style = MaterialTheme.typography.labelMedium)
+                                    }
+                                }
+                            }
+
+                            // Automatic Backup with WorkManager
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                                    .padding(12.dp)
+                                    .testTag("drive_auto_backup_config_card"),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "AUTOMATIC BACKUP (WORKMANAGER)",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Udhaar schedules periodic background backups using WorkManager. Passphrase must be saved in Android Keystore.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    com.jyotirmoyb.udhaar.data.AutoBackupFrequency.entries.forEach { freq ->
+                                        val isSelected = currentSettings.driveAutoBackupFrequency == freq
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .border(
+                                                    width = if (isSelected) 2.dp else 1.dp,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                                    shape = RoundedCornerShape(6.dp)
+                                                )
+                                                .background(
+                                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                                                    shape = RoundedCornerShape(6.dp)
+                                                )
+                                                .clickable {
+                                                    onUpdateAutoBackupSettings(
+                                                        freq,
+                                                        currentSettings.driveAutoBackupWifiOnly,
+                                                        null
+                                                    )
+                                                }
+                                                .padding(vertical = 8.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = freq.label.uppercase(),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Wi-Fi Only",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "Only upload auto-backups over unmetered Wi-Fi connections",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Switch(
+                                        checked = currentSettings.driveAutoBackupWifiOnly,
+                                        onCheckedChange = { wifiOnly ->
+                                            onUpdateAutoBackupSettings(
+                                                currentSettings.driveAutoBackupFrequency,
+                                                wifiOnly,
+                                                null
+                                            )
+                                        },
+                                        modifier = Modifier.testTag("drive_auto_backup_wifi_switch")
+                                    )
+                                }
+
+                                if (currentSettings.driveAutoBackupFrequency != com.jyotirmoyb.udhaar.data.AutoBackupFrequency.DISABLED && !currentSettings.driveAutoBackupPassphraseSaved) {
+                                    Text(
+                                        text = "⚠️ Auto-backup is scheduled, but no backup passphrase is saved in Keystore yet. Tap 'Back Up Now' and check 'Save passphrase' to enable unattended background uploads.",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+
+                            // List of Earlier Backups in Drive AppData
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                                    .padding(12.dp)
+                                    .testTag("drive_earlier_backups_card"),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "EARLIER CLOUD BACKUPS (${driveRemoteBackups.size})",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+
+                                if (driveRemoteBackups.isEmpty()) {
+                                    Text(
+                                        text = "No backups found in Google Drive AppData folder yet. Tap 'Back Up Now' above to create your first encrypted backup.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                } else {
+                                    driveRemoteBackups.forEach { backup ->
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
+                                                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
+                                                .padding(10.dp),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = backup.fileName,
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                    modifier = Modifier.weight(1f),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                val sizeKb = backup.sizeBytes / 1024
+                                                Text(
+                                                    text = "${sizeKb} KB",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+
+                                            val dateStr = if (backup.createdTimeMillis > 0) {
+                                                InterestCalculator.formatDate(backup.createdTimeMillis)
+                                            } else {
+                                                "Unknown date"
+                                            }
+                                            Text(
+                                                text = "Created: $dateStr • AES-256-GCM Encrypted",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Button(
+                                                    onClick = {
+                                                        selectedRestoreBackup = backup
+                                                        restorePassphrase = ""
+                                                        showRestoreDialog = true
+                                                    },
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .height(38.dp)
+                                                        .testTag("restore_backup_${backup.fileId}_button"),
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    colors = ButtonDefaults.buttonColors(
+                                                        containerColor = MaterialTheme.colorScheme.primary,
+                                                        contentColor = MaterialTheme.colorScheme.onPrimary
+                                                    )
+                                                ) {
+                                                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(14.dp))
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text("RESTORE", style = MaterialTheme.typography.labelSmall)
+                                                }
+
+                                                OutlinedButton(
+                                                    onClick = { onDeleteDriveBackup(backup) },
+                                                    modifier = Modifier
+                                                        .weight(0.8f)
+                                                        .height(38.dp)
+                                                        .testTag("delete_backup_${backup.fileId}_button"),
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                                                ) {
+                                                    Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.error)
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text("DELETE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
+
+                        // Local Offline JSON Backup & Restore
+                        Text(
+                            text = "LOCAL OFFLINE JSON BACKUP & RESTORE",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Export your entire ledger (all parties, INR & NPR transactions, partial payment history, and settings) as a portable unencrypted JSON file or restore from local storage.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -2810,6 +3886,303 @@ fun ProfileSettingsModal(
             }
         }
     }
+
+    if (showBackupDialog) {
+        AlertDialog(
+            onDismissRequest = { showBackupDialog = false },
+            title = {
+                Text(
+                    text = "ENCRYPT & BACK UP TO GOOGLE DRIVE",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "Set a passphrase to encrypt your backup on-device before uploading to Google Drive AppData.\n\n⚠️ IMPORTANT: If you forget or lose this passphrase, your encrypted backup CANNOT be recovered.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    OutlinedTextField(
+                        value = backupPassphrase,
+                        onValueChange = {
+                            backupPassphrase = it
+                            backupPassphraseError = null
+                        },
+                        label = { Text("Backup Passphrase") },
+                        placeholder = { Text("Enter strong passphrase") },
+                        singleLine = true,
+                        visualTransformation = if (backupPassphraseVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { backupPassphraseVisible = !backupPassphraseVisible }) {
+                                Icon(
+                                    imageVector = if (backupPassphraseVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = null
+                                )
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("backup_passphrase_input")
+                    )
+
+                    OutlinedTextField(
+                        value = confirmBackupPassphrase,
+                        onValueChange = {
+                            confirmBackupPassphrase = it
+                            backupPassphraseError = null
+                        },
+                        label = { Text("Confirm Passphrase") },
+                        placeholder = { Text("Re-enter passphrase") },
+                        singleLine = true,
+                        visualTransformation = if (backupPassphraseVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("backup_confirm_passphrase_input")
+                    )
+
+                    if (backupPassphraseError != null) {
+                        Text(
+                            text = backupPassphraseError!!,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = savePassphraseForAuto,
+                            onCheckedChange = { savePassphraseForAuto = it },
+                            modifier = Modifier.testTag("save_passphrase_for_auto_checkbox")
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Save securely in phone Keystore for automatic daily/weekly backups",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val pass = backupPassphrase.trim()
+                        val confirm = confirmBackupPassphrase.trim()
+                        if (pass.length < 4) {
+                            backupPassphraseError = "Passphrase must be at least 4 characters."
+                        } else if (pass != confirm) {
+                            backupPassphraseError = "Passphrases do not match."
+                        } else {
+                            showBackupDialog = false
+                            onBackupNowToDrive(pass, savePassphraseForAuto)
+                        }
+                    },
+                    modifier = Modifier.testTag("confirm_encrypt_and_backup_button")
+                ) {
+                    Text("ENCRYPT & UPLOAD")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showBackupDialog = false },
+                    modifier = Modifier.testTag("cancel_backup_dialog_button")
+                ) {
+                    Text("CANCEL")
+                }
+            }
+        )
+    }
+
+    if (showRestoreDialog && selectedRestoreBackup != null) {
+        val backup = selectedRestoreBackup!!
+        AlertDialog(
+            onDismissRequest = {
+                showRestoreDialog = false
+                selectedRestoreBackup = null
+            },
+            title = {
+                Text(
+                    text = "DECRYPT & PREVIEW RESTORE",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "Enter the passphrase used when creating '${backup.fileName}'. The file will be decrypted and previewed before any changes are applied.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    OutlinedTextField(
+                        value = restorePassphrase,
+                        onValueChange = { restorePassphrase = it },
+                        label = { Text("Backup Passphrase") },
+                        placeholder = { Text("Passphrase") },
+                        singleLine = true,
+                        visualTransformation = if (restorePassphraseVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { restorePassphraseVisible = !restorePassphraseVisible }) {
+                                Icon(
+                                    imageVector = if (restorePassphraseVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = null
+                                )
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("restore_passphrase_input")
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val pass = restorePassphrase.trim()
+                        if (pass.isNotEmpty()) {
+                            showRestoreDialog = false
+                            onRestoreDriveBackup(backup, pass)
+                        }
+                    },
+                    modifier = Modifier.testTag("confirm_decrypt_and_preview_button")
+                ) {
+                    Text("DECRYPT & PREVIEW")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = {
+                        showRestoreDialog = false
+                        selectedRestoreBackup = null
+                    },
+                    modifier = Modifier.testTag("cancel_restore_dialog_button")
+                ) {
+                    Text("CANCEL")
+                }
+            }
+        )
+    }
+}
+
+/**
+ * Restore Preview Dialog: Previews record counts from parsed decrypted backup
+ * and allows the user to choose Merge with existing or Replace all local data.
+ */
+@Composable
+fun RestorePreviewDialog(
+    backup: com.jyotirmoyb.udhaar.backup.DriveRemoteBackup,
+    parsed: com.jyotirmoyb.udhaar.util.ParsedLedgerBackup,
+    onMerge: () -> Unit,
+    onReplace: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "RESTORE BACKUP PREVIEW",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "Backup successfully decrypted from '${backup.fileName}'. Preview of contents:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    BreakdownLine("Schema Version", "v${parsed.schemaVersion}")
+                    BreakdownLine("Transactions", "${parsed.transactions.size}")
+                    BreakdownLine("Parties", "${parsed.parties.size}")
+                    BreakdownLine("Partial Payments", "${parsed.partialPayments.size}")
+                    BreakdownLine("Chat Messages", "${parsed.chatMessages.size}")
+                    BreakdownLine("Attachments", "${parsed.attachments.size}")
+                    val defaultCurr = parsed.settings["defaultCurrency"] as? String
+                    if (!defaultCurr.isNullOrBlank()) {
+                        BreakdownLine("Currency", defaultCurr)
+                    }
+                }
+
+                Text(
+                    text = "Choose how to apply this backup:",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "• MERGE: Adds all remote records into your ledger, keeping local records.\n• REPLACE: Completely wipes your local ledger and replaces it with this backup.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Button(
+                    onClick = onMerge,
+                    modifier = Modifier.testTag("restore_merge_button"),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Text("MERGE")
+                }
+                Button(
+                    onClick = onReplace,
+                    modifier = Modifier.testTag("restore_replace_button"),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text("REPLACE ALL")
+                }
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag("restore_cancel_button")
+            ) {
+                Text("CANCEL")
+            }
+        }
+    )
 }
 
 @Composable

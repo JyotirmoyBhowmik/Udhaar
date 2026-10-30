@@ -114,7 +114,9 @@ fun DashboardScreen(
     onShareAppClick: () -> Unit,
     onLockAppClick: () -> Unit,
     onSettingsClick: () -> Unit,
-    onShareMyPaymentDetailsClick: () -> Unit = {}
+    onShareMyPaymentDetailsClick: () -> Unit = {},
+    onOpenTransactionChat: (CalculatedUdhaarSummary) -> Unit = {},
+    onOpenPartyGeneralChat: (PartyEntity) -> Unit = {}
 ) {
     val isPeopleTab = uiState.activeScreen == ActiveScreen.PEOPLE_DIRECTORY
     val enabledCurrencies = uiState.userSettings.enabledCurrencies
@@ -470,7 +472,9 @@ fun DashboardScreen(
                     onSearchQueryChange = onPeopleSearchQueryChange,
                     onAddPartyClick = onAddPartyClick,
                     onPartyClick = onPartyClick,
-                    onQuickAddLoanForParty = onQuickAddLoanForParty
+                    onQuickAddLoanForParty = onQuickAddLoanForParty,
+                    unreadCountByPartyName = uiState.unreadCountByPartyName,
+                    onOpenPartyGeneralChat = onOpenPartyGeneralChat
                 )
             } else {
                 LazyColumn(
@@ -555,7 +559,10 @@ fun DashboardScreen(
                         ) { summary ->
                             TransactionCardItem(
                                 summary = summary,
+                                unreadCount = uiState.unreadCountByTx[summary.transaction.id] ?: 0,
+                                attachmentsCount = uiState.attachmentsByTx[summary.transaction.id]?.size ?: 0,
                                 onCardClick = { onTransactionClick(summary) },
+                                onChatClick = { onOpenTransactionChat(summary) },
                                 onWhatsAppClick = { onWhatsAppClick(summary) },
                                 onQrClick = { onTransactionQrClick(summary) }
                             )
@@ -933,7 +940,10 @@ private fun SearchAndFilterBar(
 @Composable
 private fun TransactionCardItem(
     summary: CalculatedUdhaarSummary,
+    unreadCount: Int = 0,
+    attachmentsCount: Int = 0,
     onCardClick: () -> Unit,
+    onChatClick: () -> Unit = {},
     onWhatsAppClick: () -> Unit,
     onQrClick: () -> Unit
 ) {
@@ -944,8 +954,8 @@ private fun TransactionCardItem(
         modifier = Modifier
             .fillMaxWidth()
             .border(
-                width = if (summary.isOverdue) 1.5.dp else 1.dp,
-                color = if (summary.isOverdue) PureBlack else BorderGrey,
+                width = if (summary.isOverdue || unreadCount > 0) 1.5.dp else 1.dp,
+                color = if (summary.isOverdue || unreadCount > 0) PureBlack else BorderGrey,
                 shape = RoundedCornerShape(4.dp)
             )
             .background(
@@ -1036,6 +1046,41 @@ private fun TransactionCardItem(
                         color = if (isVerified) PureWhite else PureBlack,
                         maxLines = 1
                     )
+                }
+
+                if (unreadCount > 0) {
+                    Box(
+                        modifier = Modifier
+                            .background(PureBlack, RoundedCornerShape(2.dp))
+                            .padding(horizontal = 5.dp, vertical = 2.dp)
+                            .testTag("tx_unread_badge_${tx.id}")
+                    ) {
+                        Text(
+                            text = "💬 $unreadCount NEW",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = PureWhite,
+                            maxLines = 1
+                        )
+                    }
+                }
+
+                if (attachmentsCount > 0) {
+                    Box(
+                        modifier = Modifier
+                            .background(SubtleSurfaceGrey, RoundedCornerShape(2.dp))
+                            .border(0.5.dp, BorderGrey, RoundedCornerShape(2.dp))
+                            .padding(horizontal = 5.dp, vertical = 2.dp)
+                            .testTag("tx_attachments_badge_${tx.id}")
+                    ) {
+                        Text(
+                            text = "📎 $attachmentsCount",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = PureBlack,
+                            maxLines = 1
+                        )
+                    }
                 }
             }
 
@@ -1131,6 +1176,26 @@ private fun TransactionCardItem(
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedButton(
+                    onClick = onChatClick,
+                    modifier = Modifier
+                        .height(32.dp)
+                        .testTag("card_chat_button_${tx.id}"),
+                    shape = RoundedCornerShape(3.dp),
+                    border = BorderStroke(1.dp, PureBlack),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = if (unreadCount > 0) PureBlack else PureWhite,
+                        contentColor = if (unreadCount > 0) PureWhite else PureBlack
+                    )
+                ) {
+                    Text(
+                        text = if (unreadCount > 0) "CHAT ($unreadCount)" else "CHAT",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
                 if (tx.currency == CurrencyType.INR && isGiven && !tx.isSettled) {
                     OutlinedButton(
                         onClick = onQrClick,

@@ -57,6 +57,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -77,7 +78,21 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import android.net.Uri
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
 import androidx.core.content.ContextCompat
+import coil.compose.AsyncImage
+import com.jyotirmoyb.udhaar.data.Attachment
 import com.jyotirmoyb.udhaar.data.CompoundFrequency
 import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.InterestRatePeriod
@@ -92,7 +107,9 @@ import com.jyotirmoyb.udhaar.ui.theme.PureBlack
 import com.jyotirmoyb.udhaar.ui.theme.PureWhite
 import com.jyotirmoyb.udhaar.ui.theme.SecondaryInkGrey
 import com.jyotirmoyb.udhaar.ui.theme.SubtleSurfaceGrey
+import com.jyotirmoyb.udhaar.util.AttachmentManager
 import com.jyotirmoyb.udhaar.util.InterestCalculator
+import java.io.File
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -103,7 +120,13 @@ fun AddEditUdhaarScreen(
     savedParties: List<PartyEntity> = emptyList(),
     enabledCurrencies: List<CurrencyType> = listOf(CurrencyType.INR),
     defaultCurrency: CurrencyType,
+    draftAttachments: List<Attachment> = emptyList(),
+    existingAttachments: List<Attachment> = emptyList(),
     onEnableCurrency: (CurrencyType) -> Unit = {},
+    onAddDraftAttachment: (Attachment) -> Unit = {},
+    onRemoveDraftAttachment: (Attachment) -> Unit = {},
+    onDeleteExistingAttachment: (Attachment) -> Unit = {},
+    onOpenAttachmentViewer: (Attachment) -> Unit = {},
     onSave: (UdhaarTransaction) -> Unit,
     onCancel: () -> Unit
 ) {
@@ -112,6 +135,53 @@ fun AddEditUdhaarScreen(
     }
 
     val context = LocalContext.current
+
+    var cameraTempUri by remember { mutableStateOf<Uri?>(null) }
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && cameraTempUri != null) {
+            val processed = AttachmentManager.processCapturedImage(
+                context = context,
+                sourceUri = cameraTempUri!!,
+                transactionId = initialTransaction?.id ?: 0L,
+                addedBy = "You"
+            )
+            if (processed != null) {
+                onAddDraftAttachment(processed)
+            }
+        }
+    }
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            val processed = AttachmentManager.processCapturedImage(
+                context = context,
+                sourceUri = uri,
+                transactionId = initialTransaction?.id ?: 0L,
+                addedBy = "You"
+            )
+            if (processed != null) {
+                onAddDraftAttachment(processed)
+            }
+        }
+    }
+    val documentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            val processed = AttachmentManager.copyDocumentToStorage(
+                context = context,
+                sourceUri = uri,
+                transactionId = initialTransaction?.id ?: 0L,
+                addedBy = "You"
+            )
+            if (processed != null) {
+                onAddDraftAttachment(processed)
+            }
+        }
+    }
 
     var selectedPartyId by rememberSaveable {
         mutableStateOf<Long?>(initialTransaction?.partyId ?: preselectedPartyDraft?.partyId)
@@ -785,6 +855,136 @@ fun AddEditUdhaarScreen(
                         .fillMaxWidth()
                         .testTag("notes_input")
                 )
+
+                HorizontalDivider(color = BorderGrey, thickness = 1.dp)
+                val allCurrentAttachments = draftAttachments + existingAttachments
+                SectionHeader("7. ATTACHED DOCUMENTS & BILLS (${allCurrentAttachments.size})")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            val (uri, _) = AttachmentManager.createCameraTempFileUri(context)
+                            cameraTempUri = uri
+                            cameraLauncher.launch(uri)
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp)
+                            .testTag("add_attachment_camera_button"),
+                        shape = RoundedCornerShape(4.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp)
+                    ) {
+                        Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("CAMERA", style = MaterialTheme.typography.labelSmall)
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp)
+                            .testTag("add_attachment_gallery_button"),
+                        shape = RoundedCornerShape(4.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp)
+                    ) {
+                        Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("GALLERY", style = MaterialTheme.typography.labelSmall)
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            documentLauncher.launch(arrayOf("application/pdf", "image/*", "text/*", "*/*"))
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp)
+                            .testTag("add_attachment_doc_button"),
+                        shape = RoundedCornerShape(4.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp)
+                    ) {
+                        Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("DOC/PDF", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+
+                if (allCurrentAttachments.isNotEmpty()) {
+                    LazyRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("add_edit_attachments_row"),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(allCurrentAttachments, key = { it.localPath }) { att ->
+                            val isImg = att.mimeType.startsWith("image/")
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                border = BorderStroke(1.dp, BorderGrey),
+                                modifier = Modifier
+                                    .size(90.dp)
+                                    .clickable { onOpenAttachmentViewer(att) }
+                            ) {
+                                Box(modifier = Modifier.fillMaxSize()) {
+                                    if (isImg) {
+                                        AsyncImage(
+                                            model = File(att.localPath),
+                                            contentDescription = att.fileName,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    } else {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(6.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.Center
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Description,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(24.dp),
+                                                tint = PureBlack
+                                            )
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                att.fileName,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            if (att.id > 0L) onDeleteExistingAttachment(att)
+                                            else onRemoveDraftAttachment(att)
+                                        },
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .size(24.dp)
+                                            .background(
+                                                PureBlack.copy(alpha = 0.7f),
+                                                RoundedCornerShape(12.dp)
+                                            )
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "Remove",
+                                            tint = PureWhite,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
             }

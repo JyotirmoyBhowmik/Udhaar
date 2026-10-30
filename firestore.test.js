@@ -55,6 +55,29 @@ function buildValidSharedRecord(overrides = {}) {
   };
 }
 
+function buildValidChatThread(overrides = {}) {
+  return {
+    threadId: "tx_rec_1001",
+    threadScope: "TRANSACTION",
+    remoteRecordId: "rec_1001",
+    partyName: "Bob",
+    creatorUid: ALICE_UID,
+    counterpartyUid: BOB_UID,
+    participantUids: [ALICE_UID, BOB_UID],
+    typingUid: "",
+    typingUpdatedAtMillis: -1,
+    mutedByUids: [],
+    blockedByUid: "",
+    reportedByUid: "",
+    reportReason: "",
+    lastMessagePreview: "Record created",
+    lastMessageAtMillis: 1730000000000,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    ...overrides,
+  };
+}
+
 before(async () => {
   const rules = fs.readFileSync("./firestore.rules", "utf8");
   testEnv = await initializeTestEnvironment({
@@ -79,10 +102,11 @@ beforeEach(async () => {
   }
 });
 
-test("1. Unauthenticated user cannot read shared_records or user_profiles", async () => {
+test("1. Unauthenticated user cannot read shared_records, user_profiles, or chat_threads", async () => {
   const unauthDb = testEnv.unauthenticatedContext().firestore();
   await assertFails(unauthDb.collection("shared_records").doc("rec_1001").get());
   await assertFails(unauthDb.collection("user_profiles").doc(ALICE_UID).get());
+  await assertFails(unauthDb.collection("chat_threads").doc("tx_rec_1001").get());
 });
 
 test("2. Owner can create and read their own user_profile, but Bob cannot read Alice's profile (PII isolation)", async () => {
@@ -136,7 +160,6 @@ test("4. Bob (counterparty) can claim and confirm an unclaimed shared_record, af
       .set(buildValidSharedRecord())
   );
 
-  // Bob claims and confirms the record
   await assertSucceeds(
     bobDb
       .collection("shared_records")
@@ -151,7 +174,6 @@ test("4. Bob (counterparty) can claim and confirm an unclaimed shared_record, af
       })
   );
 
-  // Both Alice and Bob can query using array-contains on participantUids
   await assertSucceeds(
     aliceDb
       .collection("shared_records")
@@ -165,7 +187,6 @@ test("4. Bob (counterparty) can claim and confirm an unclaimed shared_record, af
       .get()
   );
 
-  // Mallory still cannot read or hijack the already-claimed record
   await assertFails(
     malloryDb.collection("shared_records").doc("rec_1001").get()
   );
@@ -182,9 +203,10 @@ test("4. Bob (counterparty) can claim and confirm an unclaimed shared_record, af
   );
 });
 
-test("5. Unfiltered list query on shared_records fails (rules are not filters)", async () => {
+test("5. Unfiltered list query on shared_records and chat_threads fails (rules are not filters)", async () => {
   const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
   await assertFails(aliceDb.collection("shared_records").get());
+  await assertFails(aliceDb.collection("chat_threads").get());
 });
 
 test("6. Partial payments and immutable audit trail enforce two-party isolation and block audit mutation", async () => {
@@ -204,7 +226,6 @@ test("6. Partial payments and immutable audit trail enforce two-party isolation 
       )
   );
 
-  // Alice records a partial payment
   await assertSucceeds(
     aliceDb
       .collection("shared_records")
@@ -229,7 +250,6 @@ test("6. Partial payments and immutable audit trail enforce two-party isolation 
       })
   );
 
-  // Bob acknowledges the partial payment
   await assertSucceeds(
     bobDb
       .collection("shared_records")
@@ -244,7 +264,6 @@ test("6. Partial payments and immutable audit trail enforce two-party isolation 
       })
   );
 
-  // Alice writes an audit trail entry
   const auditRef = aliceDb
     .collection("shared_records")
     .doc("rec_1001")
@@ -255,32 +274,126 @@ test("6. Partial payments and immutable audit trail enforce two-party isolation 
     auditRef.set({
       eventId: "evt_1",
       remoteId: "rec_1001",
-      eventType: "CREATED",
+      eventType: "EXTENSION_ACCEPTED",
       actorUid: ALICE_UID,
       actorName: "Alice",
       participantUids: [ALICE_UID, BOB_UID],
-      summaryText: "Alice created and shared Udhaar record of ₹5,000",
+      summaryText: "Alice accepted due-date extension request",
       contentHashSnapshot: VALID_HASH,
-      acknowledged: false,
+      acknowledged: true,
       eventTimeMillis: 1730000000000,
       createdAt: serverTimestamp(),
     })
   );
 
-  // Audit trail is strictly immutable: even Alice cannot update an existing audit event
   await assertFails(
     auditRef.update({
       summaryText: "Tampered history",
     })
   );
 
-  // Mallory cannot read the audit trail
   await assertFails(
     malloryDb
       .collection("shared_records")
       .doc("rec_1001")
       .collection("audit_trail")
       .doc("evt_1")
+      .get()
+  );
+});
+
+test("7. Chat threads and messages enforce two-party isolation, delivery/read receipt updates, extension accept/decline, typing, and mute/block/report", async () => {
+  const aliceDb = testEnv.authenticatedContext(ALICE_UID).firestore();
+  const bobDb = testEnv.authenticatedContext(BOB_UID).firestore();
+  const malloryDb = testEnv.authenticatedContext(MALLORY_UID).firestore();
+
+  const threadRef = aliceDb.collection("chat_threads").doc("tx_rec_1001");
+  await assertSucceeds(threadRef.set(buildValidChatThread()));
+
+  // Mallory cannot read the thread
+  await assertFails(
+    malloryDb.collection("chat_threads").doc("tx_rec_1001").get()
+  );
+
+  // Bob sends an EXTENSION_REQUEST message
+  const msgRef = bobDb
+    .collection("chat_threads")
+    .doc("tx_rec_1001")
+    .collection("messages")
+    .doc("msg_1");
+
+  await assertSucceeds(
+    msgRef.set({
+      messageId: "msg_1",
+      threadId: "tx_rec_1001",
+      senderUid: BOB_UID,
+      senderName: "Bob",
+      participantUids: [ALICE_UID, BOB_UID],
+      messageType: "EXTENSION_REQUEST",
+      bodyText: "Requesting extension until Friday",
+      attachmentUri: "",
+      attachmentMimeType: "",
+      attachmentName: "",
+      deliveryStatus: "SENT",
+      proposedDueDateMillis: 1731000000000,
+      extensionStatus: "PENDING",
+      sentAtMillis: 1730003000000,
+      deliveredAtMillis: -1,
+      readAtMillis: -1,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
+  );
+
+  // Alice marks message READ and ACCEPTS the extension request
+  await assertSucceeds(
+    aliceDb
+      .collection("chat_threads")
+      .doc("tx_rec_1001")
+      .collection("messages")
+      .doc("msg_1")
+      .update({
+        deliveryStatus: "READ",
+        deliveredAtMillis: 1730003100000,
+        readAtMillis: 1730003200000,
+        extensionStatus: "ACCEPTED",
+        updatedAt: serverTimestamp(),
+      })
+  );
+
+  // Alice cannot tamper with Bob's message bodyText
+  await assertFails(
+    aliceDb
+      .collection("chat_threads")
+      .doc("tx_rec_1001")
+      .collection("messages")
+      .doc("msg_1")
+      .update({
+        bodyText: "Altered text",
+        updatedAt: serverTimestamp(),
+      })
+  );
+
+  // Bob updates typing indicator and mute status on thread
+  await assertSucceeds(
+    bobDb
+      .collection("chat_threads")
+      .doc("tx_rec_1001")
+      .update({
+        typingUid: BOB_UID,
+        typingUpdatedAtMillis: 1730003300000,
+        mutedByUids: [BOB_UID],
+        updatedAt: serverTimestamp(),
+      })
+  );
+
+  // Mallory cannot read messages in the thread
+  await assertFails(
+    malloryDb
+      .collection("chat_threads")
+      .doc("tx_rec_1001")
+      .collection("messages")
+      .doc("msg_1")
       .get()
   );
 });

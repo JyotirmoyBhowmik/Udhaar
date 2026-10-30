@@ -4,7 +4,12 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.jyotirmoyb.udhaar.data.Attachment
 import com.jyotirmoyb.udhaar.data.AuditTrailEntry
+import com.jyotirmoyb.udhaar.data.ChatMessageEntity
+import com.jyotirmoyb.udhaar.data.ChatMessageType
+import com.jyotirmoyb.udhaar.data.ChatThreadMetadata
+import com.jyotirmoyb.udhaar.data.ChatThreadScope
 import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.LedgerFilter
 import com.jyotirmoyb.udhaar.data.PartialPayment
@@ -18,10 +23,22 @@ import com.jyotirmoyb.udhaar.data.VerificationStatus
 import com.jyotirmoyb.udhaar.notification.ReminderScheduler
 import com.jyotirmoyb.udhaar.ui.theme.AppFontScale
 import com.jyotirmoyb.udhaar.ui.theme.AppThemeMode
+import com.jyotirmoyb.udhaar.util.AttachmentManager
+import com.jyotirmoyb.udhaar.backup.BackupPreviewSummary
+import com.jyotirmoyb.udhaar.backup.DriveBackupCrypto
+import com.jyotirmoyb.udhaar.backup.DriveErrorType
+import com.jyotirmoyb.udhaar.backup.DriveRemoteBackup
+import com.jyotirmoyb.udhaar.backup.DriveResult
+import com.jyotirmoyb.udhaar.backup.DriveServiceHelper
+import com.jyotirmoyb.udhaar.data.AutoBackupFrequency
 import com.jyotirmoyb.udhaar.util.CalculatedUdhaarSummary
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 import com.jyotirmoyb.udhaar.util.LedgerBackupManager
 import com.jyotirmoyb.udhaar.util.VerificationCryptoHelper
+import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -113,7 +130,33 @@ data class UdhaarUiState(
     val incomingPaymentProfileTargetPartyId: Long? = null,
     val showShareMyPaymentDetailsModal: Boolean = false,
     val shareMyPaymentDetailsTargetParty: PartyEntity? = null,
-    val requestPaymentDetailsParty: PartyEntity? = null
+    val requestPaymentDetailsParty: PartyEntity? = null,
+    // --- Phase 4: In-App Communication State ---
+    val chatThreadsByKey: Map<String, ChatThreadMetadata> = emptyMap(),
+    val chatMessagesByThreadKey: Map<String, List<ChatMessageEntity>> = emptyMap(),
+    val unreadCountByTx: Map<Long, Int> = emptyMap(),
+    val unreadCountByPartyName: Map<String, Int> = emptyMap(),
+    val activeChatThreadKey: String? = null,
+    val activeChatScope: ChatThreadScope = ChatThreadScope.TRANSACTION,
+    val activeChatTransactionId: Long? = null,
+    val activeChatPartyId: Long? = null,
+    val activeChatPartyName: String = "",
+    // --- Phase 5: Google Drive Backup & Restore State ---
+    val driveRemoteBackups: List<DriveRemoteBackup> = emptyList(),
+    val isDriveOperationInProgress: Boolean = false,
+    val driveOperationStatusMessage: String? = null,
+    val driveOperationError: String? = null,
+    val pendingRestoreBackup: DriveRemoteBackup? = null,
+    val pendingRestoreParsed: com.jyotirmoyb.udhaar.util.ParsedLedgerBackup? = null,
+    val showRestorePreviewDialog: Boolean = false,
+    val showBackupPassphraseDialog: Boolean = false,
+    val showRestorePassphraseDialog: Boolean = false,
+    val restoreSelectedBackup: DriveRemoteBackup? = null,
+    // --- Phase 6: Documents & Attachments State ---
+    val attachmentsByTx: Map<Long, List<Attachment>> = emptyMap(),
+    val attachmentsByPayment: Map<Long, List<Attachment>> = emptyMap(),
+    val activeViewerAttachment: Attachment? = null,
+    val draftAttachments: List<Attachment> = emptyList()
 ) {
     val activeSummaryTotals: CurrencyLedgerTotals
         get() = if (summaryCurrency == CurrencyType.INR) inrTotals else nprTotals
@@ -147,7 +190,24 @@ private data class LocalUiFilterState(
     val incomingPaymentProfileTargetPartyId: Long? = null,
     val showShareMyPaymentDetailsModal: Boolean = false,
     val shareMyPaymentDetailsTargetParty: PartyEntity? = null,
-    val requestPaymentDetailsParty: PartyEntity? = null
+    val requestPaymentDetailsParty: PartyEntity? = null,
+    val activeChatThreadKey: String? = null,
+    val activeChatScope: ChatThreadScope = ChatThreadScope.TRANSACTION,
+    val activeChatTransactionId: Long? = null,
+    val activeChatPartyId: Long? = null,
+    val activeChatPartyName: String = "",
+    val driveRemoteBackups: List<DriveRemoteBackup> = emptyList(),
+    val isDriveOperationInProgress: Boolean = false,
+    val driveOperationStatusMessage: String? = null,
+    val driveOperationError: String? = null,
+    val pendingRestoreBackup: DriveRemoteBackup? = null,
+    val pendingRestoreParsed: com.jyotirmoyb.udhaar.util.ParsedLedgerBackup? = null,
+    val showRestorePreviewDialog: Boolean = false,
+    val showBackupPassphraseDialog: Boolean = false,
+    val showRestorePassphraseDialog: Boolean = false,
+    val restoreSelectedBackup: DriveRemoteBackup? = null,
+    val activeViewerAttachment: Attachment? = null,
+    val draftAttachments: List<Attachment> = emptyList()
 )
 
 class UdhaarViewModel(
@@ -161,27 +221,44 @@ class UdhaarViewModel(
         repository.allParties,
         repository.allTransactions,
         repository.allPartialPayments,
-        repository.allAuditTrailEntries
-    ) { parties, transactions, partialPayments, auditEntries ->
-         LedgerCoreBundle(parties, transactions, partialPayments, auditEntries)
+        repository.allAuditTrailEntries,
+        repository.allAttachments
+    ) { parties, transactions, partialPayments, auditEntries, attachments ->
+        LedgerCoreBundle(parties, transactions, partialPayments, auditEntries, attachments)
+    }
+
+    private val chatBundleFlow = combine(
+        repository.allChatThreads,
+        repository.allChatMessages
+    ) { threads, messages ->
+        ChatBundle(threads, messages)
     }
 
     private data class LedgerCoreBundle(
         val parties: List<PartyEntity>,
         val transactions: List<UdhaarTransaction>,
         val partialPayments: List<PartialPayment>,
-        val auditEntries: List<AuditTrailEntry>
+        val auditEntries: List<AuditTrailEntry>,
+        val attachments: List<Attachment>
+    )
+
+    private data class ChatBundle(
+        val threads: List<ChatThreadMetadata>,
+        val messages: List<ChatMessageEntity>
     )
 
     val uiState: StateFlow<UdhaarUiState> = combine(
         ledgerCoreFlow,
+        chatBundleFlow,
         repository.userSettings,
         localState
-    ) { core, settings, local ->
+    ) { core, chat, settings, local ->
         val parties = core.parties
         val transactions = core.transactions
         val partialPayments = core.partialPayments
         val auditEntries = core.auditEntries
+        val chatThreads = chat.threads
+        val chatMessages = chat.messages
 
         val nowMillis = System.currentTimeMillis()
         val enabledCurrencySet = settings.enabledCurrencies.toSet()
@@ -217,6 +294,26 @@ class UdhaarViewModel(
 
         val paymentsMap = partialPayments.groupBy { it.transactionId }
         val auditMap = auditEntries.groupBy { it.transactionId }
+        val attachmentsByTx = core.attachments.filter { it.transactionId > 0L }.groupBy { it.transactionId }
+        val attachmentsByPayment = core.attachments.filter { it.paymentId != null && it.paymentId > 0L }.groupBy { it.paymentId!! }
+
+        val threadsByKey = chatThreads.associateBy { it.threadKey }
+        val messagesByThreadKey = chatMessages.groupBy { it.threadKey }
+
+        val unreadByTx = mutableMapOf<Long, Int>()
+        val unreadByPartyName = mutableMapOf<String, Int>()
+        for (msg in chatMessages) {
+            if (msg.isUnreadForMe) {
+                val txId = msg.transactionId
+                if (txId != null && txId > 0L) {
+                    unreadByTx[txId] = (unreadByTx[txId] ?: 0) + 1
+                }
+                val partyKey = msg.partyName.trim().lowercase()
+                if (partyKey.isNotEmpty()) {
+                    unreadByPartyName[partyKey] = (unreadByPartyName[partyKey] ?: 0) + 1
+                }
+            }
+        }
 
         val query = local.searchQuery.trim().lowercase()
         val filtered = visibleCalculatedList.filter { item ->
@@ -358,7 +455,30 @@ class UdhaarViewModel(
             incomingPaymentProfileTargetPartyId = local.incomingPaymentProfileTargetPartyId,
             showShareMyPaymentDetailsModal = local.showShareMyPaymentDetailsModal,
             shareMyPaymentDetailsTargetParty = local.shareMyPaymentDetailsTargetParty,
-            requestPaymentDetailsParty = local.requestPaymentDetailsParty
+            requestPaymentDetailsParty = local.requestPaymentDetailsParty,
+            chatThreadsByKey = threadsByKey,
+            chatMessagesByThreadKey = messagesByThreadKey,
+            unreadCountByTx = unreadByTx,
+            unreadCountByPartyName = unreadByPartyName,
+            activeChatThreadKey = local.activeChatThreadKey,
+            activeChatScope = local.activeChatScope,
+            activeChatTransactionId = local.activeChatTransactionId,
+            activeChatPartyId = local.activeChatPartyId,
+            activeChatPartyName = local.activeChatPartyName,
+            driveRemoteBackups = local.driveRemoteBackups,
+            isDriveOperationInProgress = local.isDriveOperationInProgress,
+            driveOperationStatusMessage = local.driveOperationStatusMessage,
+            driveOperationError = local.driveOperationError,
+            pendingRestoreBackup = local.pendingRestoreBackup,
+            pendingRestoreParsed = local.pendingRestoreParsed,
+            showRestorePreviewDialog = local.showRestorePreviewDialog,
+            showBackupPassphraseDialog = local.showBackupPassphraseDialog,
+            showRestorePassphraseDialog = local.showRestorePassphraseDialog,
+            restoreSelectedBackup = local.restoreSelectedBackup,
+            attachmentsByTx = attachmentsByTx,
+            attachmentsByPayment = attachmentsByPayment,
+            activeViewerAttachment = local.activeViewerAttachment,
+            draftAttachments = local.draftAttachments
         )
     }.stateIn(
         scope = viewModelScope,
@@ -447,7 +567,8 @@ class UdhaarViewModel(
                 activeScreen = ActiveScreen.ADD_EDIT,
                 editingTransaction = null,
                 preselectedPartyDraft = null,
-                detailTransactionId = null
+                detailTransactionId = null,
+                draftAttachments = emptyList()
             )
         }
     }
@@ -463,7 +584,8 @@ class UdhaarViewModel(
                     phoneNumber = party.phoneNumber,
                     preferredCurrency = party.preferredCurrency
                 ),
-                detailTransactionId = null
+                detailTransactionId = null,
+                draftAttachments = emptyList()
             )
         }
     }
@@ -474,7 +596,8 @@ class UdhaarViewModel(
                 activeScreen = ActiveScreen.ADD_EDIT,
                 editingTransaction = transaction,
                 preselectedPartyDraft = null,
-                detailTransactionId = null
+                detailTransactionId = null,
+                draftAttachments = emptyList()
             )
         }
     }
@@ -888,6 +1011,12 @@ class UdhaarViewModel(
             val myName = uiState.value.userSettings.payeeName.ifBlank { "You" }
             val savedId = repository.saveTransaction(transaction, myProfileName = myName)
             val savedTx = transaction.copy(id = savedId)
+
+            val staged = localState.value.draftAttachments
+            for (draft in staged) {
+                repository.insertAttachment(draft.copy(id = 0L, transactionId = savedId))
+            }
+
             appContext?.let { ctx ->
                 if (savedTx.reminderDateMillis != null && !savedTx.isSettled) {
                     ReminderScheduler.scheduleReminder(ctx, savedTx)
@@ -905,7 +1034,8 @@ class UdhaarViewModel(
                     activeScreen = returnScreen,
                     editingTransaction = null,
                     preselectedPartyDraft = null,
-                    summaryCurrency = savedTx.currency
+                    summaryCurrency = savedTx.currency,
+                    draftAttachments = emptyList()
                 )
             }
         }
@@ -931,7 +1061,8 @@ class UdhaarViewModel(
         amount: Double,
         paymentMode: PaymentMode = PaymentMode.CASH,
         note: String,
-        recordedByCounterparty: Boolean = false
+        recordedByCounterparty: Boolean = false,
+        proofAttachment: Attachment? = null
     ) {
         viewModelScope.launch {
             val myName = uiState.value.userSettings.payeeName.ifBlank { "You" }
@@ -946,7 +1077,8 @@ class UdhaarViewModel(
                 paymentMode = paymentMode,
                 note = note,
                 totalAccruedAmount = summary.grossTotal,
-                actorName = actor
+                actorName = actor,
+                proofAttachment = proofAttachment
             )
         }
     }
@@ -961,6 +1093,57 @@ class UdhaarViewModel(
                 payment = payment,
                 totalAccruedAmount = summary.grossTotal
             )
+        }
+    }
+
+    // --- Phase 6: Documents & Attachments Management ---
+    fun openAttachmentViewer(attachment: Attachment) {
+        localState.update { it.copy(activeViewerAttachment = attachment) }
+    }
+
+    fun closeAttachmentViewer() {
+        localState.update { it.copy(activeViewerAttachment = null) }
+    }
+
+    fun stageDraftAttachment(attachment: Attachment) {
+        localState.update { it.copy(draftAttachments = it.draftAttachments + attachment) }
+    }
+
+    fun removeDraftAttachment(attachment: Attachment) {
+        localState.update { it.copy(draftAttachments = it.draftAttachments.filter { a -> a != attachment }) }
+        appContext?.let { ctx ->
+            AttachmentManager.deleteAttachmentFile(ctx, attachment.localPath)
+        }
+    }
+
+    fun clearDraftAttachments() {
+        localState.update { it.copy(draftAttachments = emptyList()) }
+    }
+
+    fun addAttachmentToTransaction(transactionId: Long, attachment: Attachment) {
+        viewModelScope.launch {
+            repository.insertAttachment(attachment.copy(id = 0L, transactionId = transactionId))
+        }
+    }
+
+    fun addAttachmentToPayment(transactionId: Long, paymentId: Long, attachment: Attachment) {
+        viewModelScope.launch {
+            repository.insertAttachment(
+                attachment.copy(
+                    id = 0L,
+                    transactionId = transactionId,
+                    paymentId = paymentId
+                )
+            )
+        }
+    }
+
+    fun deleteAttachment(attachment: Attachment) {
+        viewModelScope.launch {
+            repository.deleteAttachment(attachment)
+            if (localState.value.activeViewerAttachment?.id == attachment.id) {
+                localState.update { it.copy(activeViewerAttachment = null) }
+            }
         }
     }
 
@@ -1024,6 +1207,251 @@ class UdhaarViewModel(
         }
     }
 
+    // --- Phase 4: In-App Communication Actions ---
+    fun openTransactionChat(transactionId: Long) {
+        val tx = uiState.value.allCalculatedItems.firstOrNull { it.transaction.id == transactionId }?.transaction
+        val threadKey = UdhaarRepository.transactionThreadKey(transactionId)
+        val partyName = tx?.partyName.orEmpty()
+        viewModelScope.launch {
+            repository.getOrCreateThreadMetadata(
+                threadKey = threadKey,
+                scope = ChatThreadScope.TRANSACTION,
+                transactionId = transactionId,
+                remoteId = tx?.remoteId.orEmpty(),
+                partyId = tx?.partyId,
+                partyName = partyName
+            )
+            repository.markThreadRead(threadKey)
+        }
+        localState.update {
+            it.copy(
+                activeChatThreadKey = threadKey,
+                activeChatScope = ChatThreadScope.TRANSACTION,
+                activeChatTransactionId = transactionId,
+                activeChatPartyId = tx?.partyId,
+                activeChatPartyName = partyName
+            )
+        }
+    }
+
+    fun openPartyGeneralChat(party: PartyEntity) {
+        val threadKey = UdhaarRepository.partyGeneralThreadKey(party.name)
+        viewModelScope.launch {
+            repository.getOrCreateThreadMetadata(
+                threadKey = threadKey,
+                scope = ChatThreadScope.PARTY_GENERAL,
+                transactionId = null,
+                remoteId = "",
+                partyId = party.partyId.takeIf { it > 0L },
+                partyName = party.name
+            )
+            repository.markThreadRead(threadKey)
+        }
+        localState.update {
+            it.copy(
+                activeChatThreadKey = threadKey,
+                activeChatScope = ChatThreadScope.PARTY_GENERAL,
+                activeChatTransactionId = null,
+                activeChatPartyId = party.partyId,
+                activeChatPartyName = party.name
+            )
+        }
+    }
+
+    fun openChatFromNotification(
+        threadKey: String,
+        transactionId: Long?,
+        partyName: String
+    ) {
+        val isTxThread = transactionId != null && transactionId > 0L
+        val scope = if (isTxThread) ChatThreadScope.TRANSACTION else ChatThreadScope.PARTY_GENERAL
+        viewModelScope.launch {
+            repository.markThreadRead(threadKey)
+        }
+        localState.update {
+            it.copy(
+                activeChatThreadKey = threadKey,
+                activeChatScope = scope,
+                activeChatTransactionId = transactionId?.takeIf { id -> id > 0L },
+                activeChatPartyName = partyName
+            )
+        }
+    }
+
+    fun closeChatSheet() {
+        val currentKey = localState.value.activeChatThreadKey
+        if (!currentKey.isNullOrBlank()) {
+            viewModelScope.launch {
+                repository.markThreadRead(currentKey)
+            }
+        }
+        localState.update {
+            it.copy(
+                activeChatThreadKey = null,
+                activeChatTransactionId = null,
+                activeChatPartyId = null,
+                activeChatPartyName = ""
+            )
+        }
+    }
+
+    fun sendChatMessage(
+        threadKey: String,
+        scope: ChatThreadScope,
+        transaction: UdhaarTransaction? = null,
+        partyId: Long? = null,
+        partyName: String,
+        messageType: ChatMessageType = ChatMessageType.TEXT,
+        textContent: String,
+        attachmentUri: String = "",
+        attachmentMimeType: String = "",
+        fromCounterparty: Boolean = false
+    ) {
+        viewModelScope.launch {
+            repository.sendChatMessage(
+                threadKey = threadKey,
+                scope = scope,
+                transaction = transaction,
+                partyId = partyId,
+                partyName = partyName,
+                messageType = messageType,
+                textContent = textContent,
+                attachmentUri = attachmentUri,
+                attachmentMimeType = attachmentMimeType,
+                fromCounterparty = fromCounterparty
+            )
+            // If the user is actively viewing this thread and sent/received a message, mark read if outgoing
+            if (!fromCounterparty && localState.value.activeChatThreadKey == threadKey) {
+                repository.markThreadRead(threadKey)
+            }
+        }
+    }
+
+    fun requestDueDateExtension(
+        transaction: UdhaarTransaction,
+        proposedDueDateMillis: Long,
+        note: String = "",
+        requestedByCounterparty: Boolean = false
+    ) {
+        viewModelScope.launch {
+            repository.requestDueDateExtension(
+                transaction = transaction,
+                proposedDueDateMillis = proposedDueDateMillis,
+                note = note,
+                requestedByCounterparty = requestedByCounterparty
+            )
+        }
+    }
+
+    fun respondToExtensionRequest(
+        transaction: UdhaarTransaction,
+        message: ChatMessageEntity,
+        accept: Boolean
+    ) {
+        viewModelScope.launch {
+            val updatedTx = repository.respondToExtensionRequest(
+                transaction = transaction,
+                message = message,
+                accept = accept
+            )
+            if (accept && !updatedTx.isSettled && updatedTx.reminderDateMillis != null) {
+                appContext?.let { ctx ->
+                    ReminderScheduler.scheduleReminder(ctx, updatedTx)
+                }
+            }
+        }
+    }
+
+    fun markThreadRead(threadKey: String) {
+        viewModelScope.launch {
+            repository.markThreadRead(threadKey)
+        }
+    }
+
+    fun setTypingIndicator(
+        threadKey: String,
+        scope: ChatThreadScope,
+        transactionId: Long? = null,
+        remoteId: String = "",
+        partyId: Long? = null,
+        partyName: String,
+        isCounterpartyTyping: Boolean
+    ) {
+        viewModelScope.launch {
+            repository.setTypingIndicator(
+                threadKey = threadKey,
+                scope = scope,
+                transactionId = transactionId,
+                remoteId = remoteId,
+                partyId = partyId,
+                partyName = partyName,
+                isCounterpartyTyping = isCounterpartyTyping
+            )
+        }
+    }
+
+    fun toggleThreadMute(
+        threadKey: String,
+        scope: ChatThreadScope,
+        transactionId: Long? = null,
+        remoteId: String = "",
+        partyId: Long? = null,
+        partyName: String
+    ) {
+        viewModelScope.launch {
+            repository.toggleThreadMute(
+                threadKey = threadKey,
+                scope = scope,
+                transactionId = transactionId,
+                remoteId = remoteId,
+                partyId = partyId,
+                partyName = partyName
+            )
+        }
+    }
+
+    fun toggleThreadBlock(
+        threadKey: String,
+        scope: ChatThreadScope,
+        transactionId: Long? = null,
+        remoteId: String = "",
+        partyId: Long? = null,
+        partyName: String
+    ) {
+        viewModelScope.launch {
+            repository.toggleThreadBlock(
+                threadKey = threadKey,
+                scope = scope,
+                transactionId = transactionId,
+                remoteId = remoteId,
+                partyId = partyId,
+                partyName = partyName
+            )
+        }
+    }
+
+    fun reportAbusiveUserInThread(
+        threadKey: String,
+        scope: ChatThreadScope,
+        transactionId: Long? = null,
+        remoteId: String = "",
+        partyId: Long? = null,
+        partyName: String,
+        reason: String
+    ) {
+        viewModelScope.launch {
+            repository.reportAbusiveUserInThread(
+                threadKey = threadKey,
+                scope = scope,
+                transactionId = transactionId,
+                remoteId = remoteId,
+                partyId = partyId,
+                partyName = partyName,
+                reason = reason
+            )
+        }
+    }
+
     // --- Backup / Export / Import Operations ---
     fun generateFullLedgerBackupJson(onReady: (String) -> Unit) {
         viewModelScope.launch {
@@ -1067,6 +1495,352 @@ class UdhaarViewModel(
             }
             onResult(result)
         }
+    }
+
+    // --- Phase 5: Google Drive Backup & Restore Operations ---
+    private val driveHelper: DriveServiceHelper = DriveServiceHelper()
+
+    fun setDriveAccountState(email: String, accessToken: String) {
+        viewModelScope.launch {
+            repository.updateDriveAccount(email, accessToken)
+            refreshDriveBackups(accessToken)
+        }
+    }
+
+    fun clearDriveAccountState() {
+        viewModelScope.launch {
+            repository.clearDriveAccount()
+            localState.update {
+                it.copy(
+                    driveRemoteBackups = emptyList(),
+                    driveOperationStatusMessage = null,
+                    driveOperationError = null
+                )
+            }
+        }
+    }
+
+    fun openBackupPassphraseDialog() {
+        localState.update { it.copy(showBackupPassphraseDialog = true, driveOperationError = null) }
+    }
+
+    fun closeBackupPassphraseDialog() {
+        localState.update { it.copy(showBackupPassphraseDialog = false) }
+    }
+
+    fun openRestorePassphraseDialog(backup: DriveRemoteBackup) {
+        localState.update {
+            it.copy(
+                restoreSelectedBackup = backup,
+                showRestorePassphraseDialog = true,
+                driveOperationError = null
+            )
+        }
+    }
+
+    fun closeRestorePassphraseDialog() {
+        localState.update { it.copy(showRestorePassphraseDialog = false, restoreSelectedBackup = null) }
+    }
+
+    fun closeRestorePreviewDialog() {
+        localState.update {
+            it.copy(
+                showRestorePreviewDialog = false,
+                pendingRestoreBackup = null,
+                pendingRestoreParsed = null
+            )
+        }
+    }
+
+    fun clearDriveOperationState() {
+        localState.update {
+            it.copy(
+                driveOperationStatusMessage = null,
+                driveOperationError = null
+            )
+        }
+    }
+
+    fun refreshDriveBackups(tokenOverride: String? = null) {
+        viewModelScope.launch {
+            val token = tokenOverride ?: uiState.value.userSettings.driveAccessToken
+            if (token.isBlank()) return@launch
+
+            localState.update {
+                it.copy(
+                    isDriveOperationInProgress = true,
+                    driveOperationStatusMessage = "Checking Google Drive backups...",
+                    driveOperationError = null
+                )
+            }
+            when (val res = driveHelper.listBackups(token)) {
+                is DriveResult.Success -> {
+                    localState.update {
+                        it.copy(
+                            driveRemoteBackups = res.data,
+                            isDriveOperationInProgress = false,
+                            driveOperationStatusMessage = null
+                        )
+                    }
+                }
+                is DriveResult.Error -> {
+                    localState.update {
+                        it.copy(
+                            isDriveOperationInProgress = false,
+                            driveOperationStatusMessage = null,
+                            driveOperationError = res.message
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun uploadDriveBackup(
+        passphrase: String,
+        savePassphraseForAutoBackup: Boolean = false,
+        onComplete: ((Result<DriveRemoteBackup>) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            val token = uiState.value.userSettings.driveAccessToken
+            if (token.isBlank()) {
+                val err = "Google Drive is not signed in."
+                localState.update { it.copy(driveOperationError = err) }
+                onComplete?.invoke(Result.failure(IllegalStateException(err)))
+                return@launch
+            }
+
+            localState.update {
+                it.copy(
+                    isDriveOperationInProgress = true,
+                    driveOperationStatusMessage = "Encrypting ledger on device with AES-256...",
+                    driveOperationError = null,
+                    showBackupPassphraseDialog = false
+                )
+            }
+
+            try {
+                val snapshot = repository.getFullLedgerBackupSnapshot()
+                val settings = uiState.value.userSettings
+                val attachments = repository.getLocalAttachmentsMap()
+
+                val settingsMap = mapOf(
+                    "upiId" to settings.upiId,
+                    "payeeName" to settings.payeeName,
+                    "phoneNumber" to settings.phoneNumber,
+                    "profilePhotoUri" to settings.profilePhotoUri,
+                    "defaultCurrency" to settings.defaultCurrency.name,
+                    "inrEnabled" to settings.inrEnabled,
+                    "nprEnabled" to settings.nprEnabled,
+                    "themeMode" to settings.themeMode.name,
+                    "fontScale" to settings.fontScale.name
+                )
+
+                val plainJson = LedgerBackupManager.buildBackupJson(
+                    parties = snapshot.parties,
+                    transactions = snapshot.transactions,
+                    partialPayments = snapshot.partialPayments,
+                    chatThreads = snapshot.chatThreads,
+                    chatMessages = snapshot.chatMessages,
+                    settings = settingsMap,
+                    attachments = attachments
+                )
+
+                val preview = BackupPreviewSummary(
+                    partiesCount = snapshot.parties.size,
+                    transactionsCount = snapshot.transactions.size,
+                    paymentsCount = snapshot.partialPayments.size,
+                    attachmentsCount = attachments.size,
+                    appVersion = "7.0",
+                    createdAtMillis = System.currentTimeMillis()
+                )
+
+                val encryptedBytes = DriveBackupCrypto.encrypt(
+                    plainBytes = plainJson.toByteArray(Charsets.UTF_8),
+                    passphrase = passphrase,
+                    preview = preview
+                )
+
+                localState.update {
+                    it.copy(driveOperationStatusMessage = "Uploading encrypted backup to hidden AppData folder...")
+                }
+
+                val dateStr = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+                val fileName = "udhaar_backup_${dateStr}.udhaar"
+
+                when (val uploadRes = driveHelper.uploadBackup(token, fileName, encryptedBytes, preview)) {
+                    is DriveResult.Success -> {
+                        repository.updateDriveLastBackup(System.currentTimeMillis(), uploadRes.data.sizeBytes)
+                        if (savePassphraseForAutoBackup) {
+                            repository.saveAutoBackupPassphrase(passphrase)
+                        }
+                        localState.update {
+                            it.copy(
+                                isDriveOperationInProgress = false,
+                                driveOperationStatusMessage = "Backup completed successfully! (${uploadRes.data.sizeBytes / 1024} KB)"
+                            )
+                        }
+                        refreshDriveBackups(token)
+                        onComplete?.invoke(Result.success(uploadRes.data))
+                    }
+                    is DriveResult.Error -> {
+                        localState.update {
+                            it.copy(
+                                isDriveOperationInProgress = false,
+                                driveOperationStatusMessage = null,
+                                driveOperationError = uploadRes.message
+                            )
+                        }
+                        onComplete?.invoke(Result.failure(IOException(uploadRes.message)))
+                    }
+                }
+            } catch (e: Exception) {
+                localState.update {
+                    it.copy(
+                        isDriveOperationInProgress = false,
+                        driveOperationStatusMessage = null,
+                        driveOperationError = e.localizedMessage ?: "Backup encryption failed."
+                    )
+                }
+                onComplete?.invoke(Result.failure(e))
+            }
+        }
+    }
+
+    fun downloadAndDecryptDriveBackup(
+        backup: DriveRemoteBackup,
+        passphrase: String,
+        onPreviewReady: ((Result<com.jyotirmoyb.udhaar.util.ParsedLedgerBackup>) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            val token = uiState.value.userSettings.driveAccessToken
+            if (token.isBlank()) {
+                val err = "Google Drive is not signed in."
+                localState.update { it.copy(driveOperationError = err) }
+                onPreviewReady?.invoke(Result.failure(IllegalStateException(err)))
+                return@launch
+            }
+
+            localState.update {
+                it.copy(
+                    isDriveOperationInProgress = true,
+                    driveOperationStatusMessage = "Downloading encrypted backup from Google Drive...",
+                    driveOperationError = null,
+                    showRestorePassphraseDialog = false
+                )
+            }
+
+            when (val dlRes = driveHelper.downloadBackup(token, backup.fileId)) {
+                is DriveResult.Success -> {
+                    localState.update {
+                        it.copy(driveOperationStatusMessage = "Decrypting with AES-256 on device...")
+                    }
+                    try {
+                        val decryptedBytes = DriveBackupCrypto.decrypt(dlRes.data, passphrase)
+                        val plainJson = String(decryptedBytes, Charsets.UTF_8)
+                        val parsed = LedgerBackupManager.parseBackupJson(plainJson)
+
+                        localState.update {
+                            it.copy(
+                                isDriveOperationInProgress = false,
+                                driveOperationStatusMessage = null,
+                                pendingRestoreBackup = backup,
+                                pendingRestoreParsed = parsed,
+                                showRestorePreviewDialog = true
+                            )
+                        }
+                        onPreviewReady?.invoke(Result.success(parsed))
+                    } catch (e: Exception) {
+                        localState.update {
+                            it.copy(
+                                isDriveOperationInProgress = false,
+                                driveOperationStatusMessage = null,
+                                driveOperationError = e.localizedMessage ?: "Decryption failed. Incorrect passphrase."
+                            )
+                        }
+                        onPreviewReady?.invoke(Result.failure(e))
+                    }
+                }
+                is DriveResult.Error -> {
+                    localState.update {
+                        it.copy(
+                            isDriveOperationInProgress = false,
+                            driveOperationStatusMessage = null,
+                            driveOperationError = dlRes.message
+                        )
+                    }
+                    onPreviewReady?.invoke(Result.failure(IOException(dlRes.message)))
+                }
+            }
+        }
+    }
+
+    fun executeDriveRestore(
+        replaceExisting: Boolean,
+        onComplete: ((Result<Int>) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            val parsed = localState.value.pendingRestoreParsed
+            if (parsed == null) {
+                val err = "No pending backup to restore."
+                localState.update { it.copy(driveOperationError = err) }
+                onComplete?.invoke(Result.failure(IllegalStateException(err)))
+                return@launch
+            }
+
+            localState.update {
+                it.copy(
+                    isDriveOperationInProgress = true,
+                    driveOperationStatusMessage = if (replaceExisting) "Replacing ledger with backup..." else "Merging backup into ledger...",
+                    showRestorePreviewDialog = false
+                )
+            }
+
+            try {
+                val restoredCount = repository.restoreFullLedgerBackup(parsed, replaceExisting)
+                localState.update {
+                    it.copy(
+                        isDriveOperationInProgress = false,
+                        driveOperationStatusMessage = "Restored successfully: $restoredCount transactions, ${parsed.parties.size} parties.",
+                        pendingRestoreBackup = null,
+                        pendingRestoreParsed = null
+                    )
+                }
+                onComplete?.invoke(Result.success(restoredCount))
+            } catch (e: Exception) {
+                localState.update {
+                    it.copy(
+                        isDriveOperationInProgress = false,
+                        driveOperationStatusMessage = null,
+                        driveOperationError = "Failed to restore backup: ${e.localizedMessage}"
+                    )
+                }
+                onComplete?.invoke(Result.failure(e))
+            }
+        }
+    }
+
+    fun deleteDriveBackup(backup: DriveRemoteBackup) {
+        viewModelScope.launch {
+            val token = uiState.value.userSettings.driveAccessToken
+            if (token.isBlank()) return@launch
+            driveHelper.deleteBackup(token, backup.fileId)
+            refreshDriveBackups(token)
+        }
+    }
+
+    fun updateDriveAutoBackupSettings(
+        frequency: AutoBackupFrequency,
+        wifiOnly: Boolean,
+        passphraseToSave: String? = null
+    ) {
+        viewModelScope.launch {
+            repository.updateDriveAutoBackupSettings(frequency, wifiOnly, passphraseToSave)
+        }
+    }
+
+    fun clearDriveOperationError() {
+        localState.update { it.copy(driveOperationError = null) }
     }
 
     class Factory(

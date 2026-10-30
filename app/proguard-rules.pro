@@ -41,3 +41,13 @@
 # Keep ZXing QR Code Generator classes safe
 -keep class com.google.zxing.** { *; }
 -dontwarn com.google.zxing.**
+
+# Keep AndroidX WorkManager
+-keep class androidx.work.** { *; }
+-keep class * extends androidx.work.ListenableWorker { *; }
+
+# Keep OkHttp & Google Auth Identity
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-keep class com.google.android.gms.auth.api.identity.** { *; }
+-keep class com.jyotirmoyb.udhaar.backup.** { *; }

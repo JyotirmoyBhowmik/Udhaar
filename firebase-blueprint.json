@@ -305,6 +305,9 @@
             "EDITED",
             "PAYMENT_RECORDED",
             "PAYMENT_ACKNOWLEDGED",
+            "EXTENSION_REQUESTED",
+            "EXTENSION_ACCEPTED",
+            "EXTENSION_DECLINED",
             "SETTLED"
           ],
           "description": "Audit lifecycle event type."
@@ -356,6 +359,207 @@
         "eventTimeMillis",
         "createdAt"
       ]
+    },
+    "ChatThread": {
+      "title": "ChatThread",
+      "description": "In-app communication thread per transaction or per party, with typing status, mute, block, and report controls.",
+      "type": "object",
+      "properties": {
+        "threadId": {
+          "type": "string",
+          "description": "Unique thread ID (e.g., tx_<remoteId> or party_<key>)."
+        },
+        "threadScope": {
+          "type": "string",
+          "enum": ["TRANSACTION", "PARTY"],
+          "description": "Whether this thread is scoped to a specific transaction or a general party thread."
+        },
+        "remoteRecordId": {
+          "type": "string",
+          "description": "Associated remote transaction ID when threadScope is TRANSACTION, or empty string."
+        },
+        "partyName": {
+          "type": "string",
+          "description": "Display name of the counterparty."
+        },
+        "creatorUid": {
+          "type": "string",
+          "description": "UID of the user who initialized the thread."
+        },
+        "counterpartyUid": {
+          "type": "string",
+          "description": "UID of the counterparty on the thread (or empty string before claimed)."
+        },
+        "participantUids": {
+          "type": "array",
+          "description": "Bounded 1-2 element array of participant UIDs."
+        },
+        "typingUid": {
+          "type": "string",
+          "description": "UID of the participant currently typing, or empty string."
+        },
+        "typingUpdatedAtMillis": {
+          "type": "integer",
+          "description": "Epoch milliseconds when typing state was last updated."
+        },
+        "mutedByUids": {
+          "type": "array",
+          "description": "Bounded 0-2 element array of UIDs that muted notifications for this thread."
+        },
+        "blockedByUid": {
+          "type": "string",
+          "description": "UID of the participant who blocked this thread, or empty string."
+        },
+        "reportedByUid": {
+          "type": "string",
+          "description": "UID of the participant who reported abusive behavior in this thread, or empty string."
+        },
+        "reportReason": {
+          "type": "string",
+          "description": "Reason provided when reporting abusive user, or empty string."
+        },
+        "lastMessagePreview": {
+          "type": "string",
+          "description": "Short preview of the most recent message."
+        },
+        "lastMessageAtMillis": {
+          "type": "integer",
+          "description": "Epoch milliseconds of the most recent message."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when thread was created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when thread was last updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "threadId",
+        "threadScope",
+        "remoteRecordId",
+        "partyName",
+        "creatorUid",
+        "counterpartyUid",
+        "participantUids",
+        "typingUid",
+        "typingUpdatedAtMillis",
+        "mutedByUids",
+        "blockedByUid",
+        "reportedByUid",
+        "reportReason",
+        "lastMessagePreview",
+        "lastMessageAtMillis",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Individual chat message in a transaction or party thread (text, quick reply, payment proof, system audit event, or extension request).",
+      "type": "object",
+      "properties": {
+        "messageId": {
+          "type": "string",
+          "description": "Unique message ID."
+        },
+        "threadId": {
+          "type": "string",
+          "description": "Parent thread ID."
+        },
+        "senderUid": {
+          "type": "string",
+          "description": "UID of the message sender."
+        },
+        "senderName": {
+          "type": "string",
+          "description": "Display name of the message sender."
+        },
+        "participantUids": {
+          "type": "array",
+          "description": "Denormalized 1-2 participant UIDs for two-party read/query isolation."
+        },
+        "messageType": {
+          "type": "string",
+          "enum": ["TEXT", "QUICK_REPLY", "PAYMENT_PROOF", "SYSTEM_AUDIT", "EXTENSION_REQUEST"],
+          "description": "Message classification."
+        },
+        "bodyText": {
+          "type": "string",
+          "description": "Message text content."
+        },
+        "attachmentUri": {
+          "type": "string",
+          "description": "Optional URI or reference for payment-proof image or PDF."
+        },
+        "attachmentMimeType": {
+          "type": "string",
+          "description": "MIME type of payment proof (e.g., image/jpeg, application/pdf)."
+        },
+        "attachmentName": {
+          "type": "string",
+          "description": "Display filename of payment proof."
+        },
+        "deliveryStatus": {
+          "type": "string",
+          "enum": ["SENT", "DELIVERED", "READ"],
+          "description": "Delivery and read receipt tick status."
+        },
+        "proposedDueDateMillis": {
+          "type": "integer",
+          "description": "Proposed new due date in epoch milliseconds when messageType is EXTENSION_REQUEST, else -1."
+        },
+        "extensionStatus": {
+          "type": "string",
+          "enum": ["NONE", "PENDING", "ACCEPTED", "DECLINED"],
+          "description": "Resolution status for due date extension requests."
+        },
+        "sentAtMillis": {
+          "type": "integer",
+          "description": "Client epoch milliseconds when sent."
+        },
+        "deliveredAtMillis": {
+          "type": "integer",
+          "description": "Epoch milliseconds when delivered, or -1."
+        },
+        "readAtMillis": {
+          "type": "integer",
+          "description": "Epoch milliseconds when read by counterparty, or -1."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when updated (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "messageId",
+        "threadId",
+        "senderUid",
+        "senderName",
+        "participantUids",
+        "messageType",
+        "bodyText",
+        "attachmentUri",
+        "attachmentMimeType",
+        "attachmentName",
+        "deliveryStatus",
+        "proposedDueDateMillis",
+        "extensionStatus",
+        "sentAtMillis",
+        "deliveredAtMillis",
+        "readAtMillis",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -382,6 +586,18 @@
         "$ref": "#/entities/SharedAuditEvent"
       },
       "description": "Immutable append-only audit trail for a shared record."
+    },
+    "/chat_threads/{threadId}": {
+      "schema": {
+        "$ref": "#/entities/ChatThread"
+      },
+      "description": "Two-party chat thread per transaction or party with typing indicator, mute, block, and report controls."
+    },
+    "/chat_threads/{threadId}/messages/{messageId}": {
+      "schema": {
+        "$ref": "#/entities/ChatMessage"
+      },
+      "description": "Messages, quick replies, payment proofs, audit events, and extension requests inside a chat thread."
     }
   }
 }

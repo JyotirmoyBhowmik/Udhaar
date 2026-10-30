@@ -65,6 +65,34 @@ class UdhaarTypeConverters {
     @TypeConverter
     fun toAuditEventType(value: String): AuditEventType =
         runCatching { AuditEventType.valueOf(value) }.getOrDefault(AuditEventType.CREATED)
+
+    @TypeConverter
+    fun fromChatThreadScope(value: ChatThreadScope): String = value.name
+
+    @TypeConverter
+    fun toChatThreadScope(value: String): ChatThreadScope =
+        runCatching { ChatThreadScope.valueOf(value) }.getOrDefault(ChatThreadScope.TRANSACTION)
+
+    @TypeConverter
+    fun fromChatMessageType(value: ChatMessageType): String = value.name
+
+    @TypeConverter
+    fun toChatMessageType(value: String): ChatMessageType =
+        runCatching { ChatMessageType.valueOf(value) }.getOrDefault(ChatMessageType.TEXT)
+
+    @TypeConverter
+    fun fromMessageDeliveryStatus(value: MessageDeliveryStatus): String = value.name
+
+    @TypeConverter
+    fun toMessageDeliveryStatus(value: String): MessageDeliveryStatus =
+        runCatching { MessageDeliveryStatus.valueOf(value) }.getOrDefault(MessageDeliveryStatus.SENT)
+
+    @TypeConverter
+    fun fromExtensionRequestStatus(value: ExtensionRequestStatus): String = value.name
+
+    @TypeConverter
+    fun toExtensionRequestStatus(value: String): ExtensionRequestStatus =
+        runCatching { ExtensionRequestStatus.valueOf(value) }.getOrDefault(ExtensionRequestStatus.NONE)
 }
 
 @Database(
@@ -72,9 +100,12 @@ class UdhaarTypeConverters {
         PartyEntity::class,
         UdhaarTransaction::class,
         PartialPayment::class,
-        AuditTrailEntry::class
+        AuditTrailEntry::class,
+        ChatThreadMetadata::class,
+        ChatMessageEntity::class,
+        Attachment::class
     ],
-    version = 4,
+    version = 6,
     exportSchema = true
 )
 @TypeConverters(UdhaarTypeConverters::class)
@@ -202,10 +233,105 @@ abstract class UdhaarDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `chat_thread_metadata` (
+                        `threadKey` TEXT NOT NULL,
+                        `remoteThreadId` TEXT NOT NULL,
+                        `threadScope` TEXT NOT NULL,
+                        `transactionId` INTEGER,
+                        `partyId` INTEGER,
+                        `partyName` TEXT NOT NULL,
+                        `isMuted` INTEGER NOT NULL,
+                        `isBlocked` INTEGER NOT NULL,
+                        `isReported` INTEGER NOT NULL,
+                        `reportReason` TEXT NOT NULL,
+                        `counterpartyTyping` INTEGER NOT NULL,
+                        `typingUpdatedAtMillis` INTEGER NOT NULL,
+                        `updatedAtMillis` INTEGER NOT NULL,
+                        PRIMARY KEY(`threadKey`)
+                    )
+                    """.trimIndent()
+                )
+
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `chat_messages` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `remoteMessageId` TEXT NOT NULL,
+                        `threadKey` TEXT NOT NULL,
+                        `threadScope` TEXT NOT NULL,
+                        `transactionId` INTEGER,
+                        `partyId` INTEGER,
+                        `partyName` TEXT NOT NULL,
+                        `senderUserId` TEXT NOT NULL,
+                        `senderName` TEXT NOT NULL,
+                        `isFromMe` INTEGER NOT NULL,
+                        `messageType` TEXT NOT NULL,
+                        `bodyText` TEXT NOT NULL,
+                        `attachmentUri` TEXT NOT NULL,
+                        `attachmentMimeType` TEXT NOT NULL,
+                        `attachmentName` TEXT NOT NULL,
+                        `deliveryStatus` TEXT NOT NULL,
+                        `isUnreadForMe` INTEGER NOT NULL,
+                        `proposedDueDateMillis` INTEGER,
+                        `extensionStatus` TEXT NOT NULL,
+                        `sentAtMillis` INTEGER NOT NULL,
+                        `deliveredAtMillis` INTEGER,
+                        `readAtMillis` INTEGER
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_chat_messages_threadKey` ON `chat_messages` (`threadKey`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_chat_messages_transactionId` ON `chat_messages` (`transactionId`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_chat_messages_partyId` ON `chat_messages` (`partyId`)"
+                )
+            }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `attachments` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `transactionId` INTEGER NOT NULL,
+                        `paymentId` INTEGER,
+                        `fileName` TEXT NOT NULL,
+                        `mimeType` TEXT NOT NULL,
+                        `sizeBytes` INTEGER NOT NULL,
+                        `localPath` TEXT NOT NULL,
+                        `remoteUrl` TEXT NOT NULL,
+                        `addedAtMillis` INTEGER NOT NULL,
+                        `addedBy` TEXT NOT NULL,
+                        `sha256` TEXT NOT NULL,
+                        FOREIGN KEY(`transactionId`) REFERENCES `udhaar_transactions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                        FOREIGN KEY(`paymentId`) REFERENCES `partial_payments`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_attachments_transactionId` ON `attachments` (`transactionId`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_attachments_paymentId` ON `attachments` (`paymentId`)"
+                )
+            }
+        }
+
         val ALL_MIGRATIONS: Array<Migration> = arrayOf(
             MIGRATION_1_2,
             MIGRATION_2_3,
-            MIGRATION_3_4
+            MIGRATION_3_4,
+            MIGRATION_4_5,
+            MIGRATION_5_6
         )
 
         @Volatile

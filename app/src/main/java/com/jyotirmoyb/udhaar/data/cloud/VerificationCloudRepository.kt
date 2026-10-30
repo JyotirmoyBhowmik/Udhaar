@@ -92,8 +92,50 @@ data class CloudAuditEvent(
     val createdAt: Timestamp = Timestamp(Date())
 )
 
+data class CloudChatThread(
+    val threadId: String = "",
+    val scope: String = "TRANSACTION",
+    val remoteId: String = "",
+    val partyName: String = "",
+    val creatorUid: String = "",
+    val counterpartyUid: String = "",
+    val participantUids: List<String> = emptyList(),
+    val typingUserId: String = "",
+    val typingUserName: String = "",
+    val typingUpdatedAtMillis: Long = -1L,
+    val mutedByUids: List<String> = emptyList(),
+    val blockedByUids: List<String> = emptyList(),
+    val reportedByUids: List<String> = emptyList(),
+    val reportReason: String = "",
+    val lastMessagePreview: String = "",
+    val lastMessageAtMillis: Long = 0L,
+    val createdAt: Timestamp = Timestamp(Date()),
+    val updatedAt: Timestamp = Timestamp(Date())
+)
+
+data class CloudChatMessage(
+    val messageId: String = "",
+    val threadId: String = "",
+    val remoteId: String = "",
+    val senderUid: String = "",
+    val senderName: String = "",
+    val participantUids: List<String> = emptyList(),
+    val messageType: String = "TEXT",
+    val textContent: String = "",
+    val attachmentRef: String = "",
+    val attachmentMimeType: String = "",
+    val proposedDueDateMillis: Long = -1L,
+    val extensionStatus: String = "NONE",
+    val deliveryStatus: String = "SENT",
+    val sentAtMillis: Long = 0L,
+    val deliveredAtMillis: Long = -1L,
+    val readAtMillis: Long = -1L,
+    val createdAt: Timestamp = Timestamp(Date()),
+    val updatedAt: Timestamp = Timestamp(Date())
+)
+
 /**
- * Cloud Firestore repository for Phase 3 Two-Party Verification.
+ * Cloud Firestore repository for Phase 3 Two-Party Verification & Phase 4 In-App Communication.
  * - Matches `firestore.rules` schema and security invariants 1:1.
  * - Accepts a constructor-injected [FirebaseFirestore] for unit/emulator testing, with a secondary
  *   [Context] constructor that resolves `R.string.firestore_database_id`.
@@ -472,9 +514,244 @@ class VerificationCloudRepository(
     }
 
     /**
-     * Deletes all cloud data owned by [userId] (profile + creator shared records).
+     * Phase 4 — In-App Communication (Chat Threads & Messages)
      */
-    suspend fun deleteAllMyCloudData(userId: String, createdRemoteIds: List<String>) {
+    suspend fun upsertChatThread(thread: CloudChatThread) {
+        val path = "chat_threads/${thread.threadId}"
+        val normalizedScope = if (thread.scope == "PARTY_GENERAL" || thread.scope == "PARTY") "PARTY" else "TRANSACTION"
+        try {
+            val docRef = db.collection("chat_threads").document(thread.threadId)
+            val existing = runCatching { docRef.get().await() }.getOrNull()
+            if (existing == null || !existing.exists()) {
+                val data = mapOf(
+                    "threadId" to thread.threadId,
+                    "threadScope" to normalizedScope,
+                    "remoteRecordId" to thread.remoteId,
+                    "partyName" to thread.partyName.ifBlank { "Party" },
+                    "creatorUid" to thread.creatorUid,
+                    "counterpartyUid" to thread.counterpartyUid,
+                    "participantUids" to thread.participantUids.ifEmpty { listOf(thread.creatorUid) },
+                    "typingUid" to thread.typingUserId,
+                    "typingUpdatedAtMillis" to thread.typingUpdatedAtMillis.coerceAtLeast(-1L),
+                    "mutedByUids" to thread.mutedByUids,
+                    "blockedByUid" to thread.blockedByUids.firstOrNull().orEmpty(),
+                    "reportedByUid" to thread.reportedByUids.firstOrNull().orEmpty(),
+                    "reportReason" to thread.reportReason,
+                    "lastMessagePreview" to thread.lastMessagePreview,
+                    "lastMessageAtMillis" to thread.lastMessageAtMillis.coerceAtLeast(-1L),
+                    "createdAt" to FieldValue.serverTimestamp(),
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+                docRef.set(data).await()
+            } else {
+                val updates = mutableMapOf<String, Any>(
+                    "typingUid" to thread.typingUserId,
+                    "typingUpdatedAtMillis" to thread.typingUpdatedAtMillis.coerceAtLeast(-1L),
+                    "mutedByUids" to thread.mutedByUids,
+                    "blockedByUid" to thread.blockedByUids.firstOrNull().orEmpty(),
+                    "reportedByUid" to thread.reportedByUids.firstOrNull().orEmpty(),
+                    "reportReason" to thread.reportReason,
+                    "lastMessagePreview" to thread.lastMessagePreview,
+                    "lastMessageAtMillis" to thread.lastMessageAtMillis.coerceAtLeast(-1L),
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+                if (thread.counterpartyUid.isNotBlank() && existing.getString("counterpartyUid").isNullOrEmpty()) {
+                    updates["counterpartyUid"] = thread.counterpartyUid
+                    updates["participantUids"] = thread.participantUids
+                }
+                docRef.update(updates).await()
+            }
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.WRITE, path)
+        }
+    }
+
+    suspend fun getChatThread(threadId: String): CloudChatThread? {
+        val path = "chat_threads/$threadId"
+        return try {
+            val snap = db.collection("chat_threads").document(threadId).get().await()
+            if (!snap.exists()) return null
+            mapToChatThread(snap.data.orEmpty(), threadId)
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.GET, path)
+            null
+        }
+    }
+
+    fun observeChatThread(threadId: String): Flow<CloudChatThread?> = callbackFlow {
+        val path = "chat_threads/$threadId"
+        val registration: ListenerRegistration = db.collection("chat_threads")
+            .document(threadId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    try {
+                        handleFirestoreError(error, OperationType.GET, path)
+                    } catch (_: Exception) {
+                    }
+                    close(error)
+                    return@addSnapshotListener
+                }
+                if (snapshot != null && snapshot.exists()) {
+                    trySend(mapToChatThread(snapshot.data.orEmpty(), threadId))
+                } else {
+                    trySend(null)
+                }
+            }
+        awaitClose { registration.remove() }
+    }
+
+    suspend fun updateTypingStatus(
+        threadId: String,
+        typingUserId: String,
+        typingUserName: String,
+        typingUpdatedAtMillis: Long
+    ) {
+        val path = "chat_threads/$threadId"
+        try {
+            val updates = mapOf(
+                "typingUid" to typingUserId,
+                "typingUpdatedAtMillis" to typingUpdatedAtMillis.coerceAtLeast(-1L),
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+            db.collection("chat_threads").document(threadId).update(updates).await()
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, path)
+        }
+    }
+
+    suspend fun updateThreadMuteBlockReport(
+        threadId: String,
+        mutedByUids: List<String>,
+        blockedByUids: List<String>,
+        reportedByUids: List<String>,
+        reportReason: String
+    ) {
+        val path = "chat_threads/$threadId"
+        try {
+            val updates = mapOf(
+                "mutedByUids" to mutedByUids,
+                "blockedByUid" to blockedByUids.firstOrNull().orEmpty(),
+                "reportedByUid" to reportedByUids.firstOrNull().orEmpty(),
+                "reportReason" to reportReason,
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+            db.collection("chat_threads").document(threadId).update(updates).await()
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, path)
+        }
+    }
+
+    suspend fun sendChatMessage(message: CloudChatMessage) {
+        val path = "chat_threads/${message.threadId}/messages/${message.messageId}"
+        try {
+            val data = mapOf(
+                "messageId" to message.messageId,
+                "threadId" to message.threadId,
+                "senderUid" to message.senderUid,
+                "senderName" to message.senderName.ifBlank { "Party" },
+                "participantUids" to message.participantUids.ifEmpty { listOf(message.senderUid) },
+                "messageType" to message.messageType,
+                "bodyText" to message.textContent,
+                "attachmentUri" to message.attachmentRef,
+                "attachmentMimeType" to message.attachmentMimeType,
+                "attachmentName" to "",
+                "deliveryStatus" to message.deliveryStatus,
+                "proposedDueDateMillis" to message.proposedDueDateMillis.coerceAtLeast(-1L),
+                "extensionStatus" to message.extensionStatus,
+                "sentAtMillis" to message.sentAtMillis,
+                "deliveredAtMillis" to message.deliveredAtMillis.coerceAtLeast(-1L),
+                "readAtMillis" to message.readAtMillis.coerceAtLeast(-1L),
+                "createdAt" to FieldValue.serverTimestamp(),
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+            db.collection("chat_threads")
+                .document(message.threadId)
+                .collection("messages")
+                .document(message.messageId)
+                .set(data)
+                .await()
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.CREATE, path)
+        }
+    }
+
+    suspend fun updateChatMessageDeliveryOrExtension(
+        threadId: String,
+        messageId: String,
+        deliveryStatus: String,
+        deliveredAtMillis: Long,
+        readAtMillis: Long,
+        extensionStatus: String
+    ) {
+        val path = "chat_threads/$threadId/messages/$messageId"
+        try {
+            val updates = mapOf(
+                "deliveryStatus" to deliveryStatus,
+                "deliveredAtMillis" to deliveredAtMillis,
+                "readAtMillis" to readAtMillis,
+                "extensionStatus" to extensionStatus,
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+            db.collection("chat_threads")
+                .document(threadId)
+                .collection("messages")
+                .document(messageId)
+                .update(updates)
+                .await()
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.UPDATE, path)
+        }
+    }
+
+    suspend fun listChatMessages(threadId: String, participantUid: String): List<CloudChatMessage> {
+        val path = "chat_threads/$threadId/messages"
+        return try {
+            val snap = db.collection("chat_threads")
+                .document(threadId)
+                .collection("messages")
+                .whereArrayContains("participantUids", participantUid)
+                .get()
+                .await()
+            snap.documents.map { doc ->
+                mapToChatMessage(doc.data.orEmpty(), doc.id, threadId)
+            }.sortedBy { it.sentAtMillis }
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.LIST, path)
+            emptyList()
+        }
+    }
+
+    fun observeChatMessages(threadId: String, participantUid: String): Flow<List<CloudChatMessage>> = callbackFlow {
+        val path = "chat_threads/$threadId/messages"
+        val registration: ListenerRegistration = db.collection("chat_threads")
+            .document(threadId)
+            .collection("messages")
+            .whereArrayContains("participantUids", participantUid)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    try {
+                        handleFirestoreError(error, OperationType.LIST, path)
+                    } catch (_: Exception) {
+                    }
+                    close(error)
+                    return@addSnapshotListener
+                }
+                val items = snapshot?.documents.orEmpty().map { doc ->
+                    mapToChatMessage(doc.data.orEmpty(), doc.id, threadId)
+                }.sortedBy { it.sentAtMillis }
+                trySend(items)
+            }
+        awaitClose { registration.remove() }
+    }
+
+    /**
+     * Deletes all cloud data owned by [userId] (profile + creator shared records + chat threads).
+     */
+    suspend fun deleteAllMyCloudData(
+        userId: String,
+        createdRemoteIds: List<String>,
+        createdThreadIds: List<String> = emptyList()
+    ) {
         for (remoteId in createdRemoteIds) {
             if (remoteId.isNotBlank()) {
                 try {
@@ -505,10 +782,79 @@ class VerificationCloudRepository(
                 }
             }
         }
+        for (threadId in createdThreadIds) {
+            if (threadId.isNotBlank()) {
+                try {
+                    val msgs = db.collection("chat_threads")
+                        .document(threadId)
+                        .collection("messages")
+                        .whereArrayContains("participantUids", userId)
+                        .get()
+                        .await()
+                    for (doc in msgs.documents) {
+                        if (doc.getString("senderUid") == userId) {
+                            doc.reference.delete().await()
+                        }
+                    }
+                    db.collection("chat_threads").document(threadId).delete().await()
+                } catch (_: Exception) {
+                }
+            }
+        }
         try {
             deleteUserProfile(userId)
         } catch (_: Exception) {
         }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun mapToChatThread(d: Map<String, Any>, fallbackId: String): CloudChatThread {
+        val blockedSingle = (d["blockedByUid"] as? String).orEmpty()
+        val reportedSingle = (d["reportedByUid"] as? String).orEmpty()
+        return CloudChatThread(
+            threadId = d["threadId"] as? String ?: fallbackId,
+            scope = d["threadScope"] as? String ?: d["scope"] as? String ?: "TRANSACTION",
+            remoteId = d["remoteRecordId"] as? String ?: d["remoteId"] as? String ?: "",
+            partyName = d["partyName"] as? String ?: "",
+            creatorUid = d["creatorUid"] as? String ?: "",
+            counterpartyUid = d["counterpartyUid"] as? String ?: "",
+            participantUids = (d["participantUids"] as? List<String>).orEmpty(),
+            typingUserId = d["typingUid"] as? String ?: d["typingUserId"] as? String ?: "",
+            typingUserName = d["typingUserName"] as? String ?: "",
+            typingUpdatedAtMillis = (d["typingUpdatedAtMillis"] as? Number)?.toLong() ?: -1L,
+            mutedByUids = (d["mutedByUids"] as? List<String>).orEmpty(),
+            blockedByUids = if (blockedSingle.isNotBlank()) listOf(blockedSingle) else (d["blockedByUids"] as? List<String>).orEmpty(),
+            reportedByUids = if (reportedSingle.isNotBlank()) listOf(reportedSingle) else (d["reportedByUids"] as? List<String>).orEmpty(),
+            reportReason = d["reportReason"] as? String ?: "",
+            lastMessagePreview = d["lastMessagePreview"] as? String ?: "",
+            lastMessageAtMillis = (d["lastMessageAtMillis"] as? Number)?.toLong() ?: 0L,
+            createdAt = d["createdAt"] as? Timestamp ?: Timestamp.now(),
+            updatedAt = d["updatedAt"] as? Timestamp ?: Timestamp.now()
+        )
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun mapToChatMessage(d: Map<String, Any>, fallbackId: String, fallbackThreadId: String): CloudChatMessage {
+        return CloudChatMessage(
+            messageId = d["messageId"] as? String ?: fallbackId,
+            threadId = d["threadId"] as? String ?: fallbackThreadId,
+            remoteId = d["remoteId"] as? String ?: "",
+            senderUid = d["senderUid"] as? String ?: "",
+            senderName = d["senderName"] as? String ?: "",
+            participantUids = (d["participantUids"] as? List<String>).orEmpty(),
+            messageType = d["messageType"] as? String ?: "TEXT",
+            textContent = d["bodyText"] as? String ?: d["textContent"] as? String ?: "",
+            attachmentRef = d["attachmentUri"] as? String ?: d["attachmentRef"] as? String ?: "",
+            attachmentMimeType = d["attachmentMimeType"] as? String ?: "",
+            proposedDueDateMillis = (d["proposedDueDateMillis"] as? Number)?.toLong() ?: -1L,
+            extensionStatus = d["extensionStatus"] as? String ?: "NONE",
+            deliveryStatus = d["deliveryStatus"] as? String ?: "SENT",
+            sentAtMillis = (d["sentAtMillis"] as? Number)?.toLong() ?: 0L,
+            deliveredAtMillis = (d["deliveredAtMillis"] as? Number)?.toLong() ?: -1L,
+            readAtMillis = (d["readAtMillis"] as? Number)?.toLong() ?: -1L,
+            createdAt = d["createdAt"] as? Timestamp ?: Timestamp.now(),
+            updatedAt = d["updatedAt"] as? Timestamp ?: Timestamp.now()
+        )
     }
 
     @Suppress("UNCHECKED_CAST")

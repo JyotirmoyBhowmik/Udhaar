@@ -57,7 +57,37 @@ enum class AuditEventType(val label: String) {
     EDITED("Terms Edited"),
     PAYMENT_RECORDED("Partial Payment Recorded"),
     PAYMENT_ACKNOWLEDGED("Payment Acknowledged"),
+    EXTENSION_REQUESTED("Due Date Extension Requested"),
+    EXTENSION_ACCEPTED("Due Date Extension Accepted"),
+    EXTENSION_DECLINED("Due Date Extension Declined"),
     SETTLED("Marked Settled")
+}
+
+enum class ChatThreadScope(val label: String) {
+    TRANSACTION("Transaction Thread"),
+    PARTY("General Party Thread"),
+    PARTY_GENERAL("General Party Thread")
+}
+
+enum class ChatMessageType(val label: String) {
+    TEXT("Text Message"),
+    QUICK_REPLY("Quick Reply"),
+    PAYMENT_PROOF("Payment Proof"),
+    SYSTEM_AUDIT("Audit Trail Event"),
+    EXTENSION_REQUEST("Extension Request")
+}
+
+enum class MessageDeliveryStatus(val label: String, val tickSymbol: String) {
+    SENT("Sent", "✓"),
+    DELIVERED("Delivered", "✓✓"),
+    READ("Read", "✓✓ Read")
+}
+
+enum class ExtensionRequestStatus(val label: String, val shortBadge: String) {
+    NONE("None", ""),
+    PENDING("Pending Response", "PENDING"),
+    ACCEPTED("Extension Accepted", "ACCEPTED ✓"),
+    DECLINED("Extension Declined", "DECLINED ✕")
 }
 
 enum class LedgerFilter(val label: String) {
@@ -176,6 +206,113 @@ data class AuditTrailEntry(
     val eventTimeMillis: Long = System.currentTimeMillis()
 )
 
+@Entity(tableName = "chat_thread_metadata")
+data class ChatThreadMetadata(
+    @PrimaryKey
+    val threadKey: String,
+    val remoteThreadId: String = "",
+    val threadScope: ChatThreadScope = ChatThreadScope.TRANSACTION,
+    val transactionId: Long? = null,
+    val partyId: Long? = null,
+    val partyName: String = "",
+    val isMuted: Boolean = false,
+    val isBlocked: Boolean = false,
+    val isReported: Boolean = false,
+    val reportReason: String = "",
+    val counterpartyTyping: Boolean = false,
+    val typingUpdatedAtMillis: Long = 0L,
+    val updatedAtMillis: Long = System.currentTimeMillis()
+)
+
+val ChatThreadMetadata.scope: ChatThreadScope get() = threadScope
+val ChatThreadMetadata.remoteId: String get() = remoteThreadId
+val ChatThreadMetadata.isCounterpartyTyping: Boolean get() = counterpartyTyping
+
+@Entity(
+    tableName = "chat_messages",
+    indices = [
+        Index(value = ["threadKey"]),
+        Index(value = ["transactionId"]),
+        Index(value = ["partyId"])
+    ]
+)
+data class ChatMessageEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0L,
+    val remoteMessageId: String = "",
+    val threadKey: String,
+    val threadScope: ChatThreadScope = ChatThreadScope.TRANSACTION,
+    val transactionId: Long? = null,
+    val partyId: Long? = null,
+    val partyName: String = "",
+    val senderUserId: String = "",
+    val senderName: String = "You",
+    val isFromMe: Boolean = true,
+    val messageType: ChatMessageType = ChatMessageType.TEXT,
+    val bodyText: String = "",
+    val attachmentUri: String = "",
+    val attachmentMimeType: String = "",
+    val attachmentName: String = "",
+    val deliveryStatus: MessageDeliveryStatus = MessageDeliveryStatus.SENT,
+    val isUnreadForMe: Boolean = false,
+    val proposedDueDateMillis: Long? = null,
+    val extensionStatus: ExtensionRequestStatus = ExtensionRequestStatus.NONE,
+    val sentAtMillis: Long = System.currentTimeMillis(),
+    val deliveredAtMillis: Long? = null,
+    val readAtMillis: Long? = null
+)
+
+@Entity(
+    tableName = "attachments",
+    foreignKeys = [
+        ForeignKey(
+            entity = UdhaarTransaction::class,
+            parentColumns = ["id"],
+            childColumns = ["transactionId"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = PartialPayment::class,
+            parentColumns = ["id"],
+            childColumns = ["paymentId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [
+        Index(value = ["transactionId"]),
+        Index(value = ["paymentId"])
+    ]
+)
+data class Attachment(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0L,
+    val transactionId: Long,
+    val paymentId: Long? = null,
+    val fileName: String,
+    val mimeType: String,
+    val sizeBytes: Long,
+    val localPath: String,
+    val remoteUrl: String = "",
+    val addedAtMillis: Long = System.currentTimeMillis(),
+    val addedBy: String = "You",
+    val sha256: String = ""
+)
+
+val ChatMessageEntity.scope: ChatThreadScope get() = threadScope
+val ChatMessageEntity.remoteId: String get() = remoteMessageId
+val ChatMessageEntity.isOutgoing: Boolean get() = isFromMe
+val ChatMessageEntity.textContent: String get() = bodyText
+
+enum class AutoBackupFrequency(val label: String) {
+    OFF("Off"),
+    DAILY("Daily"),
+    WEEKLY("Weekly");
+
+    companion object {
+        val DISABLED = OFF
+    }
+}
+
 data class UserSettings(
     val upiId: String = "",
     val payeeName: String = "",
@@ -190,8 +327,18 @@ data class UserSettings(
     val hasPinConfigured: Boolean = false,
     val cloudVerificationConsent: Boolean = false,
     val cloudUserId: String = "",
-    val cloudUserEmail: String = ""
+    val cloudUserEmail: String = "",
+    val driveUserEmail: String = "",
+    val driveAccessToken: String = "",
+    val driveLastBackupTimeMillis: Long = 0L,
+    val driveLastBackupSizeBytes: Long = 0L,
+    val driveAutoBackupFrequency: AutoBackupFrequency = AutoBackupFrequency.OFF,
+    val driveAutoBackupWifiOnly: Boolean = true,
+    val driveAutoBackupPassphraseSaved: Boolean = false
 ) {
+    val driveAccountEmail: String get() = driveUserEmail
+    val driveLastBackupMillis: Long get() = driveLastBackupTimeMillis
+
     val enabledCurrencies: List<CurrencyType>
         get() = buildList {
             if (inrEnabled) add(CurrencyType.INR)

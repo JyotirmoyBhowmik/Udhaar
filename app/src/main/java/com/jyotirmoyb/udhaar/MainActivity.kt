@@ -1,12 +1,18 @@
 package com.jyotirmoyb.udhaar
 
+import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import com.google.android.gms.auth.api.identity.AuthorizationRequest
+import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.common.api.Scope
+import com.jyotirmoyb.udhaar.ui.components.RestorePreviewDialog
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -36,12 +42,15 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.jyotirmoyb.udhaar.data.UdhaarDatabase
 import com.jyotirmoyb.udhaar.data.UdhaarRepository
+import com.jyotirmoyb.udhaar.notification.ChatNotificationHelper
 import com.jyotirmoyb.udhaar.notification.ReminderReceiver
 import com.jyotirmoyb.udhaar.ui.ActiveScreen
 import com.jyotirmoyb.udhaar.ui.UdhaarViewModel
 import com.jyotirmoyb.udhaar.ui.components.AddEditPartyModal
 import com.jyotirmoyb.udhaar.ui.components.AddEditUdhaarScreen
+import com.jyotirmoyb.udhaar.ui.components.AttachmentViewerModal
 import com.jyotirmoyb.udhaar.ui.components.BiometricSecurityScreen
+import com.jyotirmoyb.udhaar.ui.components.ChatThreadBottomSheet
 import com.jyotirmoyb.udhaar.ui.components.DashboardScreen
 import com.jyotirmoyb.udhaar.ui.components.IncomingPaymentProfileAcceptSheet
 import com.jyotirmoyb.udhaar.ui.components.IncomingVerificationReviewSheet
@@ -57,6 +66,7 @@ import com.jyotirmoyb.udhaar.ui.components.VerificationShareSheet
 import com.jyotirmoyb.udhaar.ui.components.WhatsAppReminderModal
 import com.jyotirmoyb.udhaar.ui.theme.AppThemeMode
 import com.jyotirmoyb.udhaar.ui.theme.UdhaarTheme
+import com.jyotirmoyb.udhaar.util.AttachmentManager
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 import com.jyotirmoyb.udhaar.util.LedgerBackupManager
 import com.jyotirmoyb.udhaar.util.ThermalReceiptGenerator
@@ -67,11 +77,15 @@ open class MainActivity : FragmentActivity() {
 
     private var pendingReminderTransactionId by mutableStateOf<Long?>(null)
     private var pendingDeepLinkUrl by mutableStateOf<String?>(null)
+    private var pendingChatThreadKey by mutableStateOf<String?>(null)
+    private var pendingChatTransactionId by mutableStateOf<Long?>(null)
+    private var pendingChatPartyName by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         ReminderReceiver.ensureNotificationChannel(this)
+        ChatNotificationHelper.ensureNotificationChannel(this)
         extractIntentPayloads(intent)
 
         val database = UdhaarDatabase.getInstance(applicationContext)
@@ -114,6 +128,20 @@ open class MainActivity : FragmentActivity() {
                             }
                         }
 
+                        val incomingChatKey = pendingChatThreadKey
+                        LaunchedEffect(incomingChatKey) {
+                            if (!incomingChatKey.isNullOrBlank()) {
+                                viewModel.openChatFromNotification(
+                                    threadKey = incomingChatKey,
+                                    transactionId = pendingChatTransactionId,
+                                    partyName = pendingChatPartyName.orEmpty()
+                                )
+                                pendingChatThreadKey = null
+                                pendingChatTransactionId = null
+                                pendingChatPartyName = null
+                            }
+                        }
+
                         UdhaarApp(viewModel = viewModel)
                     }
                 }
@@ -131,6 +159,13 @@ open class MainActivity : FragmentActivity() {
         val txId = intent?.getLongExtra(ReminderReceiver.EXTRA_TRANSACTION_ID, -1L) ?: -1L
         if (txId > 0L) {
             pendingReminderTransactionId = txId
+        }
+        val chatKey = intent?.getStringExtra(ChatNotificationHelper.EXTRA_CHAT_THREAD_KEY)
+        if (!chatKey.isNullOrBlank()) {
+            pendingChatThreadKey = chatKey
+            val chatTxId = intent.getLongExtra(ChatNotificationHelper.EXTRA_CHAT_TRANSACTION_ID, -1L)
+            pendingChatTransactionId = if (chatTxId > 0L) chatTxId else null
+            pendingChatPartyName = intent.getStringExtra(ChatNotificationHelper.EXTRA_CHAT_PARTY_NAME)
         }
         val dataUrl = intent?.data?.toString()
         if (!dataUrl.isNullOrBlank() && dataUrl.contains("/u/")) {
@@ -240,6 +275,65 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
         }
     }
 
+    val activity = context as? Activity
+    val driveAuthLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { activityResult ->
+        if (activityResult.resultCode == Activity.RESULT_OK && activity != null) {
+            runCatching {
+                val authorizationResult = Identity.getAuthorizationClient(activity)
+                    .getAuthorizationResultFromIntent(activityResult.data)
+                val accessToken = authorizationResult.accessToken
+                if (!accessToken.isNullOrBlank()) {
+                    val email = uiState.userSettings.cloudUserEmail.ifBlank { "Google Drive Account" }
+                    viewModel.setDriveAccountState(email, accessToken)
+                    Toast.makeText(context, "Connected to Google Drive", Toast.LENGTH_SHORT).show()
+                }
+            }.onFailure { e ->
+                Toast.makeText(context, "Google Drive authorization failed: ${e.localizedMessage ?: "Unknown error"}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val signInWithGoogleForDrive: () -> Unit = {
+        if (activity != null) {
+            runCatching {
+                val driveScope = Scope("https://www.googleapis.com/auth/drive.appdata")
+                val authRequest = AuthorizationRequest.builder()
+                    .setRequestedScopes(listOf(driveScope))
+                    .build()
+                Identity.getAuthorizationClient(activity).authorize(authRequest)
+                    .addOnSuccessListener { authorizationResult ->
+                        if (authorizationResult.hasResolution()) {
+                            val pendingIntent = authorizationResult.pendingIntent
+                            if (pendingIntent != null) {
+                                driveAuthLauncher.launch(
+                                    IntentSenderRequest.Builder(pendingIntent.intentSender).build()
+                                )
+                            }
+                        } else {
+                            val accessToken = authorizationResult.accessToken
+                            if (!accessToken.isNullOrBlank()) {
+                                val email = uiState.userSettings.cloudUserEmail.ifBlank { "Google Drive Account" }
+                                viewModel.setDriveAccountState(email, accessToken)
+                                Toast.makeText(context, "Connected to Google Drive", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                    .addOnFailureListener { e ->
+                        Toast.makeText(context, "Google Drive sign in: ${e.localizedMessage ?: "Failed"}", Toast.LENGTH_SHORT).show()
+                    }
+            }.onFailure { err ->
+                Toast.makeText(context, "Drive sign in error: ${err.localizedMessage ?: "Error"}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val signOutFromDrive: () -> Unit = {
+        viewModel.clearDriveAccountState()
+        Toast.makeText(context, "Signed out from Google Drive", Toast.LENGTH_SHORT).show()
+    }
+
     // Enhancement A: Biometric / PIN App Lock Gate when opening the application
     if (!uiState.isAuthenticated) {
         BiometricSecurityScreen(
@@ -291,6 +385,12 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                 onTransactionQrClick = { summary ->
                     viewModel.openTransactionQrModal(summary)
                 },
+                onOpenTransactionChat = { summary ->
+                    viewModel.openTransactionChat(summary.transaction.id)
+                },
+                onOpenPartyGeneralChat = { party ->
+                    viewModel.openPartyGeneralChat(party)
+                },
                 onGlobalQrClick = viewModel::openGlobalQrModal,
                 onShareMyPaymentDetailsClick = {
                     viewModel.openShareMyPaymentDetailsModal(null)
@@ -323,6 +423,14 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                     onWhatsAppClick = { summary ->
                         viewModel.openWhatsAppReminderModal(summary.transaction.id)
                     },
+                    onOpenTransactionChat = { summary ->
+                        viewModel.openTransactionChat(summary.transaction.id)
+                    },
+                    onOpenPartyGeneralChat = {
+                        viewModel.openPartyGeneralChat(selectedKhata.party)
+                    },
+                    unreadPartyChatCount = uiState.unreadCountByPartyName[selectedKhata.party.name.trim().lowercase()] ?: 0,
+                    unreadCountByTx = uiState.unreadCountByTx,
                     onPayPartyViaUpi = { amountOwed ->
                         viewModel.openPayPartyViaUpiModal(
                             partyName = selectedKhata.party.name,
@@ -370,9 +478,22 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                 savedParties = uiState.allParties,
                 enabledCurrencies = uiState.userSettings.enabledCurrencies,
                 defaultCurrency = uiState.summaryCurrency,
+                draftAttachments = uiState.draftAttachments,
+                existingAttachments = uiState.attachmentsByTx[uiState.editingTransaction?.id ?: -1L].orEmpty(),
                 onEnableCurrency = { curr ->
                     viewModel.toggleCurrencyEnabled(curr, true)
                 },
+                onAddDraftAttachment = { att ->
+                    val editingId = uiState.editingTransaction?.id
+                    if (editingId != null && editingId > 0L) {
+                        viewModel.addAttachmentToTransaction(editingId, att)
+                    } else {
+                        viewModel.stageDraftAttachment(att)
+                    }
+                },
+                onRemoveDraftAttachment = viewModel::removeDraftAttachment,
+                onDeleteExistingAttachment = viewModel::deleteAttachment,
+                onOpenAttachmentViewer = viewModel::openAttachmentViewer,
                 onSave = viewModel::saveUdhaarTransaction,
                 onCancel = viewModel::navigateBackToDashboard
             )
@@ -447,9 +568,48 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                 onImportLedgerSaf = {
                     openDocumentLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
                 },
+                driveRemoteBackups = uiState.driveRemoteBackups,
+                isDriveOperationInProgress = uiState.isDriveOperationInProgress,
+                driveOperationStatusMessage = uiState.driveOperationStatusMessage,
+                driveOperationError = uiState.driveOperationError,
+                onSignInWithGoogleForDrive = signInWithGoogleForDrive,
+                onSignOutFromDrive = signOutFromDrive,
+                onBackupNowToDrive = { pass, saveAuto ->
+                    viewModel.uploadDriveBackup(pass, saveAuto)
+                },
+                onRestoreDriveBackup = { backup, pass ->
+                    viewModel.downloadAndDecryptDriveBackup(backup, pass)
+                },
+                onDeleteDriveBackup = { backup ->
+                    viewModel.deleteDriveBackup(backup)
+                },
+                onUpdateAutoBackupSettings = { freq, wifiOnly, pass ->
+                    viewModel.updateDriveAutoBackupSettings(freq, wifiOnly, pass)
+                },
+                onRefreshDriveBackups = {
+                    viewModel.refreshDriveBackups()
+                },
+                onClearDriveOperationError = {
+                    viewModel.clearDriveOperationError()
+                },
                 onDismiss = viewModel::closeSettingsModal
             )
         }
+    }
+
+    // Google Drive Restore Preview & Confirmation Dialog
+    if (uiState.showRestorePreviewDialog && uiState.pendingRestoreParsed != null && uiState.pendingRestoreBackup != null) {
+        RestorePreviewDialog(
+            backup = uiState.pendingRestoreBackup!!,
+            parsed = uiState.pendingRestoreParsed!!,
+            onMerge = {
+                viewModel.executeDriveRestore(replaceExisting = false)
+            },
+            onReplace = {
+                viewModel.executeDriveRestore(replaceExisting = true)
+            },
+            onDismiss = viewModel::closeRestorePreviewDialog
+        )
     }
 
     // Add / Edit Party Contact Profile Modal
@@ -474,14 +634,27 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                 (detailSummary.transaction.partyId != null && p.partyId == detailSummary.transaction.partyId) ||
                     p.name.trim().equals(detailSummary.transaction.partyName.trim(), ignoreCase = true)
             }
+            val txAttachments = uiState.attachmentsByTx[detailTxId].orEmpty()
             TransactionDetailModal(
                 summary = detailSummary,
                 partialPayments = payments,
                 auditTrail = auditEntries,
                 linkedParty = linkedParty,
+                attachments = txAttachments,
+                attachmentsByPayment = uiState.attachmentsByPayment,
                 onDismiss = viewModel::closeTransactionDetail,
                 onRecordPartialPayment = { amount, paymentMode, note ->
                     viewModel.recordPartialPayment(detailSummary, amount, paymentMode, note, recordedByCounterparty = false)
+                },
+                onRecordPartialPaymentWithProof = { amount, paymentMode, note, proofAttachment ->
+                    viewModel.recordPartialPayment(
+                        summary = detailSummary,
+                        amount = amount,
+                        paymentMode = paymentMode,
+                        note = note,
+                        recordedByCounterparty = false,
+                        proofAttachment = proofAttachment
+                    )
                 },
                 onRecordCounterpartyPayment = { amount, paymentMode, note ->
                     viewModel.recordPartialPayment(detailSummary, amount, paymentMode, note, recordedByCounterparty = true)
@@ -492,6 +665,11 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                 onDeletePartialPayment = { payment ->
                     viewModel.deletePartialPayment(detailSummary, payment)
                 },
+                onAddAttachment = { att ->
+                    viewModel.addAttachmentToTransaction(detailTxId, att)
+                },
+                onDeleteAttachment = viewModel::deleteAttachment,
+                onOpenAttachmentViewer = viewModel::openAttachmentViewer,
                 onRequestVerification = {
                     viewModel.requestVerificationForTransaction(detailSummary.transaction)
                 },
@@ -518,9 +696,147 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                 },
                 onOpenWhatsApp = {
                     viewModel.openWhatsAppReminderModal(detailSummary.transaction.id)
+                },
+                unreadChatCount = uiState.unreadCountByTx[detailSummary.transaction.id] ?: 0,
+                onOpenTransactionChat = {
+                    viewModel.closeTransactionDetail()
+                    viewModel.openTransactionChat(detailSummary.transaction.id)
                 }
             )
         }
+    }
+
+    // Phase 4: In-App Communication Chat Thread Bottom Sheet (Per-Transaction or Per-Party)
+    val activeThreadKey = uiState.activeChatThreadKey
+    if (!activeThreadKey.isNullOrBlank()) {
+        val activeTxId = uiState.activeChatTransactionId
+        val activeTxSummary = if (activeTxId != null) {
+            uiState.allCalculatedItems.find { it.transaction.id == activeTxId }
+        } else {
+            null
+        }
+        val activeParty = uiState.allParties.find { p ->
+            (uiState.activeChatPartyId != null && p.partyId == uiState.activeChatPartyId) ||
+                p.name.trim().equals(uiState.activeChatPartyName.trim(), ignoreCase = true)
+        }
+        val threadMetadata = uiState.chatThreadsByKey[activeThreadKey]
+        val messages = uiState.chatMessagesByThreadKey[activeThreadKey].orEmpty()
+        val auditEvents = if (activeTxId != null) {
+            uiState.auditTrailByTx[activeTxId].orEmpty()
+        } else {
+            emptyList()
+        }
+
+        val resolvedPartyName = uiState.activeChatPartyName.ifBlank {
+            activeTxSummary?.transaction?.partyName ?: activeParty?.name ?: "Party"
+        }
+        val resolvedPartyId = uiState.activeChatPartyId ?: activeTxSummary?.transaction?.partyId ?: activeParty?.partyId
+
+        ChatThreadBottomSheet(
+            threadKey = activeThreadKey,
+            scope = uiState.activeChatScope,
+            partyName = resolvedPartyName,
+            partyId = resolvedPartyId,
+            partyPhone = activeTxSummary?.transaction?.phoneNumber?.ifBlank { activeParty?.phoneNumber.orEmpty() }
+                ?: activeParty?.phoneNumber.orEmpty(),
+            transactionSummary = activeTxSummary,
+            threadMetadata = threadMetadata,
+            messages = messages,
+            auditEntries = auditEvents,
+            myProfileName = uiState.userSettings.payeeName.ifBlank { "You" },
+            myUpiId = uiState.userSettings.upiId,
+            onDismiss = viewModel::closeChatSheet,
+            onSendMessage = { messageType, textContent, attachmentUri, attachmentMimeType, fromCounterparty ->
+                viewModel.sendChatMessage(
+                    threadKey = activeThreadKey,
+                    scope = uiState.activeChatScope,
+                    transaction = activeTxSummary?.transaction,
+                    partyId = resolvedPartyId,
+                    partyName = resolvedPartyName,
+                    messageType = messageType,
+                    textContent = textContent,
+                    attachmentUri = attachmentUri,
+                    attachmentMimeType = attachmentMimeType,
+                    fromCounterparty = fromCounterparty
+                )
+            },
+            onRequestExtension = { proposedMillis, note, requestedByCounterparty ->
+                if (activeTxSummary != null) {
+                    viewModel.requestDueDateExtension(
+                        transaction = activeTxSummary.transaction,
+                        proposedDueDateMillis = proposedMillis,
+                        note = note,
+                        requestedByCounterparty = requestedByCounterparty
+                    )
+                    Toast.makeText(
+                        context,
+                        "Due-date extension proposed in chat.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            },
+            onRespondToExtension = { message, accept ->
+                if (activeTxSummary != null) {
+                    viewModel.respondToExtensionRequest(activeTxSummary.transaction, message, accept)
+                    Toast.makeText(
+                        context,
+                        if (accept) "Extension accepted! Due date updated." else "Extension request declined.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            },
+            onSetTypingIndicator = { isTyping ->
+                viewModel.setTypingIndicator(
+                    threadKey = activeThreadKey,
+                    scope = uiState.activeChatScope,
+                    transactionId = activeTxSummary?.transaction?.id,
+                    remoteId = activeTxSummary?.transaction?.remoteId.orEmpty(),
+                    partyId = resolvedPartyId,
+                    partyName = resolvedPartyName,
+                    isCounterpartyTyping = isTyping
+                )
+            },
+            onToggleMute = {
+                viewModel.toggleThreadMute(
+                    threadKey = activeThreadKey,
+                    scope = uiState.activeChatScope,
+                    transactionId = activeTxSummary?.transaction?.id,
+                    remoteId = activeTxSummary?.transaction?.remoteId.orEmpty(),
+                    partyId = resolvedPartyId,
+                    partyName = resolvedPartyName
+                )
+            },
+            onToggleBlock = {
+                viewModel.toggleThreadBlock(
+                    threadKey = activeThreadKey,
+                    scope = uiState.activeChatScope,
+                    transactionId = activeTxSummary?.transaction?.id,
+                    remoteId = activeTxSummary?.transaction?.remoteId.orEmpty(),
+                    partyId = resolvedPartyId,
+                    partyName = resolvedPartyName
+                )
+            },
+            onReportAbusiveUser = { reason ->
+                viewModel.reportAbusiveUserInThread(
+                    threadKey = activeThreadKey,
+                    scope = uiState.activeChatScope,
+                    transactionId = activeTxSummary?.transaction?.id,
+                    remoteId = activeTxSummary?.transaction?.remoteId.orEmpty(),
+                    partyId = resolvedPartyId,
+                    partyName = resolvedPartyName,
+                    reason = reason
+                )
+                Toast.makeText(
+                    context,
+                    "Abusive user reported and blocked.",
+                    Toast.LENGTH_LONG
+                ).show()
+            },
+            onOpenWhatsAppFallback = { txId ->
+                viewModel.closeChatSheet()
+                viewModel.openWhatsAppReminderModal(txId)
+            }
+        )
     }
 
     // Phase 3: Verification Share Sheet (QR & Link for https://jyotirmoyb.com/u/<token>)
@@ -529,10 +845,12 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
     if (verifyShareTxId != null && !verifyShareLink.isNullOrBlank()) {
         val txSummary = uiState.allCalculatedItems.find { it.transaction.id == verifyShareTxId }
         if (txSummary != null) {
+            val verifyAttachments = uiState.attachmentsByTx[verifyShareTxId].orEmpty()
             VerificationShareSheet(
                 transaction = txSummary.transaction,
                 shareLink = verifyShareLink,
                 settings = uiState.userSettings,
+                attachments = verifyAttachments,
                 onDismiss = viewModel::closeVerificationShareModal,
                 onOpenVerificationLink = { link ->
                     viewModel.closeVerificationShareModal()
@@ -705,6 +1023,21 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
     if (uiState.showShareAppModal) {
         ShareUdhaarAppModal(
             onDismiss = viewModel::closeShareAppModal
+        )
+    }
+
+    // Phase 6: Full-Screen Pinch-Zoom Attachment Viewer Modal
+    val viewerAttachment = uiState.activeViewerAttachment
+    if (viewerAttachment != null) {
+        AttachmentViewerModal(
+            attachment = viewerAttachment,
+            onDismiss = viewModel::closeAttachmentViewer,
+            onShare = {
+                AttachmentManager.shareAttachment(context, viewerAttachment.localPath, viewerAttachment.mimeType)
+            },
+            onDelete = {
+                viewModel.deleteAttachment(viewerAttachment)
+            }
         )
     }
 }

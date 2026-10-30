@@ -93,6 +93,21 @@ class PinSecurityManager(context: Context) {
             .apply()
     }
 
+    fun saveAutoBackupPassphrase(passphrase: String) {
+        val blob = encryptWithKeystoreOrEncode(passphrase.toByteArray(Charsets.UTF_8))
+        prefs.edit().putString(KEY_AUTO_BACKUP_PASSPHRASE_BLOB, blob).apply()
+    }
+
+    fun getAutoBackupPassphrase(): String? {
+        val blob = prefs.getString(KEY_AUTO_BACKUP_PASSPHRASE_BLOB, null) ?: return null
+        val decrypted = decryptWithKeystoreOrDecode(blob) ?: return null
+        return String(decrypted, Charsets.UTF_8)
+    }
+
+    fun clearAutoBackupPassphrase() {
+        prefs.edit().remove(KEY_AUTO_BACKUP_PASSPHRASE_BLOB).apply()
+    }
+
     fun resetFailedAttempts() {
         prefs.edit()
             .putInt(KEY_FAILED_ATTEMPTS, 0)
@@ -274,6 +289,7 @@ class PinSecurityManager(context: Context) {
         private const val KEY_PIN_HASH_BLOB = "pin_hash_blob"
         private const val KEY_FAILED_ATTEMPTS = "pin_failed_attempts"
         private const val KEY_LOCKOUT_UNTIL_MILLIS = "pin_lockout_until_millis"
+        private const val KEY_AUTO_BACKUP_PASSPHRASE_BLOB = "auto_backup_passphrase_blob"
 
         private const val ANDROID_KEYSTORE = "AndroidKeyStore"
         private const val KEYSTORE_ALIAS = "udhaar_pin_master_key_v1"

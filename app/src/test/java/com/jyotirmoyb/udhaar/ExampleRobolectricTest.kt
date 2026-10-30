@@ -305,4 +305,250 @@ class ExampleRobolectricTest {
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("contact_admin_button")).assertExists()
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("save_settings_button")).assertExists()
     }
+
+    @Test
+    fun `phase 4 in-app communication - chat messages extension request updates due date and audit trail and moderation works`() =
+        kotlinx.coroutines.test.runTest {
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            val db = androidx.room.Room.inMemoryDatabaseBuilder(
+                context,
+                com.jyotirmoyb.udhaar.data.UdhaarDatabase::class.java
+            ).allowMainThreadQueries().build()
+            val dao = db.udhaarDao()
+            val repo = com.jyotirmoyb.udhaar.data.UdhaarRepository(dao, context)
+
+            val initialDue = 1_750_000_000_000L
+            val proposedDue = initialDue + 15L * 86_400_000L
+            val txId = dao.insertTransaction(
+                UdhaarTransaction(
+                    transactionType = TransactionType.GIVEN,
+                    partyName = "Suresh Hardware",
+                    phoneNumber = "+91 9876500001",
+                    currency = CurrencyType.INR,
+                    principalAmount = 12_000.0,
+                    startDateMillis = 1_740_000_000_000L,
+                    expiryDateMillis = initialDue
+                )
+            )
+            val savedTx = dao.getTransactionById(txId)!!
+            val threadKey = repo.buildTransactionThreadKey(savedTx)
+
+            // 1. Send quick reply & payment proof in transaction thread
+            repo.sendChatMessage(
+                threadKey = threadKey,
+                scope = com.jyotirmoyb.udhaar.data.ChatThreadScope.TRANSACTION,
+                transactionId = txId,
+                partyId = savedTx.partyId,
+                partyName = savedTx.partyName,
+                messageType = com.jyotirmoyb.udhaar.data.ChatMessageType.QUICK_REPLY,
+                textContent = "I will pay on Friday"
+            )
+            repo.sendChatMessage(
+                threadKey = threadKey,
+                scope = com.jyotirmoyb.udhaar.data.ChatThreadScope.TRANSACTION,
+                transactionId = txId,
+                partyId = savedTx.partyId,
+                partyName = savedTx.partyName,
+                messageType = com.jyotirmoyb.udhaar.data.ChatMessageType.PAYMENT_PROOF,
+                textContent = "Attached UPI receipt",
+                proofAttachmentUri = "content://com.jyotirmoyb.udhaar.fileprovider/proof.pdf",
+                proofMimeType = "application/pdf",
+                proofFileName = "proof.pdf"
+            )
+
+            // 2. One-tap Request Extension -> Accept updates expiryDateMillis, contentHash, and Audit Trail
+            val extMsg = repo.requestDueDateExtension(
+                transaction = savedTx,
+                proposedDueDateMillis = proposedDue,
+                reasonText = "Need 15 more days for stock clearance"
+            )
+            assertEquals(com.jyotirmoyb.udhaar.data.ChatMessageType.EXTENSION_REQUEST, extMsg.messageType)
+            assertEquals(com.jyotirmoyb.udhaar.data.ExtensionRequestStatus.PENDING, extMsg.extensionStatus)
+
+            repo.respondToExtensionRequest(message = extMsg, accept = true)
+
+            val updatedTx = dao.getTransactionById(txId)!!
+            assertEquals(proposedDue, updatedTx.expiryDateMillis)
+            org.junit.Assert.assertNotEquals(savedTx.contentHash, updatedTx.contentHash)
+
+            val audits = dao.getAuditTrailForTransactionSnapshot(txId)
+            assertTrue(audits.any { it.eventType == com.jyotirmoyb.udhaar.data.AuditEventType.EXTENSION_REQUESTED })
+            assertTrue(audits.any { it.eventType == com.jyotirmoyb.udhaar.data.AuditEventType.EXTENSION_ACCEPTED })
+
+            // 3. Mute, Block & Report abusive user controls on the thread
+            repo.toggleThreadMute(threadKey, true)
+            assertTrue(dao.getChatThreadByKey(threadKey)!!.isMuted)
+
+            repo.reportAbusiveUserInThread(threadKey, "Abusive language in payment chat")
+            val moderatedThread = dao.getChatThreadByKey(threadKey)!!
+            assertTrue(moderatedThread.isReported)
+            assertTrue(moderatedThread.isBlocked)
+            assertEquals("Abusive language in payment chat", moderatedThread.reportReason)
+
+            db.close()
+        }
+
+    @Test
+    fun `driveBackupCrypto encrypt and decrypt roundtrip with AES-256-GCM and preview`() {
+        val originalPayload = """{"appName":"Udhaar","transactionsCount":5,"secret":"vault_data_12345"}"""
+        val passphrase = "MasterPassphrase@2026"
+        val preview = com.jyotirmoyb.udhaar.backup.BackupPreviewSummary(
+            partiesCount = 3,
+            transactionsCount = 5,
+            paymentsCount = 8,
+            attachmentsCount = 2,
+            appVersion = "7.0",
+            createdAtMillis = System.currentTimeMillis()
+        )
+
+        val encryptedBytes = com.jyotirmoyb.udhaar.backup.DriveBackupCrypto.encrypt(
+            plainBytes = originalPayload.toByteArray(Charsets.UTF_8),
+            passphrase = passphrase,
+            preview = preview
+        )
+
+        assertTrue(encryptedBytes.isNotEmpty())
+
+        // Verify unencrypted preview peek
+        val peekedPreview = com.jyotirmoyb.udhaar.backup.DriveBackupCrypto.peekPreview(encryptedBytes)
+        assertNotNull(peekedPreview)
+        assertEquals(3, peekedPreview?.partiesCount)
+        assertEquals(5, peekedPreview?.transactionsCount)
+        assertEquals(8, peekedPreview?.paymentsCount)
+        assertEquals(2, peekedPreview?.attachmentsCount)
+
+        // Decrypt with correct passphrase
+        val decryptedBytes = com.jyotirmoyb.udhaar.backup.DriveBackupCrypto.decrypt(encryptedBytes, passphrase)
+        val decryptedString = String(decryptedBytes, Charsets.UTF_8)
+        assertEquals(originalPayload, decryptedString)
+    }
+
+    @Test(expected = com.jyotirmoyb.udhaar.backup.InvalidPassphraseException::class)
+    fun `driveBackupCrypto decrypt with wrong passphrase throws InvalidPassphraseException`() {
+        val originalPayload = "Confidential ledger data"
+        val correctPass = "CorrectSecret123"
+        val wrongPass = "IncorrectSecret999"
+        val preview = com.jyotirmoyb.udhaar.backup.BackupPreviewSummary(
+            partiesCount = 1,
+            transactionsCount = 1,
+            paymentsCount = 0,
+            attachmentsCount = 0,
+            appVersion = "7.0",
+            createdAtMillis = System.currentTimeMillis()
+        )
+
+        val encryptedBytes = com.jyotirmoyb.udhaar.backup.DriveBackupCrypto.encrypt(
+            plainBytes = originalPayload.toByteArray(Charsets.UTF_8),
+            passphrase = correctPass,
+            preview = preview
+        )
+
+        com.jyotirmoyb.udhaar.backup.DriveBackupCrypto.decrypt(encryptedBytes, wrongPass)
+    }
+
+    @Test
+    fun `ledgerBackupManager schema version 5 supports chat, settings, and attachments with backwards compatibility`() {
+        val party = PartyEntity(partyId = 1L, name = "Kishore")
+        val tx = UdhaarTransaction(
+            id = 100L,
+            partyName = "Kishore",
+            principalAmount = 25_000.0,
+            currency = CurrencyType.INR
+        )
+        val payment = PartialPayment(
+            id = 50L,
+            transactionId = 100L,
+            amount = 5_000.0
+        )
+        val thread = com.jyotirmoyb.udhaar.data.ChatThreadMetadata(
+            threadKey = "tx_100",
+            threadScope = com.jyotirmoyb.udhaar.data.ChatThreadScope.TRANSACTION,
+            transactionId = 100L,
+            partyName = "Kishore"
+        )
+        val chatMsg = com.jyotirmoyb.udhaar.data.ChatMessageEntity(
+            id = 1L,
+            threadKey = "tx_100",
+            bodyText = "Will pay balance on Monday",
+            isFromMe = true
+        )
+        val settingsMap = mapOf(
+            "upiId" to "kishore@upi",
+            "defaultCurrency" to "INR",
+            "inrEnabled" to true
+        )
+        val attachments = mapOf("proof_100.png" to "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
+
+        val jsonString = LedgerBackupManager.buildBackupJson(
+            parties = listOf(party),
+            transactions = listOf(tx),
+            partialPayments = listOf(payment),
+            chatThreads = listOf(thread),
+            chatMessages = listOf(chatMsg),
+            settings = settingsMap,
+            attachments = attachments
+        )
+
+        val parsed = LedgerBackupManager.parseBackupJson(jsonString)
+        assertEquals(5, parsed.schemaVersion)
+        assertEquals(1, parsed.parties.size)
+        assertEquals(1, parsed.transactions.size)
+        assertEquals(1, parsed.partialPayments.size)
+        assertEquals(1, parsed.chatThreads.size)
+        assertEquals(1, parsed.chatMessages.size)
+        assertEquals("Will pay balance on Monday", parsed.chatMessages[0].bodyText)
+        assertEquals("kishore@upi", parsed.settings["upiId"])
+        assertEquals(1, parsed.attachments.size)
+
+        // Test backwards compatibility with legacy v1 format
+        val legacyV1Json = """
+            {
+                "schemaVersion": 1,
+                "parties": [{"id": 1, "name": "Old Friend"}],
+                "transactions": [{"id": 1, "partyName": "Old Friend", "principalAmount": 1000.0, "currency": "INR", "transactionType": "GIVEN"}]
+            }
+        """.trimIndent()
+        val parsedLegacy = LedgerBackupManager.parseBackupJson(legacyV1Json)
+        assertEquals(1, parsedLegacy.schemaVersion)
+        assertEquals(1, parsedLegacy.parties.size)
+        assertEquals(1, parsedLegacy.transactions.size)
+    }
+
+    @Test
+    fun `restoreFullLedgerBackup wipes old data on replaceExisting true and preserves on merge`() =
+        kotlinx.coroutines.test.runTest {
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            val db = androidx.room.Room.inMemoryDatabaseBuilder(context, com.jyotirmoyb.udhaar.data.UdhaarDatabase::class.java)
+                .allowMainThreadQueries()
+                .build()
+            val dao = db.udhaarDao()
+            val repo = com.jyotirmoyb.udhaar.data.UdhaarRepository(dao, context)
+
+            // Seed initial local data
+            dao.insertParty(PartyEntity(partyId = 1L, name = "Local Party"))
+            dao.insertTransaction(UdhaarTransaction(id = 1L, partyName = "Local Party", principalAmount = 500.0))
+
+            val backupToRestore = com.jyotirmoyb.udhaar.util.ParsedLedgerBackup(
+                exportType = "FULL_LEDGER",
+                schemaVersion = 5,
+                parties = listOf(PartyEntity(partyId = 99L, name = "Cloud Restored Party")),
+                transactions = listOf(UdhaarTransaction(id = 99L, partyName = "Cloud Restored Party", principalAmount = 5000.0)),
+                partialPayments = emptyList(),
+                chatThreads = emptyList(),
+                chatMessages = emptyList(),
+                settings = mapOf("upiId" to "restored@upi"),
+                attachments = emptyMap()
+            )
+
+            // Test Replace: should wipe local data
+            val restoredCount = repo.restoreFullLedgerBackup(backupToRestore, replaceExisting = true)
+            assertEquals(1, restoredCount)
+
+            val partiesAfterReplace = dao.getAllPartiesSnapshot()
+            assertEquals(1, partiesAfterReplace.size)
+            assertEquals("Cloud Restored Party", partiesAfterReplace[0].name)
+
+            db.close()
+        }
 }
+

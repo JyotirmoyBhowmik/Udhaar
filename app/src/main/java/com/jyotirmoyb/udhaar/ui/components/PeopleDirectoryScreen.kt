@@ -109,7 +109,9 @@ fun PeopleDirectoryContent(
     onSearchQueryChange: (String) -> Unit,
     onAddPartyClick: () -> Unit,
     onPartyClick: (PartyKhataSummary) -> Unit,
-    onQuickAddLoanForParty: (PartyEntity) -> Unit
+    onQuickAddLoanForParty: (PartyEntity) -> Unit,
+    unreadCountByPartyName: Map<String, Int> = emptyMap(),
+    onOpenPartyGeneralChat: (PartyEntity) -> Unit = {}
 ) {
     LazyColumn(
         modifier = Modifier
@@ -265,10 +267,13 @@ fun PeopleDirectoryContent(
                 items = partyKhataList,
                 key = { "${it.party.partyId}_${it.party.name}" }
             ) { khata ->
+                val partyUnread = unreadCountByPartyName[khata.party.name.trim().lowercase()] ?: 0
                 PartyDirectoryCard(
                     khata = khata,
                     enabledCurrencies = enabledCurrencies,
+                    unreadCount = partyUnread,
                     onClick = { onPartyClick(khata) },
+                    onChatClick = { onOpenPartyGeneralChat(khata.party) },
                     onAddLoanClick = { onQuickAddLoanForParty(khata.party) }
                 )
             }
@@ -280,7 +285,9 @@ fun PeopleDirectoryContent(
 private fun PartyDirectoryCard(
     khata: PartyKhataSummary,
     enabledCurrencies: List<CurrencyType>,
+    unreadCount: Int = 0,
     onClick: () -> Unit,
+    onChatClick: () -> Unit = {},
     onAddLoanClick: () -> Unit
 ) {
     val party = khata.party
@@ -347,6 +354,21 @@ private fun PartyDirectoryCard(
                             color = SecondaryInkGrey,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                if (unreadCount > 0) {
+                    Box(
+                        modifier = Modifier
+                            .background(PureBlack, RoundedCornerShape(2.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .testTag("party_unread_badge_${party.name}")
+                    ) {
+                        Text(
+                            text = "💬 $unreadCount NEW",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = PureWhite,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
@@ -433,21 +455,42 @@ private fun PartyDirectoryCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            OutlinedButton(
-                onClick = onAddLoanClick,
-                modifier = Modifier.height(32.dp),
-                shape = RoundedCornerShape(3.dp),
-                border = BorderStroke(1.dp, PureBlack),
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = null,
-                    modifier = Modifier.size(13.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("NEW LOAN", style = MaterialTheme.typography.labelSmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedButton(
+                    onClick = onChatClick,
+                    modifier = Modifier
+                        .height(32.dp)
+                        .testTag("party_card_chat_${party.name}"),
+                    shape = RoundedCornerShape(3.dp),
+                    border = BorderStroke(1.dp, PureBlack),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = if (unreadCount > 0) PureBlack else PureWhite,
+                        contentColor = if (unreadCount > 0) PureWhite else PureBlack
+                    )
+                ) {
+                    Text(
+                        text = if (unreadCount > 0) "CHAT ($unreadCount)" else "CHAT",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                OutlinedButton(
+                    onClick = onAddLoanClick,
+                    modifier = Modifier.height(32.dp),
+                    shape = RoundedCornerShape(3.dp),
+                    border = BorderStroke(1.dp, PureBlack),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("NEW LOAN", style = MaterialTheme.typography.labelSmall)
+                }
             }
         }
     }
@@ -472,7 +515,11 @@ fun PartyDetailScreen(
     onExportPartyStatement: () -> Unit,
     onSharePartyStatement: () -> Unit,
     onShareMyPaymentDetails: () -> Unit = {},
-    onRequestPartyPaymentDetails: () -> Unit = {}
+    onRequestPartyPaymentDetails: () -> Unit = {},
+    onOpenTransactionChat: (CalculatedUdhaarSummary) -> Unit = {},
+    onOpenPartyGeneralChat: () -> Unit = {},
+    unreadPartyChatCount: Int = 0,
+    unreadCountByTx: Map<Long, Int> = emptyMap()
 ) {
     BackHandler {
         onBack()
@@ -480,6 +527,7 @@ fun PartyDetailScreen(
 
     val context = LocalContext.current
     val party = khata.party
+    val unreadCount = unreadPartyChatCount
     val inrEnabled = CurrencyType.INR in enabledCurrencies
     val nprEnabled = CurrencyType.NPR in enabledCurrencies
 
@@ -918,6 +966,31 @@ fun PartyDetailScreen(
                             }
                         }
 
+                        // Phase 4: Open General Party Chat Thread
+                        Button(
+                            onClick = onOpenPartyGeneralChat,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
+                                .testTag("party_open_general_chat_button"),
+                            shape = RoundedCornerShape(4.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = PureBlack,
+                                contentColor = PureWhite
+                            )
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (unreadCount > 0) {
+                                    "OPEN PARTY CHAT THREAD (💬 $unreadCount UNREAD)"
+                                } else {
+                                    "OPEN PARTY CHAT THREAD"
+                                },
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+
                         // Export / Share Statement JSON Row
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -986,11 +1059,16 @@ fun PartyDetailScreen(
                         key = { it.transaction.id }
                     ) { summary ->
                         val tx = summary.transaction
+                        val txUnread = unreadCountByTx[tx.id] ?: 0
                         val isGiven = tx.transactionType == TransactionType.GIVEN
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .border(1.dp, BorderGrey, RoundedCornerShape(4.dp))
+                                .border(
+                                    width = if (txUnread > 0) 1.5.dp else 1.dp,
+                                    color = if (txUnread > 0) PureBlack else BorderGrey,
+                                    shape = RoundedCornerShape(4.dp)
+                                )
                                 .background(if (tx.isSettled) SubtleSurfaceGrey else PureWhite, RoundedCornerShape(4.dp))
                                 .clickable { onTransactionClick(summary) }
                                 .padding(14.dp),
@@ -1025,6 +1103,20 @@ fun PartyDetailScreen(
                                             style = MaterialTheme.typography.labelSmall,
                                             color = PureBlack
                                         )
+                                    }
+                                    if (txUnread > 0) {
+                                        Box(
+                                            modifier = Modifier
+                                                .background(PureBlack, RoundedCornerShape(2.dp))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = "💬 $txUnread NEW",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = PureWhite
+                                            )
+                                        }
                                     }
                                 }
                                 Text(
@@ -1065,24 +1157,43 @@ fun PartyDetailScreen(
                                     style = MaterialTheme.typography.labelSmall,
                                     color = SecondaryInkGrey
                                 )
-                                OutlinedButton(
-                                    onClick = { onWhatsAppClick(summary) },
-                                    modifier = Modifier.height(34.dp),
-                                    shape = RoundedCornerShape(3.dp),
-                                    border = BorderStroke(1.dp, PureBlack),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        containerColor = PureBlack,
-                                        contentColor = PureWhite
-                                    )
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.Send,
-                                        contentDescription = "Remind on WhatsApp",
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("REMIND", style = MaterialTheme.typography.labelSmall, color = PureWhite)
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    OutlinedButton(
+                                        onClick = { onOpenTransactionChat(summary) },
+                                        modifier = Modifier.height(34.dp),
+                                        shape = RoundedCornerShape(3.dp),
+                                        border = BorderStroke(1.dp, PureBlack),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            containerColor = if (txUnread > 0) PureBlack else PureWhite,
+                                            contentColor = if (txUnread > 0) PureWhite else PureBlack
+                                        )
+                                    ) {
+                                        Text(
+                                            text = if (txUnread > 0) "CHAT ($txUnread)" else "CHAT",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    OutlinedButton(
+                                        onClick = { onWhatsAppClick(summary) },
+                                        modifier = Modifier.height(34.dp),
+                                        shape = RoundedCornerShape(3.dp),
+                                        border = BorderStroke(1.dp, PureBlack),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            containerColor = PureBlack,
+                                            contentColor = PureWhite
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.Send,
+                                            contentDescription = "Remind on WhatsApp",
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("REMIND", style = MaterialTheme.typography.labelSmall, color = PureWhite)
+                                    }
                                 }
                             }
                         }

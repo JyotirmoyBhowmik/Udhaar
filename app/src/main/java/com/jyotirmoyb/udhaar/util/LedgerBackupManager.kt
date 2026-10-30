@@ -3,10 +3,17 @@ package com.jyotirmoyb.udhaar.util
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
+import com.jyotirmoyb.udhaar.data.Attachment
+import com.jyotirmoyb.udhaar.data.ChatMessageEntity
+import com.jyotirmoyb.udhaar.data.ChatMessageType
+import com.jyotirmoyb.udhaar.data.ChatThreadMetadata
+import com.jyotirmoyb.udhaar.data.ChatThreadScope
 import com.jyotirmoyb.udhaar.data.CompoundFrequency
 import com.jyotirmoyb.udhaar.data.CurrencyType
+import com.jyotirmoyb.udhaar.data.ExtensionRequestStatus
 import com.jyotirmoyb.udhaar.data.InterestRatePeriod
 import com.jyotirmoyb.udhaar.data.InterestType
+import com.jyotirmoyb.udhaar.data.MessageDeliveryStatus
 import com.jyotirmoyb.udhaar.data.PartialPayment
 import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.PaymentMode
@@ -19,9 +26,15 @@ import java.io.File
 
 data class ParsedLedgerBackup(
     val exportType: String,
+    val schemaVersion: Int = 6,
     val parties: List<PartyEntity>,
     val transactions: List<UdhaarTransaction>,
-    val partialPayments: List<PartialPayment>
+    val partialPayments: List<PartialPayment>,
+    val chatThreads: List<ChatThreadMetadata> = emptyList(),
+    val chatMessages: List<ChatMessageEntity> = emptyList(),
+    val settings: Map<String, Any?> = emptyMap(),
+    val attachments: Map<String, String> = emptyMap(),
+    val attachmentRecords: List<Attachment> = emptyList()
 )
 
 object LedgerBackupManager {
@@ -30,11 +43,16 @@ object LedgerBackupManager {
         parties: List<PartyEntity>,
         transactions: List<UdhaarTransaction>,
         partialPayments: List<PartialPayment>,
+        chatThreads: List<ChatThreadMetadata> = emptyList(),
+        chatMessages: List<ChatMessageEntity> = emptyList(),
+        settings: Map<String, Any?> = emptyMap(),
+        attachments: Map<String, String> = emptyMap(),
+        attachmentRecords: List<Attachment> = emptyList(),
         exportType: String = "FULL_LEDGER",
         statementPartyName: String? = null
     ): String {
         val root = JSONObject()
-        root.put("schemaVersion", 4)
+        root.put("schemaVersion", 6)
         root.put("app", "Udhaar")
         root.put("packageName", "com.jyotirmoyb.udhaar")
         root.put("exportType", exportType)
@@ -118,12 +136,107 @@ object LedgerBackupManager {
         }
         root.put("partialPayments", paymentsArray)
 
+        // Phase 4: Chat Threads & Messages
+        val threadsArray = JSONArray()
+        for (th in chatThreads) {
+            val obj = JSONObject().apply {
+                put("threadKey", th.threadKey)
+                put("remoteThreadId", th.remoteThreadId)
+                put("threadScope", th.threadScope.name)
+                put("transactionId", th.transactionId ?: -1L)
+                put("partyId", th.partyId ?: -1L)
+                put("partyName", th.partyName)
+                put("isMuted", th.isMuted)
+                put("isBlocked", th.isBlocked)
+                put("isReported", th.isReported)
+                put("reportReason", th.reportReason)
+                put("updatedAtMillis", th.updatedAtMillis)
+            }
+            threadsArray.put(obj)
+        }
+        root.put("chatThreads", threadsArray)
+
+        val messagesArray = JSONArray()
+        for (msg in chatMessages) {
+            val obj = JSONObject().apply {
+                put("id", msg.id)
+                put("remoteMessageId", msg.remoteMessageId)
+                put("threadKey", msg.threadKey)
+                put("threadScope", msg.threadScope.name)
+                put("transactionId", msg.transactionId ?: -1L)
+                put("partyId", msg.partyId ?: -1L)
+                put("partyName", msg.partyName)
+                put("senderUserId", msg.senderUserId)
+                put("senderName", msg.senderName)
+                put("isFromMe", msg.isFromMe)
+                put("messageType", msg.messageType.name)
+                put("bodyText", msg.bodyText)
+                put("attachmentUri", msg.attachmentUri)
+                put("attachmentMimeType", msg.attachmentMimeType)
+                put("attachmentName", msg.attachmentName)
+                put("deliveryStatus", msg.deliveryStatus.name)
+                put("isUnreadForMe", msg.isUnreadForMe)
+                put("proposedDueDateMillis", msg.proposedDueDateMillis ?: -1L)
+                put("extensionStatus", msg.extensionStatus.name)
+                put("sentAtMillis", msg.sentAtMillis)
+                put("deliveredAtMillis", msg.deliveredAtMillis ?: -1L)
+                put("readAtMillis", msg.readAtMillis ?: -1L)
+            }
+            messagesArray.put(obj)
+        }
+        root.put("chatMessages", messagesArray)
+
+        // Phase 5: Settings (excluding PIN)
+        if (settings.isNotEmpty()) {
+            val settingsObj = JSONObject()
+            for ((key, value) in settings) {
+                // Security check: NEVER backup PIN or salt
+                if (key.contains("pin", ignoreCase = true) || key.contains("salt", ignoreCase = true)) continue
+                if (value != null) {
+                    settingsObj.put(key, value)
+                }
+            }
+            root.put("settings", settingsObj)
+        }
+
+        // Attachments map (base64 payload for backup zip/json)
+        if (attachments.isNotEmpty()) {
+            val attachmentsObj = JSONObject()
+            for ((name, b64) in attachments) {
+                attachmentsObj.put(name, b64)
+            }
+            root.put("attachments", attachmentsObj)
+        }
+
+        // Phase 6: Attachment Room database records
+        if (attachmentRecords.isNotEmpty()) {
+            val attArray = JSONArray()
+            for (att in attachmentRecords) {
+                val obj = JSONObject().apply {
+                    put("id", att.id)
+                    put("transactionId", att.transactionId)
+                    put("paymentId", att.paymentId ?: -1L)
+                    put("fileName", att.fileName)
+                    put("mimeType", att.mimeType)
+                    put("sizeBytes", att.sizeBytes)
+                    put("localPath", att.localPath)
+                    put("remoteUrl", att.remoteUrl)
+                    put("addedAtMillis", att.addedAtMillis)
+                    put("addedBy", att.addedBy)
+                    put("sha256", att.sha256)
+                }
+                attArray.put(obj)
+            }
+            root.put("attachmentRecords", attArray)
+        }
+
         return root.toString(2)
     }
 
     fun parseBackupJson(jsonString: String): ParsedLedgerBackup {
         val root = JSONObject(jsonString)
         val exportType = root.optString("exportType", "FULL_LEDGER")
+        val schemaVersion = root.optInt("schemaVersion", 1)
 
         val parties = mutableListOf<PartyEntity>()
         val partiesArray = root.optJSONArray("parties") ?: JSONArray()
@@ -233,11 +346,131 @@ object LedgerBackupManager {
             )
         }
 
+        val chatThreads = mutableListOf<ChatThreadMetadata>()
+        val threadsArray = root.optJSONArray("chatThreads") ?: JSONArray()
+        for (i in 0 until threadsArray.length()) {
+            val obj = threadsArray.getJSONObject(i)
+            val txId = obj.optLong("transactionId", -1L).takeIf { it > 0L }
+            val partyId = obj.optLong("partyId", -1L).takeIf { it > 0L }
+            chatThreads.add(
+                ChatThreadMetadata(
+                    threadKey = obj.optString("threadKey"),
+                    remoteThreadId = obj.optString("remoteThreadId"),
+                    threadScope = runCatching {
+                        ChatThreadScope.valueOf(obj.optString("threadScope", "TRANSACTION"))
+                    }.getOrDefault(ChatThreadScope.TRANSACTION),
+                    transactionId = txId,
+                    partyId = partyId,
+                    partyName = obj.optString("partyName"),
+                    isMuted = obj.optBoolean("isMuted", false),
+                    isBlocked = obj.optBoolean("isBlocked", false),
+                    isReported = obj.optBoolean("isReported", false),
+                    reportReason = obj.optString("reportReason"),
+                    updatedAtMillis = obj.optLong("updatedAtMillis", System.currentTimeMillis())
+                )
+            )
+        }
+
+        val chatMessages = mutableListOf<ChatMessageEntity>()
+        val messagesArray = root.optJSONArray("chatMessages") ?: JSONArray()
+        for (i in 0 until messagesArray.length()) {
+            val obj = messagesArray.getJSONObject(i)
+            val txId = obj.optLong("transactionId", -1L).takeIf { it > 0L }
+            val partyId = obj.optLong("partyId", -1L).takeIf { it > 0L }
+            val extStatus = runCatching {
+                ExtensionRequestStatus.valueOf(obj.optString("extensionStatus", "NONE"))
+            }.getOrDefault(ExtensionRequestStatus.NONE)
+            val delivStatus = runCatching {
+                MessageDeliveryStatus.valueOf(obj.optString("deliveryStatus", "SENT"))
+            }.getOrDefault(MessageDeliveryStatus.SENT)
+            val msgType = runCatching {
+                ChatMessageType.valueOf(obj.optString("messageType", "TEXT"))
+            }.getOrDefault(ChatMessageType.TEXT)
+
+            chatMessages.add(
+                ChatMessageEntity(
+                    id = obj.optLong("id", 0L),
+                    remoteMessageId = obj.optString("remoteMessageId"),
+                    threadKey = obj.optString("threadKey"),
+                    threadScope = runCatching {
+                        ChatThreadScope.valueOf(obj.optString("threadScope", "TRANSACTION"))
+                    }.getOrDefault(ChatThreadScope.TRANSACTION),
+                    transactionId = txId,
+                    partyId = partyId,
+                    partyName = obj.optString("partyName"),
+                    senderUserId = obj.optString("senderUserId"),
+                    senderName = obj.optString("senderName", "You"),
+                    isFromMe = obj.optBoolean("isFromMe", true),
+                    messageType = msgType,
+                    bodyText = obj.optString("bodyText"),
+                    attachmentUri = obj.optString("attachmentUri"),
+                    attachmentMimeType = obj.optString("attachmentMimeType"),
+                    attachmentName = obj.optString("attachmentName"),
+                    deliveryStatus = delivStatus,
+                    isUnreadForMe = obj.optBoolean("isUnreadForMe", false),
+                    proposedDueDateMillis = obj.optLong("proposedDueDateMillis", -1L).takeIf { it > 0L },
+                    extensionStatus = extStatus,
+                    sentAtMillis = obj.optLong("sentAtMillis", System.currentTimeMillis()),
+                    deliveredAtMillis = obj.optLong("deliveredAtMillis", -1L).takeIf { it > 0L },
+                    readAtMillis = obj.optLong("readAtMillis", -1L).takeIf { it > 0L }
+                )
+            )
+        }
+
+        val settings = mutableMapOf<String, Any?>()
+        val settingsObj = root.optJSONObject("settings")
+        if (settingsObj != null) {
+            val keys = settingsObj.keys()
+            while (keys.hasNext()) {
+                val k = keys.next()
+                if (k.contains("pin", ignoreCase = true) || k.contains("salt", ignoreCase = true)) continue
+                settings[k] = settingsObj.opt(k)
+            }
+        }
+
+        val attachments = mutableMapOf<String, String>()
+        val attachmentsObj = root.optJSONObject("attachments")
+        if (attachmentsObj != null) {
+            val keys = attachmentsObj.keys()
+            while (keys.hasNext()) {
+                val k = keys.next()
+                attachments[k] = attachmentsObj.optString(k)
+            }
+        }
+
+        val attachmentRecords = mutableListOf<Attachment>()
+        val attRecordsArray = root.optJSONArray("attachmentRecords") ?: JSONArray()
+        for (i in 0 until attRecordsArray.length()) {
+            val obj = attRecordsArray.getJSONObject(i)
+            val paymentIdRaw = obj.optLong("paymentId", -1L).takeIf { it > 0L }
+            attachmentRecords.add(
+                Attachment(
+                    id = obj.optLong("id", 0L),
+                    transactionId = obj.optLong("transactionId", 0L),
+                    paymentId = paymentIdRaw,
+                    fileName = obj.optString("fileName", ""),
+                    mimeType = obj.optString("mimeType", "application/octet-stream"),
+                    sizeBytes = obj.optLong("sizeBytes", 0L),
+                    localPath = obj.optString("localPath", ""),
+                    remoteUrl = obj.optString("remoteUrl", ""),
+                    addedAtMillis = obj.optLong("addedAtMillis", System.currentTimeMillis()),
+                    addedBy = obj.optString("addedBy", "You"),
+                    sha256 = obj.optString("sha256", "")
+                )
+            )
+        }
+
         return ParsedLedgerBackup(
             exportType = exportType,
+            schemaVersion = schemaVersion,
             parties = parties,
             transactions = transactions,
-            partialPayments = partialPayments
+            partialPayments = partialPayments,
+            chatThreads = chatThreads,
+            chatMessages = chatMessages,
+            settings = settings,
+            attachments = attachments,
+            attachmentRecords = attachmentRecords
         )
     }
 

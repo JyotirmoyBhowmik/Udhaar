@@ -9,4 +9,10 @@
     <cache-path
         name="shared_receipts"
         path="receipts/" />
+    <files-path
+        name="attachments"
+        path="attachments/" />
+    <cache-path
+        name="attachments_cache"
+        path="attachments/" />
 </paths>

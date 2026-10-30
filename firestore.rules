@@ -37,6 +37,14 @@ service cloud.firestore {
              (listVal.size() == 1 || (listVal[1] is string && listVal[1].size() >= 1 && listVal[1].size() <= 128));
     }
 
+    function isValidOptionalUidList(listVal) {
+      return listVal is list &&
+             listVal.size() >= 0 &&
+             listVal.size() <= 2 &&
+             (listVal.size() == 0 || (listVal[0] is string && listVal[0].size() >= 1 && listVal[0].size() <= 128)) &&
+             (listVal.size() <= 1 || (listVal[1] is string && listVal[1].size() >= 1 && listVal[1].size() <= 128));
+    }
+
     // =========================================================================
     // 1. /user_profiles/{userId} — Owner-Isolated Payment & Verification Profile
     // =========================================================================
@@ -169,7 +177,7 @@ service cloud.firestore {
                              'verifiedAtMillis', 'disputeReason', 'updatedAt'
                            ])
                          ) ||
-                         // Action 2: Existing participant updates verification status, terms, or settlement
+                         // Action 2: Existing participant updates verification status, terms, extension due date, or settlement
                          (
                            request.auth.uid in existing().participantUids &&
                            incoming().counterpartyUid == existing().counterpartyUid &&
@@ -259,7 +267,9 @@ service cloud.firestore {
                data.remoteId is string && data.remoteId == remoteId &&
                data.eventType is string && data.eventType in [
                  'CREATED', 'SHARED', 'VIEWED', 'CONFIRMED', 'DISPUTED',
-                 'EDITED', 'PAYMENT_RECORDED', 'PAYMENT_ACKNOWLEDGED', 'SETTLED'
+                 'EDITED', 'PAYMENT_RECORDED', 'PAYMENT_ACKNOWLEDGED',
+                 'EXTENSION_REQUESTED', 'EXTENSION_ACCEPTED', 'EXTENSION_DECLINED',
+                 'SETTLED'
                ] &&
                data.actorUid is string && data.actorUid.size() >= 1 && data.actorUid.size() <= 128 &&
                data.actorName is string && data.actorName.size() >= 1 && data.actorName.size() <= 100 &&
@@ -299,6 +309,173 @@ service cloud.firestore {
 
         // Allow creator of event to delete only when exercising "Delete my cloud data"
         allow delete: if isSignedIn() && isValidId(remoteId) && isValidId(eventId) && existing().actorUid == request.auth.uid;
+      }
+    }
+
+    // =========================================================================
+    // 5. /chat_threads/{threadId} — Phase 4 In-App Communication Thread
+    //    Readable & writable ONLY by the two participants on the thread.
+    // =========================================================================
+    function isValidChatThread(data) {
+      return data.threadId is string && data.threadId.size() >= 1 && data.threadId.size() <= 128 &&
+             data.threadScope is string && data.threadScope in ['TRANSACTION', 'PARTY'] &&
+             data.remoteRecordId is string && data.remoteRecordId.size() <= 128 &&
+             data.partyName is string && data.partyName.size() >= 1 && data.partyName.size() <= 100 &&
+             data.creatorUid is string && data.creatorUid.size() >= 1 && data.creatorUid.size() <= 128 &&
+             data.counterpartyUid is string && data.counterpartyUid.size() <= 128 &&
+             isValidParticipantsList(data.participantUids) &&
+             data.creatorUid in data.participantUids &&
+             data.typingUid is string && data.typingUid.size() <= 128 &&
+             data.typingUpdatedAtMillis is int && data.typingUpdatedAtMillis >= -1 &&
+             isValidOptionalUidList(data.mutedByUids) &&
+             data.blockedByUid is string && data.blockedByUid.size() <= 128 &&
+             data.reportedByUid is string && data.reportedByUid.size() <= 128 &&
+             data.reportReason is string && data.reportReason.size() <= 300 &&
+             data.lastMessagePreview is string && data.lastMessagePreview.size() <= 300 &&
+             data.lastMessageAtMillis is int && data.lastMessageAtMillis >= -1 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    match /chat_threads/{threadId} {
+      allow get: if isSignedIn() && isValidId(threadId) && request.auth.uid in existing().participantUids;
+      allow list: if isSignedIn() && request.auth.uid in existing().participantUids;
+
+      allow create: if isSignedIn() &&
+                       isValidId(threadId) &&
+                       incoming().threadId == threadId &&
+                       incoming().creatorUid == request.auth.uid &&
+                       request.auth.uid in incoming().participantUids &&
+                       incoming().keys().hasAll([
+                         'threadId', 'threadScope', 'remoteRecordId', 'partyName',
+                         'creatorUid', 'counterpartyUid', 'participantUids',
+                         'typingUid', 'typingUpdatedAtMillis', 'mutedByUids',
+                         'blockedByUid', 'reportedByUid', 'reportReason',
+                         'lastMessagePreview', 'lastMessageAtMillis',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'threadId', 'threadScope', 'remoteRecordId', 'partyName',
+                         'creatorUid', 'counterpartyUid', 'participantUids',
+                         'typingUid', 'typingUpdatedAtMillis', 'mutedByUids',
+                         'blockedByUid', 'reportedByUid', 'reportReason',
+                         'lastMessagePreview', 'lastMessageAtMillis',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidChatThread(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(threadId) &&
+                       isValidChatThread(incoming()) &&
+                       incoming().threadId == existing().threadId &&
+                       incoming().creatorUid == existing().creatorUid &&
+                       incoming().threadScope == existing().threadScope &&
+                       incoming().createdAt == existing().createdAt &&
+                       (
+                         // Action 1: Counterparty joins an unclaimed thread
+                         (
+                           existing().counterpartyUid == '' &&
+                           existing().participantUids.size() == 1 &&
+                           request.auth.uid != existing().creatorUid &&
+                           incoming().counterpartyUid == request.auth.uid &&
+                           incoming().participantUids.size() == 2 &&
+                           request.auth.uid in incoming().participantUids &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'counterpartyUid', 'participantUids', 'typingUid',
+                             'typingUpdatedAtMillis', 'lastMessagePreview',
+                             'lastMessageAtMillis', 'updatedAt'
+                           ])
+                         ) ||
+                         // Action 2: Participant updates typing indicator, mute/block/report, or last message
+                         (
+                           request.auth.uid in existing().participantUids &&
+                           incoming().counterpartyUid == existing().counterpartyUid &&
+                           incoming().participantUids == existing().participantUids &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'partyName', 'typingUid', 'typingUpdatedAtMillis',
+                             'mutedByUids', 'blockedByUid', 'reportedByUid',
+                             'reportReason', 'lastMessagePreview',
+                             'lastMessageAtMillis', 'updatedAt'
+                           ])
+                         )
+                       );
+
+      allow delete: if isSignedIn() && isValidId(threadId) && existing().creatorUid == request.auth.uid;
+
+      // =======================================================================
+      // 6. /chat_threads/{threadId}/messages/{messageId}
+      // =======================================================================
+      function isValidChatMessage(data) {
+        return data.messageId is string && data.messageId.size() >= 1 && data.messageId.size() <= 128 &&
+               data.threadId is string && data.threadId == threadId &&
+               data.senderUid is string && data.senderUid.size() >= 1 && data.senderUid.size() <= 128 &&
+               data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 100 &&
+               isValidParticipantsList(data.participantUids) &&
+               data.senderUid in data.participantUids &&
+               data.messageType is string && data.messageType in [
+                 'TEXT', 'QUICK_REPLY', 'PAYMENT_PROOF', 'SYSTEM_AUDIT', 'EXTENSION_REQUEST'
+               ] &&
+               data.bodyText is string && data.bodyText.size() <= 1000 &&
+               data.attachmentUri is string && data.attachmentUri.size() <= 512 &&
+               data.attachmentMimeType is string && data.attachmentMimeType.size() <= 100 &&
+               data.attachmentName is string && data.attachmentName.size() <= 150 &&
+               data.deliveryStatus is string && data.deliveryStatus in ['SENT', 'DELIVERED', 'READ'] &&
+               data.proposedDueDateMillis is int && data.proposedDueDateMillis >= -1 &&
+               data.extensionStatus is string && data.extensionStatus in ['NONE', 'PENDING', 'ACCEPTED', 'DECLINED'] &&
+               data.sentAtMillis is int && data.sentAtMillis > 0 &&
+               data.deliveredAtMillis is int && data.deliveredAtMillis >= -1 &&
+               data.readAtMillis is int && data.readAtMillis >= -1 &&
+               data.createdAt is timestamp && data.createdAt <= request.time &&
+               data.updatedAt is timestamp && data.updatedAt <= request.time;
+      }
+
+      match /messages/{messageId} {
+        allow get: if isSignedIn() && isValidId(threadId) && isValidId(messageId) && request.auth.uid in existing().participantUids;
+        allow list: if isSignedIn() && request.auth.uid in existing().participantUids;
+
+        allow create: if isSignedIn() &&
+                         isValidId(threadId) &&
+                         isValidId(messageId) &&
+                         incoming().messageId == messageId &&
+                         incoming().threadId == threadId &&
+                         incoming().senderUid == request.auth.uid &&
+                         request.auth.uid in incoming().participantUids &&
+                         incoming().keys().hasAll([
+                           'messageId', 'threadId', 'senderUid', 'senderName',
+                           'participantUids', 'messageType', 'bodyText',
+                           'attachmentUri', 'attachmentMimeType', 'attachmentName',
+                           'deliveryStatus', 'proposedDueDateMillis', 'extensionStatus',
+                           'sentAtMillis', 'deliveredAtMillis', 'readAtMillis',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'messageId', 'threadId', 'senderUid', 'senderName',
+                           'participantUids', 'messageType', 'bodyText',
+                           'attachmentUri', 'attachmentMimeType', 'attachmentName',
+                           'deliveryStatus', 'proposedDueDateMillis', 'extensionStatus',
+                           'sentAtMillis', 'deliveredAtMillis', 'readAtMillis',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidChatMessage(incoming());
+
+        allow update: if isSignedIn() &&
+                         isValidId(threadId) &&
+                         isValidId(messageId) &&
+                         isValidChatMessage(incoming()) &&
+                         request.auth.uid in existing().participantUids &&
+                         incoming().messageId == existing().messageId &&
+                         incoming().threadId == existing().threadId &&
+                         incoming().senderUid == existing().senderUid &&
+                         incoming().messageType == existing().messageType &&
+                         incoming().bodyText == existing().bodyText &&
+                         incoming().proposedDueDateMillis == existing().proposedDueDateMillis &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'deliveryStatus', 'deliveredAtMillis', 'readAtMillis',
+                           'extensionStatus', 'participantUids', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && isValidId(threadId) && isValidId(messageId) && existing().senderUid == request.auth.uid;
       }
     }
   }

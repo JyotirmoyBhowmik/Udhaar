@@ -126,4 +126,82 @@ class VerificationCloudRepositoryRuleTest : FirestoreEmulatorTestBase() {
             repository.getSharedRecord("rec-kotlin-1")
         }
     }
+
+    @Test
+    fun `chat thread and extension request messages work for participants and deny outsiders`() = runEmulatorTest {
+        val lenderUid = signInAs("lender-chat@udhaar.test")
+        val borrowerUid = signInAs("borrower-chat@udhaar.test")
+
+        // Switch back to lender to create the thread
+        signInAs("lender-chat@udhaar.test")
+        val thread = CloudChatThread(
+            threadId = "tx_rec-chat-1",
+            scope = "TRANSACTION",
+            remoteId = "rec-chat-1",
+            partyName = "Borrower User",
+            creatorUid = lenderUid,
+            counterpartyUid = borrowerUid,
+            participantUids = listOf(lenderUid, borrowerUid),
+            lastMessagePreview = "Thread opened",
+            lastMessageAtMillis = 1710000000000L
+        )
+        repository.upsertChatThread(thread)
+
+        // Borrower sends a quick reply and an extension request
+        signInAs("borrower-chat@udhaar.test")
+        val quickReply = CloudChatMessage(
+            messageId = "msg-qr-1",
+            threadId = "tx_rec-chat-1",
+            remoteId = "rec-chat-1",
+            senderUid = borrowerUid,
+            senderName = "Borrower User",
+            participantUids = listOf(lenderUid, borrowerUid),
+            messageType = "QUICK_REPLY",
+            textContent = "I will pay on Friday",
+            proposedDueDateMillis = -1L,
+            extensionStatus = "NONE",
+            deliveryStatus = "SENT",
+            sentAtMillis = 1710000010000L
+        )
+        repository.sendChatMessage(quickReply)
+
+        val extReq = CloudChatMessage(
+            messageId = "msg-ext-1",
+            threadId = "tx_rec-chat-1",
+            remoteId = "rec-chat-1",
+            senderUid = borrowerUid,
+            senderName = "Borrower User",
+            participantUids = listOf(lenderUid, borrowerUid),
+            messageType = "EXTENSION_REQUEST",
+            textContent = "Requesting extension until next Friday",
+            proposedDueDateMillis = 1711500000000L,
+            extensionStatus = "PENDING",
+            deliveryStatus = "SENT",
+            sentAtMillis = 1710000020000L
+        )
+        repository.sendChatMessage(extReq)
+
+        // Lender marks message read and accepts extension request
+        signInAs("lender-chat@udhaar.test")
+        repository.updateChatMessageDeliveryOrExtension(
+            threadId = "tx_rec-chat-1",
+            messageId = "msg-ext-1",
+            deliveryStatus = "READ",
+            deliveredAtMillis = 1710000030000L,
+            readAtMillis = 1710000035000L,
+            extensionStatus = "ACCEPTED"
+        )
+
+        val messages = repository.listChatMessages("tx_rec-chat-1", lenderUid)
+        assertEquals(2, messages.size)
+        val updatedExt = messages.first { it.messageId == "msg-ext-1" }
+        assertEquals("ACCEPTED", updatedExt.extensionStatus)
+        assertEquals("READ", updatedExt.deliveryStatus)
+
+        // Outsider cannot read chat thread
+        signInAs("outsider-chat@udhaar.test")
+        assertPermissionDenied {
+            repository.getChatThread("tx_rec-chat-1")
+        }
+    }
 }

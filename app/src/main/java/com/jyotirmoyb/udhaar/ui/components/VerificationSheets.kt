@@ -74,6 +74,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.Checkbox
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.core.content.FileProvider
+import com.jyotirmoyb.udhaar.data.Attachment
 import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.TransactionType
@@ -84,6 +88,7 @@ import com.jyotirmoyb.udhaar.ui.theme.PureWhite
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 import com.jyotirmoyb.udhaar.util.UpiQrGenerator
 import com.jyotirmoyb.udhaar.util.VerificationCryptoHelper
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -94,6 +99,7 @@ fun VerificationShareSheet(
     transaction: UdhaarTransaction,
     shareLink: String,
     settings: UserSettings,
+    attachments: List<Attachment> = emptyList(),
     onDismiss: () -> Unit,
     onOpenVerificationLink: (String) -> Unit
 ) {
@@ -103,6 +109,7 @@ fun VerificationShareSheet(
     }
     var pastedLink by remember { mutableStateOf("") }
     var showPasteInput by remember { mutableStateOf(false) }
+    var shareAttachmentsWithPerson by rememberSaveable { mutableStateOf(false) }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
@@ -245,9 +252,44 @@ fun VerificationShareSheet(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                if (attachments.isNotEmpty()) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = shareAttachmentsWithPerson,
+                                onCheckedChange = { shareAttachmentsWithPerson = it },
+                                modifier = Modifier.testTag("share_attachments_checkbox")
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Share attachments with this person",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "${attachments.size} proof document(s) / bill(s) attached",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
+                }
 
-                val shareMessage = remember(transaction, shareLink, settings) {
+                val shareMessage = remember(transaction, shareLink, settings, shareAttachmentsWithPerson, attachments) {
                     val calc = InterestCalculator.calculate(transaction)
                     val myName = settings.payeeName.ifBlank { "Udhaar User" }
                     val roleDesc = if (transaction.transactionType == TransactionType.GIVEN) {
@@ -260,32 +302,61 @@ fun VerificationShareSheet(
                         append("Please verify and confirm our Udhaar ledger entry:\n")
                         append("• Summary: $roleDesc\n")
                         append("• Net Balance: ${InterestCalculator.formatCurrency(calc.netBalanceDue, transaction.currency)}\n")
-                        append("• Content Hash: ${transaction.contentHash.take(16)}...\n\n")
-                        append("Confirm or Dispute here (opens in Udhaar or Web):\n")
+                        append("• Content Hash: ${transaction.contentHash.take(16)}...\n")
+                        if (shareAttachmentsWithPerson && attachments.isNotEmpty()) {
+                            append("• Proofs Attached: ${attachments.size} document(s)\n")
+                        }
+                        append("\nConfirm or Dispute here (opens in Udhaar or Web):\n")
                         append(shareLink)
                     }
                 }
 
                 Button(
                     onClick = {
-                        val sanitizedPhone = InterestCalculator.sanitizePhoneForWhatsApp(
-                            transaction.phoneNumber,
-                            transaction.currency
-                        )
-                        val encoded = Uri.encode(shareMessage)
-                        val waUrl = if (sanitizedPhone.isNotBlank()) {
-                            "https://wa.me/$sanitizedPhone?text=$encoded"
+                        val attachmentUris = if (shareAttachmentsWithPerson && attachments.isNotEmpty()) {
+                            ArrayList(attachments.mapNotNull { att ->
+                                try {
+                                    FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", File(att.localPath))
+                                } catch (_: Exception) {
+                                    null
+                                }
+                            })
                         } else {
-                            "https://wa.me/?text=$encoded"
+                            emptyList<Uri>()
                         }
-                        runCatching {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(waUrl)))
-                        }.onFailure {
-                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
+
+                        if (attachmentUris.isNotEmpty()) {
+                            val sendIntent = Intent(if (attachmentUris.size > 1) Intent.ACTION_SEND_MULTIPLE else Intent.ACTION_SEND).apply {
+                                type = "*/*"
+                                if (attachmentUris.size > 1) {
+                                    putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(attachmentUris))
+                                } else {
+                                    putExtra(Intent.EXTRA_STREAM, attachmentUris.first())
+                                }
                                 putExtra(Intent.EXTRA_TEXT, shareMessage)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             }
-                            context.startActivity(Intent.createChooser(sendIntent, "Share Verification Link"))
+                            context.startActivity(Intent.createChooser(sendIntent, "Share Verification & Attachments"))
+                        } else {
+                            val sanitizedPhone = InterestCalculator.sanitizePhoneForWhatsApp(
+                                transaction.phoneNumber,
+                                transaction.currency
+                            )
+                            val encoded = Uri.encode(shareMessage)
+                            val waUrl = if (sanitizedPhone.isNotBlank()) {
+                                "https://wa.me/$sanitizedPhone?text=$encoded"
+                            } else {
+                                "https://wa.me/?text=$encoded"
+                            }
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(waUrl)))
+                            }.onFailure {
+                                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, shareMessage)
+                                }
+                                context.startActivity(Intent.createChooser(sendIntent, "Share Verification Link"))
+                            }
                         }
                     },
                     modifier = Modifier
@@ -300,7 +371,11 @@ fun VerificationShareSheet(
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("SEND VERIFICATION ON WHATSAPP", style = MaterialTheme.typography.labelLarge)
+                    Text(
+                        if (shareAttachmentsWithPerson && attachments.isNotEmpty()) "SHARE VERIFICATION WITH ATTACHMENTS"
+                        else "SEND VERIFICATION ON WHATSAPP",
+                        style = MaterialTheme.typography.labelLarge
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -329,10 +404,36 @@ fun VerificationShareSheet(
 
                     OutlinedButton(
                         onClick = {
-                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_SUBJECT, "Verify Udhaar Entry")
-                                putExtra(Intent.EXTRA_TEXT, shareMessage)
+                            val attachmentUris = if (shareAttachmentsWithPerson && attachments.isNotEmpty()) {
+                                ArrayList(attachments.mapNotNull { att ->
+                                    try {
+                                        FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", File(att.localPath))
+                                    } catch (_: Exception) {
+                                        null
+                                    }
+                                })
+                            } else {
+                                emptyList<Uri>()
+                            }
+
+                            val sendIntent = if (attachmentUris.isNotEmpty()) {
+                                Intent(if (attachmentUris.size > 1) Intent.ACTION_SEND_MULTIPLE else Intent.ACTION_SEND).apply {
+                                    type = "*/*"
+                                    if (attachmentUris.size > 1) {
+                                        putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(attachmentUris))
+                                    } else {
+                                        putExtra(Intent.EXTRA_STREAM, attachmentUris.first())
+                                    }
+                                    putExtra(Intent.EXTRA_SUBJECT, "Verify Udhaar Entry")
+                                    putExtra(Intent.EXTRA_TEXT, shareMessage)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                            } else {
+                                Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_SUBJECT, "Verify Udhaar Entry")
+                                    putExtra(Intent.EXTRA_TEXT, shareMessage)
+                                }
                             }
                             context.startActivity(Intent.createChooser(sendIntent, "Share via SMS or App"))
                         },
