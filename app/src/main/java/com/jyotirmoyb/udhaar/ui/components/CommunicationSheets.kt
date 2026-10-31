@@ -1,4 +1,7 @@
 package com.jyotirmoyb.udhaar.ui.components
+import com.jyotirmoyb.udhaar.R
+
+import androidx.compose.ui.res.stringResource
 
 import android.app.DatePickerDialog
 import android.content.Intent
@@ -237,19 +240,24 @@ fun ChatThreadBottomSheet(
         // Ensure incoming messages are marked read while sheet is open
     }
 
+    val reducedMotion = rememberReducedMotionEnabled()
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) }
     ) {
-        Column(
+        AnimatedSheetContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .imePadding()
                 .padding(horizontal = 16.dp)
                 .padding(bottom = navBarBottom + 16.dp)
                 .testTag("chat_thread_bottom_sheet")
+        ) {
+        Column(
+            modifier = Modifier.fillMaxWidth()
         ) {
             // --- Top Header ---
             Row(
@@ -275,9 +283,9 @@ fun ChatThreadBottomSheet(
                         ) {
                             Text(
                                 text = if (scope == ChatThreadScope.TRANSACTION && tx != null) {
-                                    "${tx.partyName} • ${tx.currency.symbol}${InterestCalculator.formatAmount(tx.principalAmount)}"
+                                    stringResource(R.string.ui_fmt_symbol_099c95, tx.partyName, tx.currency.symbol, InterestCalculator.formatAmount(tx.principalAmount))
                                 } else {
-                                    "$effectivePartyName • General Thread"
+                                    stringResource(R.string.ui_fmt_general_thread_6c2c74, effectivePartyName)
                                 },
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black),
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -290,7 +298,7 @@ fun ChatThreadBottomSheet(
                                 shape = RoundedCornerShape(8.dp)
                             ) {
                                 Text(
-                                    text = "MUTED",
+                                    text = stringResource(R.string.ui_str_muted_a0f807),
                                     modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontSize = 8.sp,
@@ -304,20 +312,21 @@ fun ChatThreadBottomSheet(
 
                     if (isCounterpartyTyping) {
                         Text(
-                            text = "$effectivePartyName is typing…",
+                            text = stringResource(R.string.ui_fmt_is_typing_958d10, effectivePartyName),
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = financeColors.receiveAccent,
                             modifier = Modifier.testTag("chat_typing_indicator")
                         )
                     } else {
+                        val dueLabel = tx?.expiryDateMillis?.let {
+                            val formattedDate = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(it))
+                            stringResource(R.string.ui_fmt_due_date_short, formattedDate)
+                        } ?: stringResource(R.string.ui_no_due_date_set)
                         Text(
                             text = if (scope == ChatThreadScope.TRANSACTION && tx != null) {
-                                val dueLabel = tx.expiryDateMillis?.let {
-                                    "Due ${SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(it))}"
-                                } ?: "No due date set"
-                                "${tx.transactionType.label} • $dueLabel • Audit & Chat"
+                                stringResource(R.string.ui_fmt_audit_chat_c0cee8, tx.transactionType.label, dueLabel)
                             } else {
-                                "Party-level communication & payment proofs"
+                                stringResource(R.string.ui_str_party_level_communication_payment_p_ce4f34)
                             },
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -360,7 +369,7 @@ fun ChatThreadBottomSheet(
                         ) {
                             DropdownMenuItem(
                                 text = {
-                                    Text(if (isMuted) "Unmute Notifications" else "Mute Thread Notifications")
+                                    Text(if (isMuted) stringResource(R.string.ui_str_unmute_notifications_1c25a8) else stringResource(R.string.ui_str_mute_thread_notifications_50c04b))
                                 },
                                 leadingIcon = {
                                     Icon(
@@ -376,8 +385,8 @@ fun ChatThreadBottomSheet(
                             DropdownMenuItem(
                                 text = {
                                     Text(
-                                        if (isCounterpartyTyping) "Stop '$effectivePartyName is typing…'"
-                                        else "Preview '$effectivePartyName is typing…'"
+                                        if (isCounterpartyTyping) stringResource(R.string.ui_fmt_stop_is_typing_cd1e76, effectivePartyName)
+                                        else stringResource(R.string.ui_fmt_preview_is_typing_908f52, effectivePartyName)
                                     )
                                 },
                                 leadingIcon = {
@@ -391,7 +400,7 @@ fun ChatThreadBottomSheet(
                             DropdownMenuItem(
                                 text = {
                                     Text(
-                                        text = if (isBlocked) "Unblock $effectivePartyName" else "Block $effectivePartyName",
+                                        text = if (isBlocked) stringResource(R.string.ui_fmt_unblock_79891e, effectivePartyName) else stringResource(R.string.ui_fmt_block_0b0d58, effectivePartyName),
                                         color = if (isBlocked) MaterialTheme.colorScheme.onSurface else financeColors.payAccent
                                     )
                                 },
@@ -411,7 +420,7 @@ fun ChatThreadBottomSheet(
                             DropdownMenuItem(
                                 text = {
                                     Text(
-                                        text = "Report Abusive User",
+                                        text = stringResource(R.string.ui_str_report_abusive_user_292645),
                                         color = financeColors.payAccent
                                     )
                                 },
@@ -467,7 +476,7 @@ fun ChatThreadBottomSheet(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "REQUEST EXTENSION",
+                            text = stringResource(R.string.ui_str_request_extension_6b0c72),
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black)
                         )
                     }
@@ -519,7 +528,7 @@ fun ChatThreadBottomSheet(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "WHATSAPP FALLBACK",
+                        text = stringResource(R.string.ui_str_whatsapp_fallback_3df293),
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black)
                     )
                 }
@@ -541,7 +550,7 @@ fun ChatThreadBottomSheet(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "PROPOSE NEW DUE DATE (ONE-TAP EXTENSION)",
+                            text = stringResource(R.string.ui_str_propose_new_due_date_one_fbfc83),
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Black,
                                 letterSpacing = 0.8.sp
@@ -555,7 +564,7 @@ fun ChatThreadBottomSheet(
                         OutlinedTextField(
                             value = extensionNoteDraft,
                             onValueChange = { extensionNoteDraft = it },
-                            label = { Text("Optional reason (e.g. Salary credited next week)") },
+                            label = { Text(stringResource(R.string.ui_str_optional_reason_e_g_salary_631efd)) },
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -647,12 +656,12 @@ fun ChatThreadBottomSheet(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "REPORT & BLOCK ${effectivePartyName.uppercase()}",
+                            text = stringResource(R.string.ui_fmt_report_block_107a91, effectivePartyName.uppercase()),
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
                             color = financeColors.payAccent
                         )
                         Text(
-                            text = "Reporting this thread blocks further messages and records your abuse report.",
+                            text = stringResource(R.string.ui_str_reporting_this_thread_blocks_furthe_533f26),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -676,7 +685,7 @@ fun ChatThreadBottomSheet(
                         OutlinedTextField(
                             value = customReportReason,
                             onValueChange = { customReportReason = it },
-                            label = { Text("Reason for report") },
+                            label = { Text(stringResource(R.string.ui_str_reason_for_report_c64e37)) },
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -688,7 +697,7 @@ fun ChatThreadBottomSheet(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             TextButton(onClick = { showReportDialog = false }) {
-                                Text("CANCEL")
+                                Text(stringResource(R.string.ui_str_cancel_1507c4))
                             }
                             Spacer(modifier = Modifier.width(6.dp))
                             Button(
@@ -704,7 +713,7 @@ fun ChatThreadBottomSheet(
                                 ),
                                 modifier = Modifier.testTag("confirm_report_block_button")
                             ) {
-                                Text("REPORT & BLOCK", fontWeight = FontWeight.Black)
+                                Text(stringResource(R.string.ui_str_report_block_67fd77), fontWeight = FontWeight.Black)
                             }
                         }
                     }
@@ -732,15 +741,15 @@ fun ChatThreadBottomSheet(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = if (isReported) {
-                                    "USER REPORTED & BLOCKED (${threadMetadata?.reportReason.orEmpty()})"
+                                    stringResource(R.string.ui_fmt_user_reported_blocked_5785b6, threadMetadata?.reportReason.orEmpty())
                                 } else {
-                                    "THREAD BLOCKED — MESSAGES PAUSED"
+                                    stringResource(R.string.ui_str_thread_blocked_messages_paused_5309cf)
                                 },
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
                                 color = financeColors.payAccent
                             )
                             Text(
-                                text = "Unblock to resume sending or receiving messages in this thread.",
+                                text = stringResource(R.string.ui_str_unblock_to_resume_sending_or_92897f),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -749,7 +758,7 @@ fun ChatThreadBottomSheet(
                             onClick = onToggleBlock,
                             modifier = Modifier.testTag("unblock_thread_button")
                         ) {
-                            Text("UNBLOCK", fontWeight = FontWeight.Black)
+                            Text(stringResource(R.string.ui_str_unblock_ffe934), fontWeight = FontWeight.Black)
                         }
                     }
                 }
@@ -781,12 +790,12 @@ fun ChatThreadBottomSheet(
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Text(
-                                    text = "No messages yet with $effectivePartyName",
+                                    text = stringResource(R.string.ui_fmt_no_messages_yet_with_2caa5a, effectivePartyName),
                                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Tap a quick reply below, attach a payment proof image/PDF, or propose a due-date extension.",
+                                    text = stringResource(R.string.ui_str_tap_a_quick_reply_below_e95e6d),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -803,16 +812,18 @@ fun ChatThreadBottomSheet(
                             }
                         }
                     ) { item ->
-                        when (item) {
-                            is TimelineDisplayItem.AuditSystemItem -> {
-                                SystemAuditPillItem(entry = item.entry)
-                            }
-                            is TimelineDisplayItem.UserChatMessageItem -> {
-                                ChatMessageBubbleItem(
-                                    message = item.message,
-                                    onAcceptExtension = { onRespondToExtension(item.message, true) },
-                                    onDeclineExtension = { onRespondToExtension(item.message, false) }
-                                )
+                        Box(modifier = udhaarAnimateItem(reducedMotion)) {
+                            when (item) {
+                                is TimelineDisplayItem.AuditSystemItem -> {
+                                    SystemAuditPillItem(entry = item.entry)
+                                }
+                                is TimelineDisplayItem.UserChatMessageItem -> {
+                                    ChatMessageBubbleItem(
+                                        message = item.message,
+                                        onAcceptExtension = { onRespondToExtension(item.message, true) },
+                                        onDeclineExtension = { onRespondToExtension(item.message, false) }
+                                    )
+                                }
                             }
                         }
                     }
@@ -862,11 +873,12 @@ fun ChatThreadBottomSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                val mySenderDisplay = myProfileName.ifBlank { stringResource(R.string.ui_you) }
                 Text(
                     text = if (simulateCounterpartyMode) {
-                        "Mode: Simulating incoming message from $effectivePartyName"
+                        stringResource(R.string.ui_fmt_mode_simulating_incoming_message_fr_6e18be, effectivePartyName)
                     } else {
-                        "Sending as: ${myProfileName.ifBlank { "You" }}"
+                        stringResource(R.string.ui_fmt_sending_as_6853d3, mySenderDisplay)
                     },
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                     color = if (simulateCounterpartyMode) financeColors.receiveAccent else MaterialTheme.colorScheme.onSurfaceVariant
@@ -876,7 +888,7 @@ fun ChatThreadBottomSheet(
                     onClick = { simulateCounterpartyMode = !simulateCounterpartyMode },
                     label = {
                         Text(
-                            text = if (simulateCounterpartyMode) "Switch to You" else "Simulate $effectivePartyName Reply",
+                            text = if (simulateCounterpartyMode) stringResource(R.string.ui_str_switch_to_you_3af7a0) else stringResource(R.string.ui_fmt_simulate_reply_4d6eab, effectivePartyName),
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         )
                     },
@@ -938,7 +950,7 @@ fun ChatThreadBottomSheet(
                     },
                     placeholder = {
                         Text(
-                            text = if (isBlocked) "Thread is blocked" else "Write a message or note…",
+                            text = if (isBlocked) stringResource(R.string.ui_str_thread_is_blocked_31e13b) else stringResource(R.string.ui_str_write_a_message_or_note_8070bf),
                             style = MaterialTheme.typography.bodySmall
                         )
                     },
@@ -969,6 +981,7 @@ fun ChatThreadBottomSheet(
                     enabled = !isBlocked && messageDraft.isNotBlank(),
                     modifier = Modifier
                         .height(48.dp)
+                        .pressScaleFeedback()
                         .testTag("chat_send_message_button"),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 14.dp)
@@ -980,6 +993,7 @@ fun ChatThreadBottomSheet(
                     )
                 }
             }
+        }
         }
     }
 }
@@ -1010,7 +1024,7 @@ private fun SystemAuditPillItem(entry: AuditTrailEntry) {
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "${entry.eventType.label}: ${entry.summaryText} (${timeFmt.format(Date(entry.eventTimeMillis))})",
+                    text = stringResource(R.string.ui_fmt_symbol_9c4f32, entry.eventType.label, entry.summaryText, timeFmt.format(Date(entry.eventTimeMillis))),
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1072,7 +1086,7 @@ private fun ChatMessageBubbleItem(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (isOutgoing) "You (${message.senderName})" else message.senderName,
+                        text = if (isOutgoing) stringResource(R.string.ui_fmt_you_382cbf, message.senderName) else message.senderName,
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Black
@@ -1081,7 +1095,7 @@ private fun ChatMessageBubbleItem(
                     )
                     if (message.messageType == ChatMessageType.QUICK_REPLY) {
                         Text(
-                            text = "QUICK REPLY",
+                            text = stringResource(R.string.ui_str_quick_reply_ce8251),
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontSize = 8.sp,
                                 fontWeight = FontWeight.Bold
@@ -1118,9 +1132,9 @@ private fun ChatMessageBubbleItem(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = if (message.attachmentMimeType.contains("pdf", ignoreCase = true)) {
-                                        "PAYMENT PROOF (PDF DOCUMENT)"
+                                        stringResource(R.string.ui_str_payment_proof_pdf_document_28f436)
                                     } else {
-                                        "PAYMENT PROOF (IMAGE RECEIPT)"
+                                        stringResource(R.string.ui_str_payment_proof_image_receipt_5f4055)
                                     },
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontSize = 9.sp,
@@ -1129,7 +1143,7 @@ private fun ChatMessageBubbleItem(
                                     color = financeColors.receiveAccent
                                 )
                                 Text(
-                                    text = message.attachmentUri.takeLast(36).ifBlank { "Verified local attachment" },
+                                    text = message.attachmentUri.takeLast(36).ifBlank { stringResource(R.string.ui_str_verified_local_attachment_57cd60) },
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontSize = 9.sp,
                                         fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily
@@ -1170,7 +1184,7 @@ private fun ChatMessageBubbleItem(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "PROPOSED DUE: $proposedDateText",
+                                    text = stringResource(R.string.ui_fmt_proposed_due_de12ce, proposedDateText),
                                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
@@ -1217,7 +1231,7 @@ private fun ChatMessageBubbleItem(
                                         contentPadding = PaddingValues(horizontal = 8.dp)
                                     ) {
                                         Text(
-                                            text = "ACCEPT",
+                                            text = stringResource(R.string.ui_str_accept_514158),
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black)
                                         )
                                     }
@@ -1231,7 +1245,7 @@ private fun ChatMessageBubbleItem(
                                         contentPadding = PaddingValues(horizontal = 8.dp)
                                     ) {
                                         Text(
-                                            text = "DECLINE",
+                                            text = stringResource(R.string.ui_str_decline_2adbe2),
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black)
                                         )
                                     }
@@ -1276,9 +1290,9 @@ private fun ChatMessageBubbleItem(
                         Spacer(modifier = Modifier.width(2.dp))
                         Text(
                             text = when (message.deliveryStatus) {
-                                MessageDeliveryStatus.SENT -> "Sent"
-                                MessageDeliveryStatus.DELIVERED -> "Delivered"
-                                MessageDeliveryStatus.READ -> "Read"
+                                MessageDeliveryStatus.SENT -> stringResource(R.string.ui_str_sent_35f49d)
+                                MessageDeliveryStatus.DELIVERED -> stringResource(R.string.ui_str_delivered_eea956)
+                                MessageDeliveryStatus.READ -> stringResource(R.string.ui_str_read_852b43)
                             },
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontSize = 9.sp,

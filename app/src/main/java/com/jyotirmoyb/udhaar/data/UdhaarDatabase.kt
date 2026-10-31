@@ -363,12 +363,14 @@ abstract class UdhaarDatabase : RoomDatabase() {
 
         fun getInstance(context: Context): UdhaarDatabase {
             return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
+                val baseBuilder = Room.databaseBuilder(
                     context.applicationContext,
                     UdhaarDatabase::class.java,
                     "udhaar_ledger.db"
-                )
-                    .addMigrations(*ALL_MIGRATIONS)
+                ).addMigrations(*ALL_MIGRATIONS)
+
+                val instance = com.jyotirmoyb.udhaar.security.EncryptedStorageManager
+                    .configureSqlCipherForRoom(context.applicationContext, baseBuilder, "udhaar_ledger.db")
                     .build()
                 INSTANCE = instance
                 instance

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Udhaar — Two-Party Record Verification</title>
+  <style>
+    :root {
+      --bg: #f3f7f5;
+      --card: #ffffff;
+      --ink: #0e3828;
+      --muted: #5d7a6e;
+      --border: #cbdad3;
+      --green-bg: #a2d6be;
+      --green-ink: #0b3625;
+      --red-bg: #f89894;
+      --red-ink: #5a1513;
+      --accent: #369668;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      width: 100%;
+      max-width: 460px;
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: 0 12px 32px rgba(14, 56, 40, 0.08);
+    }
+    .brand {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .brand h1 {
+      font-size: 22px;
+      letter-spacing: 0.04em;
+      font-weight: 800;
+    }
+    .badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--green-bg);
+      color: var(--green-ink);
+    }
+    .amount-box {
+      background: #eaf2ee;
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .amount-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .amount-value {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 30px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+    .row span:first-child { color: var(--muted); }
+    .row span:last-child { font-weight: 600; text-align: right; }
+    .hash-box {
+      margin-top: 14px;
+      padding: 10px 12px;
+      background: #f8faf9;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      color: var(--muted);
+      word-break: break-all;
+    }
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    button, .btn-link {
+      appearance: none;
+      border: none;
+      border-radius: 12px;
+      padding: 13px 16px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      transition: transform 0.15s ease;
+    }
+    button:active, .btn-link:active { transform: scale(0.96); }
+    .btn-confirm {
+      background: var(--ink);
+      color: #ffffff;
+    }
+    .btn-dispute {
+      background: var(--red-bg);
+      color: var(--red-ink);
+    }
+    .btn-install {
+      grid-column: 1 / -1;
+      background: var(--accent);
+      color: #ffffff;
+      margin-top: 4px;
+      display: block;
+    }
+    .status-banner {
+      display: none;
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <div class="brand">
+      <div>
+        <h1>UDHAAR</h1>
+        <p style="font-size: 12px; color: var(--muted);">Read-Only Shared Verification Record</p>
+      </div>
+      <span class="badge" id="statusBadge">PENDING</span>
+    </div>
+
+    <div class="amount-box">
+      <div class="amount-label" id="roleLabel">Principal Amount</div>
+      <div class="amount-value" id="amountValue">₹0</div>
+    </div>
+
+    <div id="detailsList">
+      <div class="row"><span>Lender (Given by)</span><span id="lenderVal">—</span></div>
+      <div class="row"><span>Borrower (Taken by)</span><span id="borrowerVal">—</span></div>
+      <div class="row"><span>Start Date</span><span id="startVal">—</span></div>
+      <div class="row"><span>Due Date</span><span id="dueVal">Open-ended</span></div>
+      <div class="row"><span>Interest Terms</span><span id="interestVal">Interest-free (0%)</span></div>
+    </div>
+
+    <div class="hash-box" id="hashVal">SHA-256: Verifying cryptographic digest…</div>
+
+    <div class="status-banner" id="statusBanner"></div>
+
+    <div class="actions">
+      <button class="btn-confirm" id="confirmBtn" type="button">✓ Confirm Record</button>
+      <button class="btn-dispute" id="disputeBtn" type="button">✕ Dispute Terms</button>
+      <a class="btn-link btn-install" id="installBtn" href="intent://jyotirmoyb.com/u/#Intent;scheme=https;package=com.jyotirmoyb.udhaar;end">
+        Open or Install Udhaar App
+      </a>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const encoded = params.get("d") || "";
+      const fullUrl = window.location.href;
+      const installBtn = document.getElementById("installBtn");
+      installBtn.href = "intent://jyotirmoyb.com" + window.location.pathname + window.location.search +
+        "#Intent;scheme=https;package=com.jyotirmoyb.udhaar;S.browser_fallback_url=" +
+        encodeURIComponent("https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar") + ";end";
+
+      function decodeBase64Url(str) {
+        try {
+          const pad = str.length % 4 === 0 ? "" : "=".repeat(4 - (str.length % 4));
+          const b64 = str.replace(/-/g, "+").replace(/_/g, "/") + pad;
+          return JSON.parse(decodeURIComponent(escape(atob(b64))));
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function fmtDate(ms) {
+        if (!ms || ms <= 0) return "Open-ended";
+        const d = new Date(Number(ms));
+        if (isNaN(d.getTime())) return "Open-ended";
+        const dateStr = d.toLocaleDateString("en-IN", {
+          day: "2-digit", month: "short", year: "numeric"
+        });
+        if (d.getHours() !== 0 || d.getMinutes() !== 0) {
+          const timeStr = d.toLocaleTimeString("en-IN", {
+            hour: "2-digit", minute: "2-digit", hour12: true
+          });
+          return dateStr + ", " + timeStr;
+        }
+        return dateStr;
+      }
+
+      const payload = encoded ? decodeBase64Url(encoded) : null;
+      if (payload) {
+        const symbol = payload.c === "NPR" ? "रू " : "₹";
+        document.getElementById("amountValue").textContent = symbol + Number(payload.p || 0).toLocaleString("en-IN");
+        document.getElementById("lenderVal").textContent = payload.ln || "—";
+        document.getElementById("borrowerVal").textContent = payload.bn || "—";
+        document.getElementById("startVal").textContent = fmtDate(payload.sd);
+        document.getElementById("dueVal").textContent = fmtDate(payload.ed);
+        document.getElementById("interestVal").textContent = payload.ie
+          ? (payload.ir + "% " + (payload.it || "SIMPLE") + " (" + (payload.irp || "PER_ANNUM") + ")")
+          : "Interest-free (0%)";
+        document.getElementById("hashVal").textContent = "SHA-256: " + (payload.h || "Unverified");
+      } else {
+        document.getElementById("hashVal").textContent =
+          "Open this link inside the Udhaar Android app or append the ?d= verification payload.";
+      }
+
+      function showActionBanner(text, bg, color) {
+        const banner = document.getElementById("statusBanner");
+        banner.style.display = "block";
+        banner.style.background = bg;
+        banner.style.color = color;
+        banner.textContent = text;
+      }
+
+      document.getElementById("confirmBtn").addEventListener("click", function () {
+        document.getElementById("statusBadge").textContent = "CONFIRMED";
+        showActionBanner(
+          "Confirmed! Opening Udhaar to sign and sync your confirmation to the shared audit trail…",
+          "#cde9dc",
+          "#0b3625"
+        );
+        window.location.href = fullUrl;
+      });
+
+      document.getElementById("disputeBtn").addEventListener("click", function () {
+        const reason = window.prompt("Enter reason for disputing this record:", "Amount or due date is incorrect");
+        if (reason !== null) {
+          document.getElementById("statusBadge").textContent = "DISPUTED";
+          showActionBanner(
+            "Dispute noted (" + reason + "). Opening Udhaar to record your dispute on the audit trail…",
+            "#f89894",
+            "#5a1513"
+          );
+          window.location.href = fullUrl;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

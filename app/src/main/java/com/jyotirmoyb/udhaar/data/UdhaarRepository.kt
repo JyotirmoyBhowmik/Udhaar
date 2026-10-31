@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -1107,20 +1108,62 @@ class UdhaarRepository(
             }
         }
 
+        context?.let { ctx ->
+            runCatching {
+                com.jyotirmoyb.udhaar.security.EncryptedStorageManager.getEncryptedPreferences(ctx)
+                    .edit()
+                    .putString("upi_id", upiId.trim())
+                    .putString("payee_name", payeeName.trim())
+                    .apply {
+                        if (phoneNumber != null) putString("user_phone_number", phoneNumber.trim())
+                    }
+                    .apply()
+            }
+        }
+
         val currentSettings = userSettings.first()
         if (currentSettings.cloudVerificationConsent && currentSettings.cloudUserId.isNotBlank()) {
             runCatching {
+                val fcmToken = resolveCurrentFcmToken()
                 cloudRepository?.upsertUserProfile(
                     CloudUserProfile(
                         userId = currentSettings.cloudUserId,
                         displayName = currentSettings.payeeName.ifBlank { "Udhaar User" },
                         phoneNumber = currentSettings.phoneNumber,
                         upiId = currentSettings.upiId,
-                        photoUri = currentSettings.profilePhotoUri
+                        photoUri = currentSettings.profilePhotoUri,
+                        fcmToken = fcmToken
                     )
                 )
             }
         }
+    }
+
+    private suspend fun resolveCurrentFcmToken(): String {
+        val ctx = context ?: return ""
+        val cached = runCatching {
+            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.getEncryptedPreferences(ctx)
+                .getString(
+                    com.jyotirmoyb.udhaar.notification.UdhaarFirebaseMessagingService.KEY_FCM_TOKEN,
+                    ""
+                )
+                .orEmpty()
+        }.getOrDefault("")
+        if (cached.isNotBlank()) return cached
+        return runCatching {
+            val fresh = com.google.firebase.messaging.FirebaseMessaging.getInstance().token
+            fresh.await().orEmpty().also { token ->
+                if (token.isNotBlank()) {
+                    com.jyotirmoyb.udhaar.security.EncryptedStorageManager.getEncryptedPreferences(ctx)
+                        .edit()
+                        .putString(
+                            com.jyotirmoyb.udhaar.notification.UdhaarFirebaseMessagingService.KEY_FCM_TOKEN,
+                            token
+                        )
+                        .apply()
+                }
+            }
+        }.getOrDefault("")
     }
 
     suspend fun completeOnboarding(
@@ -1160,13 +1203,15 @@ class UdhaarRepository(
         if (consentGranted && userId.isNotBlank()) {
             val current = userSettings.first()
             runCatching {
+                val fcmToken = resolveCurrentFcmToken()
                 cloudRepository?.upsertUserProfile(
                     CloudUserProfile(
                         userId = userId.trim(),
                         displayName = current.payeeName.ifBlank { "Udhaar User" },
                         phoneNumber = current.phoneNumber,
                         upiId = current.upiId,
-                        photoUri = current.profilePhotoUri
+                        photoUri = current.profilePhotoUri,
+                        fcmToken = fcmToken
                     )
                 )
             }

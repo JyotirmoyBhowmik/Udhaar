@@ -30,10 +30,21 @@ data class PinVerificationResult(
  */
 class PinSecurityManager(context: Context) {
 
-    private val prefs: SharedPreferences = context.applicationContext.getSharedPreferences(
-        PREFS_FILE_NAME,
-        Context.MODE_PRIVATE
-    )
+    private val prefs: SharedPreferences = run {
+        val encrypted = EncryptedStorageManager.getEncryptedSecurityPreferences(context.applicationContext)
+        val legacy = context.applicationContext.getSharedPreferences(PREFS_FILE_NAME, Context.MODE_PRIVATE)
+        if (!encrypted.contains(KEY_PIN_SALT) && legacy.contains(KEY_PIN_SALT)) {
+            encrypted.edit()
+                .putString(KEY_PIN_SALT, legacy.getString(KEY_PIN_SALT, null))
+                .putString(KEY_PIN_HASH_BLOB, legacy.getString(KEY_PIN_HASH_BLOB, null))
+                .putInt(KEY_FAILED_ATTEMPTS, legacy.getInt(KEY_FAILED_ATTEMPTS, 0))
+                .putLong(KEY_LOCKOUT_UNTIL_MILLIS, legacy.getLong(KEY_LOCKOUT_UNTIL_MILLIS, 0L))
+                .putString(KEY_AUTO_BACKUP_PASSPHRASE_BLOB, legacy.getString(KEY_AUTO_BACKUP_PASSPHRASE_BLOB, null))
+                .apply()
+            legacy.edit().clear().apply()
+        }
+        encrypted
+    }
 
     fun hasPinConfigured(): Boolean {
         val salt = prefs.getString(KEY_PIN_SALT, null)

@@ -204,4 +204,141 @@ class VerificationCloudRepositoryRuleTest : FirestoreEmulatorTestBase() {
             repository.getChatThread("tx_rec-chat-1")
         }
     }
+
+    @Test
+    fun `two-device verification flow - Device A lender creates and registers FCM token, Device B borrower verifies SHA-256 hash and confirms`() = runEmulatorTest {
+        // Device A (Lender) signs in, registers profile + FCM token, and creates a GIVEN UdhaarTransaction
+        val deviceALenderUid = signInAs("device-a-lender@udhaar.test")
+        repository.upsertUserProfile(
+            CloudUserProfile(
+                userId = deviceALenderUid,
+                displayName = "Jyotirmoy (Device A)",
+                phoneNumber = "+919876543210",
+                upiId = "jyotirmoy@oksbi",
+                fcmToken = "fcm_token_device_a_initial"
+            )
+        )
+        repository.updateUserFcmToken(deviceALenderUid, "fcm_token_device_a_refreshed")
+        val lenderProfile = repository.getUserProfile(deviceALenderUid)
+        assertEquals("fcm_token_device_a_refreshed", lenderProfile?.fcmToken)
+
+        val deviceATx = com.jyotirmoyb.udhaar.data.UdhaarTransaction(
+            id = 10L,
+            remoteId = "rec-two-device-v8",
+            transactionType = com.jyotirmoyb.udhaar.data.TransactionType.GIVEN,
+            partyName = "Bapan Saha",
+            lenderName = "Jyotirmoy",
+            borrowerName = "Bapan Saha",
+            currency = com.jyotirmoyb.udhaar.data.CurrencyType.INR,
+            principalAmount = 15_000.0,
+            paymentMode = com.jyotirmoyb.udhaar.data.PaymentMode.UPI,
+            isInterestEnabled = true,
+            interestType = com.jyotirmoyb.udhaar.data.InterestType.SIMPLE,
+            interestRate = 8.0,
+            interestRatePeriod = com.jyotirmoyb.udhaar.data.InterestRatePeriod.PER_ANNUM,
+            startDateMillis = 1_710_000_000_000L,
+            expiryDateMillis = 1_745_000_000_000L,
+            notes = "By April return"
+        )
+        val deviceAHash = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.computeTransactionContentHash(
+            deviceATx,
+            myProfileName = "Jyotirmoy"
+        )
+        val encryptedNote = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.encryptE2eeField(
+            plainText = deviceATx.notes,
+            remoteId = "rec-two-device-v8",
+            shareToken = "share-secret-token-v8"
+        )
+
+        repository.createSharedRecord(
+            CloudSharedRecord(
+                remoteId = "rec-two-device-v8",
+                creatorUid = deviceALenderUid,
+                counterpartyUid = "",
+                participantUids = listOf(deviceALenderUid),
+                lenderName = "Jyotirmoy",
+                borrowerName = "Bapan Saha",
+                creatorRole = "GIVEN",
+                currency = "INR",
+                principalAmount = 15_000.0,
+                amountPaid = 0.0,
+                paymentMode = "UPI",
+                isInterestEnabled = true,
+                interestType = "SIMPLE",
+                interestRate = 8.0,
+                interestRatePeriod = "PER_ANNUM",
+                compoundFrequency = "YEARLY",
+                startDateMillis = 1_710_000_000_000L,
+                expiryDateMillis = 1_745_000_000_000L,
+                contentHash = deviceAHash,
+                verificationStatus = "PENDING",
+                verifiedAtMillis = -1L,
+                disputeReason = "",
+                encryptedNotes = encryptedNote,
+                attachmentRefs = emptyList(),
+                isSettled = false
+            )
+        )
+
+        // Device B (Borrower) signs in, registers profile + FCM token, verifies the link payload hash, claims & confirms, and reads the confirmed record
+        val deviceBBorrowerUid = signInAs("device-b-borrower@udhaar.test")
+        repository.upsertUserProfile(
+            CloudUserProfile(
+                userId = deviceBBorrowerUid,
+                displayName = "Bapan Saha (Device B)",
+                phoneNumber = "+919123456789",
+                upiId = "bapan@okaxis",
+                fcmToken = "fcm_token_device_b"
+            )
+        )
+
+        val deviceBMirroredTx = deviceATx.copy(
+            id = 20L,
+            transactionType = com.jyotirmoyb.udhaar.data.TransactionType.TAKEN,
+            partyName = "Jyotirmoy"
+        )
+        val deviceBComputedHash = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.computeTransactionContentHash(
+            deviceBMirroredTx,
+            myProfileName = "Bapan Saha"
+        )
+        assertEquals(
+            "Device B mirrored TAKEN transaction must produce the exact same SHA-256 contentHash as Device A GIVEN transaction",
+            deviceAHash,
+            deviceBComputedHash
+        )
+
+        // Device B claims and confirms the record (adding deviceBBorrowerUid to participantUids)
+        val confirmedAt = 1_710_000_123_000L
+        repository.claimAndRespondSharedRecord(
+            remoteId = "rec-two-device-v8",
+            creatorUid = deviceALenderUid,
+            counterpartyUid = deviceBBorrowerUid,
+            verificationStatus = "CONFIRMED",
+            verifiedAtMillis = confirmedAt,
+            disputeReason = ""
+        )
+
+        // Now that Device B is a participant, Device B reads the shared record and decrypts the E2EE note
+        val fetchedByDeviceB = repository.getSharedRecord("rec-two-device-v8")
+        assertNotNull("Device B must be able to read the claimed shared record", fetchedByDeviceB)
+        assertEquals("CONFIRMED", fetchedByDeviceB?.verificationStatus)
+        assertEquals(deviceAHash, fetchedByDeviceB?.contentHash)
+
+        val decryptedNoteOnDeviceB = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.decryptE2eeField(
+            cipherText = fetchedByDeviceB!!.encryptedNotes,
+            remoteId = "rec-two-device-v8",
+            shareToken = "share-secret-token-v8"
+        )
+        assertEquals("By April return", decryptedNoteOnDeviceB)
+
+        // Switch back to Device A (Lender) and verify that the confirmation synced with both participant UIDs
+        signInAs("device-a-lender@udhaar.test")
+        val syncedOnDeviceA = repository.getSharedRecord("rec-two-device-v8")
+        assertNotNull(syncedOnDeviceA)
+        assertEquals("CONFIRMED", syncedOnDeviceA?.verificationStatus)
+        assertEquals(deviceBBorrowerUid, syncedOnDeviceA?.counterpartyUid)
+        assertEquals(listOf(deviceALenderUid, deviceBBorrowerUid), syncedOnDeviceA?.participantUids)
+        assertEquals(confirmedAt, syncedOnDeviceA?.verifiedAtMillis)
+    }
 }
+

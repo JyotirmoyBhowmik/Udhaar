@@ -1,4 +1,7 @@
 package com.jyotirmoyb.udhaar.ui.components
+import com.jyotirmoyb.udhaar.R
+
+import androidx.compose.ui.res.stringResource
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -12,6 +15,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -263,48 +267,77 @@ fun TransactionDetailModal(
         }
     }
 
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val reducedMotion = rememberReducedMotionEnabled()
+    val animatedNetBalanceText = rememberAnimatedCurrencyText(
+        targetAmount = summary.netBalanceDue,
+        currency = tx.currency,
+        hideAmount = false,
+        reducedMotion = reducedMotion
+    )
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
+    BackHandler(onBack = onDismiss)
+
+    Surface(
+        modifier = Modifier
+            .fillMaxSize()
+            .udhaarSharedBounds("tx_card_${tx.id}")
+            .testTag("transaction_detail_screen"),
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface
     ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding(),
+            contentAlignment = Alignment.TopCenter
+        ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .widthIn(max = 600.dp)
-                .align(Alignment.CenterHorizontally)
-                .imePadding()
-                .navigationBarsPadding()
+                .fillMaxSize()
+                .widthIn(max = 640.dp)
         ) {
-            // Sticky Header
+            // Sticky Header with shared avatar and name
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = tx.partyName.uppercase(),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    PersonAvatar(
+                        name = tx.partyName,
+                        photoUri = linkedParty?.photoUri.orEmpty(),
+                        size = 40.dp,
+                        modifier = Modifier.udhaarSharedElement("tx_avatar_${tx.id}")
                     )
-                    Text(
-                        text = "${tx.transactionType.badgeLabel} • ${tx.currency.code} • ${tx.paymentMode.label}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = tx.partyName.uppercase(),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.udhaarSharedBounds("tx_name_${tx.id}")
+                        )
+                        Text(
+                            text = stringResource(R.string.ui_fmt_symbol_41590b, tx.transactionType.badgeLabel, tx.currency.code, tx.paymentMode.label),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
                 IconButton(
                     onClick = onDismiss,
-                    modifier = Modifier.testTag("close_detail_modal_button")
+                    modifier = Modifier
+                        .pressScaleFeedback()
+                        .testTag("close_detail_modal_button")
                 ) {
                     Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurface)
                 }
@@ -336,15 +369,16 @@ fun TransactionDetailModal(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = if (tx.isSettled) "SETTLED RECORD" else "NET REMAINING DUE",
+                            text = if (tx.isSettled) stringResource(R.string.ui_str_settled_record_2977ef) else stringResource(R.string.ui_str_net_remaining_due_3993cb),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = InterestCalculator.formatCurrency(summary.netBalanceDue, tx.currency),
+                            text = animatedNetBalanceText,
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.udhaarSharedBounds("tx_amount_${tx.id}")
                         )
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
@@ -391,7 +425,7 @@ fun TransactionDetailModal(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Verification status",
+                            text = stringResource(R.string.ui_str_verification_status_760fa1),
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -404,7 +438,7 @@ fun TransactionDetailModal(
 
                     if (tx.disputeReason.isNotBlank() && tx.verificationStatus == VerificationStatus.DISPUTED) {
                         Text(
-                            text = "Dispute note: ${tx.disputeReason}",
+                            text = stringResource(R.string.ui_fmt_dispute_note_26ea88, tx.disputeReason),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.error
@@ -413,7 +447,7 @@ fun TransactionDetailModal(
 
                     if (tx.verificationStatus == VerificationStatus.EDITED_AFTER_CONFIRM) {
                         Text(
-                            text = "Terms were edited after confirmation. Ask ${tx.partyName} to confirm the updated record.",
+                            text = stringResource(R.string.ui_fmt_terms_were_edited_after_confirmatio_ef3a45, tx.partyName),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )
@@ -424,6 +458,7 @@ fun TransactionDetailModal(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(46.dp)
+                            .pressScaleFeedback()
                             .testTag("request_verification_button"),
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
@@ -432,9 +467,9 @@ fun TransactionDetailModal(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = if (tx.verificationStatus == VerificationStatus.LOCAL_ONLY) {
-                                "REQUEST VERIFICATION (LINK & QR)"
+                                stringResource(R.string.ui_str_request_verification_link_qr_83e400)
                             } else {
-                                "SHARE VERIFICATION LINK & QR"
+                                stringResource(R.string.ui_str_share_verification_link_qr_edc3d4)
                             },
                             style = MaterialTheme.typography.labelMedium
                         )
@@ -448,7 +483,7 @@ fun TransactionDetailModal(
                             OutlinedTextField(
                                 value = disputeReasonInput,
                                 onValueChange = { disputeReasonInput = it },
-                                label = { Text("Reason for Dispute") },
+                                label = { Text(stringResource(R.string.ui_str_reason_for_dispute_780e95)) },
                                 singleLine = true,
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -460,10 +495,10 @@ fun TransactionDetailModal(
                             ) {
                                 OutlinedButton(
                                     onClick = { showDisputeInput = false },
-                                    modifier = Modifier.weight(1f).height(44.dp),
+                                    modifier = Modifier.weight(1f).height(44.dp).pressScaleFeedback(),
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Text("CANCEL", style = MaterialTheme.typography.labelSmall)
+                                    Text(stringResource(R.string.ui_str_cancel_1507c4), style = MaterialTheme.typography.labelSmall)
                                 }
                                 Button(
                                     onClick = {
@@ -476,6 +511,7 @@ fun TransactionDetailModal(
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(44.dp)
+                                        .pressScaleFeedback()
                                         .testTag("detail_submit_dispute_button"),
                                     shape = RoundedCornerShape(12.dp),
                                     colors = ButtonDefaults.buttonColors(
@@ -483,7 +519,7 @@ fun TransactionDetailModal(
                                         contentColor = MaterialTheme.colorScheme.onError
                                     )
                                 ) {
-                                    Text("SUBMIT DISPUTE", style = MaterialTheme.typography.labelSmall)
+                                    Text(stringResource(R.string.ui_str_submit_dispute_4c1abb), style = MaterialTheme.typography.labelSmall)
                                 }
                             }
                         } else {
@@ -496,6 +532,7 @@ fun TransactionDetailModal(
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(44.dp)
+                                        .pressScaleFeedback()
                                         .testTag("detail_confirm_verification_button"),
                                     shape = RoundedCornerShape(12.dp),
                                     colors = ButtonDefaults.buttonColors(
@@ -505,19 +542,20 @@ fun TransactionDetailModal(
                                 ) {
                                     Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("CONFIRM ENTRY", style = MaterialTheme.typography.labelSmall)
+                                    Text(stringResource(R.string.ui_str_confirm_entry_be92ce), style = MaterialTheme.typography.labelSmall)
                                 }
                                 OutlinedButton(
                                     onClick = { showDisputeInput = true },
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(44.dp)
+                                        .pressScaleFeedback()
                                         .testTag("detail_dispute_verification_button"),
                                     shape = RoundedCornerShape(12.dp),
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
                                 ) {
                                     Text(
-                                        text = "DISPUTE",
+                                        text = stringResource(R.string.ui_str_dispute_722d50),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.error
                                     )
@@ -550,7 +588,7 @@ fun TransactionDetailModal(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "ATTACHED DOCUMENTS (${attachments.size})",
+                                text = stringResource(R.string.ui_fmt_attached_documents_7a618e, attachments.size),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -579,7 +617,7 @@ fun TransactionDetailModal(
                         ) {
                             Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(14.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("CAMERA", style = MaterialTheme.typography.labelSmall)
+                            Text(stringResource(R.string.ui_str_camera_7d2039), style = MaterialTheme.typography.labelSmall)
                         }
 
                         OutlinedButton(
@@ -598,7 +636,7 @@ fun TransactionDetailModal(
                         ) {
                             Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(14.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("GALLERY", style = MaterialTheme.typography.labelSmall)
+                            Text(stringResource(R.string.ui_str_gallery_73dcec), style = MaterialTheme.typography.labelSmall)
                         }
 
                         OutlinedButton(
@@ -615,13 +653,13 @@ fun TransactionDetailModal(
                         ) {
                             Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(14.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("DOC/PDF", style = MaterialTheme.typography.labelSmall)
+                            Text(stringResource(R.string.ui_str_doc_pdf_c5e19f), style = MaterialTheme.typography.labelSmall)
                         }
                     }
 
                     if (attachments.isEmpty()) {
                         Text(
-                            text = "No documents attached. Attach promissory notes, bills, or photo receipts.",
+                            text = stringResource(R.string.ui_str_no_documents_attached_attach_promis_e527cb),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -639,8 +677,9 @@ fun TransactionDetailModal(
                                     shape = RoundedCornerShape(8.dp),
                                     color = MaterialTheme.colorScheme.surfaceVariant,
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                                    modifier = Modifier
+                                    modifier = udhaarAnimateItem(reducedMotion)
                                         .size(width = 110.dp, height = 110.dp)
+                                        .pressScaleFeedback()
                                         .clickable { onOpenAttachmentViewer(att) }
                                         .testTag("attachment_thumb_${att.id}")
                                 ) {
@@ -714,7 +753,7 @@ fun TransactionDetailModal(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
-                            text = "RECORD PARTIAL / INSTALLMENT PAYMENT",
+                            text = stringResource(R.string.ui_str_record_partial_installment_payment_a11544),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -806,7 +845,7 @@ fun TransactionDetailModal(
                                         errorText = null
                                     }
                                 },
-                                label = { Text("Amount (${tx.currency.symbol})") },
+                                label = { Text(stringResource(R.string.ui_fmt_amount_c53f8e, tx.currency.symbol)) },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 modifier = Modifier
@@ -816,7 +855,7 @@ fun TransactionDetailModal(
                             OutlinedTextField(
                                 value = partialNoteText,
                                 onValueChange = { partialNoteText = it },
-                                label = { Text("Note (Optional)") },
+                                label = { Text(stringResource(R.string.ui_str_note_optional_df9d34)) },
                                 singleLine = true,
                                 modifier = Modifier
                                     .weight(1f)
@@ -845,7 +884,7 @@ fun TransactionDetailModal(
                                 ) {
                                     Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("PROOF CAM", style = MaterialTheme.typography.labelSmall)
+                                    Text(stringResource(R.string.ui_str_proof_cam_cc115b), style = MaterialTheme.typography.labelSmall)
                                 }
 
                                 OutlinedButton(
@@ -862,7 +901,7 @@ fun TransactionDetailModal(
                                 ) {
                                     Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("PROOF PIC", style = MaterialTheme.typography.labelSmall)
+                                    Text(stringResource(R.string.ui_str_proof_pic_ec0060), style = MaterialTheme.typography.labelSmall)
                                 }
                             }
                         } else {
@@ -887,7 +926,7 @@ fun TransactionDetailModal(
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "Proof: ${pendingProofAttachment!!.fileName} (${AttachmentManager.formatFileSize(pendingProofAttachment!!.sizeBytes)})",
+                                        text = stringResource(R.string.ui_fmt_proof_6a6b8f, pendingProofAttachment!!.fileName, AttachmentManager.formatFileSize(pendingProofAttachment!!.sizeBytes)),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurface,
                                         maxLines = 1,
@@ -915,12 +954,12 @@ fun TransactionDetailModal(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Reported by ${tx.partyName} (Requires my confirmation)",
+                                text = stringResource(R.string.ui_fmt_reported_by_requires_my_confirmatio_cb9cc6, tx.partyName),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.weight(1f)
                             )
-                            Switch(
+                            UdhaarAnimatedSwitch(
                                 checked = reportedByCounterparty,
                                 onCheckedChange = { reportedByCounterparty = it },
                                 modifier = Modifier.testTag("reported_by_counterparty_switch")
@@ -958,6 +997,7 @@ fun TransactionDetailModal(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(48.dp)
+                                .pressScaleFeedback()
                                 .testTag("submit_partial_payment_button"),
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
@@ -967,7 +1007,7 @@ fun TransactionDetailModal(
                         ) {
                             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("ADD INSTALLMENT (${partialPaymentMode.label.uppercase()})", style = MaterialTheme.typography.labelLarge)
+                            Text(stringResource(R.string.ui_fmt_add_installment_061836, partialPaymentMode.label.uppercase()), style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
@@ -982,7 +1022,7 @@ fun TransactionDetailModal(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "PAYMENT HISTORY (${partialPayments.size})",
+                            text = stringResource(R.string.ui_fmt_payment_history_534f10, partialPayments.size),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1022,7 +1062,7 @@ fun TransactionDetailModal(
                                                 )
                                             }
                                             Text(
-                                                text = if (payment.isAcknowledged) "✓ Acknowledged" else "⏳ Unconfirmed",
+                                                text = if (payment.isAcknowledged) stringResource(R.string.ui_str_acknowledged_f4e3eb) else stringResource(R.string.ui_str_unconfirmed_9c4ae7),
                                                 style = MaterialTheme.typography.labelSmall,
                                                 fontWeight = FontWeight.Bold,
                                                 color = if (payment.isAcknowledged) {
@@ -1035,7 +1075,7 @@ fun TransactionDetailModal(
                                         val recorder = payment.recordedByName.ifBlank { "You" }
                                         val sub = buildString {
                                             append("Recorded by $recorder • ")
-                                            append(InterestCalculator.formatDate(payment.paidAtMillis))
+                                            append(InterestCalculator.fmtDate(payment.paidAtMillis))
                                             if (payment.note.isNotBlank()) {
                                                 append(" • ")
                                                 append(payment.note)
@@ -1074,7 +1114,7 @@ fun TransactionDetailModal(
                                                             )
                                                             Spacer(modifier = Modifier.width(4.dp))
                                                             Text(
-                                                                text = "Proof: ${proof.fileName}",
+                                                                text = stringResource(R.string.ui_fmt_proof_08b803, proof.fileName),
                                                                 style = MaterialTheme.typography.labelSmall,
                                                                 fontWeight = FontWeight.Bold,
                                                                 color = MaterialTheme.colorScheme.primary,
@@ -1114,7 +1154,7 @@ fun TransactionDetailModal(
                                         Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = "$displayActor marked $formattedAmt received — Confirm?",
+                                            text = stringResource(R.string.ui_fmt_marked_received_confirm_59385a, displayActor, formattedAmt),
                                             style = MaterialTheme.typography.labelSmall,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
@@ -1147,34 +1187,35 @@ fun TransactionDetailModal(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Verification details",
+                                text = stringResource(R.string.ui_str_verification_details_533cd5),
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = if (showVerificationDetails) {
-                                    "Hide technical SHA-256 hash, cloud IDs, and audit trail"
+                                    stringResource(R.string.ui_str_hide_technical_sha_256_hash_b7df6b)
                                 } else {
-                                    "Tap to view SHA-256 hash, cloud ID, and audit log (${auditTrail.size})"
+                                    stringResource(R.string.ui_fmt_tap_to_view_sha_256_e79662, auditTrail.size)
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Text(
-                            text = if (showVerificationDetails) "Hide" else "Show",
+                            text = if (showVerificationDetails) stringResource(R.string.ui_str_hide_34d8b6) else stringResource(R.string.ui_str_show_d97d1e),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
 
-                    if (showVerificationDetails) {
+                    AnimatedVisibility(visible = showVerificationDetails) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.8.dp)
                         if (tx.contentHash.isNotBlank()) {
                             Text(
-                                text = "SHA-256: ${tx.contentHash}",
+                                text = stringResource(R.string.ui_fmt_sha_256_4f25db, tx.contentHash),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1182,7 +1223,7 @@ fun TransactionDetailModal(
                         }
                         if (tx.remoteId.isNotBlank()) {
                             Text(
-                                text = "Cloud ID: ${tx.remoteId}",
+                                text = stringResource(R.string.ui_fmt_cloud_id_b63185, tx.remoteId),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1190,7 +1231,7 @@ fun TransactionDetailModal(
                         }
                         if (auditTrail.isEmpty()) {
                             Text(
-                                text = "No audit events recorded yet.",
+                                text = stringResource(R.string.ui_str_no_audit_events_recorded_yet_68b5a2),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1206,7 +1247,7 @@ fun TransactionDetailModal(
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = "${entry.eventType.label} • ${entry.actorName}",
+                                            text = stringResource(R.string.ui_fmt_symbol_969885, entry.eventType.label, entry.actorName),
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface
@@ -1220,7 +1261,7 @@ fun TransactionDetailModal(
                                         }
                                         if (entry.contentHashSnapshot.isNotBlank()) {
                                             Text(
-                                                text = "Hash: ${entry.contentHashSnapshot.take(16)}...",
+                                                text = stringResource(R.string.ui_fmt_hash_708ee0, entry.contentHashSnapshot.take(16)),
                                                 style = MaterialTheme.typography.labelSmall,
                                                 fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1228,12 +1269,13 @@ fun TransactionDetailModal(
                                         }
                                     }
                                     Text(
-                                        text = InterestCalculator.formatDate(entry.eventTimeMillis),
+                                        text = InterestCalculator.fmtDate(entry.eventTimeMillis),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
+                        }
                         }
                     }
                 }
@@ -1244,6 +1286,7 @@ fun TransactionDetailModal(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp)
+                        .pressScaleFeedback()
                         .testTag("detail_open_chat_button"),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
@@ -1255,9 +1298,9 @@ fun TransactionDetailModal(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = if (unreadChatCount > 0) {
-                            "OPEN TRANSACTION CHAT ($unreadChatCount NEW)"
+                            stringResource(R.string.ui_fmt_open_transaction_chat_new_91bcd1, unreadChatCount)
                         } else {
-                            "OPEN TRANSACTION CHAT & EXTENSION"
+                            stringResource(R.string.ui_str_open_transaction_chat_extension_41a166)
                         },
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold
@@ -1275,13 +1318,14 @@ fun TransactionDetailModal(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(48.dp)
+                                .pressScaleFeedback()
                                 .testTag("detail_whatsapp_button"),
                             shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                         ) {
                             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("WHATSAPP", style = MaterialTheme.typography.labelMedium)
+                            Text(stringResource(R.string.ui_str_whatsapp_5c39d5), style = MaterialTheme.typography.labelMedium)
                         }
 
                         OutlinedButton(
@@ -1289,13 +1333,14 @@ fun TransactionDetailModal(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(48.dp)
+                                .pressScaleFeedback()
                                 .testTag("detail_thermal_receipt_button"),
                             shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                         ) {
                             Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("RECEIPT SLIP", style = MaterialTheme.typography.labelMedium)
+                            Text(stringResource(R.string.ui_str_receipt_slip_1ccbe9), style = MaterialTheme.typography.labelMedium)
                         }
                     }
 
@@ -1310,13 +1355,14 @@ fun TransactionDetailModal(
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(48.dp)
+                                        .pressScaleFeedback()
                                         .testTag("detail_upi_qr_button"),
                                     shape = RoundedCornerShape(12.dp),
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                                 ) {
                                     Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("COLLECT VIA MY UPI QR", style = MaterialTheme.typography.labelMedium)
+                                    Text(stringResource(R.string.ui_str_collect_via_my_upi_qr_c6b866), style = MaterialTheme.typography.labelMedium)
                                 }
                             } else if (tx.transactionType == TransactionType.TAKEN) {
                                 val partyUpi = linkedParty?.upiId.orEmpty()
@@ -1331,6 +1377,7 @@ fun TransactionDetailModal(
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(48.dp)
+                                        .pressScaleFeedback()
                                         .testTag("detail_pay_party_upi_button"),
                                     shape = RoundedCornerShape(12.dp),
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
@@ -1338,7 +1385,7 @@ fun TransactionDetailModal(
                                     Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = if (partyUpi.isNotBlank()) "PAY ${tx.partyName.uppercase()} VIA UPI" else "OPEN UPI QR TOOL",
+                                        text = if (partyUpi.isNotBlank()) stringResource(R.string.ui_fmt_pay_via_upi_7718ac, tx.partyName.uppercase()) else stringResource(R.string.ui_str_open_upi_qr_tool_2e9aa8),
                                         style = MaterialTheme.typography.labelMedium,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -1355,6 +1402,7 @@ fun TransactionDetailModal(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp)
+                        .pressScaleFeedback()
                         .testTag("toggle_settled_button"),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
@@ -1366,12 +1414,12 @@ fun TransactionDetailModal(
                     Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (tx.isSettled) "RE-OPEN LEDGER ENTRY" else "MARK AS FULLY SETTLED",
+                        text = if (tx.isSettled) stringResource(R.string.ui_str_re_open_ledger_entry_bd882c) else stringResource(R.string.ui_str_mark_as_fully_settled_c262a2),
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
 
-                // Edit & Delete Row (Last buttons — guaranteed reachable via ModalBottomSheet + 40dp bottom padding)
+                // Edit & Delete Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1381,13 +1429,14 @@ fun TransactionDetailModal(
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
+                            .pressScaleFeedback()
                             .testTag("edit_transaction_button"),
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                     ) {
                         Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("EDIT", style = MaterialTheme.typography.labelMedium)
+                        Text(stringResource(R.string.ui_str_edit_17865b), style = MaterialTheme.typography.labelMedium)
                     }
                     OutlinedButton(
                         onClick = {
@@ -1400,6 +1449,7 @@ fun TransactionDetailModal(
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
+                            .pressScaleFeedback()
                             .testTag("delete_transaction_button"),
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
@@ -1412,13 +1462,14 @@ fun TransactionDetailModal(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (confirmDelete) "TAP TO CONFIRM" else "DELETE",
+                            text = if (confirmDelete) stringResource(R.string.ui_str_tap_to_confirm_0fe819) else stringResource(R.string.ui_str_delete_d6f563),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.error
                         )
                     }
                 }
             }
+        }
         }
     }
 }
@@ -1444,8 +1495,8 @@ fun AttachmentViewerModal(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete Attachment?") },
-            text = { Text("Permanently delete '${attachment.fileName}' from this device?") },
+            title = { Text(stringResource(R.string.ui_str_delete_attachment_51a359)) },
+            text = { Text(stringResource(R.string.ui_fmt_permanently_delete_from_this_device_49b352, attachment.fileName)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -1457,12 +1508,12 @@ fun AttachmentViewerModal(
                         contentColor = MaterialTheme.colorScheme.onError
                     )
                 ) {
-                    Text("DELETE")
+                    Text(stringResource(R.string.ui_str_delete_d6f563))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("CANCEL")
+                    Text(stringResource(R.string.ui_str_cancel_1507c4))
                 }
             }
         )
@@ -1480,7 +1531,7 @@ fun AttachmentViewerModal(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "${AttachmentManager.formatFileSize(attachment.sizeBytes)} • ${attachment.addedBy}",
+                            text = stringResource(R.string.ui_fmt_symbol_feee0d, AttachmentManager.formatFileSize(attachment.sizeBytes), attachment.addedBy),
                             style = MaterialTheme.typography.labelSmall,
                             color = BorderGrey
                         )
@@ -1588,13 +1639,13 @@ fun AttachmentViewerModal(
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        text = "${attachment.mimeType} • ${AttachmentManager.formatFileSize(attachment.sizeBytes)}",
+                        text = stringResource(R.string.ui_fmt_symbol_219ec1, attachment.mimeType, AttachmentManager.formatFileSize(attachment.sizeBytes)),
                         style = MaterialTheme.typography.bodyMedium,
                         color = SecondaryInkGrey
                     )
                     if (attachment.sha256.isNotBlank()) {
                         Text(
-                            text = "SHA-256: ${attachment.sha256.take(24)}...",
+                            text = stringResource(R.string.ui_fmt_sha_256_c193c6, attachment.sha256.take(24)),
                             style = MaterialTheme.typography.labelSmall,
                             fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
                             color = SecondaryInkGrey
@@ -1614,7 +1665,7 @@ fun AttachmentViewerModal(
                             contentColor = PureWhite
                         )
                     ) {
-                        Text("OPEN IN DOCUMENT VIEWER")
+                        Text(stringResource(R.string.ui_str_open_in_document_viewer_d2ac9d))
                     }
                 }
             }
@@ -1645,13 +1696,16 @@ fun ThermalReceiptModal(
         contentColor = MaterialTheme.colorScheme.onSurface,
         contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
     ) {
-        Column(
+        AnimatedSheetContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = 600.dp)
                 .align(Alignment.CenterHorizontally)
                 .imePadding()
                 .navigationBarsPadding()
+        ) {
+        Column(
+            modifier = Modifier.fillMaxWidth()
         ) {
             Row(
                 modifier = Modifier
@@ -1725,6 +1779,7 @@ fun ThermalReceiptModal(
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
+                            .pressScaleFeedback()
                             .testTag("share_thermal_receipt_image_button"),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
@@ -1734,7 +1789,7 @@ fun ThermalReceiptModal(
                     ) {
                         Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("SHARE PNG", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.ui_str_share_png_f5593d), style = MaterialTheme.typography.labelLarge)
                     }
 
                     OutlinedButton(
@@ -1749,16 +1804,18 @@ fun ThermalReceiptModal(
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
+                            .pressScaleFeedback()
                             .testTag("share_thermal_receipt_pdf_button"),
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                     ) {
                         Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("SHARE PDF", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.ui_str_share_pdf_6f8eab), style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }
+        }
         }
     }
 }
@@ -1827,13 +1884,16 @@ fun UpiQrCodeModal(
         contentColor = MaterialTheme.colorScheme.onSurface,
         contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
     ) {
-        Column(
+        AnimatedSheetContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = 600.dp)
                 .align(Alignment.CenterHorizontally)
                 .imePadding()
                 .navigationBarsPadding()
+        ) {
+        Column(
+            modifier = Modifier.fillMaxWidth()
         ) {
             Row(
                 modifier = Modifier
@@ -1844,15 +1904,16 @@ fun UpiQrCodeModal(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = if (isPayToParty) "PAY PARTY VIA UPI" else "RECEIVE VIA UPI QR",
+                        text = if (isPayToParty) stringResource(R.string.ui_str_pay_party_via_upi_81f63b) else stringResource(R.string.ui_str_receive_via_upi_qr_640ed3),
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                    val settleTargetName = qrState.partyName?.uppercase() ?: stringResource(R.string.ui_party_caps)
                     Text(
                         text = if (isPayToParty) {
-                            "SETTLE ${qrState.partyName?.uppercase() ?: "PARTY"} DIRECTLY"
+                            stringResource(R.string.ui_fmt_settle_directly_3d3daa, settleTargetName)
                         } else {
-                            qrState.partyName?.let { "FOR ${it.uppercase()} • INR (₹)" } ?: "GLOBAL MERCHANT / PERSONAL QR"
+                            qrState.partyName?.let { stringResource(R.string.ui_fmt_for_inr_669ce5, it.uppercase()) } ?: stringResource(R.string.ui_str_global_merchant_personal_qr_7d572f)
                         },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1884,8 +1945,8 @@ fun UpiQrCodeModal(
                         showQrUpiId = true
                         upiIdInput = it
                     },
-                    label = { Text(if (isPayToParty) "Party UPI ID (VPA) *" else "Your UPI ID (VPA) *") },
-                    placeholder = { Text("e.g. yourname@okaxis") },
+                    label = { Text(if (isPayToParty) stringResource(R.string.ui_str_party_upi_id_vpa_9c2dfd) else stringResource(R.string.ui_str_your_upi_id_vpa_47fda1)) },
+                    placeholder = { Text(stringResource(R.string.ui_str_e_g_yourname_okaxis_223c45)) },
                     singleLine = true,
                     visualTransformation = if (showQrUpiId || upiIdInput.isBlank()) {
                         VisualTransformation.None
@@ -1914,7 +1975,7 @@ fun UpiQrCodeModal(
                     OutlinedTextField(
                         value = payeeNameInput,
                         onValueChange = { payeeNameInput = it },
-                        label = { Text("Payee Name") },
+                        label = { Text(stringResource(R.string.ui_str_payee_name_cf3058)) },
                         singleLine = true,
                         modifier = Modifier
                             .weight(1f)
@@ -1927,7 +1988,7 @@ fun UpiQrCodeModal(
                                 amountText = it
                             }
                         },
-                        label = { Text("Amount (₹)") },
+                        label = { Text(stringResource(R.string.ui_str_amount_4ecd3f)) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier
@@ -1952,7 +2013,7 @@ fun UpiQrCodeModal(
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                     ) {
-                        Text("SAVE AS DEFAULT UPI PROFILE", style = MaterialTheme.typography.labelMedium)
+                        Text(stringResource(R.string.ui_str_save_as_default_upi_profile_a5e997), style = MaterialTheme.typography.labelMedium)
                     }
                 }
 
@@ -1974,7 +2035,7 @@ fun UpiQrCodeModal(
                         )
                     }
                     Text(
-                        text = "VPA: ${InterestCalculator.maskUpiId(effectiveUpiId)}",
+                        text = stringResource(R.string.ui_fmt_vpa_251b59, InterestCalculator.maskUpiId(effectiveUpiId)),
                         style = MaterialTheme.typography.bodySmall,
                         fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1996,13 +2057,14 @@ fun UpiQrCodeModal(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(48.dp)
+                                .pressScaleFeedback()
                                 .testTag("copy_upi_uri_button"),
                             shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                         ) {
                             Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("COPY LINK", style = MaterialTheme.typography.labelMedium)
+                            Text(stringResource(R.string.ui_str_copy_link_1ccac4), style = MaterialTheme.typography.labelMedium)
                         }
 
                         Button(
@@ -2017,6 +2079,7 @@ fun UpiQrCodeModal(
                             modifier = Modifier
                                 .weight(1.3f)
                                 .height(48.dp)
+                                .pressScaleFeedback()
                                 .testTag("launch_upi_app_button"),
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
@@ -2026,7 +2089,7 @@ fun UpiQrCodeModal(
                         ) {
                             Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("OPEN UPI APP", style = MaterialTheme.typography.labelMedium)
+                            Text(stringResource(R.string.ui_str_open_upi_app_2ab19b), style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 } else {
@@ -2039,7 +2102,7 @@ fun UpiQrCodeModal(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Enter a valid UPI ID above (e.g. merchant@upi) to generate an offline scan-ready QR code.",
+                            text = stringResource(R.string.ui_str_enter_a_valid_upi_id_cdd444),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
@@ -2047,6 +2110,7 @@ fun UpiQrCodeModal(
                     }
                 }
             }
+        }
         }
     }
 }
@@ -2098,12 +2162,12 @@ fun ShareUdhaarAppModal(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "SHARE UDHAAR APP",
+                        text = stringResource(R.string.ui_str_share_udhaar_app_d7b6ea),
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "INVITE FRIENDS, CUSTOMERS OR PARTNERS",
+                        text = stringResource(R.string.ui_str_invite_friends_customers_or_partner_4ca477),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -2147,7 +2211,7 @@ fun ShareUdhaarAppModal(
                 }
 
                 Text(
-                    text = "Scan this QR code with any phone camera to open Udhaar on Google Play, or share the invite link below.",
+                    text = stringResource(R.string.ui_str_scan_this_qr_code_with_81d1dd),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -2174,7 +2238,7 @@ fun ShareUdhaarAppModal(
                 ) {
                     Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("SHARE APP INVITE LINK", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.ui_str_share_app_invite_link_e2729b), style = MaterialTheme.typography.labelLarge)
                 }
 
                 OutlinedButton(
@@ -2192,7 +2256,7 @@ fun ShareUdhaarAppModal(
                 ) {
                     Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("COPY INVITE MESSAGE", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.ui_str_copy_invite_message_1a4bc1), style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
@@ -2233,13 +2297,16 @@ fun WhatsAppReminderModal(
         contentColor = MaterialTheme.colorScheme.onSurface,
         contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
     ) {
-        Column(
+        AnimatedSheetContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = 600.dp)
                 .align(Alignment.CenterHorizontally)
                 .imePadding()
                 .navigationBarsPadding()
+        ) {
+        Column(
+            modifier = Modifier.fillMaxWidth()
         ) {
             Row(
                 modifier = Modifier
@@ -2250,19 +2317,22 @@ fun WhatsAppReminderModal(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "WHATSAPP REMINDER",
+                        text = stringResource(R.string.ui_str_whatsapp_reminder_1e09ce),
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
+                    val maskedPhoneSuffix = if (tx.phoneNumber.isNotBlank()) "(${InterestCalculator.maskPhoneNumber(tx.phoneNumber)})" else ""
                     Text(
-                        text = "TO: ${tx.partyName.uppercase()} ${if (tx.phoneNumber.isNotBlank()) "(${InterestCalculator.maskPhoneNumber(tx.phoneNumber)})" else ""}",
+                        text = stringResource(R.string.ui_fmt_to_40e0b0, tx.partyName.uppercase(), maskedPhoneSuffix),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 IconButton(
                     onClick = onDismiss,
-                    modifier = Modifier.testTag("close_whatsapp_modal_button")
+                    modifier = Modifier
+                        .pressScaleFeedback()
+                        .testTag("close_whatsapp_modal_button")
                 ) {
                     Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurface)
                 }
@@ -2290,17 +2360,17 @@ fun WhatsAppReminderModal(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "HIDE EXACT AMOUNT IN MESSAGE",
+                            text = stringResource(R.string.ui_str_hide_exact_amount_in_message_3ff2ab),
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Send polite reminder without numeric figures",
+                            text = stringResource(R.string.ui_str_send_polite_reminder_without_numeri_6457c4),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Switch(
+                    UdhaarAnimatedSwitch(
                         checked = hideExactAmount,
                         onCheckedChange = { hideExactAmount = it },
                         colors = SwitchDefaults.colors(
@@ -2314,7 +2384,7 @@ fun WhatsAppReminderModal(
                 OutlinedTextField(
                     value = editableMessage,
                     onValueChange = { editableMessage = it },
-                    label = { Text("Preview & Customize Message") },
+                    label = { Text(stringResource(R.string.ui_str_preview_customize_message_f24e76)) },
                     minLines = 5,
                     maxLines = 9,
                     modifier = Modifier
@@ -2349,6 +2419,7 @@ fun WhatsAppReminderModal(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp)
+                        .pressScaleFeedback()
                         .testTag("launch_whatsapp_send_button"),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
@@ -2358,9 +2429,10 @@ fun WhatsAppReminderModal(
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("SEND VIA WHATSAPP", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.ui_str_send_via_whatsapp_c707e5), style = MaterialTheme.typography.labelLarge)
                 }
             }
+        }
         }
     }
 }
@@ -2562,14 +2634,14 @@ fun ProfileSettingsModal(
                         Spacer(modifier = Modifier.width(4.dp))
                         Column {
                             Text(
-                                text = "SETTINGS & PREFERENCES",
+                                text = stringResource(R.string.ui_str_settings_preferences_1f2ee4),
                                 style = MaterialTheme.typography.titleLarge,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "PROFILE • SECURITY • CURRENCY • BACKUP • ABOUT",
+                                text = stringResource(R.string.ui_str_profile_security_currency_backup_ab_1c71e9),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -2601,17 +2673,19 @@ fun ProfileSettingsModal(
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
+                            .pressScaleFeedback()
                             .testTag("cancel_settings_button"),
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                     ) {
-                        Text("CANCEL", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.ui_str_cancel_1507c4), style = MaterialTheme.typography.labelLarge)
                     }
                     Button(
                         onClick = { validateAndSave(true) },
                         modifier = Modifier
                             .weight(1.6f)
                             .height(48.dp)
+                            .pressScaleFeedback()
                             .testTag("save_settings_button"),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
@@ -2621,7 +2695,7 @@ fun ProfileSettingsModal(
                     ) {
                         Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("SAVE SETTINGS", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.ui_str_save_settings_d0f818), style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }
@@ -2655,8 +2729,8 @@ fun ProfileSettingsModal(
                         OutlinedTextField(
                             value = payeeName,
                             onValueChange = { payeeName = it },
-                            label = { Text("Your Business / Payee Name") },
-                            placeholder = { Text("e.g. Sharma General Store") },
+                            label = { Text(stringResource(R.string.ui_str_your_business_payee_name_2ece56)) },
+                            placeholder = { Text(stringResource(R.string.ui_str_e_g_sharma_general_store_99d829)) },
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -2669,8 +2743,8 @@ fun ProfileSettingsModal(
                                 showFullUpiId = true
                                 upiId = it
                             },
-                            label = { Text("Your Default UPI ID (for INR QR)") },
-                            placeholder = { Text("e.g. merchant@okicici") },
+                            label = { Text(stringResource(R.string.ui_str_your_default_upi_id_for_72f5b9)) },
+                            placeholder = { Text(stringResource(R.string.ui_str_e_g_merchant_okicici_a9d993)) },
                             singleLine = true,
                             visualTransformation = if (showFullUpiId || upiId.isBlank()) {
                                 VisualTransformation.None
@@ -2693,7 +2767,7 @@ fun ProfileSettingsModal(
                             supportingText = {
                                 if (upiId.isNotBlank()) {
                                     Text(
-                                        text = "Displayed publicly as: ${InterestCalculator.maskUpiId(upiId)}",
+                                        text = stringResource(R.string.ui_fmt_displayed_publicly_as_0e3b13, InterestCalculator.maskUpiId(upiId)),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -2710,8 +2784,8 @@ fun ProfileSettingsModal(
                                 showFullPhoneNumber = true
                                 phoneNumber = it
                             },
-                            label = { Text("Your Phone Number (for Verification & Profile Share)") },
-                            placeholder = { Text("e.g. +91 9876543210") },
+                            label = { Text(stringResource(R.string.ui_str_your_phone_number_for_verification_8fdaa6)) },
+                            placeholder = { Text(stringResource(R.string.ui_str_e_g_91_9876543210_46e6ed)) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                             visualTransformation = if (showFullPhoneNumber || phoneNumber.isBlank()) {
@@ -2735,7 +2809,7 @@ fun ProfileSettingsModal(
                             supportingText = {
                                 if (phoneNumber.isNotBlank()) {
                                     Text(
-                                        text = "Displayed publicly as: ${InterestCalculator.maskPhoneNumber(phoneNumber)}",
+                                        text = stringResource(R.string.ui_fmt_displayed_publicly_as_21e544, InterestCalculator.maskPhoneNumber(phoneNumber)),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -2764,7 +2838,7 @@ fun ProfileSettingsModal(
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                             ) {
                                 Text(
-                                    text = if (profilePhotoUri.isNotBlank()) "CHANGE PHOTO ✓" else "OPTIONAL PHOTO",
+                                    text = if (profilePhotoUri.isNotBlank()) stringResource(R.string.ui_str_change_photo_c7c5db) else stringResource(R.string.ui_str_optional_photo_89a9b1),
                                     style = MaterialTheme.typography.labelMedium
                                 )
                             }
@@ -2783,7 +2857,7 @@ fun ProfileSettingsModal(
                             ) {
                                 Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("SHARE MY DETAILS", style = MaterialTheme.typography.labelMedium)
+                                Text(stringResource(R.string.ui_str_share_my_details_439f39), style = MaterialTheme.typography.labelMedium)
                             }
                         }
 
@@ -2801,7 +2875,7 @@ fun ProfileSettingsModal(
                         ) {
                             Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("OPEN MY UPI QR CODE", style = MaterialTheme.typography.labelLarge)
+                            Text(stringResource(R.string.ui_str_open_my_upi_qr_code_0821c9), style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
@@ -2834,18 +2908,18 @@ fun ProfileSettingsModal(
                                 )
                                 Column {
                                     Text(
-                                        text = "BIOMETRIC & PIN APP LOCK",
+                                        text = stringResource(R.string.ui_str_biometric_pin_app_lock_1d820f),
                                         style = MaterialTheme.typography.titleSmall,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = "Require Fingerprint, Phone PIN, or App PIN on launch",
+                                        text = stringResource(R.string.ui_str_require_fingerprint_phone_pin_or_ea5359),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
-                            Switch(
+                            UdhaarAnimatedSwitch(
                                 checked = biometricLockEnabled,
                                 onCheckedChange = { enabled ->
                                     if (enabled) {
@@ -2858,7 +2932,7 @@ fun ProfileSettingsModal(
                                                 "Enter a 4 to 8 digit PIN below first to enable App Lock.",
                                                 Toast.LENGTH_SHORT
                                             ).show()
-                                            return@Switch
+                                            return@UdhaarAnimatedSwitch
                                         }
                                         pinValidationError = null
                                         biometricLockEnabled = true
@@ -2888,15 +2962,15 @@ fun ProfileSettingsModal(
                             label = {
                                 Text(
                                     if (currentSettings.hasPinConfigured) {
-                                        "Change 4–8 Digit Security PIN (Salted Hash Active)"
+                                        stringResource(R.string.ui_str_change_4_8_digit_security_795f1a)
                                     } else {
-                                        "Set 4–8 Digit Security PIN (Required for App Lock)"
+                                        stringResource(R.string.ui_str_set_4_8_digit_security_400df1)
                                     }
                                 )
                             },
                             placeholder = {
                                 Text(
-                                    if (currentSettings.hasPinConfigured) "Leave blank to keep current PIN" else "Enter 4 to 8 digits"
+                                    if (currentSettings.hasPinConfigured) stringResource(R.string.ui_str_leave_blank_to_keep_current_b44066) else stringResource(R.string.ui_str_enter_4_to_8_digits_e796a0)
                                 )
                             },
                             singleLine = true,
@@ -2928,9 +3002,9 @@ fun ProfileSettingsModal(
                                 } else {
                                     Text(
                                         text = if (currentSettings.hasPinConfigured) {
-                                            "PIN is stored as a PBKDF2-HMAC-SHA256 salted hash in Android Keystore."
+                                            stringResource(R.string.ui_str_pin_is_stored_as_a_a204da)
                                         } else {
-                                            "No default PIN exists. You must set a 4–8 digit PIN to enable App Lock."
+                                            stringResource(R.string.ui_str_no_default_pin_exists_you_7470c3)
                                         },
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -2958,7 +3032,7 @@ fun ProfileSettingsModal(
                             ) {
                                 Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("LOCK APP NOW", style = MaterialTheme.typography.labelMedium)
+                                Text(stringResource(R.string.ui_str_lock_app_now_5b5570), style = MaterialTheme.typography.labelMedium)
                             }
                         }
                     }
@@ -2975,13 +3049,13 @@ fun ProfileSettingsModal(
                         testTag = "section_currency_and_theme"
                     ) {
                         Text(
-                            text = "ENABLED LEDGER CURRENCIES",
+                            text = stringResource(R.string.ui_str_enabled_ledger_currencies_f084db),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Enable Indian Rupee (INR ₹), Nepalese Rupee (NPR रू), or both. At least one currency stays active.",
+                            text = stringResource(R.string.ui_str_enable_indian_rupee_inr_nepalese_109ff1),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -2997,17 +3071,17 @@ fun ProfileSettingsModal(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Indian Rupee — INR (₹)",
+                                    text = stringResource(R.string.ui_str_indian_rupee_inr_e33b10),
                                     style = MaterialTheme.typography.titleSmall,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Supports offline UPI QR & INR khata",
+                                    text = stringResource(R.string.ui_str_supports_offline_upi_qr_inr_73075a),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            Switch(
+                            UdhaarAnimatedSwitch(
                                 checked = inrEnabled,
                                 onCheckedChange = { checked ->
                                     if (!checked && !nprEnabled) {
@@ -3035,17 +3109,17 @@ fun ProfileSettingsModal(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Nepalese Rupee — NPR (रू)",
+                                    text = stringResource(R.string.ui_str_nepalese_rupee_npr_8944f0),
                                     style = MaterialTheme.typography.titleSmall,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Enable NPR ledger tabs & entries",
+                                    text = stringResource(R.string.ui_str_enable_npr_ledger_tabs_entries_fcb848),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            Switch(
+                            UdhaarAnimatedSwitch(
                                 checked = nprEnabled,
                                 onCheckedChange = { checked ->
                                     if (!checked && !inrEnabled) {
@@ -3064,7 +3138,7 @@ fun ProfileSettingsModal(
 
                         if (inrEnabled && nprEnabled) {
                             Text(
-                                text = "DEFAULT STARTUP CURRENCY",
+                                text = stringResource(R.string.ui_str_default_startup_currency_47f398),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -3090,7 +3164,7 @@ fun ProfileSettingsModal(
 
                         // Font Scale
                         Text(
-                            text = "TEXT & UI SIZE (MOBILE FIT)",
+                            text = stringResource(R.string.ui_str_text_ui_size_mobile_fit_c8a35b),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -3147,7 +3221,7 @@ fun ProfileSettingsModal(
                                 modifier = Modifier.size(18.dp)
                             )
                             Text(
-                                text = "COLOR THEME",
+                                text = stringResource(R.string.ui_str_color_theme_5e8956),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -3203,7 +3277,7 @@ fun ProfileSettingsModal(
 
                         // Phone System Settings Shortcuts
                         Text(
-                            text = "PHONE SYSTEM SETTINGS INTEGRATION",
+                            text = stringResource(R.string.ui_str_phone_system_settings_integration_405856),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -3228,7 +3302,7 @@ fun ProfileSettingsModal(
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                             ) {
                                 Text(
-                                    text = "DISPLAY & FONT",
+                                    text = stringResource(R.string.ui_str_display_font_311f8f),
                                     style = MaterialTheme.typography.labelSmall,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
@@ -3250,7 +3324,7 @@ fun ProfileSettingsModal(
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                             ) {
                                 Text(
-                                    text = "PHONE PIN / BIO",
+                                    text = stringResource(R.string.ui_str_phone_pin_bio_4ca34f),
                                     style = MaterialTheme.typography.labelSmall,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
@@ -3277,7 +3351,7 @@ fun ProfileSettingsModal(
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                         ) {
                             Text(
-                                text = "APP PERMISSIONS & NOTIFICATION SETTINGS",
+                                text = stringResource(R.string.ui_str_app_permissions_notification_settin_8e5f3d),
                                 style = MaterialTheme.typography.labelSmall,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -3319,7 +3393,7 @@ fun ProfileSettingsModal(
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Text(
-                                        text = driveOperationStatusMessage ?: "Google Drive operation in progress...",
+                                        text = driveOperationStatusMessage ?: stringResource(R.string.ui_str_google_drive_operation_in_progress_97811d),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
@@ -3355,7 +3429,7 @@ fun ProfileSettingsModal(
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Text(
-                                        text = "GOOGLE DRIVE NOTICE",
+                                        text = stringResource(R.string.ui_str_google_drive_notice_fb05e0),
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.error
@@ -3375,20 +3449,20 @@ fun ProfileSettingsModal(
                                     shape = RoundedCornerShape(8.dp),
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
                                 ) {
-                                    Text("DISMISS", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                                    Text(stringResource(R.string.ui_str_dismiss_d2fd9a), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                                 }
                             }
                         }
 
                         // Google Drive AppData Section
                         Text(
-                            text = "GOOGLE DRIVE APP DATA CLOUD BACKUP",
+                            text = stringResource(R.string.ui_str_google_drive_app_data_cloud_f609d0),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Backups are client-side encrypted with AES-256-GCM before upload and saved strictly in your hidden Google Drive AppData folder (Udhaar cannot access any of your other files).",
+                            text = stringResource(R.string.ui_str_backups_are_client_side_encrypted_450b36),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -3408,7 +3482,7 @@ fun ProfileSettingsModal(
                             ) {
                                 Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("SIGN IN WITH GOOGLE DRIVE", style = MaterialTheme.typography.labelLarge)
+                                Text(stringResource(R.string.ui_str_sign_in_with_google_drive_f8dca0), style = MaterialTheme.typography.labelLarge)
                             }
                         } else {
                             Column(
@@ -3427,7 +3501,7 @@ fun ProfileSettingsModal(
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = "CONNECTED GOOGLE ACCOUNT",
+                                            text = stringResource(R.string.ui_str_connected_google_account_4aaee2),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -3438,14 +3512,14 @@ fun ProfileSettingsModal(
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
                                         val lastBackupStr = if (currentSettings.driveLastBackupMillis > 0) {
-                                            val dateStr = InterestCalculator.formatDate(currentSettings.driveLastBackupMillis)
+                                            val dateStr = InterestCalculator.fmtDate(currentSettings.driveLastBackupMillis)
                                             val sizeKb = currentSettings.driveLastBackupSizeBytes / 1024
                                             "$dateStr (${sizeKb} KB)"
                                         } else {
                                             "No backup yet"
                                         }
                                         Text(
-                                            text = "Last Backup: $lastBackupStr",
+                                            text = stringResource(R.string.ui_fmt_last_backup_a7f073, lastBackupStr),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -3482,7 +3556,7 @@ fun ProfileSettingsModal(
                                     ) {
                                         Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text("BACK UP NOW", style = MaterialTheme.typography.labelMedium)
+                                        Text(stringResource(R.string.ui_str_back_up_now_e11395), style = MaterialTheme.typography.labelMedium)
                                     }
 
                                     OutlinedButton(
@@ -3494,7 +3568,7 @@ fun ProfileSettingsModal(
                                         shape = RoundedCornerShape(12.dp),
                                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                                     ) {
-                                        Text("SIGN OUT", style = MaterialTheme.typography.labelMedium)
+                                        Text(stringResource(R.string.ui_str_sign_out_c790dd), style = MaterialTheme.typography.labelMedium)
                                     }
                                 }
                             }
@@ -3510,13 +3584,13 @@ fun ProfileSettingsModal(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = "AUTOMATIC BACKUP (WORKMANAGER)",
+                                    text = stringResource(R.string.ui_str_automatic_backup_workmanager_961df8),
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Udhaar schedules periodic background backups using WorkManager. Passphrase must be saved in Android Keystore.",
+                                    text = stringResource(R.string.ui_str_udhaar_schedules_periodic_backgroun_accdee),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -3566,18 +3640,18 @@ fun ProfileSettingsModal(
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = "Wi-Fi Only",
+                                            text = stringResource(R.string.ui_str_wi_fi_only_6ce953),
                                             style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.Medium,
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
-                                            text = "Only upload auto-backups over unmetered Wi-Fi connections",
+                                            text = stringResource(R.string.ui_str_only_upload_auto_backups_over_1776af),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
-                                    Switch(
+                                    UdhaarAnimatedSwitch(
                                         checked = currentSettings.driveAutoBackupWifiOnly,
                                         onCheckedChange = { wifiOnly ->
                                             onUpdateAutoBackupSettings(
@@ -3592,7 +3666,7 @@ fun ProfileSettingsModal(
 
                                 if (currentSettings.driveAutoBackupFrequency != com.jyotirmoyb.udhaar.data.AutoBackupFrequency.DISABLED && !currentSettings.driveAutoBackupPassphraseSaved) {
                                     Text(
-                                        text = "⚠️ Auto-backup is scheduled, but no backup passphrase is saved in Keystore yet. Tap 'Back Up Now' and check 'Save passphrase' to enable unattended background uploads.",
+                                        text = stringResource(R.string.ui_str_auto_backup_is_scheduled_but_40f61e),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.error
                                     )
@@ -3610,7 +3684,7 @@ fun ProfileSettingsModal(
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = "EARLIER CLOUD BACKUPS (${driveRemoteBackups.size})",
+                                    text = stringResource(R.string.ui_fmt_earlier_cloud_backups_02efea, driveRemoteBackups.size),
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -3618,7 +3692,7 @@ fun ProfileSettingsModal(
 
                                 if (driveRemoteBackups.isEmpty()) {
                                     Text(
-                                        text = "No backups found in Google Drive AppData folder yet. Tap 'Back Up Now' above to create your first encrypted backup.",
+                                        text = stringResource(R.string.ui_str_no_backups_found_in_google_dbb9f5),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -3648,19 +3722,19 @@ fun ProfileSettingsModal(
                                                 )
                                                 val sizeKb = backup.sizeBytes / 1024
                                                 Text(
-                                                    text = "${sizeKb} KB",
+                                                    text = stringResource(R.string.ui_fmt_kb_bb7db8, sizeKb),
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
 
                                             val dateStr = if (backup.createdTimeMillis > 0) {
-                                                InterestCalculator.formatDate(backup.createdTimeMillis)
+                                                InterestCalculator.fmtDate(backup.createdTimeMillis)
                                             } else {
                                                 "Unknown date"
                                             }
                                             Text(
-                                                text = "Created: $dateStr • AES-256-GCM Encrypted",
+                                                text = stringResource(R.string.ui_fmt_created_aes_256_gcm_encrypted_b1c8fd, dateStr),
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -3687,7 +3761,7 @@ fun ProfileSettingsModal(
                                                 ) {
                                                     Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(14.dp))
                                                     Spacer(modifier = Modifier.width(4.dp))
-                                                    Text("RESTORE", style = MaterialTheme.typography.labelSmall)
+                                                    Text(stringResource(R.string.ui_str_restore_6a8135), style = MaterialTheme.typography.labelSmall)
                                                 }
 
                                                 OutlinedButton(
@@ -3701,7 +3775,7 @@ fun ProfileSettingsModal(
                                                 ) {
                                                     Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.error)
                                                     Spacer(modifier = Modifier.width(4.dp))
-                                                    Text("DELETE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                                                    Text(stringResource(R.string.ui_str_delete_d6f563), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                                                 }
                                             }
                                         }
@@ -3714,13 +3788,13 @@ fun ProfileSettingsModal(
 
                         // Local Offline JSON Backup & Restore
                         Text(
-                            text = "LOCAL OFFLINE JSON BACKUP & RESTORE",
+                            text = stringResource(R.string.ui_str_local_offline_json_backup_restore_01188e),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Export your entire ledger (all parties, INR & NPR transactions, partial payment history, and settings) as a portable unencrypted JSON file or restore from local storage.",
+                            text = stringResource(R.string.ui_str_export_your_entire_ledger_all_3a1431),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -3740,7 +3814,7 @@ fun ProfileSettingsModal(
                             ) {
                                 Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("SAVE BACKUP", style = MaterialTheme.typography.labelMedium)
+                                Text(stringResource(R.string.ui_str_save_backup_9dd257), style = MaterialTheme.typography.labelMedium)
                             }
 
                             OutlinedButton(
@@ -3754,7 +3828,7 @@ fun ProfileSettingsModal(
                             ) {
                                 Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("SHARE FILE", style = MaterialTheme.typography.labelMedium)
+                                Text(stringResource(R.string.ui_str_share_file_39064b), style = MaterialTheme.typography.labelMedium)
                             }
                         }
 
@@ -3769,20 +3843,20 @@ fun ProfileSettingsModal(
                         ) {
                             Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("IMPORT / RESTORE JSON BACKUP", style = MaterialTheme.typography.labelMedium)
+                            Text(stringResource(R.string.ui_str_import_restore_json_backup_61b7ef), style = MaterialTheme.typography.labelMedium)
                         }
 
                         HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
 
                         // Phase 3: Two-Party Cloud Verification, Privacy Consent & Delete My Cloud Data
                         Text(
-                            text = "TWO-PARTY CLOUD VERIFICATION & PRIVACY",
+                            text = stringResource(R.string.ui_str_two_party_cloud_verification_privac_8c2a13),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Udhaar works 100% offline by default. Nothing leaves your device unless you explicitly consent below or share a verification link.",
+                            text = stringResource(R.string.ui_str_udhaar_works_100_offline_by_5362e5),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -3798,17 +3872,17 @@ fun ProfileSettingsModal(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Explicit Cloud Verification Consent",
+                                    text = stringResource(R.string.ui_str_explicit_cloud_verification_consent_255a87),
                                     style = MaterialTheme.typography.titleSmall,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Allow shared records & E2EE notes to sync with Cloud Firestore",
+                                    text = stringResource(R.string.ui_str_allow_shared_records_e2ee_notes_2689cf),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            Switch(
+                            UdhaarAnimatedSwitch(
                                 checked = cloudVerificationConsent,
                                 onCheckedChange = { granted ->
                                     cloudVerificationConsent = granted
@@ -3830,11 +3904,12 @@ fun ProfileSettingsModal(
                             shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                         ) {
+                            val cloudAccountLabel = currentSettings.cloudUserEmail.ifBlank { stringResource(R.string.ui_verified_account_caps) }
                             Text(
                                 text = if (currentSettings.cloudUserId.isNotBlank()) {
-                                    "SIGNED IN (${currentSettings.cloudUserEmail.ifBlank { "VERIFIED ACCOUNT" }})"
+                                    stringResource(R.string.ui_fmt_signed_in_06c074, cloudAccountLabel)
                                 } else {
-                                    "SIGN IN WITH GOOGLE FOR CLOUD VERIFICATION"
+                                    stringResource(R.string.ui_str_sign_in_with_google_for_7f6a17)
                                 },
                                 style = MaterialTheme.typography.labelMedium
                             )
@@ -3844,8 +3919,8 @@ fun ProfileSettingsModal(
                         OutlinedTextField(
                             value = incomingLinkInput,
                             onValueChange = { incomingLinkInput = it },
-                            label = { Text("Open Received Verification or Payment Link") },
-                            placeholder = { Text("Paste https://jyotirmoyb.com/u/... link") },
+                            label = { Text(stringResource(R.string.ui_str_open_received_verification_or_payme_e37547)) },
+                            placeholder = { Text(stringResource(R.string.ui_str_paste_https_jyotirmoyb_com_u_6b00ac)) },
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -3864,7 +3939,7 @@ fun ProfileSettingsModal(
                                     .testTag("settings_open_verification_link_button"),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("INSPECT SHARED LINK", style = MaterialTheme.typography.labelMedium)
+                                Text(stringResource(R.string.ui_str_inspect_shared_link_022c24), style = MaterialTheme.typography.labelMedium)
                             }
                         }
 
@@ -3893,7 +3968,7 @@ fun ProfileSettingsModal(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (confirmCloudDelete) "TAP AGAIN TO PERMANENTLY DELETE CLOUD DATA" else "DELETE MY CLOUD DATA",
+                                text = if (confirmCloudDelete) stringResource(R.string.ui_str_tap_again_to_permanently_delete_1bbe18) else stringResource(R.string.ui_str_delete_my_cloud_data_c570cb),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.error
                             )
@@ -3922,13 +3997,13 @@ fun ProfileSettingsModal(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                text = "SHARE UDHAAR & GIVE ACCESS",
+                                text = stringResource(R.string.ui_str_share_udhaar_give_access_0b30b9),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Share the Udhaar app via QR or WhatsApp, or send your ledger statement file to a partner device.",
+                                text = stringResource(R.string.ui_str_share_the_udhaar_app_via_d0183f),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -3943,7 +4018,7 @@ fun ProfileSettingsModal(
                             ) {
                                 Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("SHARE UDHAAR APP (QR & INVITE LINK)", style = MaterialTheme.typography.labelMedium)
+                                Text(stringResource(R.string.ui_str_share_udhaar_app_qr_invite_9e0ec0), style = MaterialTheme.typography.labelMedium)
                             }
                         }
 
@@ -3969,20 +4044,20 @@ fun ProfileSettingsModal(
                                 )
                                 Column {
                                     Text(
-                                        text = "UDHAAR LEDGER v8.0",
+                                        text = stringResource(R.string.ui_str_udhaar_ledger_v8_0_c73358),
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        text = "Developer & Admin: Jyotirmoy Bhowmik",
+                                        text = stringResource(R.string.ui_str_developer_admin_jyotirmoy_bhowmik_436c7f),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
                             Text(
-                                text = "Support Email: jyotirmoybhowmik@gmail.com",
+                                text = stringResource(R.string.ui_str_support_email_jyotirmoybhowmik_gmai_803452),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -4008,7 +4083,7 @@ fun ProfileSettingsModal(
                             ) {
                                 Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("CONTACT ADMIN (EMAIL SUPPORT)", style = MaterialTheme.typography.labelMedium)
+                                Text(stringResource(R.string.ui_str_contact_admin_email_support_ff5066), style = MaterialTheme.typography.labelMedium)
                             }
                         }
                     }
@@ -4023,7 +4098,7 @@ fun ProfileSettingsModal(
             onDismissRequest = { showBackupDialog = false },
             title = {
                 Text(
-                    text = "ENCRYPT & BACK UP TO GOOGLE DRIVE",
+                    text = stringResource(R.string.ui_str_encrypt_back_up_to_google_a82102),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -4036,7 +4111,7 @@ fun ProfileSettingsModal(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "Set a passphrase to encrypt your backup on-device before uploading to Google Drive AppData.\n\n⚠️ IMPORTANT: If you forget or lose this passphrase, your encrypted backup CANNOT be recovered.",
+                        text = stringResource(R.string.ui_str_set_a_passphrase_to_encrypt_4bdc01),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -4047,8 +4122,8 @@ fun ProfileSettingsModal(
                             backupPassphrase = it
                             backupPassphraseError = null
                         },
-                        label = { Text("Backup Passphrase") },
-                        placeholder = { Text("Enter strong passphrase") },
+                        label = { Text(stringResource(R.string.ui_str_backup_passphrase_2a9696)) },
+                        placeholder = { Text(stringResource(R.string.ui_str_enter_strong_passphrase_2db9a2)) },
                         singleLine = true,
                         visualTransformation = if (backupPassphraseVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         trailingIcon = {
@@ -4070,8 +4145,8 @@ fun ProfileSettingsModal(
                             confirmBackupPassphrase = it
                             backupPassphraseError = null
                         },
-                        label = { Text("Confirm Passphrase") },
-                        placeholder = { Text("Re-enter passphrase") },
+                        label = { Text(stringResource(R.string.ui_str_confirm_passphrase_81f868)) },
+                        placeholder = { Text(stringResource(R.string.ui_str_re_enter_passphrase_87fa77)) },
                         singleLine = true,
                         visualTransformation = if (backupPassphraseVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         modifier = Modifier
@@ -4098,7 +4173,7 @@ fun ProfileSettingsModal(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Save securely in phone Keystore for automatic daily/weekly backups",
+                            text = stringResource(R.string.ui_str_save_securely_in_phone_keystore_216a55),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -4121,7 +4196,7 @@ fun ProfileSettingsModal(
                     },
                     modifier = Modifier.testTag("confirm_encrypt_and_backup_button")
                 ) {
-                    Text("ENCRYPT & UPLOAD")
+                    Text(stringResource(R.string.ui_str_encrypt_upload_623890))
                 }
             },
             dismissButton = {
@@ -4129,7 +4204,7 @@ fun ProfileSettingsModal(
                     onClick = { showBackupDialog = false },
                     modifier = Modifier.testTag("cancel_backup_dialog_button")
                 ) {
-                    Text("CANCEL")
+                    Text(stringResource(R.string.ui_str_cancel_1507c4))
                 }
             }
         )
@@ -4144,7 +4219,7 @@ fun ProfileSettingsModal(
             },
             title = {
                 Text(
-                    text = "DECRYPT & PREVIEW RESTORE",
+                    text = stringResource(R.string.ui_str_decrypt_preview_restore_e4b787),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -4157,7 +4232,7 @@ fun ProfileSettingsModal(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "Enter the passphrase used when creating '${backup.fileName}'. The file will be decrypted and previewed before any changes are applied.",
+                        text = stringResource(R.string.ui_fmt_enter_the_passphrase_used_when_0b3c36, backup.fileName),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -4165,8 +4240,8 @@ fun ProfileSettingsModal(
                     OutlinedTextField(
                         value = restorePassphrase,
                         onValueChange = { restorePassphrase = it },
-                        label = { Text("Backup Passphrase") },
-                        placeholder = { Text("Passphrase") },
+                        label = { Text(stringResource(R.string.ui_str_backup_passphrase_2a9696)) },
+                        placeholder = { Text(stringResource(R.string.ui_str_passphrase_89950c)) },
                         singleLine = true,
                         visualTransformation = if (restorePassphraseVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         trailingIcon = {
@@ -4194,7 +4269,7 @@ fun ProfileSettingsModal(
                     },
                     modifier = Modifier.testTag("confirm_decrypt_and_preview_button")
                 ) {
-                    Text("DECRYPT & PREVIEW")
+                    Text(stringResource(R.string.ui_str_decrypt_preview_10fcf4))
                 }
             },
             dismissButton = {
@@ -4205,7 +4280,7 @@ fun ProfileSettingsModal(
                     },
                     modifier = Modifier.testTag("cancel_restore_dialog_button")
                 ) {
-                    Text("CANCEL")
+                    Text(stringResource(R.string.ui_str_cancel_1507c4))
                 }
             }
         )
@@ -4228,7 +4303,7 @@ fun RestorePreviewDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "RESTORE BACKUP PREVIEW",
+                text = stringResource(R.string.ui_str_restore_backup_preview_07b0c7),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -4241,7 +4316,7 @@ fun RestorePreviewDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = "Backup successfully decrypted from '${backup.fileName}'. Preview of contents:",
+                    text = stringResource(R.string.ui_fmt_backup_successfully_decrypted_from_1a9713, backup.fileName),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -4267,13 +4342,13 @@ fun RestorePreviewDialog(
                 }
 
                 Text(
-                    text = "Choose how to apply this backup:",
+                    text = stringResource(R.string.ui_str_choose_how_to_apply_this_5b7adc),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "• MERGE: Adds all remote records into your ledger, keeping local records.\n• REPLACE: Completely wipes your local ledger and replaces it with this backup.",
+                    text = stringResource(R.string.ui_str_merge_adds_all_remote_records_f600c4),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -4291,7 +4366,7 @@ fun RestorePreviewDialog(
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     )
                 ) {
-                    Text("MERGE")
+                    Text(stringResource(R.string.ui_str_merge_1e0d71))
                 }
                 Button(
                     onClick = onReplace,
@@ -4301,7 +4376,7 @@ fun RestorePreviewDialog(
                         contentColor = MaterialTheme.colorScheme.onError
                     )
                 ) {
-                    Text("REPLACE ALL")
+                    Text(stringResource(R.string.ui_str_replace_all_16af75))
                 }
             }
         },
@@ -4310,7 +4385,7 @@ fun RestorePreviewDialog(
                 onClick = onDismiss,
                 modifier = Modifier.testTag("restore_cancel_button")
             ) {
-                Text("CANCEL")
+                Text(stringResource(R.string.ui_str_cancel_1507c4))
             }
         }
     )

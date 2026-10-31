@@ -1,13 +1,18 @@
 package com.jyotirmoyb.udhaar.ui.components
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -16,6 +21,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
@@ -26,6 +32,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -313,7 +320,7 @@ fun DashboardScreen(
                             .padding(end = 12.dp)
                     ) {
                         Text(
-                            text = "UDHAAR",
+                            text = stringResource(R.string.ui_str_udhaar_ffc4fd),
                             style = MaterialTheme.typography.displayLarge.copy(
                                 fontFamily = SpaceGroteskFamily,
                                 fontWeight = FontWeight.Medium,
@@ -341,6 +348,7 @@ fun DashboardScreen(
                         onClick = onSettingsClick,
                         modifier = Modifier
                             .size(48.dp)
+                            .pressScaleFeedback()
                             .testTag("open_settings_button")
                     ) {
                         Icon(
@@ -354,51 +362,84 @@ fun DashboardScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Three rounded pill tabs: Active (n), People (n), and History
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                // Three rounded pill tabs: Active (n), People (n), and History with sliding animated pill indicator
+                val selectedTabIndex = when (selectedPillTab) {
+                    HomePillTab.ACTIVE -> 0
+                    HomePillTab.PEOPLE -> 1
+                    HomePillTab.HISTORY -> 2
+                }
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(42.dp)
                 ) {
-                    PillTabItem(
-                        label = "Active ($activeRecordsCount)",
-                        selected = selectedPillTab == HomePillTab.ACTIVE,
-                        onClick = {
-                            isHistoryMode = false
-                            onSwitchTab(ActiveScreen.DASHBOARD)
-                            if (uiState.selectedFilter == LedgerFilter.SETTLED) {
-                                onSelectFilter(LedgerFilter.ALL)
-                            }
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("nav_tab_ledger")
+                    val spacing = 10.dp
+                    val tabWidth = (maxWidth - spacing * 2) / 3
+                    val indicatorOffset by animateDpAsState(
+                        targetValue = (tabWidth + spacing) * selectedTabIndex,
+                        animationSpec = tween(
+                            durationMillis = if (reducedMotion) 0 else 230,
+                            easing = FastOutSlowInEasing
+                        ),
+                        label = "pillTabIndicatorOffset"
                     )
 
-                    PillTabItem(
-                        label = "People ($peopleCount)",
-                        selected = selectedPillTab == HomePillTab.PEOPLE,
-                        onClick = {
-                            isHistoryMode = false
-                            onSwitchTab(ActiveScreen.PEOPLE_DIRECTORY)
-                        },
+                    // Sliding pill indicator underneath active tab
+                    Box(
                         modifier = Modifier
-                            .weight(1f)
-                            .testTag("nav_tab_people_directory")
+                            .offset(x = indicatorOffset)
+                            .width(tabWidth)
+                            .height(42.dp)
+                            .clip(UdhaarShapeTokens.Pill)
+                            .background(SelectedPillTint, UdhaarShapeTokens.Pill)
+                            .border(width = 1.5.dp, color = PureBlack, shape = UdhaarShapeTokens.Pill)
                     )
 
-                    PillTabItem(
-                        label = "History",
-                        selected = selectedPillTab == HomePillTab.HISTORY,
-                        onClick = {
-                            isHistoryMode = true
-                            onSwitchTab(ActiveScreen.DASHBOARD)
-                            onSelectFilter(LedgerFilter.SETTLED)
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("nav_tab_history")
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.spacedBy(spacing),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        PillTabItem(
+                            label = "Active ($activeRecordsCount)",
+                            selected = selectedPillTab == HomePillTab.ACTIVE,
+                            onClick = {
+                                isHistoryMode = false
+                                onSwitchTab(ActiveScreen.DASHBOARD)
+                                if (uiState.selectedFilter == LedgerFilter.SETTLED) {
+                                    onSelectFilter(LedgerFilter.ALL)
+                                }
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("nav_tab_ledger")
+                        )
+
+                        PillTabItem(
+                            label = "People ($peopleCount)",
+                            selected = selectedPillTab == HomePillTab.PEOPLE,
+                            onClick = {
+                                isHistoryMode = false
+                                onSwitchTab(ActiveScreen.PEOPLE_DIRECTORY)
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("nav_tab_people_directory")
+                        )
+
+                        PillTabItem(
+                            label = "History",
+                            selected = selectedPillTab == HomePillTab.HISTORY,
+                            onClick = {
+                                isHistoryMode = true
+                                onSwitchTab(ActiveScreen.DASHBOARD)
+                                onSelectFilter(LedgerFilter.SETTLED)
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("nav_tab_history")
+                        )
+                    }
                 }
             }
         },
@@ -420,6 +461,7 @@ fun DashboardScreen(
                 ),
                 modifier = Modifier
                     .height(52.dp)
+                    .pressScaleFeedback()
                     .testTag("add_udhaar_fab")
             ) {
                 Row(
@@ -444,7 +486,7 @@ fun DashboardScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (isPeopleTab) "NEW CONTACT" else "NEW UDHAAR",
+                                text = if (isPeopleTab) stringResource(R.string.ui_str_new_contact_82691e) else stringResource(R.string.ui_str_new_udhaar_210bee),
                                 style = MaterialTheme.typography.labelLarge.copy(
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold,
@@ -465,193 +507,230 @@ fun DashboardScreen(
                 .padding(innerPadding),
             contentAlignment = Alignment.TopCenter
         ) {
-            if (isPeopleTab) {
-                PeopleDirectoryContent(
-                    partyKhataList = uiState.filteredPartyKhataList,
-                    enabledCurrencies = enabledCurrencies,
-                    searchQuery = uiState.peopleSearchQuery,
-                    onSearchQueryChange = onPeopleSearchQueryChange,
-                    onAddPartyClick = onAddPartyClick,
-                    onPartyClick = onPartyClick,
-                    onQuickAddLoanForParty = onQuickAddLoanForParty,
-                    unreadCountByPartyName = uiState.unreadCountByPartyName,
-                    onOpenPartyGeneralChat = onOpenPartyGeneralChat,
-                    partySortOption = uiState.partySortOption,
-                    onSortOptionChange = onPartySortOptionChange,
-                    duplicatePairsCount = uiState.duplicatePartyPairs.size,
-                    onOpenMergeDuplicates = onOpenMergeDuplicates,
-                    onOpenContactPicker = onOpenContactPicker,
-                    onToggleFavorite = onToggleFavoriteParty
-                )
-            } else {
-                LazyColumn(
-                    state = ledgerListState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .widthIn(max = 700.dp)
-                        .testTag("transactions_lazy_list"),
-                    contentPadding = PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
-                        top = 8.dp,
-                        bottom = 96.dp
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    item {
-                        TopLedgerSummaryCard(
-                            selectedCurrency = uiState.summaryCurrency,
-                            enabledCurrencies = enabledCurrencies,
-                            totals = uiState.activeSummaryTotals,
-                            inrCount = uiState.inrTotals.activeGivenCount + uiState.inrTotals.activeTakenCount,
-                            nprCount = uiState.nprTotals.activeGivenCount + uiState.nprTotals.activeTakenCount,
-                            isAmountsHidden = uiState.isAmountsHidden,
-                            onToggleHideAmounts = onToggleHideAmounts,
-                            onSelectCurrency = onSelectSummaryCurrency
-                        )
-                    }
-
-                    if (uiState.showCoachMarks) {
-                        item {
-                            FirstRunCoachMarksCard(
-                                onSkipOrFinish = onDismissCoachMarks
-                            )
-                        }
-                    }
-
-                    item {
-                        SearchAndFilterBar(
-                            searchQuery = uiState.searchQuery,
-                            selectedFilter = uiState.selectedFilter,
-                            enabledCurrencies = enabledCurrencies,
-                            allCalculatedItems = uiState.allCalculatedItems,
-                            partialPaymentsByTx = uiState.partialPaymentsByTx,
-                            onSearchQueryChange = onSearchQueryChange,
-                            onSelectFilter = { filter ->
-                                isHistoryMode = (filter == LedgerFilter.SETTLED)
-                                onSelectFilter(filter)
-                            }
-                        )
-                    }
-
-                    if (!uiState.isNeedsAttentionDismissed &&
-                        (overdueCount > 0 || dueTodayCount > 0 || waitingConfirmationCount > 0)
-                    ) {
-                        item {
-                            NeedsAttentionStrip(
-                                overdueCount = overdueCount,
-                                dueTodayCount = dueTodayCount,
-                                waitingConfirmationCount = waitingConfirmationCount,
-                                onFilterSelect = { filter ->
-                                    isHistoryMode = false
-                                    onSelectFilter(filter)
-                                },
-                                onDismiss = onDismissNeedsAttention
-                            )
-                        }
-                    }
-
-                    item {
-                        LedgerSectionHeaderRow(
-                            recordCount = uiState.filteredItems.size,
-                            transactionSortOption = uiState.transactionSortOption,
-                            dateRangeFilter = uiState.dateRangeFilter,
-                            onTransactionSortOptionChange = onTransactionSortOptionChange,
-                            onDateRangeFilterChange = onDateRangeFilterChange
-                        )
-                    }
-
-                    if (uiState.filteredItems.isEmpty()) {
-                        item {
-                            EmptyLedgerState(
-                                hasAnyTransactions = uiState.allCalculatedItems.isNotEmpty(),
-                                onAddClick = onAddUdhaarClick,
-                                onInviteClick = onShareMyPaymentDetailsClick,
-                                onResetFilter = {
-                                    isHistoryMode = false
-                                    onSelectFilter(LedgerFilter.ALL)
-                                    onSearchQueryChange("")
-                                }
-                            )
-                        }
+            AnimatedContent(
+                targetState = isPeopleTab,
+                transitionSpec = {
+                    if (reducedMotion) {
+                        fadeIn(tween(0)) togetherWith fadeOut(tween(0))
                     } else {
-                        val showGroupStickyHeaders = groupedFilteredItems.size > 1 ||
-                            (groupedFilteredItems.size == 1 && groupedFilteredItems.first().first == "Overdue")
+                        val isForward = targetState && !initialState
+                        val enter = slideInHorizontally(
+                            animationSpec = tween(220, easing = FastOutSlowInEasing),
+                            initialOffsetX = { fullWidth -> if (isForward) fullWidth / 6 else -fullWidth / 6 }
+                        ) + fadeIn(tween(190, easing = FastOutSlowInEasing))
+                        val exit = slideOutHorizontally(
+                            animationSpec = tween(180, easing = FastOutSlowInEasing),
+                            targetOffsetX = { fullWidth -> if (isForward) -fullWidth / 8 else fullWidth / 8 }
+                        ) + fadeOut(tween(160, easing = FastOutSlowInEasing))
+                        enter togetherWith exit
+                    }
+                },
+                label = "dashboard_tab_content",
+                modifier = Modifier.fillMaxSize()
+            ) { showPeopleTab ->
+                if (showPeopleTab) {
+                    PeopleDirectoryContent(
+                        partyKhataList = uiState.filteredPartyKhataList,
+                        enabledCurrencies = enabledCurrencies,
+                        searchQuery = uiState.peopleSearchQuery,
+                        onSearchQueryChange = onPeopleSearchQueryChange,
+                        onAddPartyClick = onAddPartyClick,
+                        onPartyClick = onPartyClick,
+                        onQuickAddLoanForParty = onQuickAddLoanForParty,
+                        unreadCountByPartyName = uiState.unreadCountByPartyName,
+                        onOpenPartyGeneralChat = onOpenPartyGeneralChat,
+                        partySortOption = uiState.partySortOption,
+                        onSortOptionChange = onPartySortOptionChange,
+                        duplicatePairsCount = uiState.duplicatePartyPairs.size,
+                        onOpenMergeDuplicates = onOpenMergeDuplicates,
+                        onOpenContactPicker = onOpenContactPicker,
+                        onToggleFavorite = onToggleFavoriteParty
+                    )
+                } else {
+                    LazyColumn(
+                        state = ledgerListState,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .widthIn(max = 700.dp)
+                            .testTag("transactions_lazy_list"),
+                        contentPadding = PaddingValues(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 8.dp,
+                            bottom = 96.dp
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        item(key = "top_summary_card_item") {
+                            Box(modifier = udhaarAnimateItem(reducedMotion)) {
+                                TopLedgerSummaryCard(
+                                    selectedCurrency = uiState.summaryCurrency,
+                                    enabledCurrencies = enabledCurrencies,
+                                    totals = uiState.activeSummaryTotals,
+                                    inrCount = uiState.inrTotals.activeGivenCount + uiState.inrTotals.activeTakenCount,
+                                    nprCount = uiState.nprTotals.activeGivenCount + uiState.nprTotals.activeTakenCount,
+                                    isAmountsHidden = uiState.isAmountsHidden,
+                                    onToggleHideAmounts = onToggleHideAmounts,
+                                    onSelectCurrency = onSelectSummaryCurrency
+                                )
+                            }
+                        }
 
-                        groupedFilteredItems.forEach { (groupTitle, groupItems) ->
-                            if (showGroupStickyHeaders) {
-                                stickyHeader(key = "group_header_$groupTitle") {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .background(PureWhite.copy(alpha = 0.96f))
-                                            .padding(vertical = 4.dp, horizontal = 2.dp)
-                                            .testTag("sticky_group_header_${groupTitle.lowercase().replace(' ', '_')}")
-                                    ) {
-                                        Text(
-                                            text = "$groupTitle (${groupItems.size})",
-                                            style = MaterialTheme.typography.labelMedium.copy(
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.Bold
-                                            ),
-                                            color = if (groupTitle == "Overdue") PayableCardInk else SecondaryInkGrey
-                                        )
-                                    }
+                        if (uiState.showCoachMarks) {
+                            item(key = "coach_marks_item") {
+                                Box(modifier = udhaarAnimateItem(reducedMotion)) {
+                                    FirstRunCoachMarksCard(
+                                        onSkipOrFinish = onDismissCoachMarks
+                                    )
                                 }
                             }
+                        }
 
-                            items(
-                                items = groupItems,
-                                key = { it.transaction.id }
-                            ) { summary ->
-                                val partyPhotoUri = partyPhotoByName[summary.transaction.partyName.trim().lowercase()].orEmpty()
-                                SwipeableTransactionCardItem(
-                                    summary = summary,
-                                    partyPhotoUri = partyPhotoUri,
-                                    isAmountsHidden = uiState.isAmountsHidden,
-                                    unreadCount = uiState.unreadCountByTx[summary.transaction.id] ?: 0,
-                                    attachmentsCount = uiState.attachmentsByTx[summary.transaction.id]?.size ?: 0,
-                                    onCardClick = { onTransactionClick(summary) },
-                                    onChatClick = { onOpenTransactionChat(summary) },
-                                    onWhatsAppClick = { onWhatsAppClick(summary) },
-                                    onQrClick = {
-                                        val tx = summary.transaction
-                                        if (tx.currency == CurrencyType.INR &&
-                                            tx.transactionType == TransactionType.GIVEN &&
-                                            !tx.isSettled
-                                        ) {
-                                            onTransactionQrClick(summary)
-                                        } else {
-                                            onTransactionClick(summary)
-                                        }
+                        item(key = "search_filter_bar_item") {
+                            Box(modifier = udhaarAnimateItem(reducedMotion)) {
+                                SearchAndFilterBar(
+                                    searchQuery = uiState.searchQuery,
+                                    selectedFilter = uiState.selectedFilter,
+                                    enabledCurrencies = enabledCurrencies,
+                                    allCalculatedItems = uiState.allCalculatedItems,
+                                    partialPaymentsByTx = uiState.partialPaymentsByTx,
+                                    onSearchQueryChange = onSearchQueryChange,
+                                    onSelectFilter = { filter ->
+                                        isHistoryMode = (filter == LedgerFilter.SETTLED)
+                                        onSelectFilter(filter)
                                     }
                                 )
                             }
                         }
-                    }
 
-                    // Footer: User's UPI ID as a small "VPA:" line under the list
-                    item {
-                        val vpaDisplay = if (uiState.userSettings.upiId.isNotBlank()) {
-                            InterestCalculator.maskUpiId(uiState.userSettings.upiId)
-                        } else {
-                            "Not configured (Tap Settings to add UPI ID)"
+                        if (!uiState.isNeedsAttentionDismissed &&
+                            (overdueCount > 0 || dueTodayCount > 0 || waitingConfirmationCount > 0)
+                        ) {
+                            item(key = "needs_attention_item") {
+                                Box(modifier = udhaarAnimateItem(reducedMotion)) {
+                                    NeedsAttentionStrip(
+                                        overdueCount = overdueCount,
+                                        dueTodayCount = dueTodayCount,
+                                        waitingConfirmationCount = waitingConfirmationCount,
+                                        onFilterSelect = { filter ->
+                                            isHistoryMode = false
+                                            onSelectFilter(filter)
+                                        },
+                                        onDismiss = onDismissNeedsAttention
+                                    )
+                                }
+                            }
                         }
-                        Text(
-                            text = "VPA: $vpaDisplay",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontFamily = IbmPlexMonoFamily,
-                                fontSize = 12.5.sp
-                            ),
-                            color = SecondaryInkGrey,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onSettingsClick() }
-                                .padding(horizontal = 4.dp, vertical = 4.dp)
-                                .testTag("footer_vpa_line")
-                        )
+
+                        item(key = "ledger_section_header_item") {
+                            Box(modifier = udhaarAnimateItem(reducedMotion)) {
+                                LedgerSectionHeaderRow(
+                                    recordCount = uiState.filteredItems.size,
+                                    transactionSortOption = uiState.transactionSortOption,
+                                    dateRangeFilter = uiState.dateRangeFilter,
+                                    onTransactionSortOptionChange = onTransactionSortOptionChange,
+                                    onDateRangeFilterChange = onDateRangeFilterChange
+                                )
+                            }
+                        }
+
+                        if (uiState.filteredItems.isEmpty()) {
+                            item(key = "empty_ledger_state_item") {
+                                Box(modifier = udhaarAnimateItem(reducedMotion)) {
+                                    EmptyLedgerState(
+                                        hasAnyTransactions = uiState.allCalculatedItems.isNotEmpty(),
+                                        onAddClick = onAddUdhaarClick,
+                                        onInviteClick = onShareMyPaymentDetailsClick,
+                                        onResetFilter = {
+                                            isHistoryMode = false
+                                            onSelectFilter(LedgerFilter.ALL)
+                                            onSearchQueryChange("")
+                                        }
+                                    )
+                                }
+                            }
+                        } else {
+                            val showGroupStickyHeaders = groupedFilteredItems.size > 1 ||
+                                (groupedFilteredItems.size == 1 && groupedFilteredItems.first().first == "Overdue")
+
+                            groupedFilteredItems.forEach { (groupTitle, groupItems) ->
+                                if (showGroupStickyHeaders) {
+                                    stickyHeader(key = "group_header_$groupTitle") {
+                                        Box(
+                                            modifier = udhaarAnimateItem(reducedMotion)
+                                                .fillMaxWidth()
+                                                .background(PureWhite.copy(alpha = 0.96f))
+                                                .padding(vertical = 4.dp, horizontal = 2.dp)
+                                                .testTag("sticky_group_header_${groupTitle.lowercase().replace(' ', '_')}")
+                                        ) {
+                                            Text(
+                                                text = stringResource(R.string.ui_fmt_symbol_30a1de, groupTitle, groupItems.size),
+                                                style = MaterialTheme.typography.labelMedium.copy(
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                ),
+                                                color = if (groupTitle == "Overdue") PayableCardInk else SecondaryInkGrey
+                                            )
+                                        }
+                                    }
+                                }
+
+                                items(
+                                    items = groupItems,
+                                    key = { it.transaction.id }
+                                ) { summary ->
+                                    val partyPhotoUri = partyPhotoByName[summary.transaction.partyName.trim().lowercase()].orEmpty()
+                                    Box(modifier = udhaarAnimateItem(reducedMotion)) {
+                                        SwipeableTransactionCardItem(
+                                            summary = summary,
+                                            partyPhotoUri = partyPhotoUri,
+                                            isAmountsHidden = uiState.isAmountsHidden,
+                                            unreadCount = uiState.unreadCountByTx[summary.transaction.id] ?: 0,
+                                            attachmentsCount = uiState.attachmentsByTx[summary.transaction.id]?.size ?: 0,
+                                            onCardClick = { onTransactionClick(summary) },
+                                            onChatClick = { onOpenTransactionChat(summary) },
+                                            onWhatsAppClick = { onWhatsAppClick(summary) },
+                                            onQrClick = {
+                                                val tx = summary.transaction
+                                                if (tx.currency == CurrencyType.INR &&
+                                                    tx.transactionType == TransactionType.GIVEN &&
+                                                    !tx.isSettled
+                                                ) {
+                                                    onTransactionQrClick(summary)
+                                                } else {
+                                                    onTransactionClick(summary)
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Footer: User's UPI ID as a small "VPA:" line under the list
+                        item(key = "footer_vpa_item") {
+                            val vpaDisplay = if (uiState.userSettings.upiId.isNotBlank()) {
+                                InterestCalculator.maskUpiId(uiState.userSettings.upiId)
+                            } else {
+                                "Not configured (Tap Settings to add UPI ID)"
+                            }
+                            Text(
+                                text = stringResource(R.string.ui_fmt_vpa_560ef1, vpaDisplay),
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontFamily = IbmPlexMonoFamily,
+                                    fontSize = 12.5.sp
+                                ),
+                                color = SecondaryInkGrey,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = udhaarAnimateItem(reducedMotion)
+                                    .fillMaxWidth()
+                                    .pressScaleFeedback()
+                                    .clickable { onSettingsClick() }
+                                    .padding(horizontal = 4.dp, vertical = 4.dp)
+                                    .testTag("footer_vpa_line")
+                            )
+                        }
                     }
                 }
             }
@@ -667,24 +746,25 @@ private fun PillTabItem(
     modifier: Modifier = Modifier
 ) {
     val bgColor by animateColorAsState(
-        targetValue = if (selected) SelectedPillTint else CardSurfaceWhite,
-        animationSpec = tween(durationMillis = 220),
+        targetValue = if (selected) SelectedPillTint.copy(alpha = 0.65f) else CardSurfaceWhite.copy(alpha = 0.85f),
+        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
         label = "pillBgColor"
     )
     val borderColor by animateColorAsState(
         targetValue = if (selected) PureBlack else BorderGrey,
-        animationSpec = tween(durationMillis = 220),
+        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
         label = "pillBorderColor"
     )
     val borderWidth by animateDpAsState(
         targetValue = if (selected) 1.5.dp else 1.dp,
-        animationSpec = tween(durationMillis = 220),
+        animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
         label = "pillBorderWidth"
     )
 
     Box(
         modifier = modifier
             .height(42.dp)
+            .pressScaleFeedback()
             .clip(UdhaarShapeTokens.Pill)
             .background(color = bgColor, shape = UdhaarShapeTokens.Pill)
             .border(width = borderWidth, color = borderColor, shape = UdhaarShapeTokens.Pill)
@@ -740,6 +820,7 @@ private fun TopLedgerSummaryCard(
                     Box(
                         modifier = Modifier
                             .height(34.dp)
+                            .pressScaleFeedback()
                             .clip(UdhaarShapeTokens.Corner12)
                             .background(chipBg, UdhaarShapeTokens.Corner12)
                             .border(
@@ -753,7 +834,7 @@ private fun TopLedgerSummaryCard(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "${curr.displayName} ($count)",
+                            text = stringResource(R.string.ui_fmt_symbol_c3451e, curr.displayName, count),
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
                             color = PureBlack,
@@ -763,6 +844,19 @@ private fun TopLedgerSummaryCard(
                 }
             }
         }
+
+        val animatedReceivableText = rememberAnimatedCurrencyText(
+            targetAmount = totals.totalToReceive,
+            currency = selectedCurrency,
+            isAmountsHidden = isAmountsHidden,
+            durationMillis = 260
+        )
+        val animatedPayableText = rememberAnimatedCurrencyText(
+            targetAmount = totals.totalToPay,
+            currency = selectedCurrency,
+            isAmountsHidden = isAmountsHidden,
+            durationMillis = 260
+        )
 
         // Two soft summary cards side by side with 24 dp corner radius
         Row(
@@ -788,7 +882,7 @@ private fun TopLedgerSummaryCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Total Receivable:",
+                        text = stringResource(R.string.ui_str_total_receivable_6cb1b1),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium
@@ -802,6 +896,7 @@ private fun TopLedgerSummaryCard(
                         onClick = onToggleHideAmounts,
                         modifier = Modifier
                             .size(48.dp)
+                            .pressScaleFeedback()
                             .testTag("privacy_hide_amounts_toggle")
                     ) {
                         Icon(
@@ -821,7 +916,7 @@ private fun TopLedgerSummaryCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = InterestCalculator.formatCurrencyPrivacy(totals.totalToReceive, selectedCurrency, isAmountsHidden),
+                        text = animatedReceivableText,
                         style = MaterialTheme.typography.displayMedium.copy(
                             fontFamily = IbmPlexMonoFamily,
                             fontWeight = FontWeight.Bold,
@@ -841,7 +936,7 @@ private fun TopLedgerSummaryCard(
                             .padding(horizontal = 6.dp, vertical = 3.dp)
                     ) {
                         Text(
-                            text = "RECEIVED",
+                            text = stringResource(R.string.ui_str_received_a7503f),
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.SemiBold,
@@ -884,7 +979,7 @@ private fun TopLedgerSummaryCard(
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Total Payable:",
+                    text = stringResource(R.string.ui_str_total_payable_65e9b2),
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
@@ -897,7 +992,7 @@ private fun TopLedgerSummaryCard(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
-                    text = InterestCalculator.formatCurrencyPrivacy(totals.totalToPay, selectedCurrency, isAmountsHidden),
+                    text = animatedPayableText,
                     style = MaterialTheme.typography.displayMedium.copy(
                         fontFamily = IbmPlexMonoFamily,
                         fontWeight = FontWeight.Bold,
@@ -929,17 +1024,47 @@ private fun TopLedgerSummaryCard(
             }
         }
 
-        // Below them: Net INR Position row
+        // Below them: Net INR Position row with colour cross-fade and count-up animation
+        val net = totals.netPosition
+        val reducedMotion = rememberReducedMotionEnabled()
+        val netColorDuration = if (reducedMotion) 0 else 240
+        val netBgColor by animateColorAsState(
+            targetValue = when {
+                net > 0.005 -> ReceivableCardBg.copy(alpha = 0.35f)
+                net < -0.005 -> PayableCardBg.copy(alpha = 0.35f)
+                else -> Color.Transparent
+            },
+            animationSpec = tween(netColorDuration, easing = FastOutSlowInEasing),
+            label = "netPositionBgColor"
+        )
+        val netAmountColor by animateColorAsState(
+            targetValue = when {
+                net > 0.005 -> ReceivableCardInk
+                net < -0.005 -> PayableCardInk
+                else -> SecondaryInkGrey
+            },
+            animationSpec = tween(netColorDuration, easing = FastOutSlowInEasing),
+            label = "netPositionAmountColor"
+        )
+        val animatedNetAbsText = rememberAnimatedCurrencyText(
+            targetAmount = kotlin.math.abs(net),
+            currency = selectedCurrency,
+            isAmountsHidden = isAmountsHidden,
+            durationMillis = 260
+        )
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 2.dp, vertical = 2.dp)
+                .clip(UdhaarShapeTokens.Corner12)
+                .background(netBgColor, UdhaarShapeTokens.Corner12)
+                .padding(horizontal = 8.dp, vertical = 6.dp)
                 .testTag("net_position_row"),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Net ${selectedCurrency.code} Position",
+                text = stringResource(R.string.ui_fmt_net_position_ebdd5e, selectedCurrency.code),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium
@@ -949,7 +1074,6 @@ private fun TopLedgerSummaryCard(
                 overflow = TextOverflow.Ellipsis
             )
 
-            val net = totals.netPosition
             val prefix = when {
                 isAmountsHidden -> ""
                 net > 0.005 -> "+"
@@ -957,13 +1081,13 @@ private fun TopLedgerSummaryCard(
                 else -> ""
             }
             Text(
-                text = "$prefix${InterestCalculator.formatCurrencyPrivacy(kotlin.math.abs(net), selectedCurrency, isAmountsHidden)}",
+                text = stringResource(R.string.ui_fmt_symbol_a68a33, prefix, animatedNetAbsText),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontFamily = IbmPlexMonoFamily,
                     fontSize = 14.5.sp,
                     fontWeight = FontWeight.SemiBold
                 ),
-                color = SecondaryInkGrey,
+                color = netAmountColor,
                 maxLines = 1
             )
         }
@@ -1137,9 +1261,11 @@ private fun SearchAndFilterBar(
                     label = "filterChipContent"
                 )
 
+                val reducedMotion = rememberReducedMotionEnabled()
                 Box(
-                    modifier = Modifier
+                    modifier = udhaarAnimateItem(reducedMotion)
                         .height(38.dp)
+                        .pressScaleFeedback()
                         .clip(UdhaarShapeTokens.Corner8)
                         .background(color = chipBg, shape = UdhaarShapeTokens.Corner8)
                         .border(
@@ -1213,7 +1339,7 @@ private fun LedgerSectionHeaderRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "LEDGER RECORDS ($recordCount)",
+            text = stringResource(R.string.ui_fmt_ledger_records_fbeaca, recordCount),
             style = MaterialTheme.typography.labelMedium.copy(
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -1225,6 +1351,7 @@ private fun LedgerSectionHeaderRow(
         Box {
             Row(
                 modifier = Modifier
+                    .pressScaleFeedback()
                     .clip(UdhaarShapeTokens.Corner8)
                     .clickable { sortMenuExpanded = true }
                     .padding(horizontal = 6.dp, vertical = 4.dp)
@@ -1242,7 +1369,7 @@ private fun LedgerSectionHeaderRow(
                     text = if (dateRangeFilter == DateRangeFilter.ALL_TIME) {
                         transactionSortOption.label
                     } else {
-                        "${dateRangeFilter.label} • ${transactionSortOption.label}"
+                        stringResource(R.string.ui_fmt_symbol_7ff20b, dateRangeFilter.label, transactionSortOption.label)
                     },
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
                     color = SecondaryInkGrey
@@ -1258,7 +1385,7 @@ private fun LedgerSectionHeaderRow(
                     DropdownMenuItem(
                         text = {
                             Text(
-                                text = "Sort: ${option.label}",
+                                text = stringResource(R.string.ui_fmt_sort_ac397d, option.label),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = if (option == transactionSortOption) FontWeight.Bold else FontWeight.Normal,
                                 color = PureBlack
@@ -1275,7 +1402,7 @@ private fun LedgerSectionHeaderRow(
                     DropdownMenuItem(
                         text = {
                             Text(
-                                text = "Range: ${range.label}",
+                                text = stringResource(R.string.ui_fmt_range_7e5925, range.label),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = if (range == dateRangeFilter) FontWeight.Bold else FontWeight.Normal,
                                 color = PureBlack
@@ -1354,7 +1481,7 @@ private fun SwipeableTransactionCardItem(
                                 tint = ReceivableCardInk
                             )
                             Text(
-                                text = "Record payment",
+                                text = stringResource(R.string.ui_str_record_payment_86e563),
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = ReceivableCardInk
@@ -1367,7 +1494,7 @@ private fun SwipeableTransactionCardItem(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                text = "Send reminder",
+                                text = stringResource(R.string.ui_str_send_reminder_cf5eb3),
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = PureBlack
@@ -1399,7 +1526,7 @@ private fun SwipeableTransactionCardItem(
 }
 
 @Composable
-private fun TransactionCardItem(
+internal fun TransactionCardItem(
     summary: CalculatedUdhaarSummary,
     partyPhotoUri: String = "",
     isAmountsHidden: Boolean = false,
@@ -1416,6 +1543,8 @@ private fun TransactionCardItem(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .udhaarSharedBounds("tx_card_${tx.id}")
+            .pressScaleFeedback(pressedScale = 0.98f)
             .testTag("transaction_card_${tx.id}"),
         shape = UdhaarShapeTokens.Corner16,
         color = if (tx.isSettled) SubtleSurfaceGrey else CardSurfaceWhite,
@@ -1455,7 +1584,7 @@ private fun TransactionCardItem(
                             .padding(horizontal = 8.dp, vertical = 3.dp)
                     ) {
                         Text(
-                            text = if (isGiven) "GIVEN" else "TAKEN",
+                            text = if (isGiven) stringResource(R.string.ui_str_given_567b49) else stringResource(R.string.ui_str_taken_7abbf5),
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontSize = 10.5.sp,
                                 fontWeight = FontWeight.Bold
@@ -1510,7 +1639,7 @@ private fun TransactionCardItem(
                                 .testTag("tx_unread_badge_${tx.id}")
                         ) {
                             Text(
-                                text = "💬 $unreadCount",
+                                text = stringResource(R.string.ui_fmt_symbol_301919, unreadCount),
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                                 fontWeight = FontWeight.Bold,
                                 color = CardSurfaceWhite,
@@ -1527,7 +1656,7 @@ private fun TransactionCardItem(
                                 .testTag("tx_attachments_badge_${tx.id}")
                         ) {
                             Text(
-                                text = "📎 $attachmentsCount",
+                                text = stringResource(R.string.ui_fmt_symbol_e20cea, attachmentsCount),
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                                 fontWeight = FontWeight.SemiBold,
                                 color = PureBlack,
@@ -1566,7 +1695,8 @@ private fun TransactionCardItem(
                     PersonAvatar(
                         name = tx.partyName,
                         photoUri = partyPhotoUri,
-                        size = 40.dp
+                        size = 40.dp,
+                        modifier = Modifier.udhaarSharedElement("tx_avatar_${tx.id}")
                     )
                     Column(
                         verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -1580,7 +1710,8 @@ private fun TransactionCardItem(
                             color = PureBlack,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            textDecoration = if (tx.isSettled) TextDecoration.LineThrough else TextDecoration.None
+                            textDecoration = if (tx.isSettled) TextDecoration.LineThrough else TextDecoration.None,
+                            modifier = Modifier.udhaarSharedBounds("tx_name_${tx.id}")
                         )
                         if (tx.phoneNumber.isNotBlank()) {
                             Text(
@@ -1608,7 +1739,9 @@ private fun TransactionCardItem(
                     color = PureBlack,
                     maxLines = 1,
                     textDecoration = if (tx.isSettled) TextDecoration.LineThrough else TextDecoration.None,
-                    modifier = Modifier.testTag("tx_card_amount_${tx.id}")
+                    modifier = Modifier
+                        .udhaarSharedBounds("tx_amount_${tx.id}")
+                        .testTag("tx_card_amount_${tx.id}")
                 )
             }
 
@@ -1625,7 +1758,7 @@ private fun TransactionCardItem(
 
             if (tx.notes.isNotBlank()) {
                 Text(
-                    text = "“${tx.notes}”",
+                    text = stringResource(R.string.ui_fmt_symbol_c8354b, tx.notes),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontStyle = FontStyle.Italic,
                         fontSize = 13.5.sp
@@ -1645,7 +1778,7 @@ private fun TransactionCardItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (tx.isSettled) "Tap for Receipt" else "Tap for Repayment / Receipt",
+                    text = if (tx.isSettled) stringResource(R.string.ui_str_tap_for_receipt_693fae) else stringResource(R.string.ui_str_tap_for_repayment_receipt_bc12be),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontSize = 13.5.sp,
                         fontWeight = FontWeight.Medium
@@ -1660,6 +1793,7 @@ private fun TransactionCardItem(
 
                 Row(
                     modifier = Modifier
+                        .pressScaleFeedback()
                         .clip(UdhaarShapeTokens.Corner8)
                         .clickable(onClick = onChatClick)
                         .padding(horizontal = 8.dp, vertical = 6.dp)
@@ -1675,7 +1809,7 @@ private fun TransactionCardItem(
                     )
                     if (unreadCount > 0) {
                         Text(
-                            text = "Chat ($unreadCount)",
+                            text = stringResource(R.string.ui_fmt_chat_40e9c8, unreadCount),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = PureBlack
@@ -1695,6 +1829,7 @@ private fun TransactionCardItem(
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp)
+                        .pressScaleFeedback()
                         .testTag("card_qr_button_${tx.id}"),
                     shape = UdhaarShapeTokens.Corner12,
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
@@ -1711,7 +1846,7 @@ private fun TransactionCardItem(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Get QR/Receipt",
+                        text = stringResource(R.string.ui_str_get_qr_receipt_2aa81f),
                         style = MaterialTheme.typography.labelLarge.copy(
                             fontSize = 12.5.sp,
                             fontWeight = FontWeight.SemiBold
@@ -1726,6 +1861,7 @@ private fun TransactionCardItem(
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp)
+                        .pressScaleFeedback()
                         .testTag("card_whatsapp_button_${tx.id}"),
                     shape = UdhaarShapeTokens.Corner12,
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
@@ -1742,7 +1878,7 @@ private fun TransactionCardItem(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Send Reminder",
+                        text = stringResource(R.string.ui_str_send_reminder_1e475a),
                         style = MaterialTheme.typography.labelLarge.copy(
                             fontSize = 12.5.sp,
                             fontWeight = FontWeight.SemiBold

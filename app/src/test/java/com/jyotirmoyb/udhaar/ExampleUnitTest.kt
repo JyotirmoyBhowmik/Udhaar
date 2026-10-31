@@ -330,5 +330,89 @@ class ExampleUnitTest {
         assertEquals("me*** ***nt@okicici", InterestCalculator.maskUpiId("merchant@okicici"))
         assertEquals("ba*** ***an@okaxis", InterestCalculator.maskUpiId("bapan@okaxis"))
     }
+
+    @Test
+    fun noHardcodedTextLiteralsRemainInUiFiles_andAllFiveLanguagesHaveFullTranslations() {
+        val projectRootCandidates = listOf(
+            java.io.File("src/main"),
+            java.io.File("app/src/main"),
+            java.io.File("../app/src/main")
+        )
+        val mainDir = projectRootCandidates.firstOrNull { it.exists() && it.isDirectory }
+            ?: throw IllegalStateException("Could not locate app/src/main directory from ${java.io.File(".").absolutePath}")
+
+        val uiDir = java.io.File(mainDir, "java/com/jyotirmoyb/udhaar/ui")
+        assertTrue("UI directory must exist: ${uiDir.absolutePath}", uiDir.exists())
+
+        val hardcodedTextRegex = Regex("""\bText\s*\(\s*(?:text\s*=\s*)?"((?:[^"\\]|\\.)*)"""")
+        val violations = mutableListOf<String>()
+
+        uiDir.walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .forEach { ktFile ->
+                val content = ktFile.readText()
+                hardcodedTextRegex.findAll(content).forEach { match ->
+                    violations.add("${ktFile.name}: ${match.value}")
+                }
+            }
+
+        assertTrue(
+            "Found hard-coded Text(\"...\") literals in UI files (must be 0):\n${violations.joinToString("\n")}",
+            violations.isEmpty()
+        )
+
+        val resDir = java.io.File(mainDir, "res")
+        val localeDirs = listOf("values", "values-hi", "values-bn", "values-as", "values-ne")
+        val stringNameRegex = Regex("""<string\s+name="([^"]+)"[^>]*>(.*?)</string>""", RegexOption.DOT_MATCHES_ALL)
+
+        val keysByLocale = mutableMapOf<String, Map<String, String>>()
+        for (locale in localeDirs) {
+            val xmlFile = java.io.File(resDir, "$locale/strings.xml")
+            assertTrue("Missing $locale/strings.xml", xmlFile.exists())
+            val xmlText = xmlFile.readText()
+            val map = mutableMapOf<String, String>()
+            stringNameRegex.findAll(xmlText).forEach { m ->
+                map[m.groupValues[1]] = m.groupValues[2].trim()
+            }
+            keysByLocale[locale] = map
+        }
+
+        val defaultStrings = keysByLocale["values"].orEmpty()
+        assertTrue(
+            "Expected at least 500 strings in values/strings.xml after extracting all UI literals, found ${defaultStrings.size}",
+            defaultStrings.size >= 500
+        )
+
+        val nonTranslatableKeys = setOf("default_web_client_id")
+        val requiredKeys = defaultStrings.keys - nonTranslatableKeys
+
+        for (locale in listOf("values-hi", "values-bn", "values-as", "values-ne")) {
+            val localeMap = keysByLocale[locale].orEmpty()
+            val missing = requiredKeys - localeMap.keys
+            val emptyKeys = requiredKeys.filter { localeMap[it].isNullOrBlank() }
+            assertTrue("Missing keys in $locale/strings.xml: $missing", missing.isEmpty())
+            assertTrue("Blank translations in $locale/strings.xml: $emptyKeys", emptyKeys.isEmpty())
+        }
+    }
+
+    @Test
+    fun fmtDate_showsTimeWhenTimestampIncludesSpecificHourAndMinute() {
+        val midnightCal = java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.APRIL, 30, 0, 0, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        assertEquals("30 Apr 2026", InterestCalculator.fmtDate(midnightCal.timeInMillis))
+
+        val auditCal = java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.APRIL, 30, 14, 35, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        val formattedAudit = InterestCalculator.fmtDate(auditCal.timeInMillis)
+        assertTrue(
+            "Expected audit timestamp with hour and minute to include 02:35 PM, got: $formattedAudit",
+            formattedAudit.contains("30 Apr 2026") && formattedAudit.contains("02:35")
+        )
+        assertEquals("Open-ended", InterestCalculator.fmtDate(0L))
+    }
 }
 

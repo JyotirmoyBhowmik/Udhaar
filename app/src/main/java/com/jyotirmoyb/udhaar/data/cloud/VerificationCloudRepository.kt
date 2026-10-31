@@ -27,6 +27,7 @@ data class CloudUserProfile(
     val phoneNumber: String = "",
     val upiId: String = "",
     val photoUri: String = "",
+    val fcmToken: String = "",
     val createdAt: Timestamp = Timestamp(Date()),
     val updatedAt: Timestamp = Timestamp(Date())
 )
@@ -193,25 +194,61 @@ class VerificationCloudRepository(
             val docRef = db.collection("user_profiles").document(profile.userId)
             val existing = docRef.get().await()
             if (!existing.exists()) {
-                val data = mapOf(
+                val data = mutableMapOf<String, Any>(
                     "userId" to profile.userId,
                     "displayName" to profile.displayName,
                     "phoneNumber" to profile.phoneNumber,
                     "upiId" to profile.upiId,
                     "photoUri" to profile.photoUri,
+                    "fcmToken" to profile.fcmToken,
                     "createdAt" to FieldValue.serverTimestamp(),
                     "updatedAt" to FieldValue.serverTimestamp()
                 )
                 docRef.set(data).await()
             } else {
-                val updates = mapOf(
+                val updates = mutableMapOf<String, Any>(
                     "displayName" to profile.displayName,
                     "phoneNumber" to profile.phoneNumber,
                     "upiId" to profile.upiId,
                     "photoUri" to profile.photoUri,
                     "updatedAt" to FieldValue.serverTimestamp()
                 )
+                if (profile.fcmToken.isNotBlank()) {
+                    updates["fcmToken"] = profile.fcmToken
+                }
                 docRef.update(updates).await()
+            }
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.WRITE, path)
+        }
+    }
+
+    suspend fun updateUserFcmToken(userId: String, fcmToken: String) {
+        if (userId.isBlank() || fcmToken.isBlank()) return
+        val path = "user_profiles/$userId"
+        try {
+            val docRef = db.collection("user_profiles").document(userId)
+            val existing = docRef.get().await()
+            if (existing.exists()) {
+                docRef.update(
+                    mapOf(
+                        "fcmToken" to fcmToken.trim(),
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
+            } else {
+                docRef.set(
+                    mapOf(
+                        "userId" to userId,
+                        "displayName" to "Udhaar User",
+                        "phoneNumber" to "",
+                        "upiId" to "",
+                        "photoUri" to "",
+                        "fcmToken" to fcmToken.trim(),
+                        "createdAt" to FieldValue.serverTimestamp(),
+                        "updatedAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
             }
         } catch (e: Exception) {
             handleFirestoreError(e, OperationType.WRITE, path)
@@ -229,6 +266,7 @@ class VerificationCloudRepository(
                 phoneNumber = snap.getString("phoneNumber") ?: "",
                 upiId = snap.getString("upiId") ?: "",
                 photoUri = snap.getString("photoUri") ?: "",
+                fcmToken = snap.getString("fcmToken") ?: "",
                 createdAt = snap.getTimestamp("createdAt") ?: Timestamp.now(),
                 updatedAt = snap.getTimestamp("updatedAt") ?: Timestamp.now()
             )

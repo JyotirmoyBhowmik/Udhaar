@@ -1,4 +1,7 @@
 package com.jyotirmoyb.udhaar.ui.components
+import com.jyotirmoyb.udhaar.R
+
+import androidx.compose.ui.res.stringResource
 
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 import androidx.compose.foundation.BorderStroke
@@ -98,7 +101,7 @@ fun ContactsPermissionRationaleDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "ACCESS CONTACTS",
+                text = stringResource(R.string.ui_str_access_contacts_c01b32),
                 style = MaterialTheme.typography.titleLarge,
                 color = PureBlack
             )
@@ -106,14 +109,12 @@ fun ContactsPermissionRationaleDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "Udhaar uses contacts permission to let you select borrowers and lenders without typing their phone numbers manually.",
+                    text = stringResource(R.string.ui_str_udhaar_uses_contacts_permission_to_909064),
                     style = MaterialTheme.typography.bodyMedium,
                     color = PureBlack
                 )
                 Text(
-                    text = "• Private to your device: contacts are never shared or sent to any remote server.\n" +
-                            "• Letter-index search and duplicate detection with E.164 normalization.\n" +
-                            "• If you decline, you can still type names and numbers manually or use the system single-contact picker.",
+                    text = stringResource(R.string.ui_str_private_to_your_device_contacts_8e2460),
                     style = MaterialTheme.typography.bodySmall,
                     color = SecondaryInkGrey
                 )
@@ -132,7 +133,7 @@ fun ContactsPermissionRationaleDialog(
                 ),
                 modifier = Modifier.testTag("allow_contacts_permission_button")
             ) {
-                Text("ALLOW ACCESS", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.ui_str_allow_access_87d6b1), style = MaterialTheme.typography.labelLarge)
             }
         },
         dismissButton = {
@@ -143,7 +144,7 @@ fun ContactsPermissionRationaleDialog(
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack),
                 modifier = Modifier.testTag("skip_contacts_permission_button")
             ) {
-                Text("MANUAL ENTRY / SKIP", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.ui_str_manual_entry_skip_e5e8d0), style = MaterialTheme.typography.labelLarge)
             }
         },
         shape = RoundedCornerShape(12.dp),
@@ -202,6 +203,8 @@ fun InAppContactPickerModal(
         }
     }
 
+    val reducedMotion = rememberReducedMotionEnabled()
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -209,7 +212,7 @@ fun InAppContactPickerModal(
         contentColor = PureBlack,
         contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
     ) {
-        Column(
+        AnimatedSheetContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = 650.dp)
@@ -218,6 +221,9 @@ fun InAppContactPickerModal(
                 .navigationBarsPadding()
                 .imePadding()
                 .testTag("in_app_contact_picker_sheet")
+        ) {
+        Column(
+            modifier = Modifier.fillMaxSize()
         ) {
             // Header
             Row(
@@ -229,12 +235,12 @@ fun InAppContactPickerModal(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "IMPORT FROM CONTACTS",
+                        text = stringResource(R.string.ui_str_import_from_contacts_8cdd06),
                         style = MaterialTheme.typography.titleLarge,
                         color = PureBlack
                     )
                     Text(
-                        text = "${contacts.size} DEVICE CONTACTS • E.164 NORMALIZED",
+                        text = stringResource(R.string.ui_fmt_device_contacts_e_164_normalized_51abb6, contacts.size),
                         style = MaterialTheme.typography.labelSmall,
                         color = SecondaryInkGrey
                     )
@@ -256,7 +262,7 @@ fun InAppContactPickerModal(
                     onValueChange = { searchQuery = it },
                     placeholder = {
                         Text(
-                            text = "Search contacts by name or phone…",
+                            text = stringResource(R.string.ui_str_search_contacts_by_name_or_e69b48),
                             style = MaterialTheme.typography.bodyMedium,
                             color = SecondaryInkGrey
                         )
@@ -295,7 +301,7 @@ fun InAppContactPickerModal(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "${selectedLookupKeys.size} of ${filteredContacts.size} SELECTED",
+                    text = stringResource(R.string.ui_fmt_of_selected_c710d5, selectedLookupKeys.size, filteredContacts.size),
                     style = MaterialTheme.typography.labelSmall,
                     color = SecondaryInkGrey,
                     fontWeight = FontWeight.Bold
@@ -311,7 +317,7 @@ fun InAppContactPickerModal(
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                         modifier = Modifier.height(30.dp)
                     ) {
-                        Text("SELECT ALL", style = MaterialTheme.typography.labelSmall)
+                        Text(stringResource(R.string.ui_str_select_all_9ea8d5), style = MaterialTheme.typography.labelSmall)
                     }
                     if (selectedLookupKeys.isNotEmpty()) {
                         OutlinedButton(
@@ -320,7 +326,7 @@ fun InAppContactPickerModal(
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                             modifier = Modifier.height(30.dp)
                         ) {
-                            Text("DESELECT", style = MaterialTheme.typography.labelSmall)
+                            Text(stringResource(R.string.ui_str_deselect_9bb254), style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
@@ -343,7 +349,7 @@ fun InAppContactPickerModal(
                         CircularProgressIndicator(color = PureBlack, modifier = Modifier.size(36.dp))
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "Loading device contacts…",
+                            text = stringResource(R.string.ui_str_loading_device_contacts_952650),
                             style = MaterialTheme.typography.bodyMedium,
                             color = SecondaryInkGrey
                         )
@@ -357,13 +363,13 @@ fun InAppContactPickerModal(
                         verticalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = if (searchQuery.isBlank()) "NO CONTACTS FOUND ON DEVICE" else "NO MATCHING CONTACTS",
+                            text = if (searchQuery.isBlank()) stringResource(R.string.ui_str_no_contacts_found_on_device_4c032e) else stringResource(R.string.ui_str_no_matching_contacts_6436fc),
                             style = MaterialTheme.typography.titleMedium,
                             color = PureBlack
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Check that your phone has contacts saved or enter the party details manually.",
+                            text = stringResource(R.string.ui_str_check_that_your_phone_has_cc94ee),
                             style = MaterialTheme.typography.bodyMedium,
                             color = SecondaryInkGrey,
                             textAlign = TextAlign.Center
@@ -385,18 +391,22 @@ fun InAppContactPickerModal(
                                 key = { _, contact -> contact.lookupKey }
                             ) { _, contact ->
                                 val isSelected = contact.lookupKey in selectedLookupKeys
-                                ContactRowItem(
-                                    contact = contact,
-                                    isSelected = isSelected,
-                                    onToggle = {
-                                        if (isSelected) {
-                                            selectedLookupKeys.remove(contact.lookupKey)
-                                        } else {
-                                            selectedLookupKeys.add(contact.lookupKey)
-                                        }
+                                Box(modifier = udhaarAnimateItem(reducedMotion)) {
+                                    Column {
+                                        ContactRowItem(
+                                            contact = contact,
+                                            isSelected = isSelected,
+                                            onToggle = {
+                                                if (isSelected) {
+                                                    selectedLookupKeys.remove(contact.lookupKey)
+                                                } else {
+                                                    selectedLookupKeys.add(contact.lookupKey)
+                                                }
+                                            }
+                                        )
+                                        HorizontalDivider(color = BorderGrey.copy(alpha = 0.5f), thickness = 0.5.dp)
                                     }
-                                )
-                                HorizontalDivider(color = BorderGrey.copy(alpha = 0.5f), thickness = 0.5.dp)
+                                }
                             }
                         }
 
@@ -457,7 +467,7 @@ fun InAppContactPickerModal(
                         .weight(1f)
                         .height(48.dp)
                 ) {
-                    Text("CANCEL", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.ui_str_cancel_1507c4), style = MaterialTheme.typography.labelLarge)
                 }
 
                 Button(
@@ -476,16 +486,18 @@ fun InAppContactPickerModal(
                     modifier = Modifier
                         .weight(1.5f)
                         .height(48.dp)
+                        .pressScaleFeedback(enabled = selectedLookupKeys.isNotEmpty())
                         .testTag("import_selected_contacts_button")
                 ) {
                     Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (selectedLookupKeys.isEmpty()) "SELECT CONTACTS" else "IMPORT (${selectedLookupKeys.size})",
+                        text = if (selectedLookupKeys.isEmpty()) stringResource(R.string.ui_str_select_contacts_81e51b) else stringResource(R.string.ui_fmt_import_cdad64, selectedLookupKeys.size),
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
             }
+        }
         }
     }
 }
@@ -538,7 +550,7 @@ private fun ContactRowItem(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = initial.ifEmpty { "?" },
+                    text = initial.ifEmpty { stringResource(R.string.ui_str_symbol_5bab61) },
                     style = MaterialTheme.typography.titleMedium,
                     color = PureWhite,
                     fontWeight = FontWeight.Bold
@@ -583,7 +595,7 @@ private fun ContactRowItem(
                                 .padding(horizontal = 5.dp, vertical = 1.dp)
                         ) {
                             Text(
-                                text = "IN LEDGER",
+                                text = stringResource(R.string.ui_str_in_ledger_dbe272),
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                                 color = PureWhite,
                                 fontWeight = FontWeight.Bold
@@ -598,7 +610,7 @@ private fun ContactRowItem(
                                 .padding(horizontal = 5.dp, vertical = 1.dp)
                         ) {
                             Text(
-                                text = "ON UDHAAR ✓",
+                                text = stringResource(R.string.ui_str_on_udhaar_5fbe07),
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                                 color = PureBlack,
                                 fontWeight = FontWeight.Bold
@@ -625,6 +637,8 @@ fun MergeDuplicatesModal(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    val reducedMotion = rememberReducedMotionEnabled()
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -632,7 +646,7 @@ fun MergeDuplicatesModal(
         contentColor = PureBlack,
         contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
     ) {
-        Column(
+        AnimatedSheetContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = 650.dp)
@@ -641,6 +655,9 @@ fun MergeDuplicatesModal(
                 .navigationBarsPadding()
                 .padding(bottom = 16.dp)
                 .testTag("merge_duplicates_sheet")
+        ) {
+        Column(
+            modifier = Modifier.fillMaxSize()
         ) {
             // Header
             Row(
@@ -652,12 +669,12 @@ fun MergeDuplicatesModal(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "MERGE DUPLICATE PARTIES",
+                        text = stringResource(R.string.ui_str_merge_duplicate_parties_e49859),
                         style = MaterialTheme.typography.titleLarge,
                         color = PureBlack
                     )
                     Text(
-                        text = "${duplicatePairs.size} POTENTIAL DUPLICATES DETECTED",
+                        text = stringResource(R.string.ui_fmt_potential_duplicates_detected_3a69ff, duplicatePairs.size),
                         style = MaterialTheme.typography.labelSmall,
                         color = SecondaryInkGrey
                     )
@@ -679,7 +696,7 @@ fun MergeDuplicatesModal(
                     .padding(horizontal = 16.dp, vertical = 10.dp)
             ) {
                 Text(
-                    text = "Parties below share the same normalized E.164 phone number. Merging transfers all loans, partial payments, and chats into the primary contact and safely deletes the duplicate.",
+                    text = stringResource(R.string.ui_str_parties_below_share_the_same_489391),
                     style = MaterialTheme.typography.bodySmall,
                     color = PureBlack
                 )
@@ -694,13 +711,13 @@ fun MergeDuplicatesModal(
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = "NO DUPLICATES FOUND",
+                        text = stringResource(R.string.ui_str_no_duplicates_found_b2652f),
                         style = MaterialTheme.typography.titleMedium,
                         color = PureBlack
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "All parties in your ledger have unique phone numbers and names.",
+                        text = stringResource(R.string.ui_str_all_parties_in_your_ledger_ffd57f),
                         style = MaterialTheme.typography.bodyMedium,
                         color = SecondaryInkGrey,
                         textAlign = TextAlign.Center
@@ -718,10 +735,13 @@ fun MergeDuplicatesModal(
                         key = { idx -> "${duplicatePairs[idx].primaryParty.partyId}_${duplicatePairs[idx].duplicateParty.partyId}" }
                     ) { idx ->
                         val pair = duplicatePairs[idx]
-                        DuplicatePairCard(pair = pair, onMerge = { onMergePair(pair) })
+                        Box(modifier = udhaarAnimateItem(reducedMotion)) {
+                            DuplicatePairCard(pair = pair, onMerge = { onMergePair(pair) })
+                        }
                     }
                 }
             }
+        }
         }
     }
 }
@@ -750,7 +770,7 @@ private fun DuplicatePairCard(
                     .padding(horizontal = 6.dp, vertical = 2.dp)
             ) {
                 Text(
-                    text = "MATCH: ${pair.matchReason.uppercase()}",
+                    text = stringResource(R.string.ui_fmt_match_4e2e22, pair.matchReason.uppercase()),
                     style = MaterialTheme.typography.labelSmall,
                     color = PureWhite,
                     fontWeight = FontWeight.Bold
@@ -771,7 +791,7 @@ private fun DuplicatePairCard(
             ) {
                 Icon(Icons.Default.Merge, contentDescription = null, modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("MERGE INTO PRIMARY", style = MaterialTheme.typography.labelSmall)
+                Text(stringResource(R.string.ui_str_merge_into_primary_5752c9), style = MaterialTheme.typography.labelSmall)
             }
         }
 
@@ -788,7 +808,7 @@ private fun DuplicatePairCard(
                     .padding(8.dp)
             ) {
                 Text(
-                    text = "PRIMARY CONTACT (KEPT)",
+                    text = stringResource(R.string.ui_str_primary_contact_kept_c9fd4b),
                     style = MaterialTheme.typography.labelSmall,
                     color = SecondaryInkGrey,
                     fontWeight = FontWeight.Bold
@@ -805,14 +825,14 @@ private fun DuplicatePairCard(
                     text = if (pair.primaryParty.phoneNumber.isNotBlank()) {
                         InterestCalculator.maskPhoneNumber(pair.primaryParty.phoneNumber)
                     } else {
-                        "No phone"
+                        stringResource(R.string.ui_str_no_phone_4808dd)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = SecondaryInkGrey
                 )
                 if (pair.primaryParty.upiId.isNotBlank()) {
                     Text(
-                        text = "UPI: ${InterestCalculator.maskUpiId(pair.primaryParty.upiId)}",
+                        text = stringResource(R.string.ui_fmt_upi_66e9fe, InterestCalculator.maskUpiId(pair.primaryParty.upiId)),
                         style = MaterialTheme.typography.labelSmall,
                         color = SecondaryInkGrey
                     )
@@ -828,7 +848,7 @@ private fun DuplicatePairCard(
                     .padding(8.dp)
             ) {
                 Text(
-                    text = "DUPLICATE (MERGED & REMOVED)",
+                    text = stringResource(R.string.ui_str_duplicate_merged_removed_4359cc),
                     style = MaterialTheme.typography.labelSmall,
                     color = SecondaryInkGrey,
                     fontWeight = FontWeight.Bold
@@ -845,14 +865,14 @@ private fun DuplicatePairCard(
                     text = if (pair.duplicateParty.phoneNumber.isNotBlank()) {
                         InterestCalculator.maskPhoneNumber(pair.duplicateParty.phoneNumber)
                     } else {
-                        "No phone"
+                        stringResource(R.string.ui_str_no_phone_4808dd)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = SecondaryInkGrey
                 )
                 if (pair.duplicateParty.upiId.isNotBlank()) {
                     Text(
-                        text = "UPI: ${InterestCalculator.maskUpiId(pair.duplicateParty.upiId)}",
+                        text = stringResource(R.string.ui_fmt_upi_6f5ed8, InterestCalculator.maskUpiId(pair.duplicateParty.upiId)),
                         style = MaterialTheme.typography.labelSmall,
                         color = SecondaryInkGrey
                     )

@@ -1,4 +1,7 @@
 package com.jyotirmoyb.udhaar.ui.components
+import com.jyotirmoyb.udhaar.R
+
+import androidx.compose.ui.res.stringResource
 
 import android.Manifest
 import android.app.TimePickerDialog
@@ -10,6 +13,9 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -142,6 +148,7 @@ fun AddEditUdhaarScreen(
     }
 
     val context = LocalContext.current
+    val reducedMotion = rememberReducedMotionEnabled()
 
     var cameraTempUri by remember { mutableStateOf<Uri?>(null) }
     val cameraLauncher = rememberLauncherForActivityResult(
@@ -361,7 +368,9 @@ fun AddEditUdhaarScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(
                             onClick = onCancel,
-                            modifier = Modifier.testTag("back_to_dashboard_button")
+                            modifier = Modifier
+                                .pressScaleFeedback()
+                                .testTag("back_to_dashboard_button")
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -372,14 +381,14 @@ fun AddEditUdhaarScreen(
                         Spacer(modifier = Modifier.width(4.dp))
                         Column {
                             Text(
-                                text = if (initialTransaction == null) "NEW UDHAAR RECORD" else "EDIT UDHAAR RECORD",
+                                text = if (initialTransaction == null) stringResource(R.string.ui_str_new_udhaar_record_8b7ed4) else stringResource(R.string.ui_str_edit_udhaar_record_68199f),
                                 style = MaterialTheme.typography.titleLarge,
                                 color = PureBlack,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                             Text(
-                                text = "MONOCHROME LEDGER ENTRY",
+                                text = stringResource(R.string.ui_str_monochrome_ledger_entry_795f44),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = SecondaryInkGrey
                             )
@@ -409,12 +418,13 @@ fun AddEditUdhaarScreen(
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp)
+                            .pressScaleFeedback()
                             .testTag("cancel_udhaar_button"),
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, PureBlack),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
                     ) {
-                        Text("CANCEL", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.ui_str_cancel_1507c4), style = MaterialTheme.typography.labelLarge)
                     }
                     Button(
                         onClick = {
@@ -456,6 +466,7 @@ fun AddEditUdhaarScreen(
                         modifier = Modifier
                             .weight(1.5f)
                             .height(48.dp)
+                            .pressScaleFeedback()
                             .testTag("save_udhaar_button"),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
@@ -469,7 +480,7 @@ fun AddEditUdhaarScreen(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("SAVE UDHAAR", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.ui_str_save_udhaar_3990bf), style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }
@@ -521,19 +532,19 @@ fun AddEditUdhaarScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (step1Done) "✓ 1. Who" else "1. Who",
+                        text = if (step1Done) stringResource(R.string.ui_str_1_who_96d2da) else stringResource(R.string.ui_str_1_who_c9da2a),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = if (!step1Done) FontWeight.Bold else FontWeight.SemiBold,
                         color = PureBlack
                     )
                     Text(
-                        text = if (step2Done) "✓ 2. How much" else "2. How much",
+                        text = if (step2Done) stringResource(R.string.ui_str_2_how_much_5f25dd) else stringResource(R.string.ui_str_2_how_much_820ed7),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = if (step1Done && !step2Done) FontWeight.Bold else FontWeight.SemiBold,
                         color = if (step1Done || step2Done) PureBlack else SecondaryInkGrey
                     )
                     Text(
-                        text = if (step3Done) "✓ 3. When" else "3. When (Optional)",
+                        text = if (step3Done) stringResource(R.string.ui_str_3_when_a2bdd6) else stringResource(R.string.ui_str_3_when_optional_5232a6),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = if (step1Done && step2Done) FontWeight.Bold else FontWeight.Normal,
                         color = if (step1Done && step2Done) PureBlack else SecondaryInkGrey
@@ -550,7 +561,7 @@ fun AddEditUdhaarScreen(
                 }
                 if (topRecentAndFavorites.isNotEmpty()) {
                     Text(
-                        text = "Recent & favourite people",
+                        text = stringResource(R.string.ui_str_recent_favourite_people_d8a902),
                         style = MaterialTheme.typography.labelSmall,
                         color = SecondaryInkGrey,
                         fontWeight = FontWeight.SemiBold
@@ -564,8 +575,9 @@ fun AddEditUdhaarScreen(
                         items(topRecentAndFavorites, key = { it.partyId }) { savedParty ->
                             val isChosen = partyName.equals(savedParty.name, ignoreCase = true)
                             Row(
-                                modifier = Modifier
+                                modifier = udhaarAnimateItem(reducedMotion)
                                     .height(44.dp)
+                                    .pressScaleFeedback()
                                     .clip(RoundedCornerShape(22.dp))
                                     .background(if (isChosen) PureBlack else SubtleSurfaceGrey)
                                     .border(
@@ -589,7 +601,7 @@ fun AddEditUdhaarScreen(
                                     size = 30.dp
                                 )
                                 Text(
-                                    text = if (savedParty.isFavorite) "★ ${savedParty.name}" else savedParty.name,
+                                    text = if (savedParty.isFavorite) stringResource(R.string.ui_fmt_symbol_992757, savedParty.name) else savedParty.name,
                                     style = MaterialTheme.typography.labelLarge,
                                     color = if (isChosen) PureWhite else PureBlack,
                                     maxLines = 1
@@ -609,8 +621,8 @@ fun AddEditUdhaarScreen(
                             partyName = it
                             validationError = null
                         },
-                        label = { Text("Person or business name *") },
-                        placeholder = { Text("e.g. Ramesh Sharma") },
+                        label = { Text(stringResource(R.string.ui_str_person_or_business_name_d8fb90)) },
+                        placeholder = { Text(stringResource(R.string.ui_str_e_g_ramesh_sharma_7c54c2)) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                         colors = textFieldColors,
@@ -625,6 +637,7 @@ fun AddEditUdhaarScreen(
                         modifier = Modifier
                             .height(56.dp)
                             .padding(top = 6.dp)
+                            .pressScaleFeedback()
                             .testTag("pick_contact_button"),
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, PureBlack),
@@ -636,7 +649,7 @@ fun AddEditUdhaarScreen(
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Contacts", style = MaterialTheme.typography.labelMedium)
+                        Text(stringResource(R.string.ui_str_contacts_b0dd61), style = MaterialTheme.typography.labelMedium)
                     }
                 }
 
@@ -647,8 +660,8 @@ fun AddEditUdhaarScreen(
                         phoneNumber = it
                         showPhoneText = true
                     },
-                    label = { Text("Phone / WhatsApp number (Optional)") },
-                    placeholder = { Text("${currency.defaultCountryCode} 98*** ***10") },
+                    label = { Text(stringResource(R.string.ui_str_phone_whatsapp_number_optional_8c9f19)) },
+                    placeholder = { Text(stringResource(R.string.ui_fmt_98_10_cc0f5d, currency.defaultCountryCode)) },
                     singleLine = true,
                     visualTransformation = if (showPhoneText) VisualTransformation.None else PhoneMaskVisualTransformation,
                     trailingIcon = if (phoneNumber.isNotBlank()) {
@@ -751,10 +764,10 @@ fun AddEditUdhaarScreen(
                             validationError = null
                         }
                     },
-                    label = { Text("$plainAmountLabel (${currency.symbol}) *") },
+                    label = { Text(stringResource(R.string.ui_fmt_symbol_5f451a, plainAmountLabel, currency.symbol)) },
                     prefix = {
                         Text(
-                            text = "${currency.symbol} ",
+                            text = stringResource(R.string.ui_fmt_symbol_67ce5f, currency.symbol),
                             style = MaterialTheme.typography.titleMedium,
                             color = PureBlack
                         )
@@ -769,7 +782,7 @@ fun AddEditUdhaarScreen(
 
                 if (step1Done && step2Done) {
                     Text(
-                        text = "Ready to save now — or set a due date below.",
+                        text = stringResource(R.string.ui_str_ready_to_save_now_or_b4c76e),
                         style = MaterialTheme.typography.bodySmall,
                         color = SecondaryInkGrey,
                         fontWeight = FontWeight.Medium
@@ -841,13 +854,13 @@ fun AddEditUdhaarScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "More details (Optional)",
+                            text = stringResource(R.string.ui_str_more_details_optional_ae1cdb),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = PureBlack
                         )
                         Text(
-                            text = "Payment mode, interest, reminder, notes & attachments",
+                            text = stringResource(R.string.ui_str_payment_mode_interest_reminder_note_2fcbd3),
                             style = MaterialTheme.typography.bodySmall,
                             color = SecondaryInkGrey
                         )
@@ -865,7 +878,7 @@ fun AddEditUdhaarScreen(
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         Text(
-                            text = "Payment mode",
+                            text = stringResource(R.string.ui_str_payment_mode_8fbf2e),
                             style = MaterialTheme.typography.labelMedium,
                             color = SecondaryInkGrey
                         )
@@ -896,21 +909,21 @@ fun AddEditUdhaarScreen(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Charge or pay interest",
+                                    text = stringResource(R.string.ui_str_charge_or_pay_interest_2e2435),
                                     style = MaterialTheme.typography.titleSmall,
                                     color = PureBlack
                                 )
                                 Text(
                                     text = if (isInterestEnabled) {
-                                        "Enabled • Accrues from start date"
+                                        stringResource(R.string.ui_str_enabled_accrues_from_start_date_d8af11)
                                     } else {
-                                        "Interest-free (only the original ${plainAmountLabel.lowercase()} is due)"
+                                        stringResource(R.string.ui_fmt_interest_free_only_the_original_05c577, plainAmountLabel.lowercase())
                                     },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = SecondaryInkGrey
                                 )
                             }
-                            Switch(
+                            UdhaarAnimatedSwitch(
                                 checked = isInterestEnabled,
                                 onCheckedChange = { isInterestEnabled = it },
                                 colors = SwitchDefaults.colors(
@@ -933,7 +946,7 @@ fun AddEditUdhaarScreen(
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 Text(
-                                    text = "Interest calculation type",
+                                    text = stringResource(R.string.ui_str_interest_calculation_type_0d020c),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = SecondaryInkGrey
                                 )
@@ -954,9 +967,9 @@ fun AddEditUdhaarScreen(
                                 }
                                 Text(
                                     text = if (interestType == InterestType.SIMPLE) {
-                                        "Helper: Simple interest is calculated only on the original ${plainAmountLabel.lowercase()}."
+                                        stringResource(R.string.ui_fmt_helper_simple_interest_is_calculate_fe6c26, plainAmountLabel.lowercase())
                                     } else {
-                                        "Helper: Compound interest adds unpaid interest to the balance each period."
+                                        stringResource(R.string.ui_str_helper_compound_interest_adds_unpai_c21a66)
                                     },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = SecondaryInkGrey,
@@ -975,8 +988,8 @@ fun AddEditUdhaarScreen(
                                                 interestRateText = input
                                             }
                                         },
-                                        label = { Text("Rate (%)") },
-                                        suffix = { Text("%") },
+                                        label = { Text(stringResource(R.string.ui_str_rate_e25a28)) },
+                                        suffix = { Text(stringResource(R.string.ui_str_symbol_4345cb)) },
                                         singleLine = true,
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                         colors = textFieldColors,
@@ -1005,7 +1018,7 @@ fun AddEditUdhaarScreen(
                                 AnimatedVisibility(visible = interestType == InterestType.COMPOUND) {
                                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                         Text(
-                                            text = "Compounding frequency",
+                                            text = stringResource(R.string.ui_str_compounding_frequency_bd416d),
                                             style = MaterialTheme.typography.labelMedium,
                                             color = SecondaryInkGrey
                                         )
@@ -1044,7 +1057,7 @@ fun AddEditUdhaarScreen(
                                 ) {
                                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         Text(
-                                            text = "Live summary preview",
+                                            text = stringResource(R.string.ui_str_live_summary_preview_e49ab4),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = SecondaryInkGrey
                                         )
@@ -1081,8 +1094,8 @@ fun AddEditUdhaarScreen(
                         OutlinedTextField(
                             value = notes,
                             onValueChange = { notes = it },
-                            label = { Text("Note or reason (Optional)") },
-                            placeholder = { Text("e.g. Shop supplies or medical advance") },
+                            label = { Text(stringResource(R.string.ui_str_note_or_reason_optional_4213c0)) },
+                            placeholder = { Text(stringResource(R.string.ui_str_e_g_shop_supplies_or_79c2a4)) },
                             maxLines = 3,
                             colors = textFieldColors,
                             modifier = Modifier
@@ -1091,7 +1104,7 @@ fun AddEditUdhaarScreen(
                         )
 
                         Text(
-                            text = "Attachments & bills (${allCurrentAttachments.size})",
+                            text = stringResource(R.string.ui_fmt_attachments_bills_0773eb, allCurrentAttachments.size),
                             style = MaterialTheme.typography.labelMedium,
                             color = SecondaryInkGrey
                         )
@@ -1114,7 +1127,7 @@ fun AddEditUdhaarScreen(
                             ) {
                                 Icon(Icons.Default.CameraAlt, contentDescription = "Take photo with camera", modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Camera", style = MaterialTheme.typography.labelSmall)
+                                Text(stringResource(R.string.ui_str_camera_4da9c9), style = MaterialTheme.typography.labelSmall)
                             }
                             OutlinedButton(
                                 onClick = {
@@ -1129,7 +1142,7 @@ fun AddEditUdhaarScreen(
                             ) {
                                 Icon(Icons.Default.Image, contentDescription = "Pick image from gallery", modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Gallery", style = MaterialTheme.typography.labelSmall)
+                                Text(stringResource(R.string.ui_str_gallery_9c30a3), style = MaterialTheme.typography.labelSmall)
                             }
                             OutlinedButton(
                                 onClick = {
@@ -1144,7 +1157,7 @@ fun AddEditUdhaarScreen(
                             ) {
                                 Icon(Icons.Default.Description, contentDescription = "Attach PDF or document", modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Doc/PDF", style = MaterialTheme.typography.labelSmall)
+                                Text(stringResource(R.string.ui_str_doc_pdf_7135c0), style = MaterialTheme.typography.labelSmall)
                             }
                         }
 
@@ -1161,8 +1174,9 @@ fun AddEditUdhaarScreen(
                                         shape = RoundedCornerShape(8.dp),
                                         color = MaterialTheme.colorScheme.surfaceVariant,
                                         border = BorderStroke(1.dp, BorderGrey),
-                                        modifier = Modifier
+                                        modifier = udhaarAnimateItem(reducedMotion)
                                             .size(90.dp)
+                                            .pressScaleFeedback()
                                             .clickable { onOpenAttachmentViewer(att) }
                                     ) {
                                         Box(modifier = Modifier.fillMaxSize()) {
@@ -1240,12 +1254,12 @@ fun AddEditUdhaarScreen(
                         showStartDatePicker = false
                     }
                 ) {
-                    Text("CONFIRM", color = PureBlack, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.ui_str_confirm_f6fda1), color = PureBlack, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showStartDatePicker = false }) {
-                    Text("CANCEL", color = SecondaryInkGrey)
+                    Text(stringResource(R.string.ui_str_cancel_1507c4), color = SecondaryInkGrey)
                 }
             }
         ) {
@@ -1266,12 +1280,12 @@ fun AddEditUdhaarScreen(
                         showExpiryDatePicker = false
                     }
                 ) {
-                    Text("CONFIRM", color = PureBlack, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.ui_str_confirm_f6fda1), color = PureBlack, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showExpiryDatePicker = false }) {
-                    Text("CANCEL", color = SecondaryInkGrey)
+                    Text(stringResource(R.string.ui_str_cancel_1507c4), color = SecondaryInkGrey)
                 }
             }
         ) {
@@ -1306,12 +1320,12 @@ fun AddEditUdhaarScreen(
                         ).show()
                     }
                 ) {
-                    Text("NEXT: PICK TIME", color = PureBlack, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.ui_str_next_pick_time_d07be0), color = PureBlack, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showReminderDatePicker = false }) {
-                    Text("CANCEL", color = SecondaryInkGrey)
+                    Text(stringResource(R.string.ui_str_cancel_1507c4), color = SecondaryInkGrey)
                 }
             }
         ) {
@@ -1336,16 +1350,27 @@ fun MonochromeTogglePill(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val bgColor by animateColorAsState(
+        targetValue = if (selected) PureBlack else PureWhite,
+        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+        label = "pill_bg"
+    )
+    val textColor by animateColorAsState(
+        targetValue = if (selected) PureWhite else PureBlack,
+        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+        label = "pill_text"
+    )
     Box(
         modifier = modifier
             .height(40.dp)
+            .pressScaleFeedback()
             .border(
                 width = if (selected) 1.5.dp else 1.dp,
                 color = if (selected) PureBlack else BorderGrey,
                 shape = RoundedCornerShape(12.dp)
             )
             .background(
-                color = if (selected) PureBlack else PureWhite,
+                color = bgColor,
                 shape = RoundedCornerShape(12.dp)
             )
             .clickable(onClick = onClick)
@@ -1355,7 +1380,7 @@ fun MonochromeTogglePill(
         Text(
             text = text,
             style = MaterialTheme.typography.labelLarge,
-            color = if (selected) PureWhite else PureBlack,
+            color = textColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )

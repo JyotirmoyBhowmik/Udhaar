@@ -1,4 +1,7 @@
 package com.jyotirmoyb.udhaar.ui.components
+import com.jyotirmoyb.udhaar.R
+
+import androidx.compose.ui.res.stringResource
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -120,6 +123,7 @@ fun VerificationShareSheet(
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
     ) {
+        AnimatedSheetContent {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -137,12 +141,12 @@ fun VerificationShareSheet(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "TWO-PARTY VERIFICATION",
+                        text = stringResource(R.string.ui_str_two_party_verification_6d55b1),
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "${transaction.partyName} • ${InterestCalculator.formatCurrency(transaction.principalAmount, transaction.currency)}",
+                        text = stringResource(R.string.ui_fmt_symbol_a32425, transaction.partyName, InterestCalculator.formatCurrency(transaction.principalAmount, transaction.currency)),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -180,13 +184,14 @@ fun VerificationShareSheet(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Status: ${transaction.verificationStatus.label}",
+                                text = stringResource(R.string.ui_fmt_status_ae447c, transaction.verificationStatus.label),
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
+                            val mirroredRoleLabel = if (transaction.transactionType == TransactionType.GIVEN) stringResource(R.string.ui_taken_borrowed) else stringResource(R.string.ui_given_lent)
                             Text(
-                                text = "When ${transaction.partyName} confirms, they receive a mirrored entry (${if (transaction.transactionType == TransactionType.GIVEN) "Taken / Borrowed" else "Given / Lent"}) with the exact same SHA-256 content hash.",
+                                text = stringResource(R.string.ui_fmt_when_confirms_they_receive_a_53500c, transaction.partyName, mirroredRoleLabel),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -215,7 +220,7 @@ fun VerificationShareSheet(
 
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Scan inside Udhaar or any camera to verify at jyotirmoyb.com/u/...",
+                    text = stringResource(R.string.ui_str_scan_inside_udhaar_or_any_27d0ff),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -231,21 +236,21 @@ fun VerificationShareSheet(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = "SHA-256 CONTENT HASH (TAMPER-PROOF)",
+                            text = stringResource(R.string.ui_str_sha_256_content_hash_tamper_1faaf4),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = transaction.contentHash.ifBlank { "Generating..." },
+                            text = transaction.contentHash.ifBlank { stringResource(R.string.ui_str_generating_813622) },
                             fontSize = 11.sp,
                             fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "E2EE Protection: Notes & attachments are encrypted with AES-256-GCM before sharing.",
+                            text = stringResource(R.string.ui_str_e2ee_protection_notes_attachments_a_7b2e75),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -273,13 +278,13 @@ fun VerificationShareSheet(
                             Spacer(modifier = Modifier.width(6.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Share attachments with this person",
+                                    text = stringResource(R.string.ui_str_share_attachments_with_this_person_d72168),
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "${attachments.size} proof document(s) / bill(s) attached",
+                                    text = stringResource(R.string.ui_fmt_proof_document_s_bill_s_25c1eb, attachments.size),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -372,8 +377,8 @@ fun VerificationShareSheet(
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        if (shareAttachmentsWithPerson && attachments.isNotEmpty()) "SHARE VERIFICATION WITH ATTACHMENTS"
-                        else "SEND VERIFICATION ON WHATSAPP",
+                        if (shareAttachmentsWithPerson && attachments.isNotEmpty()) stringResource(R.string.ui_str_share_verification_with_attachments_f6177e)
+                        else stringResource(R.string.ui_str_send_verification_on_whatsapp_a246d1),
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
@@ -399,7 +404,7 @@ fun VerificationShareSheet(
                     ) {
                         Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("COPY LINK", style = MaterialTheme.typography.labelMedium)
+                        Text(stringResource(R.string.ui_str_copy_link_1ccac4), style = MaterialTheme.typography.labelMedium)
                     }
 
                     OutlinedButton(
@@ -446,7 +451,7 @@ fun VerificationShareSheet(
                     ) {
                         Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("SMS / OTHER", style = MaterialTheme.typography.labelMedium)
+                        Text(stringResource(R.string.ui_str_sms_other_63952d), style = MaterialTheme.typography.labelMedium)
                     }
                 }
 
@@ -459,7 +464,7 @@ fun VerificationShareSheet(
                     Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (showPasteInput) "Hide Received Link Box" else "Have a verification link from the other party? Open it here",
+                        text = if (showPasteInput) stringResource(R.string.ui_str_hide_received_link_box_ebe20c) else stringResource(R.string.ui_str_have_a_verification_link_from_3fe096),
                         style = MaterialTheme.typography.labelMedium
                     )
                 }
@@ -469,7 +474,7 @@ fun VerificationShareSheet(
                     OutlinedTextField(
                         value = pastedLink,
                         onValueChange = { pastedLink = it },
-                        label = { Text("Paste https://jyotirmoyb.com/u/... link") },
+                        label = { Text(stringResource(R.string.ui_str_paste_https_jyotirmoyb_com_u_6b00ac)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -481,12 +486,13 @@ fun VerificationShareSheet(
                             }
                         },
                         enabled = pastedLink.isNotBlank(),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().pressScaleFeedback()
                     ) {
-                        Text("INSPECT & CONFIRM MIRRORED RECORD")
+                        Text(stringResource(R.string.ui_str_inspect_confirm_mirrored_record_ab0e67))
                     }
                 }
             }
+        }
         }
     }
 }
@@ -529,6 +535,7 @@ fun IncomingVerificationReviewSheet(
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
     ) {
+        AnimatedSheetContent {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -546,12 +553,12 @@ fun IncomingVerificationReviewSheet(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "VERIFY SHARED UDHAAR ENTRY",
+                        text = stringResource(R.string.ui_str_verify_shared_udhaar_entry_510f4b),
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Shared by $senderName",
+                        text = stringResource(R.string.ui_fmt_shared_by_a300b1, senderName),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -586,7 +593,7 @@ fun IncomingVerificationReviewSheet(
                         Text(
                             text = InterestCalculator.formatCurrency(
                                 payload.principalAmount,
-                                if (payload.currencyCode == "NPR") CurrencyType.NPR else CurrencyType.INR
+                                if (payload.currencyCode == stringResource(R.string.ui_str_npr_e09e1a)) CurrencyType.NPR else CurrencyType.INR
                             ),
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
@@ -599,10 +606,10 @@ fun IncomingVerificationReviewSheet(
 
                         VerificationDetailRow("Lender (Gave)", payload.lenderName)
                         VerificationDetailRow("Borrower (Took)", payload.borrowerName)
-                        VerificationDetailRow("Start Date", dateFormat.format(Date(payload.startDateMillis)))
+                        VerificationDetailRow("Start Date", InterestCalculator.fmtDate(payload.startDateMillis))
                         VerificationDetailRow(
                             "Due Date",
-                            payload.expiryDateMillis?.let { dateFormat.format(Date(it)) } ?: "Open / No Due Date"
+                            payload.expiryDateMillis?.let { InterestCalculator.fmtDate(it) } ?: "Open / No Due Date"
                         )
                         VerificationDetailRow(
                             "Interest Terms",
@@ -628,7 +635,7 @@ fun IncomingVerificationReviewSheet(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = "SHA-256 CONTENT HASH",
+                            text = stringResource(R.string.ui_str_sha_256_content_hash_2ab195),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -642,7 +649,7 @@ fun IncomingVerificationReviewSheet(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Confirming saves a mirrored copy to your Khata with the exact same hash. If either side edits the terms later, status becomes EDITED_AFTER_CONFIRM.",
+                            text = stringResource(R.string.ui_str_confirming_saves_a_mirrored_copy_4c195e),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -655,7 +662,7 @@ fun IncomingVerificationReviewSheet(
                     OutlinedTextField(
                         value = disputeReason,
                         onValueChange = { disputeReason = it },
-                        label = { Text("Reason for Disputing (e.g. Wrong amount or date)") },
+                        label = { Text(stringResource(R.string.ui_str_reason_for_disputing_e_g_79ca89)) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("dispute_reason_input")
@@ -669,7 +676,7 @@ fun IncomingVerificationReviewSheet(
                             onClick = { showDisputeReason = false },
                             modifier = Modifier.weight(1f).height(48.dp)
                         ) {
-                            Text("CANCEL")
+                            Text(stringResource(R.string.ui_str_cancel_1507c4))
                         }
                         Button(
                             onClick = {
@@ -684,7 +691,7 @@ fun IncomingVerificationReviewSheet(
                                 contentColor = MaterialTheme.colorScheme.onError
                             )
                         ) {
-                            Text("SUBMIT DISPUTE", fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.ui_str_submit_dispute_4c1abb), fontWeight = FontWeight.Bold)
                         }
                     }
                 } else {
@@ -693,6 +700,7 @@ fun IncomingVerificationReviewSheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp)
+                            .pressScaleFeedback()
                             .testTag("confirm_incoming_verification_btn"),
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(
@@ -702,7 +710,7 @@ fun IncomingVerificationReviewSheet(
                     ) {
                         Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("CONFIRM & SAVE MIRRORED ENTRY", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.ui_str_confirm_save_mirrored_entry_ab4d5c), fontWeight = FontWeight.Bold)
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -712,6 +720,7 @@ fun IncomingVerificationReviewSheet(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(48.dp)
+                            .pressScaleFeedback()
                             .testTag("dispute_incoming_verification_btn"),
                         shape = RoundedCornerShape(8.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
@@ -719,10 +728,11 @@ fun IncomingVerificationReviewSheet(
                     ) {
                         Icon(Icons.Default.ReportProblem, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("DISPUTE TERMS", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.ui_str_dispute_terms_57b8e1), fontWeight = FontWeight.Bold)
                     }
                 }
             }
+        }
         }
     }
 }
@@ -823,12 +833,12 @@ fun ShareMyPaymentDetailsSheet(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "SHARE MY PAYMENT DETAILS",
+                        text = stringResource(R.string.ui_str_share_my_payment_details_c9cc51),
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = if (targetParty != null) "Sharing with ${targetParty.name}" else "QR & App Link for instant UPI save",
+                        text = if (targetParty != null) stringResource(R.string.ui_fmt_sharing_with_565a7a, targetParty.name) else stringResource(R.string.ui_str_qr_app_link_for_instant_a4b214),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -880,12 +890,12 @@ fun ShareMyPaymentDetailsSheet(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = if (settings.phoneNumber.isNotBlank()) "Phone: ${InterestCalculator.maskPhoneNumber(settings.phoneNumber)}" else "Phone not set in Settings",
+                                text = if (settings.phoneNumber.isNotBlank()) stringResource(R.string.ui_fmt_phone_812cdd, InterestCalculator.maskPhoneNumber(settings.phoneNumber)) else stringResource(R.string.ui_str_phone_not_set_in_settings_d8a427),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = if (settings.upiId.isNotBlank()) "UPI: ${InterestCalculator.maskUpiId(settings.upiId)}" else "UPI ID not set in Settings",
+                                text = if (settings.upiId.isNotBlank()) stringResource(R.string.ui_fmt_upi_2971f0, InterestCalculator.maskUpiId(settings.upiId)) else stringResource(R.string.ui_str_upi_id_not_set_in_c3a0bf),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
                                 color = MaterialTheme.colorScheme.primary,
@@ -948,7 +958,7 @@ fun ShareMyPaymentDetailsSheet(
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("SHARE VIA WHATSAPP", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.ui_str_share_via_whatsapp_b0968d), style = MaterialTheme.typography.labelLarge)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -969,7 +979,7 @@ fun ShareMyPaymentDetailsSheet(
                     ) {
                         Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("COPY LINK", style = MaterialTheme.typography.labelMedium)
+                        Text(stringResource(R.string.ui_str_copy_link_1ccac4), style = MaterialTheme.typography.labelMedium)
                     }
 
                     OutlinedButton(
@@ -986,7 +996,7 @@ fun ShareMyPaymentDetailsSheet(
                     ) {
                         Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("OTHER APP", style = MaterialTheme.typography.labelMedium)
+                        Text(stringResource(R.string.ui_str_other_app_f796ab), style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }
@@ -1046,12 +1056,12 @@ fun RequestPartyPaymentDetailsSheet(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "REQUEST PAYMENT DETAILS",
+                        text = stringResource(R.string.ui_str_request_payment_details_d31a36),
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Ask ${party.name} to share their UPI ID & Phone",
+                        text = stringResource(R.string.ui_fmt_ask_to_share_their_upi_ee3730, party.name),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1121,7 +1131,7 @@ fun RequestPartyPaymentDetailsSheet(
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("REQUEST VIA WHATSAPP", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.ui_str_request_via_whatsapp_11cb38), style = MaterialTheme.typography.labelLarge)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -1129,7 +1139,7 @@ fun RequestPartyPaymentDetailsSheet(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "Already received ${party.name}'s payment link or UPI ID?",
+                    text = stringResource(R.string.ui_fmt_already_received_s_payment_link_7c4c6f, party.name),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -1139,7 +1149,7 @@ fun RequestPartyPaymentDetailsSheet(
                 OutlinedTextField(
                     value = pastedProfileLink,
                     onValueChange = { pastedProfileLink = it },
-                    label = { Text("Paste https://jyotirmoyb.com/u/p/... link") },
+                    label = { Text(stringResource(R.string.ui_str_paste_https_jyotirmoyb_com_u_906892)) },
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1160,7 +1170,7 @@ fun RequestPartyPaymentDetailsSheet(
                     shape = RoundedCornerShape(8.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                 ) {
-                    Text("PREVIEW & ACCEPT PAYMENT DETAILS")
+                    Text(stringResource(R.string.ui_str_preview_accept_payment_details_be315a))
                 }
             }
         }
@@ -1194,13 +1204,13 @@ fun IncomingPaymentProfileAcceptSheet(
                 .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
             Text(
-                text = "SAVE SHARED PAYMENT DETAILS?",
+                text = stringResource(R.string.ui_str_save_shared_payment_details_25d811),
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "${payload.displayName} shared their payment profile. Accepting will automatically save their UPI ID and phone number to their Party record.",
+                text = stringResource(R.string.ui_fmt_shared_their_payment_profile_accept_891c41, payload.displayName),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1237,7 +1247,7 @@ fun IncomingPaymentProfileAcceptSheet(
                     modifier = Modifier.weight(1f).height(48.dp),
                     shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("DECLINE")
+                    Text(stringResource(R.string.ui_str_decline_2adbe2))
                 }
                 Button(
                     onClick = onAccept,
@@ -1253,7 +1263,7 @@ fun IncomingPaymentProfileAcceptSheet(
                 ) {
                     Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("ACCEPT & SAVE UPI", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.ui_str_accept_save_upi_257fc1), fontWeight = FontWeight.Bold)
                 }
             }
         }

@@ -154,10 +154,56 @@ com.jyotirmoyb.udhaar
    - **Single-Party Statement:** Open any person in **People Directory** and tap **Save Statement (JSON)** or **Share Backup (JSON)**.
    - **Restore / Import:** On any secondary device, open **Settings -> Import Ledger Backup (JSON)** and select the `.json` file to merge parties, loans, and repayment histories offline.
 
+- **Hardware-Backed On-Device Encryption:** Uses Android Keystore `MasterKey` (`AES256_GCM`), `EncryptedSharedPreferences` (`AES256_SIV` + `AES256_GCM`) for user settings and salted PBKDF2 PIN hashes, and **SQLCipher** (`SupportOpenHelperFactory` with a Keystore-wrapped 256-bit key) for the Room SQLite database (`udhaar_ledger.db`).
+
 ---
 
-## 5. Admin & Developer Contact
+## 5. App Links Deployment (`jyotirmoyb.com/u`) & Production Configuration Checklist
+
+### A. Domain & App Links Setup (`https://jyotirmoyb.com`)
+1. **Digital Asset Links (`assetlinks.json`):**
+   - Upload `web/.well-known/assetlinks.json` to `https://jyotirmoyb.com/.well-known/assetlinks.json` over HTTPS (`Content-Type: application/json`, HTTP 200 without redirects).
+   - Replace `REPLACE_WITH_YOUR_RELEASE_UPLOAD_OR_PLAY_APP_SIGNING_SHA256_FINGERPRINT` with the Google Play App Signing SHA-256 fingerprint from **Play Console -> Setup -> App signing**.
+2. **Read-Only Web Fallback (`web/u/index.html`):**
+   - Deploy `web/u/index.html` to serve `https://jyotirmoyb.com/u` and `https://jyotirmoyb.com/u/*`.
+   - Recipients without the app see the read-only verification card (Lender, Borrower, Amount, Start/Due Dates with `fmtDate` time precision, Interest Terms, and SHA-256 hash) with **Confirm Record**, **Dispute Terms**, and **Open or Install Udhaar App** actions.
+
+### B. Firebase, Google Sign-In, Drive API & FCM Configuration Checklist
+1. **Firebase Project & `google-services.json`:**
+   - Project ID: `gen-lang-client-0216629575`
+   - Firestore Database ID: `ai-studio-android-udhaar-42622035-52d2-4bfb-8070-8962975a82cf`
+   - Android Package Name: `com.jyotirmoyb.udhaar`
+2. **SHA-1 & SHA-256 Certificate Fingerprints:**
+   - Debug Keystore SHA-1: `FD:AD:95:C3:89:A1:C2:2A:28:18:C8:58:C9:65:C8:30:C7:57:04:AC`
+   - Debug Keystore SHA-256: `FB:F9:7F:66:8F:61:1E:9B:49:CB:6D:A9:40:17:E8:1C:79:FE:9F:B3:57:B7:2B:15:DB:6D:D2:D9:35:9C:F0:EA`
+   - Register both Debug and Play App Signing SHA-1 + SHA-256 fingerprints in **Firebase Console -> Project Settings -> Your apps -> Android (`com.jyotirmoyb.udhaar`)**, then re-download `app/google-services.json`.
+3. **Authentication (Google Sign-In & Phone Auth):**
+   - Enable **Google** provider in **Firebase Console -> Authentication -> Sign-in method** and copy the **Web client ID** into `default_web_client_id`.
+   - If enabling **Phone Auth**, enable Phone Sign-In in Firebase Authentication and ensure Play Integrity API is enabled in Google Cloud Console with both SHA-1 and SHA-256 fingerprints registered.
+4. **Firestore Security Rules & Indexes:**
+   - Deploy zero-trust rules: `firebase deploy --only firestore:rules`
+   - Validate locally against the emulator: `node --test firestore.test.js`
+5. **Google Drive API (`drive.appdata`) & OAuth Consent Screen:**
+   - Enable **Google Drive API** in **Google Cloud Console -> APIs & Services -> Library**.
+   - Configure the **OAuth Consent Screen** with scope `https://www.googleapis.com/auth/drive.appdata`.
+   - Create an **Android OAuth 2.0 Client ID** matching package `com.jyotirmoyb.udhaar` and your SHA-1 fingerprint.
+6. **Firebase Cloud Messaging (FCM) & Cloud Functions:**
+   - `UdhaarFirebaseMessagingService` stores the device's `fcmToken` under `/user_profiles/{uid}` and displays notifications on channel `udhaar_chat_messages_channel` that deep-link directly into the matching chat thread or verification record.
+   - Deploy the push triggers (`onNewChatMessageSendPush` and `onSharedRecordVerificationPush` in `functions/index.js`):
+     ```bash
+     cd functions && npm install && firebase deploy --only functions
+     ```
+7. **`firebase-applet-config.json` Audit & API Key Restrictions:**
+   - `firebase-applet-config.json` and `app/google-services.json` contain only public client identifiers (`projectId`, `appId`, public client `apiKey`, `oAuthClientId`) and **no private service-account keys or client secrets**.
+   - In **Google Cloud Console -> APIs & Services -> Credentials**, restrict:
+     - **Android key**: Set application restriction to **Android apps** (`com.jyotirmoyb.udhaar` + debug & release SHA-1 fingerprints) and restrict APIs to Firebase Installations, FCM Registration, Identity Toolkit, Token Service, and Cloud Firestore.
+     - **Browser/Web key (`AIzaSyCow0JiCsQxTuI2Lr-EfuCb30xJPJSRfxk`)**: Set application restriction to **HTTP referrers** (`https://jyotirmoyb.com/*`, `https://gen-lang-client-0216629575.firebaseapp.com/*`) and restrict APIs to Identity Toolkit, Token Service, and Cloud Firestore.
+
+---
+
+## 6. Admin & Developer Contact
 
 - **Administrator & Lead Developer:** `Jyotirmoy Bhowmik`
 - **Admin Contact Email:** `admin@jyotirmoyb.com`
 - **In-App Support:** Navigate to **`Settings -> Admin & Support -> Contact Admin (admin@jyotirmoyb.com)`**, which triggers a pre-addressed `mailto:admin@jyotirmoyb.com` intent with `"Udhaar App Support (v1.1.0)"` in the subject line (and automatically copies `admin@jyotirmoyb.com` to the clipboard as a fallback).
+

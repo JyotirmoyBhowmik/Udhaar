@@ -21,6 +21,7 @@ import com.jyotirmoyb.udhaar.data.UdhaarTransaction
 import com.jyotirmoyb.udhaar.data.UserSettings
 import com.jyotirmoyb.udhaar.data.VerificationStatus
 import com.jyotirmoyb.udhaar.notification.ReminderScheduler
+import com.jyotirmoyb.udhaar.ui.components.SuccessAnimationEvent
 import com.jyotirmoyb.udhaar.ui.theme.AppFontScale
 import com.jyotirmoyb.udhaar.ui.theme.AppThemeMode
 import com.jyotirmoyb.udhaar.util.AttachmentManager
@@ -194,7 +195,8 @@ data class UdhaarUiState(
     val isAmountsHidden: Boolean = false,
     val showCoachMarks: Boolean = false,
     val isNeedsAttentionDismissed: Boolean = false,
-    val undoSnackbarMessage: String? = null
+    val undoSnackbarMessage: String? = null,
+    val successAnimationEvent: SuccessAnimationEvent? = null
 ) {
     val activeSummaryTotals: CurrencyLedgerTotals
         get() = if (summaryCurrency == CurrencyType.INR) inrTotals else nprTotals
@@ -259,7 +261,8 @@ private data class LocalUiFilterState(
     val isNeedsAttentionDismissed: Boolean = false,
     val undoSnackbarMessage: String? = null,
     val lastDeletedTransaction: UdhaarTransaction? = null,
-    val lastSettledBeforeTransaction: UdhaarTransaction? = null
+    val lastSettledBeforeTransaction: UdhaarTransaction? = null,
+    val successAnimationEvent: SuccessAnimationEvent? = null
 )
 
 class UdhaarViewModel(
@@ -688,7 +691,8 @@ class UdhaarViewModel(
             isAmountsHidden = local.isAmountsHidden,
             showCoachMarks = local.showCoachMarks,
             isNeedsAttentionDismissed = local.isNeedsAttentionDismissed,
-            undoSnackbarMessage = local.undoSnackbarMessage
+            undoSnackbarMessage = local.undoSnackbarMessage,
+            successAnimationEvent = local.successAnimationEvent
         )
     }.stateIn(
         scope = viewModelScope,
@@ -815,6 +819,10 @@ class UdhaarViewModel(
                 lastSettledBeforeTransaction = null
             )
         }
+    }
+
+    fun clearSuccessAnimation() {
+        localState.update { it.copy(successAnimationEvent = null) }
     }
 
     fun performUndoAction() {
@@ -1268,7 +1276,8 @@ class UdhaarViewModel(
                 it.copy(
                     incomingVerificationPayload = null,
                     detailTransactionId = savedTx.id,
-                    summaryCurrency = savedTx.currency
+                    summaryCurrency = savedTx.currency,
+                    successAnimationEvent = if (confirm) SuccessAnimationEvent(message = "Record verified") else it.successAnimationEvent
                 )
             }
         }
@@ -1289,6 +1298,11 @@ class UdhaarViewModel(
                 confirm = confirm,
                 disputeReason = disputeReason
             )
+            if (confirm) {
+                localState.update {
+                    it.copy(successAnimationEvent = SuccessAnimationEvent(message = "Record verified"))
+                }
+            }
         }
     }
 
@@ -1302,6 +1316,9 @@ class UdhaarViewModel(
                 payment = payment,
                 actorName = uiState.value.userSettings.payeeName.ifBlank { "You" }
             )
+            localState.update {
+                it.copy(successAnimationEvent = SuccessAnimationEvent(message = "Payment verified"))
+            }
         }
     }
 
@@ -1421,7 +1438,8 @@ class UdhaarViewModel(
                     editingTransaction = null,
                     preselectedPartyDraft = null,
                     summaryCurrency = savedTx.currency,
-                    draftAttachments = emptyList()
+                    draftAttachments = emptyList(),
+                    successAnimationEvent = SuccessAnimationEvent(message = "Record saved")
                 )
             }
         }
@@ -1471,6 +1489,9 @@ class UdhaarViewModel(
                 actorName = actor,
                 proofAttachment = proofAttachment
             )
+            localState.update {
+                it.copy(successAnimationEvent = SuccessAnimationEvent(message = "Payment recorded"))
+            }
         }
     }
 
@@ -1558,6 +1579,11 @@ class UdhaarViewModel(
                         "Settled udhaar for ${beforeTx.partyName}"
                     } else {
                         "Reopened udhaar for ${beforeTx.partyName}"
+                    },
+                    successAnimationEvent = if (!beforeTx.isSettled) {
+                        SuccessAnimationEvent(message = "Payment recorded")
+                    } else {
+                        it.successAnimationEvent
                     }
                 )
             }
@@ -1664,19 +1690,42 @@ class UdhaarViewModel(
     fun openChatFromNotification(
         threadKey: String,
         transactionId: Long?,
-        partyName: String
+        partyName: String,
+        remoteRecordId: String = ""
     ) {
-        val isTxThread = transactionId != null && transactionId > 0L
+        val matchedTx = uiState.value.allCalculatedItems.firstOrNull { item ->
+            (transactionId != null && transactionId > 0L && item.transaction.id == transactionId) ||
+                (remoteRecordId.isNotBlank() && item.transaction.remoteId.equals(remoteRecordId, ignoreCase = true))
+        }?.transaction
+
+        val resolvedTxId = matchedTx?.id ?: transactionId?.takeIf { it > 0L }
+        val resolvedPartyName = partyName.ifBlank { matchedTx?.partyName.orEmpty() }
+
+        if (threadKey.isBlank() && matchedTx != null) {
+            // Verification notification without chat thread: open the record detail screen directly
+            localState.update {
+                it.copy(
+                    detailTransactionId = matchedTx.id
+                )
+            }
+            return
+        }
+
+        val effectiveThreadKey = threadKey.ifBlank {
+            if (resolvedTxId != null && resolvedTxId > 0L) "tx_$resolvedTxId" else "party_${resolvedPartyName.lowercase()}"
+        }
+        val isTxThread = resolvedTxId != null && resolvedTxId > 0L
         val scope = if (isTxThread) ChatThreadScope.TRANSACTION else ChatThreadScope.PARTY_GENERAL
         viewModelScope.launch {
-            repository.markThreadRead(threadKey)
+            repository.markThreadRead(effectiveThreadKey)
         }
         localState.update {
             it.copy(
-                activeChatThreadKey = threadKey,
+                detailTransactionId = resolvedTxId ?: it.detailTransactionId,
+                activeChatThreadKey = effectiveThreadKey,
                 activeChatScope = scope,
-                activeChatTransactionId = transactionId?.takeIf { id -> id > 0L },
-                activeChatPartyName = partyName
+                activeChatTransactionId = resolvedTxId,
+                activeChatPartyName = resolvedPartyName
             )
         }
     }

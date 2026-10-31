@@ -25,6 +25,7 @@ object ChatNotificationHelper {
     const val EXTRA_CHAT_THREAD_KEY = "extra_chat_thread_key"
     const val EXTRA_CHAT_TRANSACTION_ID = "extra_chat_transaction_id"
     const val EXTRA_CHAT_PARTY_NAME = "extra_chat_party_name"
+    const val EXTRA_REMOTE_RECORD_ID = "extra_remote_record_id"
 
     fun ensureNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -48,32 +49,6 @@ object ChatNotificationHelper {
         // Respect thread mute and block controls
         if (threadMetadata?.isMuted == true || threadMetadata?.isBlocked == true) return
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val granted = ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) == PackageManager.PERMISSION_GRANTED
-            if (!granted) return
-        }
-
-        ensureNotificationChannel(context)
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-        val tapIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            putExtra(EXTRA_CHAT_THREAD_KEY, message.threadKey)
-            message.transactionId?.let { putExtra(EXTRA_CHAT_TRANSACTION_ID, it) }
-            putExtra(EXTRA_CHAT_PARTY_NAME, message.partyName)
-        }
-
-        val notificationId = (message.threadKey.hashCode() and 0x7FFFFFFF).coerceAtLeast(10_000)
-        val pendingIntent = PendingIntent.getActivity(
-            context,
-            notificationId,
-            tapIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
         val sender = message.senderName.ifBlank { message.partyName.ifBlank { "Party" } }
         val title = when (message.messageType) {
             ChatMessageType.EXTENSION_REQUEST -> "Due Date Extension Request • $sender"
@@ -87,6 +62,60 @@ object ChatNotificationHelper {
                 message.bodyText.ifBlank { "$sender attached a payment proof (${message.attachmentMimeType.ifBlank { "Receipt" }})." }
             else -> message.bodyText
         }
+
+        showFcmPushNotification(
+            context = context,
+            title = title,
+            body = body,
+            threadKey = message.threadKey,
+            transactionId = message.transactionId,
+            remoteRecordId = threadMetadata?.remoteThreadId.orEmpty(),
+            partyName = message.partyName
+        )
+    }
+
+    fun showFcmPushNotification(
+        context: Context,
+        title: String,
+        body: String,
+        threadKey: String,
+        transactionId: Long?,
+        remoteRecordId: String,
+        partyName: String
+    ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) return
+        }
+
+        ensureNotificationChannel(context)
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        val tapIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            if (threadKey.isNotBlank()) {
+                putExtra(EXTRA_CHAT_THREAD_KEY, threadKey)
+            }
+            transactionId?.let { putExtra(EXTRA_CHAT_TRANSACTION_ID, it) }
+            if (remoteRecordId.isNotBlank()) {
+                putExtra(EXTRA_REMOTE_RECORD_ID, remoteRecordId)
+            }
+            if (partyName.isNotBlank()) {
+                putExtra(EXTRA_CHAT_PARTY_NAME, partyName)
+            }
+        }
+
+        val seedKey = threadKey.ifBlank { remoteRecordId.ifBlank { partyName.ifBlank { title } } }
+        val notificationId = (seedKey.hashCode() and 0x7FFFFFFF).coerceAtLeast(10_000)
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            notificationId,
+            tapIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)

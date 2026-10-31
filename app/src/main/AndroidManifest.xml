@@ -79,6 +79,15 @@
                 android:resource="@xml/udhaar_widget_info" />
         </receiver>
 
+        <!-- Firebase Cloud Messaging Service for background chat and verification push alerts -->
+        <service
+            android:name="com.jyotirmoyb.udhaar.notification.UdhaarFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

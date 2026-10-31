@@ -191,7 +191,25 @@ object InterestCalculator {
         }
     }
 
-    fun formatDate(millis: Long): String {
+    /**
+     * Formats a timestamp with date ("dd MMM yyyy"), and also includes the time ("hh:mm a")
+     * if the timestamp includes a specific non-midnight hour and minute, ensuring better precision for audit records.
+     */
+    fun fmtDate(millis: Long): String {
+        if (millis <= 0L) return "Open-ended"
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = millis }
+        val hasSpecificTime = cal.get(java.util.Calendar.HOUR_OF_DAY) != 0 ||
+            cal.get(java.util.Calendar.MINUTE) != 0
+        return if (hasSpecificTime) {
+            formatDateTime(millis)
+        } else {
+            val sdf = SimpleDateFormat("dd MMM yyyy", Locale.US)
+            sdf.format(Date(millis))
+        }
+    }
+
+    fun formatDate(millis: Long, showTimeIfPresent: Boolean = false): String {
+        if (showTimeIfPresent) return fmtDate(millis)
         val sdf = SimpleDateFormat("dd MMM yyyy", Locale.US)
         return sdf.format(Date(millis))
     }

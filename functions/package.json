@@ -1,0 +1,13 @@
+{
+  "name": "udhaar-cloud-functions",
+  "version": "8.0.0",
+  "description": "Firebase Cloud Functions for Udhaar v8.0 FCM push notifications (chat messages, extensions, and two-party verification)",
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^6.1.0"
+  }
+}

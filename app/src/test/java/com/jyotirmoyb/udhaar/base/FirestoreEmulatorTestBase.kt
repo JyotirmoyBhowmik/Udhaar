@@ -31,7 +31,8 @@ abstract class FirestoreEmulatorTestBase {
     lateinit var db: FirebaseFirestore
     lateinit var auth: FirebaseAuth
 
-    protected open val projectId = "gen-lang-client-0216629575"
+    protected open val projectId = "demo-no-project"
+    protected var databaseId: String = "(default)"
     private val firestoreHost = "127.0.0.1"
     private val firestorePort = 8085
     private val authHost = "127.0.0.1"
@@ -40,6 +41,9 @@ abstract class FirestoreEmulatorTestBase {
     @Before
     fun baseSetUp() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        databaseId = runCatching {
+            context.getString(com.jyotirmoyb.udhaar.R.string.firestore_database_id).takeIf { it.isNotBlank() }
+        }.getOrNull() ?: "(default)"
 
         if (FirebaseApp.getApps(context).isEmpty()) {
             val options = FirebaseOptions.Builder()
@@ -50,8 +54,13 @@ abstract class FirestoreEmulatorTestBase {
             FirebaseApp.initializeApp(context, options)
         }
 
-        db = FirebaseFirestore.getInstance()
-        auth = FirebaseAuth.getInstance()
+        val app = FirebaseApp.getInstance()
+        db = if (databaseId == "(default)") {
+            FirebaseFirestore.getInstance(app)
+        } else {
+            FirebaseFirestore.getInstance(app, databaseId)
+        }
+        auth = FirebaseAuth.getInstance(app)
 
         try {
             db.useEmulator(firestoreHost, firestorePort)
@@ -71,17 +80,15 @@ abstract class FirestoreEmulatorTestBase {
         runCatching { auth.signOut() }
         runCatching { clearFirestoreEmulatorData() }
         runCatching { clearAuthEmulatorUsers() }
-        runCatching { db.terminate() }
         runCatching { ShadowLooper.shadowMainLooper().idle() }
-        runCatching { FirebaseApp.clearInstancesForTest() }
     }
 
     private fun isEmulatorRunning(): Boolean {
         return runCatching {
             val url = URL("http://$authHost:$authPort")
             val conn = url.openConnection() as HttpURLConnection
-            conn.connectTimeout = 400
-            conn.readTimeout = 400
+            conn.connectTimeout = 2000
+            conn.readTimeout = 2000
             conn.responseCode
             conn.disconnect()
             true
@@ -143,15 +150,17 @@ abstract class FirestoreEmulatorTestBase {
     }
 
     private fun clearFirestoreEmulatorData() {
-        val url = URL(
-            "http://$firestoreHost:$firestorePort/emulator/v1/projects/$projectId/databases/(default)/documents"
-        )
-        with(url.openConnection() as HttpURLConnection) {
-            requestMethod = "DELETE"
-            connectTimeout = 5000
-            readTimeout = 5000
-            responseCode
-            disconnect()
+        for (dbName in setOf(databaseId, "(default)")) {
+            val url = URL(
+                "http://$firestoreHost:$firestorePort/emulator/v1/projects/$projectId/databases/$dbName/documents"
+            )
+            with(url.openConnection() as HttpURLConnection) {
+                requestMethod = "DELETE"
+                connectTimeout = 5000
+                readTimeout = 5000
+                responseCode
+                disconnect()
+            }
         }
     }
 

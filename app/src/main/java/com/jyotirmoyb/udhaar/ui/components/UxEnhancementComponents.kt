@@ -1,4 +1,7 @@
 package com.jyotirmoyb.udhaar.ui.components
+import com.jyotirmoyb.udhaar.R
+
+import androidx.compose.ui.res.stringResource
 
 import android.provider.Settings
 import androidx.compose.animation.core.LinearEasing
@@ -304,6 +307,7 @@ fun NeedsAttentionStrip(
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .pressScaleFeedback()
             .testTag("needs_attention_strip")
             .clickable { onFilterSelect(targetFilter) },
         shape = UdhaarShapeTokens.ShapeMedium,
@@ -445,7 +449,7 @@ fun FirstRunCoachMarksCard(
                     modifier = Modifier.testTag("skip_coach_marks_button")
                 ) {
                     Text(
-                        text = "Skip",
+                        text = stringResource(R.string.ui_str_skip_3da474),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -469,10 +473,12 @@ fun FirstRunCoachMarksCard(
                         }
                     },
                     shape = UdhaarShapeTokens.ShapeMedium,
-                    modifier = Modifier.testTag("next_coach_mark_button")
+                    modifier = Modifier
+                        .pressScaleFeedback()
+                        .testTag("next_coach_mark_button")
                 ) {
                     Text(
-                        text = if (step < tips.lastIndex) "Next tip" else "Got it",
+                        text = if (step < tips.lastIndex) stringResource(R.string.ui_str_next_tip_3b752c) else stringResource(R.string.ui_str_got_it_5b8027),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -693,6 +699,7 @@ fun FriendlyEmptyStateCard(
                 ),
                 modifier = Modifier
                     .height(48.dp)
+                    .pressScaleFeedback()
                     .testTag("empty_state_primary_button")
             ) {
                 Icon(
@@ -714,6 +721,7 @@ fun FriendlyEmptyStateCard(
                     shape = UdhaarShapeTokens.ShapeMedium,
                     modifier = Modifier
                         .height(48.dp)
+                        .pressScaleFeedback()
                         .testTag("empty_state_secondary_button")
                 ) {
                     Icon(

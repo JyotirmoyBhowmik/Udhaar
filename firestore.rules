@@ -54,6 +54,7 @@ service cloud.firestore {
              data.phoneNumber is string && data.phoneNumber.size() <= 32 &&
              data.upiId is string && data.upiId.size() <= 100 &&
              data.photoUri is string && data.photoUri.size() <= 512 &&
+             (!('fcmToken' in data) || (data.fcmToken is string && data.fcmToken.size() <= 512)) &&
              data.createdAt is timestamp && data.createdAt <= request.time &&
              data.updatedAt is timestamp && data.updatedAt <= request.time;
     }
@@ -70,7 +71,7 @@ service cloud.firestore {
                          'userId', 'displayName', 'phoneNumber', 'upiId', 'photoUri', 'createdAt', 'updatedAt'
                        ]) &&
                        incoming().keys().hasOnly([
-                         'userId', 'displayName', 'phoneNumber', 'upiId', 'photoUri', 'createdAt', 'updatedAt'
+                         'userId', 'displayName', 'phoneNumber', 'upiId', 'photoUri', 'fcmToken', 'createdAt', 'updatedAt'
                        ]) &&
                        isValidUserProfile(incoming());
 
@@ -81,7 +82,7 @@ service cloud.firestore {
                        incoming().userId == existing().userId &&
                        incoming().createdAt == existing().createdAt &&
                        incoming().diff(existing()).affectedKeys().hasOnly([
-                         'displayName', 'phoneNumber', 'upiId', 'photoUri', 'updatedAt'
+                         'displayName', 'phoneNumber', 'upiId', 'photoUri', 'fcmToken', 'updatedAt'
                        ]);
 
       allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;

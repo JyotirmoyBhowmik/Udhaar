@@ -4,6 +4,9 @@ import android.content.Context
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeRight
 import androidx.test.core.app.ApplicationProvider
 import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.PartialPayment
@@ -679,6 +682,87 @@ class ExampleRobolectricTest {
         assertNotNull(file)
         assertTrue("PDF file must exist and have content", file.exists() && file.length() > 0)
     }
+
+    @Test
+    fun `encryptedStorageManager creates Keystore MasterKey and EncryptedSharedPreferences and SQLCipher database key`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dbKey = com.jyotirmoyb.udhaar.security.EncryptedStorageManager.getOrCreateDatabasePassphrase(context)
+        assertEquals("SQLCipher key must be 256-bit (32 bytes)", 32, dbKey.size)
+        val dbKeySecondCall = com.jyotirmoyb.udhaar.security.EncryptedStorageManager.getOrCreateDatabasePassphrase(context)
+        org.junit.Assert.assertArrayEquals("Database key must persist deterministically across calls", dbKey, dbKeySecondCall)
+        dbKey.fill(0)
+        dbKeySecondCall.fill(0)
+
+        val encPrefs = com.jyotirmoyb.udhaar.security.EncryptedStorageManager.getEncryptedPreferences(context)
+        encPrefs.edit().putString("upi_id", "encrypted_merchant@okaxis").commit()
+        assertEquals("encrypted_merchant@okaxis", encPrefs.getString("upi_id", null))
+
+        encPrefs.edit().putString(com.jyotirmoyb.udhaar.notification.UdhaarFirebaseMessagingService.KEY_FCM_TOKEN, "fcm-token-xyz-987").commit()
+        assertEquals("fcm-token-xyz-987", encPrefs.getString(com.jyotirmoyb.udhaar.notification.UdhaarFirebaseMessagingService.KEY_FCM_TOKEN, null))
+    }
+
+    @Test
+    fun `newHomeScreen summaryCards filterChips and swipeActions work end to end`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val now = System.currentTimeMillis()
+        val insertedId = kotlinx.coroutines.runBlocking {
+            val dao = com.jyotirmoyb.udhaar.data.UdhaarDatabase.getInstance(context).udhaarDao()
+            dao.insertTransaction(
+                UdhaarTransaction(
+                    transactionType = TransactionType.GIVEN,
+                    partyName = "Bapan Saha",
+                    phoneNumber = "+919876543210",
+                    currency = CurrencyType.INR,
+                    principalAmount = 15_000.0,
+                    paymentMode = PaymentMode.UPI,
+                    isInterestEnabled = true,
+                    interestType = com.jyotirmoyb.udhaar.data.InterestType.SIMPLE,
+                    interestRate = 8.0,
+                    interestRatePeriod = com.jyotirmoyb.udhaar.data.InterestRatePeriod.PER_ANNUM,
+                    startDateMillis = now - 86_400_000L * 5L,
+                    expiryDateMillis = now + 86_400_000L * 30L,
+                    notes = "By April return"
+                )
+            )
+        }
+
+        composeRule.waitForIdle()
+
+        // 1. Verify summary cards (Total Receivable, Total Payable, Net Position, and Privacy Eye toggle)
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("summary_receivable_card")).assertExists()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("summary_payable_card")).assertExists()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("net_position_row")).assertExists()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("privacy_hide_amounts_toggle")).performClick()
+        composeRule.waitForIdle()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("privacy_hide_amounts_toggle")).performClick()
+        composeRule.waitForIdle()
+
+        // 2. Verify horizontal filter chips (All, Given, Taken, Overdue, Settled)
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("filter_chip_all")).assertExists()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("filter_chip_given")).assertExists().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("filter_chip_taken")).assertExists().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("filter_chip_all")).performClick()
+        composeRule.waitForIdle()
+
+        // 3. Scroll to the ledger card and verify swipe actions (swipe right -> record payment, swipe left -> remind)
+        val cardTag = "transaction_card_$insertedId"
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("transactions_lazy_list"))
+            .performScrollToNode(androidx.compose.ui.test.hasTestTag(cardTag))
+        composeRule.waitForIdle()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag(cardTag)).assertExists()
+
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag(cardTag))
+            .performTouchInput { swipeLeft() }
+        composeRule.waitForIdle()
+
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag(cardTag))
+            .performTouchInput { swipeRight() }
+        composeRule.waitForIdle()
+    }
 }
+
+
 
 

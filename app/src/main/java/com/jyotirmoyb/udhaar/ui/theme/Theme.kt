@@ -1,5 +1,8 @@
 package com.jyotirmoyb.udhaar.ui.theme
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -9,10 +12,12 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import com.jyotirmoyb.udhaar.ui.components.rememberReducedMotionEnabled
 
 /**
  * Shared shape system tokens (8, 12, 16, and 24 dp) used across every screen, sheet, and dialog.
@@ -50,7 +55,49 @@ fun UdhaarTheme(
     content: @Composable () -> Unit
 ) {
     val isSystemDark = isSystemInDarkTheme()
-    val palette = paletteForTheme(themeMode, isSystemDark)
+    val targetPalette = paletteForTheme(themeMode, isSystemDark)
+    val reducedMotion = rememberReducedMotionEnabled()
+    val colorAnimDuration = if (reducedMotion) 0 else 240
+    val colorSpec = tween<androidx.compose.ui.graphics.Color>(
+        durationMillis = colorAnimDuration,
+        easing = FastOutSlowInEasing
+    )
+
+    val primaryInk by animateColorAsState(targetPalette.primaryInk, colorSpec, label = "primaryInk")
+    val backgroundSurface by animateColorAsState(targetPalette.backgroundSurface, colorSpec, label = "backgroundSurface")
+    val cardSurface by animateColorAsState(targetPalette.cardSurface, colorSpec, label = "cardSurface")
+    val borderStroke by animateColorAsState(targetPalette.borderStroke, colorSpec, label = "borderStroke")
+    val subtleSurface by animateColorAsState(targetPalette.subtleSurface, colorSpec, label = "subtleSurface")
+    val mutedChip by animateColorAsState(targetPalette.mutedChip, colorSpec, label = "mutedChip")
+    val secondaryInk by animateColorAsState(targetPalette.secondaryInk, colorSpec, label = "secondaryInk")
+    val mutedInk by animateColorAsState(targetPalette.mutedInk, colorSpec, label = "mutedInk")
+    val selectedPillFill by animateColorAsState(targetPalette.selectedPillFill, colorSpec, label = "selectedPillFill")
+    val receivableCardBg by animateColorAsState(targetPalette.receivableCardBg, colorSpec, label = "receivableCardBg")
+    val receivableCardInk by animateColorAsState(targetPalette.receivableCardInk, colorSpec, label = "receivableCardInk")
+    val receivableBadgeBg by animateColorAsState(targetPalette.receivableBadgeBg, colorSpec, label = "receivableBadgeBg")
+    val payableCardBg by animateColorAsState(targetPalette.payableCardBg, colorSpec, label = "payableCardBg")
+    val payableCardInk by animateColorAsState(targetPalette.payableCardInk, colorSpec, label = "payableCardInk")
+    val accentFabBg by animateColorAsState(targetPalette.accentFabBg, colorSpec, label = "accentFabBg")
+    val accentFabInk by animateColorAsState(targetPalette.accentFabInk, colorSpec, label = "accentFabInk")
+
+    val palette = UdhaarColorPalette(
+        primaryInk = primaryInk,
+        backgroundSurface = backgroundSurface,
+        cardSurface = cardSurface,
+        borderStroke = borderStroke,
+        subtleSurface = subtleSurface,
+        mutedChip = mutedChip,
+        secondaryInk = secondaryInk,
+        mutedInk = mutedInk,
+        selectedPillFill = selectedPillFill,
+        receivableCardBg = receivableCardBg,
+        receivableCardInk = receivableCardInk,
+        receivableBadgeBg = receivableBadgeBg,
+        payableCardBg = payableCardBg,
+        payableCardInk = payableCardInk,
+        accentFabBg = accentFabBg,
+        accentFabInk = accentFabInk
+    )
     SideEffect {
         activePaletteState = palette
     }

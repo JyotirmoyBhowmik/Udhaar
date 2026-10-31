@@ -120,7 +120,15 @@ test("2. Owner can create and read their own user_profile, but Bob cannot read A
       phoneNumber: "+91 9876543210",
       upiId: "alice@okaxis",
       photoUri: "",
+      fcmToken: "fcm_token_alice_123",
       createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
+  );
+
+  await assertSucceeds(
+    aliceDb.collection("user_profiles").doc(ALICE_UID).update({
+      fcmToken: "fcm_token_alice_refreshed_456",
       updatedAt: serverTimestamp(),
     })
   );

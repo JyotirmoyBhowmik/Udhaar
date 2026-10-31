@@ -1,4 +1,7 @@
 package com.jyotirmoyb.udhaar.ui.components
+import com.jyotirmoyb.udhaar.R
+
+import androidx.compose.ui.res.stringResource
 
 import android.app.Activity
 import android.app.KeyguardManager
@@ -284,14 +287,14 @@ fun BiometricSecurityScreen(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "UDHAAR IS LOCKED",
+                        text = stringResource(R.string.ui_str_udhaar_is_locked_0d7e16),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = PureBlack,
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        text = "FINGERPRINT, FACE OR PHONE PIN REQUIRED",
+                        text = stringResource(R.string.ui_str_fingerprint_face_or_phone_pin_cbbef8),
                         style = MaterialTheme.typography.labelSmall,
                         color = SecondaryInkGrey,
                         textAlign = TextAlign.Center
@@ -301,7 +304,7 @@ fun BiometricSecurityScreen(
                 HorizontalDivider(color = BorderGrey, thickness = 1.dp)
 
                 Text(
-                    text = "Verify your identity using your phone's Fingerprint, Face Unlock, or Device PIN to access your ledger.",
+                    text = stringResource(R.string.ui_str_verify_your_identity_using_your_644976),
                     style = MaterialTheme.typography.bodyMedium,
                     color = SecondaryInkGrey,
                     textAlign = TextAlign.Center
@@ -317,7 +320,7 @@ fun BiometricSecurityScreen(
                             .testTag("pin_lockout_banner")
                     ) {
                         Text(
-                            text = "PIN LOCKED ($failedAttempts/${PinSecurityManager.MAX_FREE_ATTEMPTS} FAILED ATTEMPTS) • WAIT ${lockoutSeconds}s",
+                            text = stringResource(R.string.ui_fmt_pin_locked_failed_attempts_wait_90a4e9, failedAttempts, PinSecurityManager.MAX_FREE_ATTEMPTS, lockoutSeconds),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = PureWhite,
@@ -363,7 +366,7 @@ fun BiometricSecurityScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "UNLOCK WITH BIOMETRIC",
+                        text = stringResource(R.string.ui_str_unlock_with_biometric_034c7e),
                         style = MaterialTheme.typography.labelLarge
                     )
                 }
@@ -386,7 +389,7 @@ fun BiometricSecurityScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "USE PHONE PIN / PATTERN",
+                        text = stringResource(R.string.ui_str_use_phone_pin_pattern_1f6446),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -401,7 +404,7 @@ fun BiometricSecurityScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                text = "APP SECURITY PIN",
+                                text = stringResource(R.string.ui_str_app_security_pin_ac6e6d),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = PureBlack
@@ -419,7 +422,7 @@ fun BiometricSecurityScreen(
                                         }
                                     },
                                     enabled = !isLockedOut,
-                                    placeholder = { Text("Enter 4–8 digit PIN") },
+                                    placeholder = { Text(stringResource(R.string.ui_str_enter_4_8_digit_pin_6d47fe)) },
                                     singleLine = true,
                                     visualTransformation = PasswordVisualTransformation(),
                                     keyboardOptions = KeyboardOptions(
@@ -458,7 +461,7 @@ fun BiometricSecurityScreen(
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "UNLOCK",
+                                        text = stringResource(R.string.ui_str_unlock_908843),
                                         style = MaterialTheme.typography.labelLarge,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -467,7 +470,7 @@ fun BiometricSecurityScreen(
                         }
                     } else {
                         Text(
-                            text = "Or enter App PIN manually",
+                            text = stringResource(R.string.ui_str_or_enter_app_pin_manually_1501f7),
                             style = MaterialTheme.typography.labelSmall,
                             color = SecondaryInkGrey,
                             modifier = Modifier
@@ -497,7 +500,7 @@ fun BiometricSecurityScreen(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "QUICK ENTER (NO DEVICE SCREEN LOCK CONFIGURED)",
+                            text = stringResource(R.string.ui_str_quick_enter_no_device_screen_053779),
                             style = MaterialTheme.typography.labelSmall
                         )
                     }

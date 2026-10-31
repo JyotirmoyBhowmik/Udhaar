@@ -202,7 +202,7 @@ object ThermalReceiptGenerator {
         } else {
             val chronological = partialPayments.sortedBy { it.paidAtMillis }.takeLast(12)
             chronological.forEachIndexed { idx, p ->
-                val dateStr = InterestCalculator.formatDate(p.paidAtMillis)
+                val dateStr = InterestCalculator.fmtDate(p.paidAtMillis)
                 val ackTag = if (p.isAcknowledged) "✓ACK" else "⏳PEND"
                 val byPart = if (p.recordedByName.isNotBlank()) " by ${p.recordedByName.take(10)}" else ""
                 val leftCol = "${idx + 1}. $dateStr [${p.paymentMode.shortBadge}•$ackTag]$byPart"
@@ -216,11 +216,11 @@ object ThermalReceiptGenerator {
         canvas.drawText("IMMUTABLE AUDIT TIMELINE (${auditItems.size})", leftX, y, sectionTitlePaint)
         y += 42f
         if (auditItems.isEmpty()) {
-            val createdStr = InterestCalculator.formatDate(tx.createdAtMillis)
+            val createdStr = InterestCalculator.fmtDate(tx.createdAtMillis)
             drawRow("1. $createdStr • RECORD CREATED", tx.verificationStatus.shortBadge)
         } else {
             auditItems.forEachIndexed { idx, ev ->
-                val dStr = InterestCalculator.formatDate(ev.eventTimeMillis)
+                val dStr = InterestCalculator.fmtDate(ev.eventTimeMillis)
                 val actor = ev.actorName.ifBlank { "Party" }.take(12)
                 drawRow(
                     "${idx + 1}. $dStr • ${ev.eventType.label.take(22)}",

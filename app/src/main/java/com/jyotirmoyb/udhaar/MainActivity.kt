@@ -6,20 +6,35 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.widget.Toast
+import androidx.activity.compose.PredictiveBackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.core.content.ContextCompat
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
 import com.jyotirmoyb.udhaar.ui.components.ContactsPermissionRationaleDialog
 import com.jyotirmoyb.udhaar.ui.components.InAppContactPickerModal
+import com.jyotirmoyb.udhaar.ui.components.LocalAnimatedVisibilityScope
+import com.jyotirmoyb.udhaar.ui.components.LocalSharedTransitionScope
 import com.jyotirmoyb.udhaar.ui.components.MergeDuplicatesModal
 import com.jyotirmoyb.udhaar.ui.components.OnboardingModal
 import com.jyotirmoyb.udhaar.ui.components.RestorePreviewDialog
+import com.jyotirmoyb.udhaar.ui.components.SuccessCheckmarkOverlay
+import com.jyotirmoyb.udhaar.ui.components.rememberReducedMotionEnabled
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -29,14 +44,18 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.CancellationException
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -88,6 +107,7 @@ open class MainActivity : FragmentActivity() {
     private var pendingChatThreadKey by mutableStateOf<String?>(null)
     private var pendingChatTransactionId by mutableStateOf<Long?>(null)
     private var pendingChatPartyName by mutableStateOf<String?>(null)
+    private var pendingRemoteRecordId by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -137,16 +157,19 @@ open class MainActivity : FragmentActivity() {
                         }
 
                         val incomingChatKey = pendingChatThreadKey
-                        LaunchedEffect(incomingChatKey) {
-                            if (!incomingChatKey.isNullOrBlank()) {
+                        val incomingRemoteRecordId = pendingRemoteRecordId
+                        LaunchedEffect(incomingChatKey, incomingRemoteRecordId) {
+                            if (!incomingChatKey.isNullOrBlank() || !incomingRemoteRecordId.isNullOrBlank()) {
                                 viewModel.openChatFromNotification(
-                                    threadKey = incomingChatKey,
+                                    threadKey = incomingChatKey.orEmpty(),
                                     transactionId = pendingChatTransactionId,
-                                    partyName = pendingChatPartyName.orEmpty()
+                                    partyName = pendingChatPartyName.orEmpty(),
+                                    remoteRecordId = incomingRemoteRecordId.orEmpty()
                                 )
                                 pendingChatThreadKey = null
                                 pendingChatTransactionId = null
                                 pendingChatPartyName = null
+                                pendingRemoteRecordId = null
                             }
                         }
 
@@ -169,11 +192,13 @@ open class MainActivity : FragmentActivity() {
             pendingReminderTransactionId = txId
         }
         val chatKey = intent?.getStringExtra(ChatNotificationHelper.EXTRA_CHAT_THREAD_KEY)
-        if (!chatKey.isNullOrBlank()) {
+        val remoteRecId = intent?.getStringExtra(ChatNotificationHelper.EXTRA_REMOTE_RECORD_ID)
+        if (!chatKey.isNullOrBlank() || !remoteRecId.isNullOrBlank()) {
             pendingChatThreadKey = chatKey
-            val chatTxId = intent.getLongExtra(ChatNotificationHelper.EXTRA_CHAT_TRANSACTION_ID, -1L)
+            pendingRemoteRecordId = remoteRecId
+            val chatTxId = intent?.getLongExtra(ChatNotificationHelper.EXTRA_CHAT_TRANSACTION_ID, -1L) ?: -1L
             pendingChatTransactionId = if (chatTxId > 0L) chatTxId else null
-            pendingChatPartyName = intent.getStringExtra(ChatNotificationHelper.EXTRA_CHAT_PARTY_NAME)
+            pendingChatPartyName = intent?.getStringExtra(ChatNotificationHelper.EXTRA_CHAT_PARTY_NAME)
         }
         val dataUrl = intent?.data?.toString()
         if (!dataUrl.isNullOrBlank() && dataUrl.contains("/u/")) {
@@ -381,290 +406,458 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
         return
     }
 
-    when (uiState.activeScreen) {
-        ActiveScreen.DASHBOARD, ActiveScreen.PEOPLE_DIRECTORY -> {
-            DashboardScreen(
-                uiState = uiState,
-                onSwitchTab = viewModel::switchMainTab,
-                onSelectSummaryCurrency = viewModel::setSummaryCurrency,
-                onToggleCurrencyEnabled = { currency, enabled ->
-                    viewModel.toggleCurrencyEnabled(currency, enabled)
-                    Toast.makeText(
-                        context,
-                        "${currency.displayName} ${if (enabled) "enabled" else "disabled"}",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                },
-                onCycleTheme = {
-                    val themes = AppThemeMode.entries
-                    val nextIndex = (themes.indexOf(uiState.userSettings.themeMode) + 1) % themes.size
-                    val nextTheme = themes[nextIndex]
-                    viewModel.cycleOrSelectTheme(nextTheme)
-                    Toast.makeText(context, "Theme: ${nextTheme.label}", Toast.LENGTH_SHORT).show()
-                },
-                onSelectFilter = viewModel::setFilter,
-                onSearchQueryChange = viewModel::setSearchQuery,
-                onPeopleSearchQueryChange = viewModel::setPeopleSearchQuery,
-                onAddUdhaarClick = viewModel::openAddTransaction,
-                onAddPartyClick = viewModel::openAddPartyModal,
-                onPartyClick = { khata ->
-                    viewModel.openPartyLedgerScreen(khata.party.partyId)
-                },
-                onQuickAddLoanForParty = viewModel::openAddTransactionForParty,
-                onTransactionClick = { summary ->
-                    viewModel.openTransactionDetail(summary.transaction.id)
-                },
-                onWhatsAppClick = { summary ->
-                    viewModel.openWhatsAppReminderModal(summary.transaction.id)
-                },
-                onTransactionQrClick = { summary ->
-                    viewModel.openTransactionQrModal(summary)
-                },
-                onOpenTransactionChat = { summary ->
-                    viewModel.openTransactionChat(summary.transaction.id)
-                },
-                onOpenPartyGeneralChat = { party ->
-                    viewModel.openPartyGeneralChat(party)
-                },
-                onGlobalQrClick = viewModel::openGlobalQrModal,
-                onShareMyPaymentDetailsClick = {
-                    viewModel.openShareMyPaymentDetailsModal(null)
-                },
-                onShareAppClick = viewModel::openShareAppModal,
-                onLockAppClick = viewModel::lockApplicationNow,
-                onSettingsClick = viewModel::openSettingsModal,
-                onPartySortOptionChange = viewModel::setPartySortOption,
-                onOpenMergeDuplicates = viewModel::openMergeDuplicatesModal,
-                onOpenContactPicker = requestContactsFlow,
-                onToggleFavoriteParty = viewModel::togglePartyFavorite,
-                onTransactionSortOptionChange = viewModel::setTransactionSortOption,
-                onDateRangeFilterChange = viewModel::setDateRangeFilter,
-                onExportFullLedgerPdf = {
-                    viewModel.generateFullLedgerPdf { file ->
-                        PdfStatementGenerator.sharePdfFile(context, file, "Udhaar Full Ledger Statement")
-                    }
-                },
-                onToggleHideAmounts = viewModel::toggleHideAmounts,
-                onDismissNeedsAttention = viewModel::dismissNeedsAttentionStrip,
-                onDismissCoachMarks = viewModel::dismissCoachMarks,
-                onUndoAction = viewModel::performUndoAction,
-                onDismissUndo = viewModel::dismissUndoSnackbar
-            )
+    val reducedMotion = rememberReducedMotionEnabled()
+    var predictiveBackProgress by remember { mutableFloatStateOf(0f) }
+
+    val canNavigateBack = uiState.detailTransactionId != null ||
+        uiState.activeScreen != ActiveScreen.DASHBOARD
+
+    PredictiveBackHandler(enabled = canNavigateBack) { progressFlow ->
+        try {
+            progressFlow.collect { backEvent ->
+                predictiveBackProgress = if (reducedMotion) 0f else backEvent.progress
+            }
+            predictiveBackProgress = 0f
+            when {
+                uiState.detailTransactionId != null -> viewModel.closeTransactionDetail()
+                uiState.activeScreen == ActiveScreen.ADD_EDIT -> viewModel.navigateBackToDashboard()
+                uiState.activeScreen == ActiveScreen.SETTINGS -> viewModel.closeSettingsModal()
+                uiState.activeScreen == ActiveScreen.PARTY_DETAIL -> viewModel.closePartyLedgerScreen()
+                uiState.activeScreen == ActiveScreen.PEOPLE_DIRECTORY -> viewModel.switchMainTab(ActiveScreen.DASHBOARD)
+            }
+        } catch (_: CancellationException) {
+            predictiveBackProgress = 0f
         }
-        ActiveScreen.PARTY_DETAIL -> {
-            val selectedPartyId = uiState.selectedPartyIdForSheet
-            val selectedKhata = uiState.partyKhataList.find { it.party.partyId == selectedPartyId }
-            if (selectedKhata != null) {
-                PartyDetailScreen(
-                    khata = selectedKhata,
-                    enabledCurrencies = uiState.userSettings.enabledCurrencies,
-                    onBack = viewModel::closePartyLedgerScreen,
-                    onEditParty = {
-                        viewModel.openEditPartyModal(selectedKhata.party)
-                    },
-                    onDeleteParty = {
-                        viewModel.deleteParty(selectedKhata.party)
-                    },
-                    onAddLoanForParty = {
-                        viewModel.openAddTransactionForParty(selectedKhata.party)
-                    },
-                    onTransactionClick = { summary ->
-                        viewModel.openTransactionDetail(summary.transaction.id)
-                    },
-                    onWhatsAppClick = { summary ->
-                        viewModel.openWhatsAppReminderModal(summary.transaction.id)
-                    },
-                    onOpenTransactionChat = { summary ->
-                        viewModel.openTransactionChat(summary.transaction.id)
-                    },
-                    onOpenPartyGeneralChat = {
-                        viewModel.openPartyGeneralChat(selectedKhata.party)
-                    },
-                    unreadPartyChatCount = uiState.unreadCountByPartyName[selectedKhata.party.name.trim().lowercase()] ?: 0,
-                    unreadCountByTx = uiState.unreadCountByTx,
-                    onPayPartyViaUpi = { amountOwed ->
-                        viewModel.openPayPartyViaUpiModal(
-                            partyName = selectedKhata.party.name,
-                            partyUpiId = selectedKhata.party.upiId,
-                            amountInr = amountOwed
-                        )
-                    },
-                    onShareMyPaymentDetails = {
-                        viewModel.openShareMyPaymentDetailsModal(selectedKhata.party)
-                    },
-                    onRequestPartyPaymentDetails = {
-                        viewModel.openRequestPartyPaymentDetailsModal(selectedKhata.party)
-                    },
-                    onToggleFavorite = viewModel::togglePartyFavorite,
-                    onRequestVerification = {
-                        val firstTx = selectedKhata.transactions.firstOrNull()?.transaction
-                        if (firstTx != null) {
-                            viewModel.requestVerificationForTransaction(firstTx)
+    }
+
+    val currentNavDestination = remember(uiState.activeScreen, uiState.detailTransactionId) {
+        when {
+            uiState.detailTransactionId != null -> UdhaarNavDestination.RecordDetail(uiState.detailTransactionId!!)
+            uiState.activeScreen == ActiveScreen.PARTY_DETAIL -> UdhaarNavDestination.PartyDetail
+            uiState.activeScreen == ActiveScreen.ADD_EDIT -> UdhaarNavDestination.AddEdit
+            uiState.activeScreen == ActiveScreen.SETTINGS -> UdhaarNavDestination.Settings
+            else -> UdhaarNavDestination.Home
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        @OptIn(ExperimentalSharedTransitionApi::class)
+        SharedTransitionLayout(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    val p = predictiveBackProgress.coerceIn(0f, 1f)
+                    val scale = 1f - (p * 0.04f)
+                    scaleX = scale
+                    scaleY = scale
+                    translationX = p * 24f
+                }
+        ) {
+            CompositionLocalProvider(LocalSharedTransitionScope provides this) {
+                AnimatedContent(
+                    targetState = currentNavDestination,
+                    transitionSpec = {
+                        if (reducedMotion) {
+                            fadeIn(tween(0)) togetherWith fadeOut(tween(0))
                         } else {
-                            Toast.makeText(context, "No transactions to verify for this party yet.", Toast.LENGTH_SHORT).show()
+                            val isForward = targetState.depth >= initialState.depth
+                            val slideEnter = slideInHorizontally(
+                                animationSpec = tween(durationMillis = 250, easing = FastOutSlowInEasing),
+                                initialOffsetX = { fullWidth -> if (isForward) fullWidth / 5 else -fullWidth / 5 }
+                            ) + fadeIn(animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing))
+
+                            val slideExit = slideOutHorizontally(
+                                animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+                                targetOffsetX = { fullWidth -> if (isForward) -fullWidth / 6 else fullWidth / 6 }
+                            ) + fadeOut(animationSpec = tween(durationMillis = 170, easing = FastOutSlowInEasing))
+
+                            slideEnter togetherWith slideExit
                         }
                     },
-                    onShareThermalReceipt = {
-                        viewModel.openPartyStatementReceiptModal(selectedKhata.party.partyId)
-                    },
-                    onExportPartyStatement = {
-                        viewModel.generateSinglePartyStatementJson(selectedKhata) { json ->
-                            pendingJsonToSave = json
-                            val safeName = selectedKhata.party.name.replace(Regex("[^a-zA-Z0-9]+"), "_").lowercase()
-                            createDocumentLauncher.launch("udhaar_statement_${safeName}.json")
-                        }
-                    },
-                    onSharePartyStatement = {
-                        viewModel.generateSinglePartyStatementJson(selectedKhata) { json ->
-                            val safeName = selectedKhata.party.name.replace(Regex("[^a-zA-Z0-9]+"), "_").lowercase()
-                            LedgerBackupManager.shareBackupFile(
-                                context = context,
-                                jsonContent = json,
-                                fileNamePrefix = "udhaar_statement_${safeName}"
-                            )
-                        }
-                    },
-                    onExportPartyPdfStatement = {
-                        viewModel.generatePartyStatementPdf(selectedKhata) { file ->
-                            PdfStatementGenerator.sharePdfFile(
-                                context = context,
-                                file = file,
-                                subject = "Udhaar Statement - ${selectedKhata.party.name}"
-                            )
+                    label = "udhaar_screen_transition",
+                    modifier = Modifier.fillMaxSize()
+                ) { navDestination ->
+                    CompositionLocalProvider(LocalAnimatedVisibilityScope provides this) {
+                        when (navDestination) {
+                            is UdhaarNavDestination.Home -> {
+                                DashboardScreen(
+                                    uiState = uiState,
+                                    onSwitchTab = viewModel::switchMainTab,
+                                    onSelectSummaryCurrency = viewModel::setSummaryCurrency,
+                                    onToggleCurrencyEnabled = { currency, enabled ->
+                                        viewModel.toggleCurrencyEnabled(currency, enabled)
+                                        Toast.makeText(
+                                            context,
+                                            "${currency.displayName} ${if (enabled) "enabled" else "disabled"}",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                    onCycleTheme = {
+                                        val themes = AppThemeMode.entries
+                                        val nextIndex = (themes.indexOf(uiState.userSettings.themeMode) + 1) % themes.size
+                                        val nextTheme = themes[nextIndex]
+                                        viewModel.cycleOrSelectTheme(nextTheme)
+                                        Toast.makeText(context, "Theme: ${nextTheme.label}", Toast.LENGTH_SHORT).show()
+                                    },
+                                    onSelectFilter = viewModel::setFilter,
+                                    onSearchQueryChange = viewModel::setSearchQuery,
+                                    onPeopleSearchQueryChange = viewModel::setPeopleSearchQuery,
+                                    onAddUdhaarClick = viewModel::openAddTransaction,
+                                    onAddPartyClick = viewModel::openAddPartyModal,
+                                    onPartyClick = { khata ->
+                                        viewModel.openPartyLedgerScreen(khata.party.partyId)
+                                    },
+                                    onQuickAddLoanForParty = viewModel::openAddTransactionForParty,
+                                    onTransactionClick = { summary ->
+                                        viewModel.openTransactionDetail(summary.transaction.id)
+                                    },
+                                    onWhatsAppClick = { summary ->
+                                        viewModel.openWhatsAppReminderModal(summary.transaction.id)
+                                    },
+                                    onTransactionQrClick = { summary ->
+                                        viewModel.openTransactionQrModal(summary)
+                                    },
+                                    onOpenTransactionChat = { summary ->
+                                        viewModel.openTransactionChat(summary.transaction.id)
+                                    },
+                                    onOpenPartyGeneralChat = { party ->
+                                        viewModel.openPartyGeneralChat(party)
+                                    },
+                                    onGlobalQrClick = viewModel::openGlobalQrModal,
+                                    onShareMyPaymentDetailsClick = {
+                                        viewModel.openShareMyPaymentDetailsModal(null)
+                                    },
+                                    onShareAppClick = viewModel::openShareAppModal,
+                                    onLockAppClick = viewModel::lockApplicationNow,
+                                    onSettingsClick = viewModel::openSettingsModal,
+                                    onPartySortOptionChange = viewModel::setPartySortOption,
+                                    onOpenMergeDuplicates = viewModel::openMergeDuplicatesModal,
+                                    onOpenContactPicker = requestContactsFlow,
+                                    onToggleFavoriteParty = viewModel::togglePartyFavorite,
+                                    onTransactionSortOptionChange = viewModel::setTransactionSortOption,
+                                    onDateRangeFilterChange = viewModel::setDateRangeFilter,
+                                    onExportFullLedgerPdf = {
+                                        viewModel.generateFullLedgerPdf { file ->
+                                            PdfStatementGenerator.sharePdfFile(context, file, "Udhaar Full Ledger Statement")
+                                        }
+                                    },
+                                    onToggleHideAmounts = viewModel::toggleHideAmounts,
+                                    onDismissNeedsAttention = viewModel::dismissNeedsAttentionStrip,
+                                    onDismissCoachMarks = viewModel::dismissCoachMarks,
+                                    onUndoAction = viewModel::performUndoAction,
+                                    onDismissUndo = viewModel::dismissUndoSnackbar
+                                )
+                            }
+                            is UdhaarNavDestination.PartyDetail -> {
+                                val selectedPartyId = uiState.selectedPartyIdForSheet
+                                val selectedKhata = uiState.partyKhataList.find { it.party.partyId == selectedPartyId }
+                                if (selectedKhata != null) {
+                                    PartyDetailScreen(
+                                        khata = selectedKhata,
+                                        enabledCurrencies = uiState.userSettings.enabledCurrencies,
+                                        onBack = viewModel::closePartyLedgerScreen,
+                                        onEditParty = {
+                                            viewModel.openEditPartyModal(selectedKhata.party)
+                                        },
+                                        onDeleteParty = {
+                                            viewModel.deleteParty(selectedKhata.party)
+                                        },
+                                        onAddLoanForParty = {
+                                            viewModel.openAddTransactionForParty(selectedKhata.party)
+                                        },
+                                        onTransactionClick = { summary ->
+                                            viewModel.openTransactionDetail(summary.transaction.id)
+                                        },
+                                        onWhatsAppClick = { summary ->
+                                            viewModel.openWhatsAppReminderModal(summary.transaction.id)
+                                        },
+                                        onOpenTransactionChat = { summary ->
+                                            viewModel.openTransactionChat(summary.transaction.id)
+                                        },
+                                        onOpenPartyGeneralChat = {
+                                            viewModel.openPartyGeneralChat(selectedKhata.party)
+                                        },
+                                        unreadPartyChatCount = uiState.unreadCountByPartyName[selectedKhata.party.name.trim().lowercase()] ?: 0,
+                                        unreadCountByTx = uiState.unreadCountByTx,
+                                        onPayPartyViaUpi = { amountOwed ->
+                                            viewModel.openPayPartyViaUpiModal(
+                                                partyName = selectedKhata.party.name,
+                                                partyUpiId = selectedKhata.party.upiId,
+                                                amountInr = amountOwed
+                                            )
+                                        },
+                                        onShareMyPaymentDetails = {
+                                            viewModel.openShareMyPaymentDetailsModal(selectedKhata.party)
+                                        },
+                                        onRequestPartyPaymentDetails = {
+                                            viewModel.openRequestPartyPaymentDetailsModal(selectedKhata.party)
+                                        },
+                                        onToggleFavorite = viewModel::togglePartyFavorite,
+                                        onRequestVerification = {
+                                            val firstTx = selectedKhata.transactions.firstOrNull()?.transaction
+                                            if (firstTx != null) {
+                                                viewModel.requestVerificationForTransaction(firstTx)
+                                            } else {
+                                                Toast.makeText(context, "No transactions to verify for this party yet.", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        onShareThermalReceipt = {
+                                            viewModel.openPartyStatementReceiptModal(selectedKhata.party.partyId)
+                                        },
+                                        onExportPartyStatement = {
+                                            viewModel.generateSinglePartyStatementJson(selectedKhata) { json ->
+                                                pendingJsonToSave = json
+                                                val safeName = selectedKhata.party.name.replace(Regex("[^a-zA-Z0-9]+"), "_").lowercase()
+                                                createDocumentLauncher.launch("udhaar_statement_${safeName}.json")
+                                            }
+                                        },
+                                        onSharePartyStatement = {
+                                            viewModel.generateSinglePartyStatementJson(selectedKhata) { json ->
+                                                val safeName = selectedKhata.party.name.replace(Regex("[^a-zA-Z0-9]+"), "_").lowercase()
+                                                LedgerBackupManager.shareBackupFile(
+                                                    context = context,
+                                                    jsonContent = json,
+                                                    fileNamePrefix = "udhaar_statement_${safeName}"
+                                                )
+                                            }
+                                        },
+                                        onExportPartyPdfStatement = {
+                                            viewModel.generatePartyStatementPdf(selectedKhata) { file ->
+                                                PdfStatementGenerator.sharePdfFile(
+                                                    context = context,
+                                                    file = file,
+                                                    subject = "Udhaar Statement - ${selectedKhata.party.name}"
+                                                )
+                                            }
+                                        }
+                                    )
+                                } else {
+                                    LaunchedEffect(Unit) {
+                                        viewModel.closePartyLedgerScreen()
+                                    }
+                                }
+                            }
+                            is UdhaarNavDestination.RecordDetail -> {
+                                val detailTxId = navDestination.transactionId
+                                val detailSummary = uiState.allCalculatedItems.find { it.transaction.id == detailTxId }
+                                if (detailSummary != null) {
+                                    val payments = uiState.partialPaymentsByTx[detailTxId].orEmpty()
+                                    val auditEntries = uiState.auditTrailByTx[detailTxId].orEmpty()
+                                    val linkedParty = uiState.allParties.find { p ->
+                                        (detailSummary.transaction.partyId != null && p.partyId == detailSummary.transaction.partyId) ||
+                                            p.name.trim().equals(detailSummary.transaction.partyName.trim(), ignoreCase = true)
+                                    }
+                                    val txAttachments = uiState.attachmentsByTx[detailTxId].orEmpty()
+                                    TransactionDetailModal(
+                                        summary = detailSummary,
+                                        partialPayments = payments,
+                                        auditTrail = auditEntries,
+                                        linkedParty = linkedParty,
+                                        attachments = txAttachments,
+                                        attachmentsByPayment = uiState.attachmentsByPayment,
+                                        onDismiss = viewModel::closeTransactionDetail,
+                                        onRecordPartialPayment = { amount, paymentMode, note ->
+                                            viewModel.recordPartialPayment(detailSummary, amount, paymentMode, note, recordedByCounterparty = false)
+                                        },
+                                        onRecordPartialPaymentWithProof = { amount, paymentMode, note, proofAttachment ->
+                                            viewModel.recordPartialPayment(
+                                                summary = detailSummary,
+                                                amount = amount,
+                                                paymentMode = paymentMode,
+                                                note = note,
+                                                recordedByCounterparty = false,
+                                                proofAttachment = proofAttachment
+                                            )
+                                        },
+                                        onRecordCounterpartyPayment = { amount, paymentMode, note ->
+                                            viewModel.recordPartialPayment(detailSummary, amount, paymentMode, note, recordedByCounterparty = true)
+                                        },
+                                        onAcknowledgePartialPayment = { payment ->
+                                            viewModel.acknowledgePartialPayment(detailSummary.transaction, payment)
+                                        },
+                                        onDeletePartialPayment = { payment ->
+                                            viewModel.deletePartialPayment(detailSummary, payment)
+                                        },
+                                        onAddAttachment = { att ->
+                                            viewModel.addAttachmentToTransaction(detailTxId, att)
+                                        },
+                                        onDeleteAttachment = viewModel::deleteAttachment,
+                                        onOpenAttachmentViewer = viewModel::openAttachmentViewer,
+                                        onRequestVerification = {
+                                            viewModel.requestVerificationForTransaction(detailSummary.transaction)
+                                        },
+                                        onConfirmOrDisputeRecord = { confirm, reason ->
+                                            viewModel.confirmOrDisputeExistingRecord(detailSummary.transaction, confirm, reason)
+                                        },
+                                        onToggleSettled = {
+                                            viewModel.toggleSettled(detailSummary)
+                                        },
+                                        onEdit = {
+                                            viewModel.openEditTransaction(detailSummary.transaction)
+                                        },
+                                        onDeleteTransaction = {
+                                            viewModel.deleteTransaction(detailSummary.transaction)
+                                        },
+                                        onOpenQr = {
+                                            viewModel.openTransactionQrModal(detailSummary)
+                                        },
+                                        onPayPartyViaUpi = { partyName, partyUpiId, amountInr ->
+                                            viewModel.openPayPartyViaUpiModal(partyName, partyUpiId, amountInr)
+                                        },
+                                        onShareReceipt = {
+                                            viewModel.openTransactionReceiptModal(detailSummary.transaction.id)
+                                        },
+                                        onOpenWhatsApp = {
+                                            viewModel.openWhatsAppReminderModal(detailSummary.transaction.id)
+                                        },
+                                        unreadChatCount = uiState.unreadCountByTx[detailSummary.transaction.id] ?: 0,
+                                        onOpenTransactionChat = {
+                                            viewModel.closeTransactionDetail()
+                                            viewModel.openTransactionChat(detailSummary.transaction.id)
+                                        }
+                                    )
+                                } else {
+                                    LaunchedEffect(Unit) {
+                                        viewModel.closeTransactionDetail()
+                                    }
+                                }
+                            }
+                            is UdhaarNavDestination.AddEdit -> {
+                                AddEditUdhaarScreen(
+                                    initialTransaction = uiState.editingTransaction,
+                                    preselectedPartyDraft = uiState.preselectedPartyDraft,
+                                    savedParties = uiState.allParties,
+                                    enabledCurrencies = uiState.userSettings.enabledCurrencies,
+                                    defaultCurrency = uiState.summaryCurrency,
+                                    draftAttachments = uiState.draftAttachments,
+                                    existingAttachments = uiState.attachmentsByTx[uiState.editingTransaction?.id ?: -1L].orEmpty(),
+                                    onEnableCurrency = { curr ->
+                                        viewModel.toggleCurrencyEnabled(curr, true)
+                                    },
+                                    onAddDraftAttachment = { att ->
+                                        val editingId = uiState.editingTransaction?.id
+                                        if (editingId != null && editingId > 0L) {
+                                            viewModel.addAttachmentToTransaction(editingId, att)
+                                        } else {
+                                            viewModel.stageDraftAttachment(att)
+                                        }
+                                    },
+                                    onRemoveDraftAttachment = viewModel::removeDraftAttachment,
+                                    onDeleteExistingAttachment = viewModel::deleteAttachment,
+                                    onOpenAttachmentViewer = viewModel::openAttachmentViewer,
+                                    onOpenInAppContactPicker = requestContactsFlow,
+                                    onSave = viewModel::saveUdhaarTransaction,
+                                    onCancel = viewModel::navigateBackToDashboard
+                                )
+                            }
+                            is UdhaarNavDestination.Settings -> {
+                                ProfileSettingsModal(
+                                    currentSettings = uiState.userSettings,
+                                    onSave = { upiId, payeeName, currency, inrEnabled, nprEnabled, themeMode, fontScale, bioEnabled, pin, closeModal ->
+                                        viewModel.saveUserSettings(
+                                            upiId = upiId,
+                                            payeeName = payeeName,
+                                            defaultCurrency = currency,
+                                            inrEnabled = inrEnabled,
+                                            nprEnabled = nprEnabled,
+                                            themeMode = themeMode,
+                                            fontScale = fontScale,
+                                            biometricLockEnabled = bioEnabled,
+                                            securityPin = pin,
+                                            closeModal = closeModal
+                                        )
+                                    },
+                                    onSaveExtendedProfile = { phone, photoUri, cloudConsent ->
+                                        viewModel.saveUserSettings(
+                                            upiId = uiState.userSettings.upiId,
+                                            payeeName = uiState.userSettings.payeeName,
+                                            defaultCurrency = uiState.userSettings.defaultCurrency,
+                                            phoneNumber = phone,
+                                            profilePhotoUri = photoUri,
+                                            cloudVerificationConsent = cloudConsent,
+                                            closeModal = false
+                                        )
+                                    },
+                                    onShareMyPaymentDetails = {
+                                        viewModel.openShareMyPaymentDetailsModal(null)
+                                    },
+                                    onOpenReceivedVerificationLink = { link ->
+                                        val handled = viewModel.handleIncomingDeepLinkOrToken(link)
+                                        if (!handled) {
+                                            Toast.makeText(context, "Invalid verification or payment link.", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    onSignInWithGoogleForVerification = signInWithGoogleForVerification,
+                                    onDeleteMyCloudData = {
+                                        viewModel.deleteMyCloudData {
+                                            Toast.makeText(
+                                                context,
+                                                "Cloud verification data cleared. Local ledger preserved.",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                        }
+                                    },
+                                    onLockAppNow = viewModel::lockApplicationNow,
+                                    onOpenGlobalQrModal = viewModel::openGlobalQrModal,
+                                    onOpenShareAppModal = {
+                                        viewModel.openShareAppModal()
+                                    },
+                                    onExportFullLedgerSaf = {
+                                        viewModel.generateFullLedgerBackupJson { json ->
+                                            pendingJsonToSave = json
+                                            createDocumentLauncher.launch("udhaar_full_ledger_backup.json")
+                                        }
+                                    },
+                                    onShareFullLedgerFile = {
+                                        viewModel.generateFullLedgerBackupJson { json ->
+                                            LedgerBackupManager.shareBackupFile(
+                                                context = context,
+                                                jsonContent = json,
+                                                fileNamePrefix = "udhaar_full_ledger_backup"
+                                            )
+                                        }
+                                    },
+                                    onImportLedgerSaf = {
+                                        openDocumentLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+                                    },
+                                    driveRemoteBackups = uiState.driveRemoteBackups,
+                                    isDriveOperationInProgress = uiState.isDriveOperationInProgress,
+                                    driveOperationStatusMessage = uiState.driveOperationStatusMessage,
+                                    driveOperationError = uiState.driveOperationError,
+                                    onSignInWithGoogleForDrive = signInWithGoogleForDrive,
+                                    onSignOutFromDrive = signOutFromDrive,
+                                    onBackupNowToDrive = { pass, saveAuto ->
+                                        viewModel.uploadDriveBackup(pass, saveAuto)
+                                    },
+                                    onRestoreDriveBackup = { backup, pass ->
+                                        viewModel.downloadAndDecryptDriveBackup(backup, pass)
+                                    },
+                                    onDeleteDriveBackup = { backup ->
+                                        viewModel.deleteDriveBackup(backup)
+                                    },
+                                    onUpdateAutoBackupSettings = { freq, wifiOnly, pass ->
+                                        viewModel.updateDriveAutoBackupSettings(freq, wifiOnly, pass)
+                                    },
+                                    onRefreshDriveBackups = {
+                                        viewModel.refreshDriveBackups()
+                                    },
+                                    onClearDriveOperationError = {
+                                        viewModel.clearDriveOperationError()
+                                    },
+                                    onDismiss = viewModel::closeSettingsModal
+                                )
+                            }
                         }
                     }
-                )
-            } else {
-                LaunchedEffect(Unit) {
-                    viewModel.closePartyLedgerScreen()
                 }
             }
         }
-        ActiveScreen.ADD_EDIT -> {
-            AddEditUdhaarScreen(
-                initialTransaction = uiState.editingTransaction,
-                preselectedPartyDraft = uiState.preselectedPartyDraft,
-                savedParties = uiState.allParties,
-                enabledCurrencies = uiState.userSettings.enabledCurrencies,
-                defaultCurrency = uiState.summaryCurrency,
-                draftAttachments = uiState.draftAttachments,
-                existingAttachments = uiState.attachmentsByTx[uiState.editingTransaction?.id ?: -1L].orEmpty(),
-                onEnableCurrency = { curr ->
-                    viewModel.toggleCurrencyEnabled(curr, true)
-                },
-                onAddDraftAttachment = { att ->
-                    val editingId = uiState.editingTransaction?.id
-                    if (editingId != null && editingId > 0L) {
-                        viewModel.addAttachmentToTransaction(editingId, att)
-                    } else {
-                        viewModel.stageDraftAttachment(att)
-                    }
-                },
-                onRemoveDraftAttachment = viewModel::removeDraftAttachment,
-                onDeleteExistingAttachment = viewModel::deleteAttachment,
-                onOpenAttachmentViewer = viewModel::openAttachmentViewer,
-                onOpenInAppContactPicker = requestContactsFlow,
-                onSave = viewModel::saveUdhaarTransaction,
-                onCancel = viewModel::navigateBackToDashboard
-            )
-        }
-        ActiveScreen.SETTINGS -> {
-            ProfileSettingsModal(
-                currentSettings = uiState.userSettings,
-                onSave = { upiId, payeeName, currency, inrEnabled, nprEnabled, themeMode, fontScale, bioEnabled, pin, closeModal ->
-                    viewModel.saveUserSettings(
-                        upiId = upiId,
-                        payeeName = payeeName,
-                        defaultCurrency = currency,
-                        inrEnabled = inrEnabled,
-                        nprEnabled = nprEnabled,
-                        themeMode = themeMode,
-                        fontScale = fontScale,
-                        biometricLockEnabled = bioEnabled,
-                        securityPin = pin,
-                        closeModal = closeModal
-                    )
-                },
-                onSaveExtendedProfile = { phone, photoUri, cloudConsent ->
-                    viewModel.saveUserSettings(
-                        upiId = uiState.userSettings.upiId,
-                        payeeName = uiState.userSettings.payeeName,
-                        defaultCurrency = uiState.userSettings.defaultCurrency,
-                        phoneNumber = phone,
-                        profilePhotoUri = photoUri,
-                        cloudVerificationConsent = cloudConsent,
-                        closeModal = false
-                    )
-                },
-                onShareMyPaymentDetails = {
-                    viewModel.openShareMyPaymentDetailsModal(null)
-                },
-                onOpenReceivedVerificationLink = { link ->
-                    val handled = viewModel.handleIncomingDeepLinkOrToken(link)
-                    if (!handled) {
-                        Toast.makeText(context, "Invalid verification or payment link.", Toast.LENGTH_SHORT).show()
-                    }
-                },
-                onSignInWithGoogleForVerification = signInWithGoogleForVerification,
-                onDeleteMyCloudData = {
-                    viewModel.deleteMyCloudData {
-                        Toast.makeText(
-                            context,
-                            "Cloud verification data cleared. Local ledger preserved.",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                },
-                onLockAppNow = viewModel::lockApplicationNow,
-                onOpenGlobalQrModal = viewModel::openGlobalQrModal,
-                onOpenShareAppModal = {
-                    viewModel.openShareAppModal()
-                },
-                onExportFullLedgerSaf = {
-                    viewModel.generateFullLedgerBackupJson { json ->
-                        pendingJsonToSave = json
-                        createDocumentLauncher.launch("udhaar_full_ledger_backup.json")
-                    }
-                },
-                onShareFullLedgerFile = {
-                    viewModel.generateFullLedgerBackupJson { json ->
-                        LedgerBackupManager.shareBackupFile(
-                            context = context,
-                            jsonContent = json,
-                            fileNamePrefix = "udhaar_full_ledger_backup"
-                        )
-                    }
-                },
-                onImportLedgerSaf = {
-                    openDocumentLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
-                },
-                driveRemoteBackups = uiState.driveRemoteBackups,
-                isDriveOperationInProgress = uiState.isDriveOperationInProgress,
-                driveOperationStatusMessage = uiState.driveOperationStatusMessage,
-                driveOperationError = uiState.driveOperationError,
-                onSignInWithGoogleForDrive = signInWithGoogleForDrive,
-                onSignOutFromDrive = signOutFromDrive,
-                onBackupNowToDrive = { pass, saveAuto ->
-                    viewModel.uploadDriveBackup(pass, saveAuto)
-                },
-                onRestoreDriveBackup = { backup, pass ->
-                    viewModel.downloadAndDecryptDriveBackup(backup, pass)
-                },
-                onDeleteDriveBackup = { backup ->
-                    viewModel.deleteDriveBackup(backup)
-                },
-                onUpdateAutoBackupSettings = { freq, wifiOnly, pass ->
-                    viewModel.updateDriveAutoBackupSettings(freq, wifiOnly, pass)
-                },
-                onRefreshDriveBackups = {
-                    viewModel.refreshDriveBackups()
-                },
-                onClearDriveOperationError = {
-                    viewModel.clearDriveOperationError()
-                },
-                onDismiss = viewModel::closeSettingsModal
-            )
-        }
+
+        // Non-blocking drawn checkmark success animation overlay (record saved, payment recorded, record verified)
+        SuccessCheckmarkOverlay(
+            event = uiState.successAnimationEvent,
+            onFinished = viewModel::clearSuccessAnimation
+        )
     }
 
     // Google Drive Restore Preview & Confirmation Dialog
@@ -691,89 +884,6 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
             onSave = viewModel::saveParty,
             onDismiss = viewModel::closeAddEditPartyModal
         )
-    }
-
-    // Detail & Partial Repayment Modal
-    val detailTxId = uiState.detailTransactionId
-    if (detailTxId != null) {
-        val detailSummary = uiState.allCalculatedItems.find { it.transaction.id == detailTxId }
-        if (detailSummary != null) {
-            val payments = uiState.partialPaymentsByTx[detailTxId].orEmpty()
-            val auditEntries = uiState.auditTrailByTx[detailTxId].orEmpty()
-            val linkedParty = uiState.allParties.find { p ->
-                (detailSummary.transaction.partyId != null && p.partyId == detailSummary.transaction.partyId) ||
-                    p.name.trim().equals(detailSummary.transaction.partyName.trim(), ignoreCase = true)
-            }
-            val txAttachments = uiState.attachmentsByTx[detailTxId].orEmpty()
-            TransactionDetailModal(
-                summary = detailSummary,
-                partialPayments = payments,
-                auditTrail = auditEntries,
-                linkedParty = linkedParty,
-                attachments = txAttachments,
-                attachmentsByPayment = uiState.attachmentsByPayment,
-                onDismiss = viewModel::closeTransactionDetail,
-                onRecordPartialPayment = { amount, paymentMode, note ->
-                    viewModel.recordPartialPayment(detailSummary, amount, paymentMode, note, recordedByCounterparty = false)
-                },
-                onRecordPartialPaymentWithProof = { amount, paymentMode, note, proofAttachment ->
-                    viewModel.recordPartialPayment(
-                        summary = detailSummary,
-                        amount = amount,
-                        paymentMode = paymentMode,
-                        note = note,
-                        recordedByCounterparty = false,
-                        proofAttachment = proofAttachment
-                    )
-                },
-                onRecordCounterpartyPayment = { amount, paymentMode, note ->
-                    viewModel.recordPartialPayment(detailSummary, amount, paymentMode, note, recordedByCounterparty = true)
-                },
-                onAcknowledgePartialPayment = { payment ->
-                    viewModel.acknowledgePartialPayment(detailSummary.transaction, payment)
-                },
-                onDeletePartialPayment = { payment ->
-                    viewModel.deletePartialPayment(detailSummary, payment)
-                },
-                onAddAttachment = { att ->
-                    viewModel.addAttachmentToTransaction(detailTxId, att)
-                },
-                onDeleteAttachment = viewModel::deleteAttachment,
-                onOpenAttachmentViewer = viewModel::openAttachmentViewer,
-                onRequestVerification = {
-                    viewModel.requestVerificationForTransaction(detailSummary.transaction)
-                },
-                onConfirmOrDisputeRecord = { confirm, reason ->
-                    viewModel.confirmOrDisputeExistingRecord(detailSummary.transaction, confirm, reason)
-                },
-                onToggleSettled = {
-                    viewModel.toggleSettled(detailSummary)
-                },
-                onEdit = {
-                    viewModel.openEditTransaction(detailSummary.transaction)
-                },
-                onDeleteTransaction = {
-                    viewModel.deleteTransaction(detailSummary.transaction)
-                },
-                onOpenQr = {
-                    viewModel.openTransactionQrModal(detailSummary)
-                },
-                onPayPartyViaUpi = { partyName, partyUpiId, amountInr ->
-                    viewModel.openPayPartyViaUpiModal(partyName, partyUpiId, amountInr)
-                },
-                onShareReceipt = {
-                    viewModel.openTransactionReceiptModal(detailSummary.transaction.id)
-                },
-                onOpenWhatsApp = {
-                    viewModel.openWhatsAppReminderModal(detailSummary.transaction.id)
-                },
-                unreadChatCount = uiState.unreadCountByTx[detailSummary.transaction.id] ?: 0,
-                onOpenTransactionChat = {
-                    viewModel.closeTransactionDetail()
-                    viewModel.openTransactionChat(detailSummary.transaction.id)
-                }
-            )
-        }
     }
 
     // Phase 4: In-App Communication Chat Thread Bottom Sheet (Per-Transaction or Per-Party)
@@ -1166,4 +1276,12 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
             }
         )
     }
+}
+
+private sealed class UdhaarNavDestination(val depth: Int) {
+    data object Home : UdhaarNavDestination(0)
+    data object PartyDetail : UdhaarNavDestination(1)
+    data class RecordDetail(val transactionId: Long) : UdhaarNavDestination(2)
+    data object AddEdit : UdhaarNavDestination(3)
+    data object Settings : UdhaarNavDestination(3)
 }

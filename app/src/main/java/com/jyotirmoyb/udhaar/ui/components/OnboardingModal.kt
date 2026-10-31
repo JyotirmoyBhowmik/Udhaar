@@ -115,7 +115,7 @@ fun OnboardingModal(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "STEP $step OF 4",
+                    text = stringResource(R.string.ui_fmt_step_of_4_2ca96f, step),
                     style = MaterialTheme.typography.labelSmall,
                     color = SecondaryInkGrey,
                     fontWeight = FontWeight.Bold,
@@ -189,8 +189,8 @@ fun OnboardingModal(
                     OutlinedTextField(
                         value = payeeName,
                         onValueChange = { payeeName = it },
-                        label = { Text("Your Name or Business Name") },
-                        placeholder = { Text("e.g. Ramesh Kumar") },
+                        label = { Text(stringResource(R.string.ui_str_your_name_or_business_name_321509)) },
+                        placeholder = { Text(stringResource(R.string.ui_str_e_g_ramesh_kumar_e3ad8f)) },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = PureBlack,
@@ -206,8 +206,8 @@ fun OnboardingModal(
                     OutlinedTextField(
                         value = upiId,
                         onValueChange = { upiId = it },
-                        label = { Text("UPI ID (Optional for fast QR settlement)") },
-                        placeholder = { Text("e.g. yourname@okhdfcbank") },
+                        label = { Text(stringResource(R.string.ui_str_upi_id_optional_for_fast_4279ed)) },
+                        placeholder = { Text(stringResource(R.string.ui_str_e_g_yourname_okhdfcbank_8db8fb)) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -224,8 +224,8 @@ fun OnboardingModal(
                     OutlinedTextField(
                         value = pin,
                         onValueChange = { if (it.length <= 4 && it.all { ch -> ch.isDigit() }) pin = it },
-                        label = { Text("4-Digit Security PIN (Optional)") },
-                        placeholder = { Text("••••") },
+                        label = { Text(stringResource(R.string.ui_str_4_digit_security_pin_optional_20898c)) },
+                        placeholder = { Text(stringResource(R.string.ui_str_symbol_c9299e)) },
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         singleLine = true,
@@ -261,7 +261,7 @@ fun OnboardingModal(
                     ) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = PureBlack)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("BACK", color = PureBlack)
+                        Text(stringResource(R.string.ui_str_back_587eac), color = PureBlack)
                     }
                 } else {
                     Spacer(modifier = Modifier.width(1.dp))
@@ -278,7 +278,7 @@ fun OnboardingModal(
                             .testTag("onboarding_next_button")
                             .semantics { contentDescription = "Next onboarding slide" }
                     ) {
-                        Text("NEXT", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.ui_str_next_1992d5), fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.width(6.dp))
                         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
                     }

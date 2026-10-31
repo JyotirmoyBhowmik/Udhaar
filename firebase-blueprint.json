@@ -25,6 +25,10 @@
           "type": "string",
           "description": "Optional avatar/photo reference URI."
         },
+        "fcmToken": {
+          "type": "string",
+          "description": "Firebase Cloud Messaging device registration token for push notifications."
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time",
