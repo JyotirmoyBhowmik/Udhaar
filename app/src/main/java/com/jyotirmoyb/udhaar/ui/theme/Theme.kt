@@ -1,5 +1,6 @@
 package com.jyotirmoyb.udhaar.ui.theme
 
+import android.app.Activity
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -15,8 +16,10 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 import com.jyotirmoyb.udhaar.ui.components.rememberReducedMotionEnabled
 
 /**
@@ -98,13 +101,22 @@ fun UdhaarTheme(
         accentFabBg = accentFabBg,
         accentFabInk = accentFabInk
     )
-    SideEffect {
-        activePaletteState = palette
-    }
-    activePaletteState = palette
-
     val isDark = themeMode == AppThemeMode.OBSIDIAN_DARK ||
         (themeMode == AppThemeMode.SYSTEM_DEFAULT && isSystemDark)
+
+    val view = LocalView.current
+    SideEffect {
+        activePaletteState = palette
+        if (!view.isInEditMode) {
+            val window = (view.context as? Activity)?.window
+            if (window != null) {
+                val insetsController = WindowCompat.getInsetsController(window, view)
+                insetsController.isAppearanceLightStatusBars = !isDark
+                insetsController.isAppearanceLightNavigationBars = !isDark
+            }
+        }
+    }
+    activePaletteState = palette
 
     val colorScheme = if (isDark) {
         darkColorScheme(

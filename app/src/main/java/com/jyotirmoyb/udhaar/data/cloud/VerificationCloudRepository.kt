@@ -323,6 +323,27 @@ class VerificationCloudRepository(
         }
     }
 
+    suspend fun upsertSharedRecordForBackup(record: CloudSharedRecord) {
+        val path = "shared_records/${record.remoteId}"
+        try {
+            val docRef = db.collection("shared_records").document(record.remoteId)
+            val existing = docRef.get().await()
+            if (!existing.exists()) {
+                createSharedRecord(record)
+            } else {
+                val updates = mapOf(
+                    "amountPaid" to record.amountPaid,
+                    "isSettled" to record.isSettled,
+                    "encryptedNotes" to record.encryptedNotes,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+                docRef.update(updates).await()
+            }
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.WRITE, path)
+        }
+    }
+
     suspend fun claimAndRespondSharedRecord(
         remoteId: String,
         creatorUid: String,

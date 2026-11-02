@@ -112,6 +112,24 @@ object DriveBackupCrypto {
         }
     }
 
+    fun isEncryptedBackupContainer(encryptedBytes: ByteArray): Boolean {
+        return try {
+            val json = JSONObject(String(encryptedBytes, Charsets.UTF_8))
+            json.optString("magic") == MAGIC
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    fun isEncryptedBackupContainer(text: String): Boolean {
+        return try {
+            val json = JSONObject(text)
+            json.optString("magic") == MAGIC
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     fun peekPreview(encryptedBytes: ByteArray): BackupPreviewSummary? {
         return try {
             val json = JSONObject(String(encryptedBytes, Charsets.UTF_8))
@@ -122,7 +140,7 @@ object DriveBackupCrypto {
                 transactionsCount = p.optInt("transactionsCount", 0),
                 paymentsCount = p.optInt("paymentsCount", 0),
                 attachmentsCount = p.optInt("attachmentsCount", 0),
-                appVersion = p.optString("appVersion", "7.0"),
+                appVersion = p.optString("appVersion", "9.0"),
                 createdAtMillis = p.optLong("createdAtMillis", json.optLong("createdAtMillis", System.currentTimeMillis()))
             )
         } catch (_: Exception) {
@@ -130,3 +148,4 @@ object DriveBackupCrypto {
         }
     }
 }
+

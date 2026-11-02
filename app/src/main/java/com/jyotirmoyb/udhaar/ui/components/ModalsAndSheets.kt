@@ -202,6 +202,53 @@ fun TransactionDetailModal(
     var disputeReasonInput by rememberSaveable { mutableStateOf("") }
     var showVerificationDetails by rememberSaveable { mutableStateOf(false) }
 
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            modifier = Modifier.testTag("delete_transaction_confirm_dialog"),
+            title = {
+                Text(
+                    text = stringResource(R.string.ui_str_delete_transaction_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(
+                        R.string.ui_fmt_delete_transaction_confirm_body,
+                        tx.partyName,
+                        InterestCalculator.formatCurrency(tx.principalAmount, tx.currency)
+                    ),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        confirmDelete = false
+                        onDeleteTransaction()
+                    },
+                    modifier = Modifier.testTag("confirm_delete_transaction_button"),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text(stringResource(R.string.ui_str_delete_d6f563))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { confirmDelete = false },
+                    modifier = Modifier.testTag("cancel_delete_transaction_button")
+                ) {
+                    Text(stringResource(R.string.ui_str_cancel_1507c4))
+                }
+            }
+        )
+    }
+
     var cameraTempUri by remember { mutableStateOf<Uri?>(null) }
     var pendingProofAttachment by remember { mutableStateOf<Attachment?>(null) }
     var isAttachingToPayment by remember { mutableStateOf(false) }
@@ -2268,12 +2315,14 @@ fun ShareUdhaarAppModal(
 fun WhatsAppReminderModal(
     summary: CalculatedUdhaarSummary,
     userSettings: UserSettings,
+    fallbackPhoneNumber: String = "",
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
     val tx = summary.transaction
+    val effectivePhone = tx.phoneNumber.ifBlank { fallbackPhoneNumber }
 
-    var hideExactAmount by rememberSaveable { mutableStateOf(false) }
+    var hideExactAmount by rememberSaveable(tx.id) { mutableStateOf(false) }
 
     val generatedMessage = remember(summary, userSettings.upiId, hideExactAmount) {
         InterestCalculator.buildWhatsAppReminderMessage(
@@ -2284,7 +2333,7 @@ fun WhatsAppReminderModal(
         )
     }
 
-    var editableMessage by rememberSaveable(generatedMessage) {
+    var editableMessage by rememberSaveable(tx.id, hideExactAmount) {
         mutableStateOf(generatedMessage)
     }
 
@@ -2304,6 +2353,7 @@ fun WhatsAppReminderModal(
                 .align(Alignment.CenterHorizontally)
                 .imePadding()
                 .navigationBarsPadding()
+                .testTag("whatsapp_reminder_modal")
         ) {
         Column(
             modifier = Modifier.fillMaxWidth()
@@ -2321,7 +2371,7 @@ fun WhatsAppReminderModal(
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    val maskedPhoneSuffix = if (tx.phoneNumber.isNotBlank()) "(${InterestCalculator.maskPhoneNumber(tx.phoneNumber)})" else ""
+                    val maskedPhoneSuffix = if (effectivePhone.isNotBlank()) "(${InterestCalculator.maskPhoneNumber(effectivePhone)})" else ""
                     Text(
                         text = stringResource(R.string.ui_fmt_to_40e0b0, tx.partyName.uppercase(), maskedPhoneSuffix),
                         style = MaterialTheme.typography.labelSmall,
@@ -2372,7 +2422,15 @@ fun WhatsAppReminderModal(
                     }
                     UdhaarAnimatedSwitch(
                         checked = hideExactAmount,
-                        onCheckedChange = { hideExactAmount = it },
+                        onCheckedChange = { checked ->
+                            hideExactAmount = checked
+                            editableMessage = InterestCalculator.buildWhatsAppReminderMessage(
+                                summary = summary,
+                                hideExactAmount = checked,
+                                upiId = userSettings.upiId,
+                                includeUpiId = true
+                            )
+                        },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                             checkedTrackColor = MaterialTheme.colorScheme.primary
@@ -2394,26 +2452,12 @@ fun WhatsAppReminderModal(
 
                 Button(
                     onClick = {
-                        val sanitizedPhone = InterestCalculator.sanitizePhoneForWhatsApp(
-                            tx.phoneNumber,
-                            tx.currency
+                        com.jyotirmoyb.udhaar.util.WhatsAppReminderLauncher.launchReminder(
+                            context = context,
+                            rawPhoneNumber = effectivePhone,
+                            currency = tx.currency,
+                            message = editableMessage
                         )
-                        val encodedMessage = Uri.encode(editableMessage)
-                        val waUrl = if (sanitizedPhone.isNotBlank()) {
-                            "https://wa.me/$sanitizedPhone?text=$encodedMessage"
-                        } else {
-                            "https://wa.me/?text=$encodedMessage"
-                        }
-                        runCatching {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(waUrl))
-                            context.startActivity(intent)
-                        }.onFailure {
-                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, editableMessage)
-                            }
-                            context.startActivity(Intent.createChooser(shareIntent, "Send Reminder"))
-                        }
                         onDismiss()
                     },
                     modifier = Modifier
@@ -2484,6 +2528,11 @@ fun ProfileSettingsModal(
     onUpdateAutoBackupSettings: (com.jyotirmoyb.udhaar.data.AutoBackupFrequency, Boolean, String?) -> Unit = { _, _, _ -> },
     onRefreshDriveBackups: () -> Unit = {},
     onClearDriveOperationError: () -> Unit = {},
+    dbEncryptionState: com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState =
+        com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.ENCRYPTED,
+    onRetryDatabaseEncryption: () -> Unit = {},
+    onExportLocalUdhaarSaf: (passphrase: String) -> Unit = {},
+    onRetryCloudBackup: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     // Ensure FLAG_SECURE is cleared on the Settings screen so it renders visibly on all displays & screenshots
@@ -2530,6 +2579,7 @@ fun ProfileSettingsModal(
     var pinValidationError by rememberSaveable { mutableStateOf<String?>(null) }
 
     var showBackupDialog by rememberSaveable { mutableStateOf(false) }
+    var isLocalUdhaarExportMode by rememberSaveable { mutableStateOf(false) }
     var backupPassphrase by rememberSaveable { mutableStateOf("") }
     var confirmBackupPassphrase by rememberSaveable { mutableStateOf("") }
     var savePassphraseForAuto by rememberSaveable { mutableStateOf(currentSettings.driveAutoBackupPassphraseSaved) }
@@ -2890,6 +2940,90 @@ fun ProfileSettingsModal(
                         subtitle = "Biometric fingerprint, device credential & salted PBKDF2 PIN lock",
                         testTag = "section_security"
                     ) {
+                        val isEncryptionFailed = dbEncryptionState ==
+                            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.FAILED ||
+                            dbEncryptionState ==
+                            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.NONE
+                        val isEncryptionMigrating = dbEncryptionState ==
+                            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.MIGRATING
+
+                        val statusTitle = when {
+                            dbEncryptionState == com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.ENCRYPTED ->
+                                stringResource(R.string.db_encryption_status_yes)
+                            isEncryptionMigrating ->
+                                stringResource(R.string.db_encryption_status_migrating)
+                            else ->
+                                stringResource(R.string.db_encryption_status_failed_retry)
+                        }
+                        val statusSubtitle = when {
+                            dbEncryptionState == com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.ENCRYPTED ->
+                                stringResource(R.string.db_encryption_subtitle_yes)
+                            isEncryptionMigrating ->
+                                stringResource(R.string.db_encryption_subtitle_migrating)
+                            else ->
+                                stringResource(R.string.db_encryption_subtitle_failed)
+                        }
+                        val borderColor = when {
+                            isEncryptionFailed -> MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.primary
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+                                .background(
+                                    if (isEncryptionFailed) {
+                                        MaterialTheme.colorScheme.error.copy(alpha = 0.08f)
+                                    } else {
+                                        MaterialTheme.colorScheme.surface
+                                    },
+                                    RoundedCornerShape(12.dp)
+                                )
+                                .clickable(enabled = isEncryptionFailed) {
+                                    onRetryDatabaseEncryption()
+                                }
+                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                                .testTag("database_encryption_status_row"),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = if (isEncryptionFailed) Icons.Default.Warning else Icons.Default.Lock,
+                                    contentDescription = null,
+                                    tint = borderColor,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Column {
+                                    Text(
+                                        text = statusTitle,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isEncryptionFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.testTag("database_encryption_status_text")
+                                    )
+                                    Text(
+                                        text = statusSubtitle,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            if (isEncryptionFailed) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -3539,6 +3673,7 @@ fun ProfileSettingsModal(
                                 ) {
                                     Button(
                                         onClick = {
+                                            isLocalUdhaarExportMode = false
                                             backupPassphrase = ""
                                             confirmBackupPassphrase = ""
                                             backupPassphraseError = null
@@ -3833,6 +3968,26 @@ fun ProfileSettingsModal(
                         }
 
                         OutlinedButton(
+                            onClick = {
+                                isLocalUdhaarExportMode = true
+                                backupPassphrase = ""
+                                confirmBackupPassphrase = ""
+                                backupPassphraseError = null
+                                showBackupDialog = true
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .testTag("export_local_udhaar_button"),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.export_local_udhaar_backup), style = MaterialTheme.typography.labelMedium)
+                        }
+
+                        OutlinedButton(
                             onClick = onImportLedgerSaf,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -3913,6 +4068,98 @@ fun ProfileSettingsModal(
                                 },
                                 style = MaterialTheme.typography.labelMedium
                             )
+                        }
+
+                        if (currentSettings.cloudUserId.isNotBlank() ||
+                            currentSettings.cloudBackupState != com.jyotirmoyb.udhaar.data.CloudBackupState.IDLE ||
+                            currentSettings.cloudLastBackupTimeMillis > 0L
+                        ) {
+                            val backupState = currentSettings.cloudBackupState
+                            val lastBackupMillis = currentSettings.cloudLastBackupTimeMillis
+                            val isJustNow = lastBackupMillis > 0L &&
+                                kotlin.math.abs(System.currentTimeMillis() - lastBackupMillis) < 90_000L
+                            val formattedTimestamp = remember(lastBackupMillis) {
+                                if (lastBackupMillis > 0L) {
+                                    java.text.SimpleDateFormat("dd MMM yyyy, hh:mm a", java.util.Locale.getDefault())
+                                        .format(java.util.Date(lastBackupMillis))
+                                } else {
+                                    ""
+                                }
+                            }
+                            val statusText = when {
+                                backupState == com.jyotirmoyb.udhaar.data.CloudBackupState.BACKING_UP ->
+                                    stringResource(R.string.cloud_backup_status_backing_up)
+                                backupState == com.jyotirmoyb.udhaar.data.CloudBackupState.FAILED ->
+                                    stringResource(R.string.cloud_backup_status_failed_retry)
+                                lastBackupMillis > 0L && isJustNow ->
+                                    stringResource(R.string.cloud_backup_status_just_now)
+                                lastBackupMillis > 0L ->
+                                    stringResource(
+                                        R.string.cloud_backup_status_timestamp,
+                                        formattedTimestamp
+                                    )
+                                else ->
+                                    stringResource(R.string.cloud_backup_status_backing_up)
+                            }
+                            val statusColor = when (backupState) {
+                                com.jyotirmoyb.udhaar.data.CloudBackupState.FAILED -> MaterialTheme.colorScheme.error
+                                com.jyotirmoyb.udhaar.data.CloudBackupState.BACKING_UP -> MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.primary
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = statusColor.copy(alpha = 0.08f),
+                                border = BorderStroke(1.dp, statusColor.copy(alpha = 0.35f)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("cloud_backup_status_row")
+                                    .then(
+                                        if (backupState != com.jyotirmoyb.udhaar.data.CloudBackupState.BACKING_UP) {
+                                            Modifier.clickable { onRetryCloudBackup() }
+                                        } else {
+                                            Modifier
+                                        }
+                                    )
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = when (backupState) {
+                                            com.jyotirmoyb.udhaar.data.CloudBackupState.FAILED -> Icons.Default.Warning
+                                            com.jyotirmoyb.udhaar.data.CloudBackupState.BACKING_UP -> Icons.Default.Sync
+                                            else -> Icons.Default.Check
+                                        },
+                                        contentDescription = null,
+                                        tint = statusColor,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = statusText,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = statusColor,
+                                            modifier = Modifier.testTag("cloud_backup_status_text")
+                                        )
+                                        Text(
+                                            text = when {
+                                                backupState == com.jyotirmoyb.udhaar.data.CloudBackupState.FAILED &&
+                                                    currentSettings.cloudBackupError.isNotBlank() ->
+                                                    currentSettings.cloudBackupError
+                                                backupState == com.jyotirmoyb.udhaar.data.CloudBackupState.BACKING_UP ->
+                                                    stringResource(R.string.cloud_backup_subtitle_syncing)
+                                                else ->
+                                                    stringResource(R.string.cloud_backup_subtitle_synced)
+                                            },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
                         }
 
                         // Open / Verify a received link directly
@@ -4044,10 +4291,15 @@ fun ProfileSettingsModal(
                                 )
                                 Column {
                                     Text(
-                                        text = stringResource(R.string.ui_str_udhaar_ledger_v8_0_c73358),
+                                        text = stringResource(
+                                            R.string.settings_about_version_format,
+                                            com.jyotirmoyb.udhaar.BuildConfig.VERSION_NAME,
+                                            com.jyotirmoyb.udhaar.BuildConfig.VERSION_CODE
+                                        ),
                                         style = MaterialTheme.typography.labelMedium,
                                         fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.testTag("settings_about_version_text")
                                     )
                                     Text(
                                         text = stringResource(R.string.ui_str_developer_admin_jyotirmoy_bhowmik_436c7f),
@@ -4191,12 +4443,22 @@ fun ProfileSettingsModal(
                             backupPassphraseError = "Passphrases do not match."
                         } else {
                             showBackupDialog = false
-                            onBackupNowToDrive(pass, savePassphraseForAuto)
+                            if (isLocalUdhaarExportMode) {
+                                onExportLocalUdhaarSaf(pass)
+                            } else {
+                                onBackupNowToDrive(pass, savePassphraseForAuto)
+                            }
                         }
                     },
                     modifier = Modifier.testTag("confirm_encrypt_and_backup_button")
                 ) {
-                    Text(stringResource(R.string.ui_str_encrypt_upload_623890))
+                    Text(
+                        if (isLocalUdhaarExportMode) {
+                            stringResource(R.string.export_local_udhaar_backup)
+                        } else {
+                            stringResource(R.string.ui_str_encrypt_upload_623890)
+                        }
+                    )
                 }
             },
             dismissButton = {
@@ -4502,3 +4764,108 @@ val UpiMaskVisualTransformation = VisualTransformation { text ->
         offsetMapping = proportionalOffsetMapping(text.text.length, masked.length)
     )
 }
+
+@Composable
+fun SqlCipherBlockingErrorScreen(
+    errorMessage: String,
+    onExportBackup: () -> Unit,
+    onTryAgain: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag("sqlcipher_blocking_error_screen"),
+        color = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.onBackground
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 460.dp)
+                    .border(1.5.dp, MaterialTheme.colorScheme.error, RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp))
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(44.dp)
+                )
+                Text(
+                    text = stringResource(R.string.sqlcipher_error_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = stringResource(R.string.sqlcipher_error_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+                if (errorMessage.isNotBlank()) {
+                    Text(
+                        text = errorMessage,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onExportBackup,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .pressScaleFeedback()
+                            .testTag("sqlcipher_error_export_backup_button"),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                    ) {
+                        Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = stringResource(R.string.sqlcipher_error_export_backup),
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
+                    Button(
+                        onClick = onTryAgain,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .pressScaleFeedback()
+                            .testTag("sqlcipher_error_try_again_button"),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = stringResource(R.string.sqlcipher_error_try_again),
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+

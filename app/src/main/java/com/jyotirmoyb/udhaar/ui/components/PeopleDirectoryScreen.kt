@@ -10,6 +10,8 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -38,7 +40,9 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -136,11 +140,15 @@ fun PeopleDirectoryContent(
     duplicatePairsCount: Int = 0,
     onOpenMergeDuplicates: () -> Unit = {},
     onOpenContactPicker: () -> Unit = {},
-    onToggleFavorite: (PartyEntity) -> Unit = {}
+    onToggleFavorite: (PartyEntity) -> Unit = {},
+    isInitialLoading: Boolean = false,
+    isAmountsHidden: Boolean = false,
+    listState: LazyListState = rememberLazyListState()
 ) {
     val reducedMotion = rememberReducedMotionEnabled()
 
     LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxSize()
             .widthIn(max = 700.dp)
@@ -295,7 +303,7 @@ fun PeopleDirectoryContent(
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Search,
-                        contentDescription = "Search contacts",
+                        contentDescription = stringResource(R.string.cd_search),
                         tint = PureBlack
                     )
                 },
@@ -304,7 +312,7 @@ fun PeopleDirectoryContent(
                         IconButton(onClick = { onSearchQueryChange("") }) {
                             Icon(
                                 imageVector = Icons.Default.Clear,
-                                contentDescription = "Clear search",
+                                contentDescription = stringResource(R.string.cd_clear_search),
                                 tint = PureBlack
                             )
                         }
@@ -336,7 +344,7 @@ fun PeopleDirectoryContent(
                 PartySortOption.entries.forEach { option ->
                     val isSelected = partySortOption == option
                     MonochromeTogglePill(
-                        text = "SORT: ${option.label.uppercase()}",
+                        text = stringResource(R.string.people_sort_chip_fmt, option.label.uppercase()),
                         selected = isSelected,
                         onClick = { onSortOptionChange(option) },
                         modifier = Modifier.testTag("sort_party_${option.name.lowercase()}")
@@ -345,16 +353,26 @@ fun PeopleDirectoryContent(
             }
         }
 
-        if (partyKhataList.isEmpty()) {
-            item(key = "people_empty_state") {
+        if (isInitialLoading || partyKhataList.isEmpty()) {
+            item(key = "people_empty_or_shimmer_state") {
                 Box(modifier = udhaarAnimateItem(reducedMotion)) {
-                    FriendlyEmptyStateCard(
-                        sentence = "No people in your directory yet — add a contact or import from your phonebook to track records by person.",
-                        primaryButtonLabel = "Add your first contact",
-                        onPrimaryClick = onAddPartyClick,
-                        secondaryButtonLabel = "Import from contacts",
-                        onSecondaryClick = onOpenContactPicker
-                    )
+                    Crossfade(
+                        targetState = isInitialLoading,
+                        animationSpec = tween(durationMillis = if (reducedMotion) 0 else 220),
+                        label = "peopleInitialLoadingCrossfade"
+                    ) { isLoading ->
+                        if (isLoading) {
+                            ShimmerLedgerPlaceholder()
+                        } else if (partyKhataList.isEmpty()) {
+                            FriendlyEmptyStateCard(
+                                sentence = stringResource(R.string.people_empty_sentence),
+                                primaryButtonLabel = stringResource(R.string.people_empty_add_first),
+                                onPrimaryClick = onAddPartyClick,
+                                secondaryButtonLabel = stringResource(R.string.people_empty_import_contacts),
+                                onSecondaryClick = onOpenContactPicker
+                            )
+                        }
+                    }
                 }
             }
         } else {
@@ -367,6 +385,7 @@ fun PeopleDirectoryContent(
                     PartyDirectoryCard(
                         khata = khata,
                         enabledCurrencies = enabledCurrencies,
+                        isAmountsHidden = isAmountsHidden,
                         unreadCount = partyUnread,
                         onClick = { onPartyClick(khata) },
                         onChatClick = { onOpenPartyGeneralChat(khata.party) },
@@ -383,6 +402,7 @@ fun PeopleDirectoryContent(
 private fun PartyDirectoryCard(
     khata: PartyKhataSummary,
     enabledCurrencies: List<CurrencyType>,
+    isAmountsHidden: Boolean = false,
     unreadCount: Int = 0,
     onClick: () -> Unit,
     onChatClick: () -> Unit = {},
@@ -396,7 +416,7 @@ private fun PartyDirectoryCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .udhaarSharedBounds("party_card_${party.name}")
+            .udhaarSharedBounds("party_card_${party.partyId}_${party.name}")
             .pressScaleFeedback(pressedScale = 0.98f)
             .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
             .background(PureWhite, RoundedCornerShape(12.dp))
@@ -525,7 +545,7 @@ private fun PartyDirectoryCard(
                     name = party.name,
                     photoUri = party.photoUri,
                     size = 40.dp,
-                    modifier = Modifier.udhaarSharedElement("party_avatar_${party.name}")
+                    modifier = Modifier.udhaarSharedElement("party_avatar_${party.partyId}_${party.name}")
                 )
 
                 Spacer(modifier = Modifier.width(10.dp))
@@ -535,7 +555,7 @@ private fun PartyDirectoryCard(
                         text = party.name,
                         style = MaterialTheme.typography.titleLarge,
                         color = PureBlack,
-                        modifier = Modifier.udhaarSharedBounds("party_name_${party.name}")
+                        modifier = Modifier.udhaarSharedBounds("party_name_${party.partyId}_${party.name}")
                     )
                     val contactSub = buildString {
                         if (party.phoneNumber.isNotBlank()) append(InterestCalculator.maskPhoneNumber(party.phoneNumber))
@@ -570,6 +590,7 @@ private fun PartyDirectoryCard(
                     val animatedInrAbs = rememberAnimatedCurrencyText(
                         targetAmount = kotlin.math.abs(inrNet),
                         currency = CurrencyType.INR,
+                        isAmountsHidden = isAmountsHidden,
                         durationMillis = 240
                     )
                     Text(
@@ -588,6 +609,7 @@ private fun PartyDirectoryCard(
                     val animatedNprAbs = rememberAnimatedCurrencyText(
                         targetAmount = kotlin.math.abs(nprNet),
                         currency = CurrencyType.NPR,
+                        isAmountsHidden = isAmountsHidden,
                         durationMillis = 240
                     )
                     Text(
@@ -737,7 +759,7 @@ fun PartyDetailScreen(
                             name = party.name,
                             photoUri = party.photoUri,
                             size = 36.dp,
-                            modifier = Modifier.udhaarSharedElement("party_avatar_${party.name}")
+                            modifier = Modifier.udhaarSharedElement("party_avatar_${party.partyId}_${party.name}")
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Column(modifier = Modifier.weight(1f)) {
@@ -747,7 +769,7 @@ fun PartyDetailScreen(
                                 color = PureBlack,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.udhaarSharedBounds("party_name_${party.name}")
+                                modifier = Modifier.udhaarSharedBounds("party_name_${party.partyId}_${party.name}")
                             )
                             Text(
                                 text = stringResource(R.string.ui_str_party_khata_ledger_a8382a),
@@ -877,7 +899,7 @@ fun PartyDetailScreen(
                     Column(
                         modifier = udhaarAnimateItem(reducedMotion)
                             .fillMaxWidth()
-                            .udhaarSharedBounds("party_card_${party.name}")
+                            .udhaarSharedBounds("party_card_${party.partyId}_${party.name}")
                             .border(1.5.dp, PureBlack, RoundedCornerShape(12.dp))
                             .background(PureWhite, RoundedCornerShape(12.dp))
                             .padding(16.dp),
@@ -1075,19 +1097,24 @@ fun PartyDetailScreen(
 
                                 OutlinedButton(
                                     onClick = {
-                                        val sanitized = InterestCalculator.sanitizePhoneForWhatsApp(
-                                            party.phoneNumber,
-                                            party.preferredCurrency
-                                        )
-                                        val msg = "Hello ${party.name}, sharing our current Udhaar ledger summary."
-                                        val url = "https://wa.me/$sanitized?text=${Uri.encode(msg)}"
-                                        runCatching {
-                                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                        val firstUnsettled = khata.transactions.firstOrNull { !it.transaction.isSettled }
+                                            ?: khata.transactions.firstOrNull()
+                                        if (firstUnsettled != null) {
+                                            onWhatsAppClick(firstUnsettled)
+                                        } else {
+                                            val msg = "Hello ${party.name}, sharing our current Udhaar ledger summary."
+                                            com.jyotirmoyb.udhaar.util.WhatsAppReminderLauncher.launchReminder(
+                                                context = context,
+                                                rawPhoneNumber = party.phoneNumber,
+                                                currency = party.preferredCurrency,
+                                                message = msg
+                                            )
                                         }
                                     },
                                     shape = RoundedCornerShape(12.dp),
                                     border = BorderStroke(1.dp, PureBlack),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack),
+                                    modifier = Modifier.testTag("party_whatsapp_quick_action_button")
                                 ) {
                                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
@@ -1488,8 +1515,9 @@ fun PartyDetailScreen(
                                     OutlinedButton(
                                         onClick = { onOpenTransactionChat(summary) },
                                         modifier = Modifier
-                                            .height(34.dp)
-                                            .pressScaleFeedback(),
+                                            .height(40.dp)
+                                            .pressScaleFeedback()
+                                            .testTag("party_tx_chat_button_${tx.id}"),
                                         shape = RoundedCornerShape(8.dp),
                                         border = BorderStroke(1.dp, PureBlack),
                                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
@@ -1507,8 +1535,9 @@ fun PartyDetailScreen(
                                     OutlinedButton(
                                         onClick = { onWhatsAppClick(summary) },
                                         modifier = Modifier
-                                            .height(34.dp)
-                                            .pressScaleFeedback(),
+                                            .height(40.dp)
+                                            .pressScaleFeedback()
+                                            .testTag("party_tx_remind_button_${tx.id}"),
                                         shape = RoundedCornerShape(8.dp),
                                         border = BorderStroke(1.dp, PureBlack),
                                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
@@ -1574,15 +1603,17 @@ fun AddEditPartyModal(
     val contactPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val contactUri = result.data?.data ?: return@rememberLauncherForActivityResult
-        val extracted = com.jyotirmoyb.udhaar.util.ContactPickerHelper.extractContactInfo(context, contactUri)
-        if (extracted != null) {
-            val (pickedName, pickedPhone) = extracted
-            if (pickedName.isNotBlank()) name = pickedName
-            if (pickedPhone.isNotBlank()) phoneNumber = pickedPhone
-            android.widget.Toast.makeText(context, "Imported contact: $pickedName", android.widget.Toast.LENGTH_SHORT).show()
-        } else {
-            android.widget.Toast.makeText(context, "Could not load contact details. Please enter name manually.", android.widget.Toast.LENGTH_SHORT).show()
+        com.jyotirmoyb.udhaar.util.ContactPickerHelper.handleContactPickerResult(
+            context = context,
+            result = result
+        ) { pickedName, pickedPhone ->
+            if (pickedName.isNotBlank()) {
+                name = pickedName
+                errorText = null
+            }
+            if (pickedPhone.isNotBlank()) {
+                phoneNumber = pickedPhone
+            }
         }
     }
 
@@ -1760,13 +1791,10 @@ fun AddEditPartyModal(
                     )
                     OutlinedButton(
                         onClick = {
-                            val pickIntent = com.jyotirmoyb.udhaar.util.ContactPickerHelper.createPickContactIntent()
-                            runCatching {
-                                contactPickerLauncher.launch(pickIntent)
-                            }.onFailure {
-                                val fallbackIntent = com.jyotirmoyb.udhaar.util.ContactPickerHelper.createFallbackPickContactIntent()
-                                runCatching { contactPickerLauncher.launch(fallbackIntent) }
-                            }
+                            com.jyotirmoyb.udhaar.util.ContactPickerHelper.launchSystemContactPicker(
+                                context = context,
+                                launcher = contactPickerLauncher
+                            )
                         },
                         modifier = Modifier
                             .height(56.dp)

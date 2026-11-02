@@ -65,6 +65,9 @@ class UdhaarRepository(
         val CLOUD_CONSENT = booleanPreferencesKey("cloud_verification_consent")
         val CLOUD_USER_ID = stringPreferencesKey("cloud_user_id")
         val CLOUD_USER_EMAIL = stringPreferencesKey("cloud_user_email")
+        val CLOUD_LAST_BACKUP_TIME = longPreferencesKey("cloud_last_backup_time")
+        val CLOUD_BACKUP_STATE = stringPreferencesKey("cloud_backup_state")
+        val CLOUD_BACKUP_ERROR = stringPreferencesKey("cloud_backup_error")
         val DRIVE_USER_EMAIL = stringPreferencesKey("drive_user_email")
         val DRIVE_ACCESS_TOKEN = stringPreferencesKey("drive_access_token")
         val DRIVE_LAST_BACKUP_TIME = longPreferencesKey("drive_last_backup_time")
@@ -115,6 +118,17 @@ class UdhaarRepository(
             val driveAutoFreqStr = prefs[PrefKeys.DRIVE_AUTO_BACKUP_FREQ] ?: AutoBackupFrequency.OFF.name
             val driveAutoFreq = runCatching { AutoBackupFrequency.valueOf(driveAutoFreqStr) }.getOrDefault(AutoBackupFrequency.OFF)
 
+            val cloudLastBackupMillis = prefs[PrefKeys.CLOUD_LAST_BACKUP_TIME] ?: 0L
+            val cloudStateStr = prefs[PrefKeys.CLOUD_BACKUP_STATE].orEmpty()
+            val rawCloudState = runCatching { CloudBackupState.valueOf(cloudStateStr) }.getOrDefault(
+                if (cloudLastBackupMillis > 0L) CloudBackupState.BACKED_UP else CloudBackupState.IDLE
+            )
+            val effectiveCloudState = if (rawCloudState == CloudBackupState.IDLE && cloudLastBackupMillis > 0L) {
+                CloudBackupState.BACKED_UP
+            } else {
+                rawCloudState
+            }
+
             UserSettings(
                 upiId = prefs[PrefKeys.UPI_ID] ?: "",
                 payeeName = prefs[PrefKeys.PAYEE_NAME] ?: "",
@@ -130,6 +144,9 @@ class UdhaarRepository(
                 cloudVerificationConsent = prefs[PrefKeys.CLOUD_CONSENT] ?: false,
                 cloudUserId = prefs[PrefKeys.CLOUD_USER_ID] ?: "",
                 cloudUserEmail = prefs[PrefKeys.CLOUD_USER_EMAIL] ?: "",
+                cloudLastBackupTimeMillis = cloudLastBackupMillis,
+                cloudBackupState = effectiveCloudState,
+                cloudBackupError = prefs[PrefKeys.CLOUD_BACKUP_ERROR] ?: "",
                 driveUserEmail = prefs[PrefKeys.DRIVE_USER_EMAIL] ?: "",
                 driveAccessToken = prefs[PrefKeys.DRIVE_ACCESS_TOKEN] ?: "",
                 driveLastBackupTimeMillis = prefs[PrefKeys.DRIVE_LAST_BACKUP_TIME] ?: 0L,
@@ -368,8 +385,33 @@ class UdhaarRepository(
     suspend fun updateTransaction(transaction: UdhaarTransaction) =
         dao.updateTransaction(transaction)
 
-    suspend fun deleteTransaction(transaction: UdhaarTransaction) =
-        dao.deleteTransaction(transaction)
+    suspend fun deleteTransaction(transaction: UdhaarTransaction) {
+        val txId = transaction.id
+        if (txId > 0L) {
+            val txAttachments = dao.getAttachmentsForTransactionSnapshot(txId)
+            context?.let { ctx ->
+                for (att in txAttachments) {
+                    com.jyotirmoyb.udhaar.util.AttachmentManager.deleteAttachmentFile(ctx, att.localPath)
+                }
+            }
+            dao.deleteAttachmentsForTransaction(txId)
+            dao.deletePartialPaymentsForTransaction(txId)
+            dao.deleteAuditTrailForTransaction(txId)
+            dao.deleteChatMessagesForTransaction(txId)
+            dao.deleteChatThreadsForTransaction(txId)
+            dao.deleteTransactionById(txId)
+        } else {
+            dao.deleteTransaction(transaction)
+        }
+
+        val settings = userSettings.first()
+        if (settings.cloudVerificationConsent && settings.cloudUserId.isNotBlank() && transaction.remoteId.isNotBlank()) {
+            runCatching {
+                val safeRemoteId = transaction.remoteId.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
+                cloudRepository?.deleteSharedRecord(safeRemoteId)
+            }
+        }
+    }
 
     suspend fun recordPartialPayment(
         transaction: UdhaarTransaction,
@@ -1195,25 +1237,169 @@ class UdhaarRepository(
         userId: String,
         email: String
     ) {
+        val cleanUid = userId.trim()
         context?.dataStore?.edit { prefs ->
             prefs[PrefKeys.CLOUD_CONSENT] = consentGranted
-            prefs[PrefKeys.CLOUD_USER_ID] = userId.trim()
+            prefs[PrefKeys.CLOUD_USER_ID] = cleanUid
             prefs[PrefKeys.CLOUD_USER_EMAIL] = email.trim()
+            if (consentGranted && cleanUid.isNotBlank()) {
+                prefs[PrefKeys.CLOUD_BACKUP_STATE] = CloudBackupState.BACKING_UP.name
+                prefs[PrefKeys.CLOUD_BACKUP_ERROR] = ""
+            } else if (!consentGranted || cleanUid.isBlank()) {
+                prefs[PrefKeys.CLOUD_BACKUP_STATE] = CloudBackupState.IDLE.name
+                prefs[PrefKeys.CLOUD_BACKUP_ERROR] = ""
+            }
         }
-        if (consentGranted && userId.isNotBlank()) {
-            val current = userSettings.first()
-            runCatching {
-                val fcmToken = resolveCurrentFcmToken()
-                cloudRepository?.upsertUserProfile(
-                    CloudUserProfile(
-                        userId = userId.trim(),
-                        displayName = current.payeeName.ifBlank { "Udhaar User" },
-                        phoneNumber = current.phoneNumber,
-                        upiId = current.upiId,
-                        photoUri = current.profilePhotoUri,
-                        fcmToken = fcmToken
-                    )
+        if (consentGranted && cleanUid.isNotBlank()) {
+            syncProfileAndRecordsToCloud(cleanUid)
+        }
+    }
+
+    /**
+     * Syncs the signed-in user's profile and records in the background and updates
+     * the local cloud backup status (`BACKING_UP` -> `BACKED_UP` with timestamp, or `FAILED`).
+     */
+    suspend fun syncProfileAndRecordsToCloud(userIdOverride: String? = null): Result<Long> {
+        val current = userSettings.first()
+        val uid = userIdOverride?.trim()?.ifBlank { current.cloudUserId } ?: current.cloudUserId
+        if (!current.cloudVerificationConsent || uid.isBlank()) {
+            return Result.failure(IllegalStateException("Google Sign-In required for cloud backup."))
+        }
+
+        context?.dataStore?.edit { prefs ->
+            prefs[PrefKeys.CLOUD_BACKUP_STATE] = CloudBackupState.BACKING_UP.name
+            prefs[PrefKeys.CLOUD_BACKUP_ERROR] = ""
+        }
+
+        return runCatching {
+            val cloud = cloudRepository
+                ?: throw IllegalStateException("Cloud backup service is unavailable.")
+            val fcmToken = resolveCurrentFcmToken()
+            val myName = current.payeeName.ifBlank { "Udhaar User" }
+
+            // 1. Sync user profile
+            cloud.upsertUserProfile(
+                CloudUserProfile(
+                    userId = uid,
+                    displayName = myName.take(100),
+                    phoneNumber = current.phoneNumber.take(30),
+                    upiId = current.upiId.take(120),
+                    photoUri = current.profilePhotoUri.take(1024),
+                    fcmToken = fcmToken.take(512)
                 )
+            )
+
+            // 2. Sync local records to cloud
+            val allTxs = dao.getAllTransactionsSnapshot()
+            for (tx in allTxs) {
+                val remoteId = tx.remoteId.ifBlank { UUID.randomUUID().toString() }
+                val shareToken = tx.shareToken.ifBlank { UUID.randomUUID().toString().replace("-", "") }
+                val safeRemoteId = remoteId.replace(Regex("[^a-zA-Z0-9_\\-]"), "_").take(120)
+                if (safeRemoteId.isBlank()) continue
+
+                val (lender, borrower) = VerificationCryptoHelper.resolveLenderAndBorrowerNames(
+                    type = tx.transactionType,
+                    partyName = tx.partyName,
+                    myProfileName = myName,
+                    explicitLenderName = tx.lenderName,
+                    explicitBorrowerName = tx.borrowerName
+                )
+                val safeLender = lender.ifBlank { "Lender" }.take(120)
+                val safeBorrower = borrower.ifBlank { "Borrower" }.take(120)
+                val hash = tx.contentHash.takeIf { it.length == 64 }
+                    ?: VerificationCryptoHelper.computeContentHash(
+                        lenderName = safeLender,
+                        borrowerName = safeBorrower,
+                        principalAmount = tx.principalAmount,
+                        currencyCode = tx.currency.code,
+                        startDateMillis = tx.startDateMillis,
+                        expiryDateMillis = tx.expiryDateMillis,
+                        isInterestEnabled = tx.isInterestEnabled,
+                        interestType = tx.interestType,
+                        interestRate = tx.interestRate,
+                        interestRatePeriod = tx.interestRatePeriod,
+                        compoundFrequency = tx.compoundFrequency
+                    )
+
+                if (tx.remoteId.isBlank() || tx.shareToken.isBlank() || tx.contentHash.isBlank()) {
+                    dao.updateTransaction(
+                        tx.copy(
+                            remoteId = remoteId,
+                            shareToken = shareToken,
+                            lenderName = safeLender,
+                            borrowerName = safeBorrower,
+                            contentHash = hash
+                        )
+                    )
+                }
+
+                val encryptedNote = VerificationCryptoHelper.encryptE2eeField(
+                    plainText = tx.notes,
+                    remoteId = remoteId,
+                    shareToken = shareToken
+                ).take(8000)
+
+                val participants = listOfNotNull(
+                    uid,
+                    tx.counterpartyUserId.takeIf { it.isNotBlank() }
+                ).distinct()
+
+                val statusForCloud = if (tx.verificationStatus == VerificationStatus.LOCAL_ONLY) {
+                    VerificationStatus.PENDING.name
+                } else {
+                    tx.verificationStatus.name
+                }
+
+                val cloudRecord = CloudSharedRecord(
+                    remoteId = safeRemoteId,
+                    creatorUid = uid,
+                    counterpartyUid = tx.counterpartyUserId.take(128),
+                    participantUids = participants,
+                    lenderName = safeLender,
+                    borrowerName = safeBorrower,
+                    creatorRole = tx.transactionType.name,
+                    currency = tx.currency.code,
+                    principalAmount = tx.principalAmount.coerceIn(0.01, 1_000_000_000.0),
+                    amountPaid = tx.amountPaid.coerceIn(0.0, 1_000_000_000.0),
+                    paymentMode = tx.paymentMode.name,
+                    isInterestEnabled = tx.isInterestEnabled,
+                    interestType = tx.interestType.name,
+                    interestRate = tx.interestRate.coerceIn(0.0, 1000.0),
+                    interestRatePeriod = tx.interestRatePeriod.name,
+                    compoundFrequency = tx.compoundFrequency.name,
+                    startDateMillis = tx.startDateMillis.coerceAtLeast(1L),
+                    expiryDateMillis = (tx.expiryDateMillis ?: -1L).coerceAtLeast(-1L),
+                    contentHash = hash,
+                    verificationStatus = statusForCloud,
+                    verifiedAtMillis = (tx.verifiedAtMillis ?: -1L).coerceAtLeast(-1L),
+                    disputeReason = tx.disputeReason.take(500),
+                    encryptedNotes = encryptedNote,
+                    attachmentRefs = emptyList(),
+                    isSettled = tx.isSettled
+                )
+                cloud.upsertSharedRecordForBackup(cloudRecord)
+            }
+
+            val completedAtMillis = System.currentTimeMillis()
+            context?.dataStore?.edit { prefs ->
+                prefs[PrefKeys.CLOUD_LAST_BACKUP_TIME] = completedAtMillis
+                prefs[PrefKeys.CLOUD_BACKUP_STATE] = CloudBackupState.BACKED_UP.name
+                prefs[PrefKeys.CLOUD_BACKUP_ERROR] = ""
+            }
+            context?.let { ctx ->
+                runCatching {
+                    com.jyotirmoyb.udhaar.security.EncryptedStorageManager.getEncryptedPreferences(ctx)
+                        .edit()
+                        .putLong("cloud_last_backup_time", completedAtMillis)
+                        .apply()
+                }
+            }
+            completedAtMillis
+        }.onFailure { err ->
+            val errMsg = (err.localizedMessage ?: "Cloud backup failed").take(200)
+            context?.dataStore?.edit { prefs ->
+                prefs[PrefKeys.CLOUD_BACKUP_STATE] = CloudBackupState.FAILED.name
+                prefs[PrefKeys.CLOUD_BACKUP_ERROR] = errMsg
             }
         }
     }
@@ -1258,6 +1444,9 @@ class UdhaarRepository(
             prefs[PrefKeys.CLOUD_CONSENT] = false
             prefs[PrefKeys.CLOUD_USER_ID] = ""
             prefs[PrefKeys.CLOUD_USER_EMAIL] = ""
+            prefs[PrefKeys.CLOUD_LAST_BACKUP_TIME] = 0L
+            prefs[PrefKeys.CLOUD_BACKUP_STATE] = CloudBackupState.IDLE.name
+            prefs[PrefKeys.CLOUD_BACKUP_ERROR] = ""
         }
     }
 

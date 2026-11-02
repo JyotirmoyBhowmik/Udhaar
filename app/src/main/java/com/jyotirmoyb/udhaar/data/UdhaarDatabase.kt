@@ -361,20 +361,84 @@ abstract class UdhaarDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: UdhaarDatabase? = null
 
+        @Volatile
+        private var isBlockedFallbackInstance: Boolean = false
+
         fun getInstance(context: Context): UdhaarDatabase {
-            return INSTANCE ?: synchronized(this) {
+            val current = INSTANCE
+            if (current != null && !isBlockedFallbackInstance) {
+                return current
+            }
+            return synchronized(this) {
+                val existing = INSTANCE
+                if (existing != null && !isBlockedFallbackInstance) {
+                    return@synchronized existing
+                }
+                val appCtx = context.applicationContext
                 val baseBuilder = Room.databaseBuilder(
-                    context.applicationContext,
+                    appCtx,
                     UdhaarDatabase::class.java,
                     "udhaar_ledger.db"
-                ).addMigrations(*ALL_MIGRATIONS)
+                )
+                    .addMigrations(*ALL_MIGRATIONS)
+                    .fallbackToDestructiveMigrationOnDowngrade()
 
-                val instance = com.jyotirmoyb.udhaar.security.EncryptedStorageManager
-                    .configureSqlCipherForRoom(context.applicationContext, baseBuilder, "udhaar_ledger.db")
-                    .build()
-                INSTANCE = instance
-                instance
+                val configuredBuilder = com.jyotirmoyb.udhaar.security.EncryptedStorageManager
+                    .configureSqlCipherForRoom(appCtx, baseBuilder, "udhaar_ledger.db")
+
+                // If SQLCipher failed on a fresh install, do NOT create a plain database file on disk.
+                // Return a temporary in-memory database so the UI can render the blocking error screen
+                // with "Export backup" and "Try again".
+                if (com.jyotirmoyb.udhaar.security.EncryptedStorageManager.blockingStartupErrorFlow.value != null &&
+                    !appCtx.getDatabasePath("udhaar_ledger.db").exists()
+                ) {
+                    val fallback = existing ?: Room.inMemoryDatabaseBuilder(
+                        appCtx,
+                        UdhaarDatabase::class.java
+                    ).allowMainThreadQueries().build()
+                    INSTANCE = fallback
+                    isBlockedFallbackInstance = true
+                    fallback
+                } else {
+                    if (isBlockedFallbackInstance) {
+                        runCatching { existing?.close() }
+                    }
+                    val instance = configuredBuilder.build()
+                    INSTANCE = instance
+                    isBlockedFallbackInstance = false
+                    instance
+                }
+            }
+        }
+
+        fun retryDatabaseEncryption(context: Context): Boolean {
+            synchronized(this) {
+                runCatching { INSTANCE?.close() }
+                INSTANCE = null
+                isBlockedFallbackInstance = false
+                val appCtx = context.applicationContext
+                val migratedOrReady = com.jyotirmoyb.udhaar.security.EncryptedStorageManager
+                    .retryDatabaseEncryption(appCtx, "udhaar_ledger.db")
+                if (migratedOrReady) {
+                    val db = getInstance(appCtx)
+                    // Trigger open so SupportOpenHelperFactory / Room verifies the encrypted file
+                    runCatching { db.openHelper.writableDatabase }
+                }
+                return com.jyotirmoyb.udhaar.security.EncryptedStorageManager
+                    .getDatabaseEncryptionState(appCtx) ==
+                    com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.ENCRYPTED &&
+                    com.jyotirmoyb.udhaar.security.EncryptedStorageManager.blockingStartupErrorFlow.value == null
+            }
+        }
+
+        fun resetInstanceForTesting() {
+            synchronized(this) {
+                runCatching { INSTANCE?.close() }
+                INSTANCE = null
+                isBlockedFallbackInstance = false
             }
         }
     }
 }
+
+

@@ -49,7 +49,9 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Contacts
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DatePicker
@@ -141,6 +143,7 @@ fun AddEditUdhaarScreen(
     onOpenAttachmentViewer: (Attachment) -> Unit = {},
     onOpenInAppContactPicker: () -> Unit = {},
     onSave: (UdhaarTransaction) -> Unit,
+    onDeleteTransaction: ((UdhaarTransaction) -> Unit)? = null,
     onCancel: () -> Unit
 ) {
     BackHandler {
@@ -264,6 +267,55 @@ fun AddEditUdhaarScreen(
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showExpiryDatePicker by remember { mutableStateOf(false) }
     var showReminderDatePicker by remember { mutableStateOf(false) }
+    var showDeleteConfirmDialog by rememberSaveable { mutableStateOf(false) }
+    val isEditingExisting = initialTransaction != null && initialTransaction.id > 0L
+
+    if (showDeleteConfirmDialog && initialTransaction != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            modifier = Modifier.testTag("delete_transaction_confirm_dialog"),
+            title = {
+                Text(
+                    text = stringResource(R.string.ui_str_delete_transaction_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(
+                        R.string.ui_fmt_delete_transaction_confirm_body,
+                        initialTransaction.partyName,
+                        InterestCalculator.formatCurrency(initialTransaction.principalAmount, initialTransaction.currency)
+                    ),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteConfirmDialog = false
+                        onDeleteTransaction?.invoke(initialTransaction)
+                    },
+                    modifier = Modifier.testTag("confirm_delete_transaction_button"),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text(stringResource(R.string.ui_str_delete_d6f563))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteConfirmDialog = false },
+                    modifier = Modifier.testTag("cancel_delete_transaction_button")
+                ) {
+                    Text(stringResource(R.string.ui_str_cancel_1507c4))
+                }
+            }
+        )
+    }
     var showMoreDetails by rememberSaveable {
         mutableStateOf(
             initialTransaction != null && (
@@ -279,15 +331,38 @@ fun AddEditUdhaarScreen(
         "Amount borrowed"
     }
 
+    androidx.compose.runtime.LaunchedEffect(preselectedPartyDraft) {
+        if (preselectedPartyDraft != null && initialTransaction == null) {
+            if (preselectedPartyDraft.name.isNotBlank()) {
+                partyName = preselectedPartyDraft.name
+                validationError = null
+            }
+            if (preselectedPartyDraft.phoneNumber.isNotBlank()) {
+                phoneNumber = preselectedPartyDraft.phoneNumber
+            }
+            if (preselectedPartyDraft.partyId != null && preselectedPartyDraft.partyId > 0L) {
+                selectedPartyId = preselectedPartyDraft.partyId
+            }
+            if (preselectedPartyDraft.preferredCurrency in enabledCurrencies) {
+                currency = preselectedPartyDraft.preferredCurrency
+            }
+        }
+    }
+
     val contactPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val contactUri = result.data?.data ?: return@rememberLauncherForActivityResult
-        val extracted = com.jyotirmoyb.udhaar.util.ContactPickerHelper.extractContactInfo(context, contactUri)
-        if (extracted != null) {
-            val (pickedName, pickedPhone) = extracted
-            if (pickedName.isNotBlank()) partyName = pickedName
-            if (pickedPhone.isNotBlank()) phoneNumber = pickedPhone
+        com.jyotirmoyb.udhaar.util.ContactPickerHelper.handleContactPickerResult(
+            context = context,
+            result = result
+        ) { pickedName, pickedPhone ->
+            if (pickedName.isNotBlank()) {
+                partyName = pickedName
+                validationError = null
+            }
+            if (pickedPhone.isNotBlank()) {
+                phoneNumber = pickedPhone
+            }
             val matchedParty = savedParties.find {
                 it.name.trim().equals(pickedName.trim(), ignoreCase = true) ||
                     (pickedPhone.isNotBlank() && it.phoneNumber.trim().endsWith(pickedPhone.takeLast(10)))
@@ -295,9 +370,6 @@ fun AddEditUdhaarScreen(
             if (matchedParty != null) {
                 selectedPartyId = matchedParty.partyId
             }
-            android.widget.Toast.makeText(context, "Imported contact: $pickedName", android.widget.Toast.LENGTH_SHORT).show()
-        } else {
-            android.widget.Toast.makeText(context, "Could not load contact details. Please enter name manually.", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -365,7 +437,10 @@ fun AddEditUdhaarScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
                         IconButton(
                             onClick = onCancel,
                             modifier = Modifier
@@ -394,6 +469,20 @@ fun AddEditUdhaarScreen(
                             )
                         }
                     }
+                    if (isEditingExisting && onDeleteTransaction != null) {
+                        IconButton(
+                            onClick = { showDeleteConfirmDialog = true },
+                            modifier = Modifier
+                                .pressScaleFeedback()
+                                .testTag("edit_delete_transaction_top_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteOutline,
+                                contentDescription = "Delete Transaction",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
                 }
                 HorizontalDivider(color = BorderGrey, thickness = 1.dp)
             }
@@ -411,8 +500,36 @@ fun AddEditUdhaarScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    if (isEditingExisting && onDeleteTransaction != null) {
+                        OutlinedButton(
+                            onClick = { showDeleteConfirmDialog = true },
+                            modifier = Modifier
+                                .weight(0.9f)
+                                .height(48.dp)
+                                .pressScaleFeedback()
+                                .testTag("edit_delete_transaction_button"),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                            contentPadding = PaddingValues(horizontal = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteOutline,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = stringResource(R.string.ui_str_delete_d6f563),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.error,
+                                maxLines = 1
+                            )
+                        }
+                    }
                     OutlinedButton(
                         onClick = onCancel,
                         modifier = Modifier
@@ -464,7 +581,7 @@ fun AddEditUdhaarScreen(
                             onSave(record)
                         },
                         modifier = Modifier
-                            .weight(1.5f)
+                            .weight(1.4f)
                             .height(48.dp)
                             .pressScaleFeedback()
                             .testTag("save_udhaar_button"),
@@ -572,7 +689,7 @@ fun AddEditUdhaarScreen(
                             .testTag("recent_people_row"),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(topRecentAndFavorites, key = { it.partyId }) { savedParty ->
+                        items(topRecentAndFavorites, key = { "${it.partyId}_${it.name}" }) { savedParty ->
                             val isChosen = partyName.equals(savedParty.name, ignoreCase = true)
                             Row(
                                 modifier = udhaarAnimateItem(reducedMotion)
@@ -632,7 +749,18 @@ fun AddEditUdhaarScreen(
                     )
                     OutlinedButton(
                         onClick = {
-                            onOpenInAppContactPicker()
+                            val hasContactsPermission = ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.READ_CONTACTS
+                            ) == PackageManager.PERMISSION_GRANTED
+                            if (hasContactsPermission) {
+                                onOpenInAppContactPicker()
+                            } else {
+                                com.jyotirmoyb.udhaar.util.ContactPickerHelper.launchSystemContactPicker(
+                                    context = context,
+                                    launcher = contactPickerLauncher
+                                )
+                            }
                         },
                         modifier = Modifier
                             .height(56.dp)
@@ -1168,7 +1296,7 @@ fun AddEditUdhaarScreen(
                                     .testTag("add_edit_attachments_row"),
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                items(allCurrentAttachments, key = { it.localPath }) { att ->
+                                items(allCurrentAttachments, key = { "${it.id}_${it.localPath}" }) { att ->
                                     val isImg = att.mimeType.startsWith("image/")
                                     Surface(
                                         shape = RoundedCornerShape(8.dp),

@@ -195,6 +195,21 @@ interface UdhaarDao {
     @Query("SELECT * FROM attachments ORDER BY addedAtMillis ASC")
     suspend fun getAllAttachmentsSnapshot(): List<Attachment>
 
+    @Query("DELETE FROM attachments WHERE transactionId = :transactionId")
+    suspend fun deleteAttachmentsForTransaction(transactionId: Long)
+
+    @Query("DELETE FROM partial_payments WHERE transactionId = :transactionId")
+    suspend fun deletePartialPaymentsForTransaction(transactionId: Long)
+
+    @Query("DELETE FROM audit_trail_entries WHERE transactionId = :transactionId")
+    suspend fun deleteAuditTrailForTransaction(transactionId: Long)
+
+    @Query("DELETE FROM chat_messages WHERE transactionId = :transactionId")
+    suspend fun deleteChatMessagesForTransaction(transactionId: Long)
+
+    @Query("DELETE FROM chat_thread_metadata WHERE transactionId = :transactionId")
+    suspend fun deleteChatThreadsForTransaction(transactionId: Long)
+
     @Query("DELETE FROM attachments")
     suspend fun deleteAllAttachments()
 

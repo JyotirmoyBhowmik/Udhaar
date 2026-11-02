@@ -12,10 +12,37 @@ import androidx.core.content.FileProvider
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
+import com.jyotirmoyb.udhaar.R
 import java.io.File
 import java.io.FileOutputStream
 
 object UpiQrGenerator {
+
+    data class UpiQrCardStrings(
+        val headerTitle: String = "UDHAAR • UPI SETTLEMENT",
+        val defaultPayeeName: String = "Udhaar Account",
+        val vpaPrefix: String = "VPA:",
+        val amountDuePrefix: String = "AMOUNT DUE:",
+        val scanWithUpiApps: String = "SCAN WITH GPAY / PHONEPE / PAYTM",
+        val forPartyPrefix: String = "FOR:",
+        val supportedAppsFooter: String = "GPay • PhonePe • Paytm • BHIM UPI",
+        val shareChooserTitle: String = "Share UPI QR Code"
+    ) {
+        companion object {
+            fun fromContext(context: Context): UpiQrCardStrings {
+                return UpiQrCardStrings(
+                    headerTitle = context.getString(R.string.qr_card_header_title),
+                    defaultPayeeName = context.getString(R.string.qr_card_default_payee),
+                    vpaPrefix = context.getString(R.string.qr_card_vpa_prefix),
+                    amountDuePrefix = context.getString(R.string.qr_card_amount_due_prefix),
+                    scanWithUpiApps = context.getString(R.string.qr_card_scan_with_apps),
+                    forPartyPrefix = context.getString(R.string.qr_card_for_party_prefix),
+                    supportedAppsFooter = context.getString(R.string.qr_card_supported_apps_footer),
+                    shareChooserTitle = context.getString(R.string.qr_card_share_chooser_title)
+                )
+            }
+        }
+    }
 
     /**
      * Builds a standard NPCI UPI payment URI:
@@ -78,13 +105,19 @@ object UpiQrGenerator {
     }
 
     /**
-     * Renders a complete high-contrast monochrome UPI Payment Card image for sharing on WhatsApp.
+     * Renders a complete high-contrast monochrome UPI Payment Card image for sharing on WhatsApp,
+     * using translated strings passed in as parameters so the generated image follows the app language.
      */
     fun createShareableQrCardBitmap(
         upiId: String,
         payeeName: String,
         amountInr: Double?,
-        partyName: String?
+        partyName: String?,
+        strings: UpiQrCardStrings = UpiQrCardStrings(),
+        headerTitle: String = strings.headerTitle,
+        amountDuePrefix: String = strings.amountDuePrefix,
+        scanWithUpiApps: String = strings.scanWithUpiApps,
+        forPartyPrefix: String = strings.forPartyPrefix
     ): Bitmap? {
         val uri = buildUpiUri(upiId = upiId, payeeName = payeeName, amountInr = amountInr)
         val qrBitmap = generateQrBitmap(uri, sizePx = 560) ?: return null
@@ -115,7 +148,7 @@ object UpiQrGenerator {
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
             textAlign = Paint.Align.CENTER
         }
-        canvas.drawText("UDHAAR • UPI SETTLEMENT", cardWidth / 2f, 102f, titlePaint)
+        canvas.drawText(headerTitle, cardWidth / 2f, 102f, titlePaint)
 
         val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.BLACK
@@ -123,7 +156,7 @@ object UpiQrGenerator {
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             textAlign = Paint.Align.CENTER
         }
-        val cleanPayee = payeeName.ifBlank { "Udhaar Account" }
+        val cleanPayee = payeeName.ifBlank { strings.defaultPayeeName }
         canvas.drawText(cleanPayee.uppercase(), cardWidth / 2f, 220f, labelPaint)
 
         val subPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -132,7 +165,7 @@ object UpiQrGenerator {
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
             textAlign = Paint.Align.CENTER
         }
-        canvas.drawText("VPA: ${InterestCalculator.maskUpiId(upiId.trim())}", cardWidth / 2f, 265f, subPaint)
+        canvas.drawText("${strings.vpaPrefix} ${InterestCalculator.maskUpiId(upiId.trim())}", cardWidth / 2f, 265f, subPaint)
 
         val qrLeft = (cardWidth - qrBitmap.width) / 2f
         val qrTop = 300f
@@ -145,16 +178,16 @@ object UpiQrGenerator {
                 typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
                 textAlign = Paint.Align.CENTER
             }
-            val formattedAmt = "AMOUNT DUE: ₹${InterestCalculator.formatPlainAmount(amountInr)}"
+            val formattedAmt = "$amountDuePrefix ₹${InterestCalculator.formatPlainAmount(amountInr)}"
             canvas.drawText(formattedAmt, cardWidth / 2f, 920f, amountPaint)
         } else {
-            canvas.drawText("SCAN WITH GPAY / PHONEPE / PAYTM", cardWidth / 2f, 920f, subPaint)
+            canvas.drawText(scanWithUpiApps, cardWidth / 2f, 920f, subPaint)
         }
 
         if (!partyName.isNullOrBlank()) {
-            canvas.drawText("FOR: ${partyName.uppercase()}", cardWidth / 2f, 975f, subPaint)
+            canvas.drawText("$forPartyPrefix ${partyName.uppercase()}", cardWidth / 2f, 975f, subPaint)
         } else {
-            canvas.drawText("GPay • PhonePe • Paytm • BHIM UPI", cardWidth / 2f, 975f, subPaint)
+            canvas.drawText(strings.supportedAppsFooter, cardWidth / 2f, 975f, subPaint)
         }
 
         return cardBitmap
@@ -165,9 +198,16 @@ object UpiQrGenerator {
         upiId: String,
         payeeName: String,
         amountInr: Double?,
-        partyName: String?
+        partyName: String?,
+        strings: UpiQrCardStrings = UpiQrCardStrings.fromContext(context)
     ) {
-        val cardBitmap = createShareableQrCardBitmap(upiId, payeeName, amountInr, partyName) ?: return
+        val cardBitmap = createShareableQrCardBitmap(
+            upiId = upiId,
+            payeeName = payeeName,
+            amountInr = amountInr,
+            partyName = partyName,
+            strings = strings
+        ) ?: return
         runCatching {
             val cacheDir = File(context.cacheDir, "qr_codes").apply { mkdirs() }
             val imageFile = File(cacheDir, "udhaar_upi_qr_${System.currentTimeMillis()}.png")
@@ -180,12 +220,13 @@ object UpiQrGenerator {
                 imageFile
             )
             val shareText = buildString {
-                append("UPI Payment QR for ")
+                append(strings.headerTitle)
+                append(" — ")
                 append(payeeName.ifBlank { upiId })
                 if (amountInr != null && amountInr > 0.0) {
-                    append(" • Amount: ₹${InterestCalculator.formatPlainAmount(amountInr)}")
+                    append(" • ${strings.amountDuePrefix} ₹${InterestCalculator.formatPlainAmount(amountInr)}")
                 }
-                append("\nUPI ID: $upiId")
+                append("\n${strings.vpaPrefix} $upiId")
             }
 
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
@@ -194,7 +235,7 @@ object UpiQrGenerator {
                 putExtra(Intent.EXTRA_TEXT, shareText)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            val chooser = Intent.createChooser(shareIntent, "Share UPI QR Code").apply {
+            val chooser = Intent.createChooser(shareIntent, strings.shareChooserTitle).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(chooser)

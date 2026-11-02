@@ -55,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.CancellationException
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
@@ -85,6 +86,7 @@ import com.jyotirmoyb.udhaar.ui.components.ProfileSettingsModal
 import com.jyotirmoyb.udhaar.ui.components.RequestPartyPaymentDetailsSheet
 import com.jyotirmoyb.udhaar.ui.components.ShareMyPaymentDetailsSheet
 import com.jyotirmoyb.udhaar.ui.components.ShareUdhaarAppModal
+import com.jyotirmoyb.udhaar.ui.components.SqlCipherBlockingErrorScreen
 import com.jyotirmoyb.udhaar.ui.components.ThermalReceiptModal
 import com.jyotirmoyb.udhaar.ui.components.TransactionDetailModal
 import com.jyotirmoyb.udhaar.ui.components.UpiQrCodeModal
@@ -110,8 +112,8 @@ open class MainActivity : FragmentActivity() {
     private var pendingRemoteRecordId by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        super.onCreate(savedInstanceState)
         ReminderReceiver.ensureNotificationChannel(this)
         ChatNotificationHelper.ensureNotificationChannel(this)
         extractIntentPayloads(intent)
@@ -224,7 +226,7 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
         } else {
             Toast.makeText(
                 context,
-                "Permission denied. You can still enter contacts manually or pick from system contacts.",
+                context.getString(R.string.contact_permission_denied_manual),
                 Toast.LENGTH_LONG
             ).show()
         }
@@ -394,6 +396,30 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
         Toast.makeText(context, "Signed out from Google Drive", Toast.LENGTH_SHORT).show()
     }
 
+    // Blocking error screen if SQLCipher could not start on a fresh install
+    val blockingSqlCipherError = uiState.blockingSqlCipherError
+    if (blockingSqlCipherError != null) {
+        SqlCipherBlockingErrorScreen(
+            errorMessage = blockingSqlCipherError,
+            onExportBackup = {
+                viewModel.generateFullLedgerBackupJson { json ->
+                    pendingJsonToSave = json
+                    createDocumentLauncher.launch("udhaar_emergency_backup.json")
+                }
+            },
+            onTryAgain = {
+                viewModel.retryDatabaseEncryption { ok ->
+                    if (ok) {
+                        Toast.makeText(context, "Encrypted storage initialized.", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "SQLCipher initialization failed.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        )
+        return
+    }
+
     // Enhancement A: Biometric / PIN App Lock Gate when opening the application
     if (!uiState.isAuthenticated) {
         BiometricSecurityScreen(
@@ -436,6 +462,7 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
             uiState.activeScreen == ActiveScreen.PARTY_DETAIL -> UdhaarNavDestination.PartyDetail
             uiState.activeScreen == ActiveScreen.ADD_EDIT -> UdhaarNavDestination.AddEdit
             uiState.activeScreen == ActiveScreen.SETTINGS -> UdhaarNavDestination.Settings
+            uiState.activeScreen == ActiveScreen.PEOPLE_DIRECTORY -> UdhaarNavDestination.PeopleDirectory
             else -> UdhaarNavDestination.Home
         }
     }
@@ -479,7 +506,8 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                 ) { navDestination ->
                     CompositionLocalProvider(LocalAnimatedVisibilityScope provides this) {
                         when (navDestination) {
-                            is UdhaarNavDestination.Home -> {
+                            is UdhaarNavDestination.Home,
+                            is UdhaarNavDestination.PeopleDirectory -> {
                                 DashboardScreen(
                                     uiState = uiState,
                                     onSwitchTab = viewModel::switchMainTab,
@@ -747,6 +775,7 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                                     onOpenAttachmentViewer = viewModel::openAttachmentViewer,
                                     onOpenInAppContactPicker = requestContactsFlow,
                                     onSave = viewModel::saveUdhaarTransaction,
+                                    onDeleteTransaction = viewModel::deleteTransaction,
                                     onCancel = viewModel::navigateBackToDashboard
                                 )
                             }
@@ -788,6 +817,9 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                                         }
                                     },
                                     onSignInWithGoogleForVerification = signInWithGoogleForVerification,
+                                    onRetryCloudBackup = {
+                                        viewModel.retryCloudBackup()
+                                    },
                                     onDeleteMyCloudData = {
                                         viewModel.deleteMyCloudData {
                                             Toast.makeText(
@@ -843,6 +875,28 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                                     },
                                     onClearDriveOperationError = {
                                         viewModel.clearDriveOperationError()
+                                    },
+                                    dbEncryptionState = uiState.dbEncryptionState,
+                                    onRetryDatabaseEncryption = {
+                                        viewModel.retryDatabaseEncryption { ok ->
+                                            if (ok) {
+                                                Toast.makeText(context, "Database encrypted successfully.", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                Toast.makeText(context, "Database encryption failed. Tap to retry.", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    },
+                                    onExportLocalUdhaarSaf = { passphrase ->
+                                        viewModel.generateLocalEncryptedUdhaarBackup(passphrase) { result ->
+                                            result.onSuccess { encryptedBytes ->
+                                                pendingJsonToSave = String(encryptedBytes, Charsets.UTF_8)
+                                                val dateStr = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US)
+                                                    .format(java.util.Date())
+                                                createDocumentLauncher.launch("udhaar_backup_${dateStr}.udhaar")
+                                            }.onFailure {
+                                                Toast.makeText(context, "Failed to encrypt .udhaar backup.", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
                                     },
                                     onDismiss = viewModel::closeSettingsModal
                                 )
@@ -1124,22 +1178,36 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                 (receiptSummary.transaction.partyId != null && p.partyId == receiptSummary.transaction.partyId) ||
                     p.name.trim().equals(receiptSummary.transaction.partyName.trim(), ignoreCase = true)
             }
-            val bitmap = remember(receiptSummary, payments, auditTrail, uiState.userSettings, linkedParty) {
+            val receiptStrings = remember(context) {
+                ThermalReceiptGenerator.ThermalReceiptStrings.fromContext(context)
+            }
+            val bitmap = remember(
+                receiptSummary,
+                payments,
+                auditTrail,
+                uiState.userSettings,
+                linkedParty,
+                uiState.isAmountsHidden,
+                receiptStrings
+            ) {
                 ThermalReceiptGenerator.createTransactionReceiptBitmap(
                     summary = receiptSummary,
                     partialPayments = payments,
                     userSettings = uiState.userSettings,
                     partyUpiId = linkedParty?.upiId,
-                    auditTrail = auditTrail
+                    auditTrail = auditTrail,
+                    hideAmounts = uiState.isAmountsHidden,
+                    strings = receiptStrings
                 )
             }
             val safeParty = receiptSummary.transaction.partyName.replace(Regex("[^a-zA-Z0-9]+"), "_").lowercase()
-            val formattedNet = InterestCalculator.formatCurrency(
+            val formattedNet = InterestCalculator.formatCurrencyPrivacy(
                 receiptSummary.netBalanceDue,
-                receiptSummary.transaction.currency
+                receiptSummary.transaction.currency,
+                uiState.isAmountsHidden
             )
             ThermalReceiptModal(
-                title = "THERMAL STATEMENT RECEIPT",
+                title = stringResource(R.string.receipt_modal_tx_title),
                 subtitle = "${receiptSummary.transaction.partyName.uppercase()} • $formattedNet",
                 receiptBitmap = bitmap,
                 fileNamePrefix = "udhaar_receipt_${safeParty}_${receiptSummary.transaction.id}",
@@ -1154,16 +1222,21 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
     if (receiptPartyId != null) {
         val khata = uiState.partyKhataList.find { it.party.partyId == receiptPartyId }
         if (khata != null) {
-            val bitmap = remember(khata, uiState.userSettings) {
+            val receiptStrings = remember(context) {
+                ThermalReceiptGenerator.ThermalReceiptStrings.fromContext(context)
+            }
+            val bitmap = remember(khata, uiState.userSettings, uiState.isAmountsHidden, receiptStrings) {
                 ThermalReceiptGenerator.createPartyStatementReceiptBitmap(
                     khata = khata,
                     enabledCurrencies = uiState.userSettings.enabledCurrencies,
-                    userSettings = uiState.userSettings
+                    userSettings = uiState.userSettings,
+                    hideAmounts = uiState.isAmountsHidden,
+                    strings = receiptStrings
                 )
             }
             val safeParty = khata.party.name.replace(Regex("[^a-zA-Z0-9]+"), "_").lowercase()
             ThermalReceiptModal(
-                title = "PARTY KHATA STATEMENT RECEIPT",
+                title = stringResource(R.string.receipt_modal_party_title),
                 subtitle = "${khata.party.name.uppercase()} • ${khata.transactions.size} RECORDS",
                 receiptBitmap = bitmap,
                 fileNamePrefix = "udhaar_khata_statement_${safeParty}",
@@ -1178,9 +1251,14 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
     if (whatsAppTxId != null) {
         val reminderSummary = uiState.allCalculatedItems.find { it.transaction.id == whatsAppTxId }
         if (reminderSummary != null) {
+            val linkedParty = uiState.allParties.find { p ->
+                (reminderSummary.transaction.partyId != null && p.partyId == reminderSummary.transaction.partyId) ||
+                    p.name.trim().equals(reminderSummary.transaction.partyName.trim(), ignoreCase = true)
+            }
             WhatsAppReminderModal(
                 summary = reminderSummary,
                 userSettings = uiState.userSettings,
+                fallbackPhoneNumber = linkedParty?.phoneNumber.orEmpty(),
                 onDismiss = viewModel::closeWhatsAppReminderModal
             )
         }
@@ -1226,7 +1304,15 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
         ContactsPermissionRationaleDialog(
             onRequestPermission = {
                 showContactsRationaleDialog = false
-                contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+                runCatching {
+                    contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+                }.onFailure {
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.contact_error_no_app),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
             },
             onDismiss = {
                 showContactsRationaleDialog = false
@@ -1240,12 +1326,20 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
             contacts = uiState.deviceContacts,
             isLoading = uiState.isLoadingContacts,
             onImportContacts = { selected ->
-                viewModel.importSelectedContacts(selected)
-                Toast.makeText(
-                    context,
-                    "Imported ${selected.size} contacts to People directory.",
-                    Toast.LENGTH_SHORT
-                ).show()
+                if (selected.isEmpty()) {
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.contact_error_read_failed),
+                        Toast.LENGTH_LONG
+                    ).show()
+                } else {
+                    viewModel.importSelectedContacts(selected)
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.contact_imported_count_fmt, selected.size),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             },
             onDismiss = viewModel::closeInAppContactPicker
         )
@@ -1280,8 +1374,9 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
 
 private sealed class UdhaarNavDestination(val depth: Int) {
     data object Home : UdhaarNavDestination(0)
-    data object PartyDetail : UdhaarNavDestination(1)
-    data class RecordDetail(val transactionId: Long) : UdhaarNavDestination(2)
-    data object AddEdit : UdhaarNavDestination(3)
-    data object Settings : UdhaarNavDestination(3)
+    data object PeopleDirectory : UdhaarNavDestination(1)
+    data object PartyDetail : UdhaarNavDestination(2)
+    data class RecordDetail(val transactionId: Long) : UdhaarNavDestination(3)
+    data object AddEdit : UdhaarNavDestination(4)
+    data object Settings : UdhaarNavDestination(4)
 }

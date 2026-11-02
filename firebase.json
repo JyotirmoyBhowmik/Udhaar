@@ -5,6 +5,66 @@
       "rules": "firestore.rules"
     }
   ],
+  "hosting": {
+    "public": "web",
+    "ignore": [
+      "firebase.json",
+      "**/.git/**",
+      "**/.DS_Store",
+      "**/node_modules/**"
+    ],
+    "headers": [
+      {
+        "source": "/.well-known/assetlinks.json",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=3600"
+          }
+        ]
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "/u",
+        "destination": "/u/index.html"
+      },
+      {
+        "source": "/u/**",
+        "destination": "/u/index.html"
+      },
+      {
+        "source": "/v/**",
+        "destination": "/u/index.html"
+      },
+      {
+        "source": "/verify",
+        "destination": "/u/index.html"
+      },
+      {
+        "source": "/verify/**",
+        "destination": "/u/index.html"
+      }
+    ]
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "runtime": "nodejs20",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ],
   "emulators": {
     "firestore": {
       "host": "127.0.0.1",

@@ -192,28 +192,32 @@ fun StatusAtAGlanceBadge(
 
     val visual: StatusVisual? = when {
         tx.isSettled -> StatusVisual(
-            label = "Settled",
+            label = stringResource(R.string.status_badge_settled),
             icon = Icons.Default.CheckCircle,
             containerColor = Color(0xFFDCFCE7),
             contentColor = Color(0xFF14532D),
             tag = "status_badge_settled"
         )
         tx.verificationStatus == VerificationStatus.DISPUTED -> StatusVisual(
-            label = "Disputed",
+            label = stringResource(R.string.status_badge_disputed),
             icon = Icons.Default.Warning,
             containerColor = Color(0xFFFEE2E2),
             contentColor = Color(0xFF7F1D1D),
             tag = "status_badge_disputed"
         )
         summary.isOverdue -> StatusVisual(
-            label = if (overdueDays == 1L) "Overdue 1 day" else "Overdue $overdueDays days",
+            label = if (overdueDays == 1L) {
+                stringResource(R.string.status_badge_overdue_one)
+            } else {
+                stringResource(R.string.status_badge_overdue_many_fmt, overdueDays.toInt())
+            },
             icon = Icons.Default.ErrorOutline,
             containerColor = Color(0xFFFEE2E2),
             contentColor = Color(0xFF7F1D1D),
             tag = "status_badge_overdue"
         )
         tx.verificationStatus == VerificationStatus.CONFIRMED -> StatusVisual(
-            label = "Verified",
+            label = stringResource(R.string.status_badge_verified),
             icon = Icons.Default.Verified,
             containerColor = Color(0xFFDCFCE7),
             contentColor = Color(0xFF14532D),
@@ -222,7 +226,7 @@ fun StatusAtAGlanceBadge(
         tx.needsMyConfirmation ||
             tx.verificationStatus == VerificationStatus.PENDING ||
             tx.verificationStatus == VerificationStatus.EDITED_AFTER_CONFIRM -> StatusVisual(
-            label = "Waiting for confirmation",
+            label = stringResource(R.string.status_badge_waiting),
             icon = Icons.Default.Schedule,
             containerColor = Color(0xFFFEF3C7),
             contentColor = Color(0xFF78350F),
@@ -278,26 +282,34 @@ fun NeedsAttentionStrip(
 
     val (headline, subtitle, targetFilter, accentColor, containerColor) = when {
         overdueCount > 0 -> AttentionConfig(
-            headline = if (overdueCount == 1) "1 udhaar is overdue" else "$overdueCount udhaars are overdue",
-            subtitle = "Tap to view overdue records and send a gentle reminder",
+            headline = if (overdueCount == 1) {
+                stringResource(R.string.attention_overdue_one)
+            } else {
+                stringResource(R.string.attention_overdue_many_fmt, overdueCount)
+            },
+            subtitle = stringResource(R.string.attention_overdue_subtitle),
             filter = LedgerFilter.OVERDUE,
             accent = Color(0xFF991B1B),
             container = Color(0xFFFEF2F2)
         )
         dueTodayCount > 0 -> AttentionConfig(
-            headline = if (dueTodayCount == 1) "1 udhaar is due today" else "$dueTodayCount udhaars are due today",
-            subtitle = "Tap to review records due today",
+            headline = if (dueTodayCount == 1) {
+                stringResource(R.string.attention_due_today_one)
+            } else {
+                stringResource(R.string.attention_due_today_many_fmt, dueTodayCount)
+            },
+            subtitle = stringResource(R.string.attention_due_today_subtitle),
             filter = LedgerFilter.OVERDUE,
             accent = Color(0xFF92400E),
             container = Color(0xFFFFFBEB)
         )
         else -> AttentionConfig(
             headline = if (waitingConfirmationCount == 1) {
-                "1 record waiting for confirmation"
+                stringResource(R.string.attention_waiting_one)
             } else {
-                "$waitingConfirmationCount records waiting for confirmation"
+                stringResource(R.string.attention_waiting_many_fmt, waitingConfirmationCount)
             },
-            subtitle = "Tap to review and confirm shared ledger entries",
+            subtitle = stringResource(R.string.attention_waiting_subtitle),
             filter = LedgerFilter.NEEDS_CONFIRMATION,
             accent = Color(0xFF1E40AF),
             container = Color(0xFFEFF6FF)
@@ -332,7 +344,7 @@ fun NeedsAttentionStrip(
                     } else {
                         Icons.Default.Schedule
                     },
-                    contentDescription = "Needs attention",
+                    contentDescription = stringResource(R.string.cd_needs_attention),
                     tint = accentColor,
                     modifier = Modifier.size(20.dp)
                 )
@@ -360,7 +372,7 @@ fun NeedsAttentionStrip(
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
-                    contentDescription = "Dismiss needs attention alert",
+                    contentDescription = stringResource(R.string.cd_dismiss_needs_attention),
                     tint = accentColor,
                     modifier = Modifier.size(18.dp)
                 )
@@ -389,18 +401,18 @@ fun FirstRunCoachMarksCard(
     var step by remember { mutableIntStateOf(0) }
     val tips = listOf(
         Triple(
-            "Tip 1 of 3 · Add in seconds",
-            "Tap + NEW UDHAAR to pick a person and enter the amount lent or borrowed.",
+            stringResource(R.string.coach_tip_1_title),
+            stringResource(R.string.coach_tip_1_body),
             Icons.Default.Add
         ),
         Triple(
-            "Tip 2 of 3 · Swipe to act",
-            "Swipe right on any record to log a payment, or swipe left to send a polite reminder.",
+            stringResource(R.string.coach_tip_2_title),
+            stringResource(R.string.coach_tip_2_body),
             Icons.Default.NotificationsActive
         ),
         Triple(
-            "Tip 3 of 3 · Verify together",
-            "Open any record to share a verification link so both sides agree on the balance.",
+            stringResource(R.string.coach_tip_3_title),
+            stringResource(R.string.coach_tip_3_body),
             Icons.Default.Verified
         )
     )

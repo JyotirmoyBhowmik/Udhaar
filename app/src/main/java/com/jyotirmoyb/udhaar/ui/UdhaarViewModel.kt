@@ -192,11 +192,15 @@ data class UdhaarUiState(
     val transactionSortOption: TransactionSortOption = TransactionSortOption.RECENT_FIRST,
     val dateRangeFilter: DateRangeFilter = DateRangeFilter.ALL_TIME,
     val showOnboardingModal: Boolean = false,
+    val isInitialLoading: Boolean = false,
     val isAmountsHidden: Boolean = false,
     val showCoachMarks: Boolean = false,
     val isNeedsAttentionDismissed: Boolean = false,
     val undoSnackbarMessage: String? = null,
-    val successAnimationEvent: SuccessAnimationEvent? = null
+    val successAnimationEvent: SuccessAnimationEvent? = null,
+    val dbEncryptionState: com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState =
+        com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.ENCRYPTED,
+    val blockingSqlCipherError: String? = null
 ) {
     val activeSummaryTotals: CurrencyLedgerTotals
         get() = if (summaryCurrency == CurrencyType.INR) inrTotals else nprTotals
@@ -262,7 +266,10 @@ private data class LocalUiFilterState(
     val undoSnackbarMessage: String? = null,
     val lastDeletedTransaction: UdhaarTransaction? = null,
     val lastSettledBeforeTransaction: UdhaarTransaction? = null,
-    val successAnimationEvent: SuccessAnimationEvent? = null
+    val successAnimationEvent: SuccessAnimationEvent? = null,
+    val dbEncryptionState: com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState =
+        com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.ENCRYPTED,
+    val blockingSqlCipherError: String? = null
 )
 
 class UdhaarViewModel(
@@ -270,7 +277,30 @@ class UdhaarViewModel(
     private val appContext: Context? = null
 ) : ViewModel() {
 
-    private val localState = MutableStateFlow(LocalUiFilterState())
+    private val localState = MutableStateFlow(
+        LocalUiFilterState(
+            isAmountsHidden = appContext?.let {
+                com.jyotirmoyb.udhaar.security.EncryptedStorageManager.isAmountsHidden(it)
+            } ?: false,
+            dbEncryptionState = appContext?.let {
+                com.jyotirmoyb.udhaar.security.EncryptedStorageManager.getDatabaseEncryptionState(it)
+            } ?: com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.ENCRYPTED,
+            blockingSqlCipherError = com.jyotirmoyb.udhaar.security.EncryptedStorageManager.blockingStartupErrorFlow.value
+        )
+    )
+
+    init {
+        viewModelScope.launch {
+            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.encryptionStateFlow.collect { encState ->
+                localState.update { it.copy(dbEncryptionState = encState) }
+            }
+        }
+        viewModelScope.launch {
+            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.blockingStartupErrorFlow.collect { err ->
+                localState.update { it.copy(blockingSqlCipherError = err) }
+            }
+        }
+    }
 
     private val ledgerCoreFlow = combine(
         repository.allParties,
@@ -688,17 +718,49 @@ class UdhaarViewModel(
             transactionSortOption = local.transactionSortOption,
             dateRangeFilter = local.dateRangeFilter,
             showOnboardingModal = !settings.hasCompletedOnboarding && !local.showOnboardingDismissed,
+            isInitialLoading = false,
             isAmountsHidden = local.isAmountsHidden,
             showCoachMarks = local.showCoachMarks,
             isNeedsAttentionDismissed = local.isNeedsAttentionDismissed,
             undoSnackbarMessage = local.undoSnackbarMessage,
-            successAnimationEvent = local.successAnimationEvent
+            successAnimationEvent = local.successAnimationEvent,
+            dbEncryptionState = local.dbEncryptionState,
+            blockingSqlCipherError = local.blockingSqlCipherError
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = UdhaarUiState()
+        initialValue = UdhaarUiState(
+            isInitialLoading = true,
+            isAmountsHidden = appContext?.let {
+                com.jyotirmoyb.udhaar.security.EncryptedStorageManager.isAmountsHidden(it)
+            } ?: false,
+            dbEncryptionState = appContext?.let {
+                com.jyotirmoyb.udhaar.security.EncryptedStorageManager.getDatabaseEncryptionState(it)
+            } ?: com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.ENCRYPTED,
+            blockingSqlCipherError = com.jyotirmoyb.udhaar.security.EncryptedStorageManager.blockingStartupErrorFlow.value
+        )
     )
+
+    fun retryDatabaseEncryption(onComplete: ((Boolean) -> Unit)? = null) {
+        val ctx = appContext
+        if (ctx == null) {
+            onComplete?.invoke(false)
+            return
+        }
+        viewModelScope.launch {
+            val ok = com.jyotirmoyb.udhaar.data.UdhaarDatabase.retryDatabaseEncryption(ctx)
+            val newState = com.jyotirmoyb.udhaar.security.EncryptedStorageManager.getDatabaseEncryptionState(ctx)
+            val err = com.jyotirmoyb.udhaar.security.EncryptedStorageManager.blockingStartupErrorFlow.value
+            localState.update {
+                it.copy(
+                    dbEncryptionState = newState,
+                    blockingSqlCipherError = err
+                )
+            }
+            onComplete?.invoke(ok)
+        }
+    }
 
     fun markAuthenticated() {
         repository.resetPinFailedAttempts()
@@ -804,7 +866,12 @@ class UdhaarViewModel(
     }
 
     fun toggleHideAmounts() {
-        localState.update { it.copy(isAmountsHidden = !it.isAmountsHidden) }
+        val nextHidden = !localState.value.isAmountsHidden
+        localState.update { it.copy(isAmountsHidden = nextHidden) }
+        appContext?.let { ctx ->
+            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.setAmountsHidden(ctx, nextHidden)
+            UdhaarWidgetProvider.updateAllWidgets(ctx)
+        }
     }
 
     fun dismissNeedsAttentionStrip() {
@@ -1017,11 +1084,13 @@ class UdhaarViewModel(
         if (appContext == null) return
         localState.update { it.copy(isLoadingContacts = true) }
         viewModelScope.launch {
-            val contacts = com.jyotirmoyb.udhaar.util.DeviceContactHelper.fetchDeviceContacts(
-                context = appContext,
-                currency = localState.value.summaryCurrency ?: CurrencyType.INR,
-                existingParties = uiState.value.allParties
-            )
+            val contacts = runCatching {
+                com.jyotirmoyb.udhaar.util.DeviceContactHelper.fetchDeviceContacts(
+                    context = appContext,
+                    currency = localState.value.summaryCurrency ?: CurrencyType.INR,
+                    existingParties = uiState.value.allParties
+                )
+            }.getOrDefault(emptyList())
             localState.update {
                 it.copy(
                     deviceContacts = contacts,
@@ -1033,6 +1102,7 @@ class UdhaarViewModel(
 
     fun importSelectedContacts(selectedContacts: List<com.jyotirmoyb.udhaar.util.DeviceContact>) {
         viewModelScope.launch {
+            val preferredCurr = localState.value.summaryCurrency ?: CurrencyType.INR
             val newParties = selectedContacts.map { c ->
                 PartyEntity(
                     partyId = 0L,
@@ -1040,12 +1110,29 @@ class UdhaarViewModel(
                     phoneNumber = c.normalizedPhoneNumber.ifBlank { c.rawPhoneNumber },
                     photoUri = c.photoUri,
                     email = c.email,
-                    preferredCurrency = localState.value.summaryCurrency ?: CurrencyType.INR,
+                    preferredCurrency = preferredCurr,
                     createdAtMillis = System.currentTimeMillis(),
                     lastInteractionMillis = System.currentTimeMillis()
                 )
             }
             repository.saveParties(newParties)
+            val firstPicked = selectedContacts.firstOrNull()
+            if (firstPicked != null) {
+                localState.update { state ->
+                    if (state.activeScreen == ActiveScreen.ADD_EDIT) {
+                        state.copy(
+                            preselectedPartyDraft = PreselectedPartyDraft(
+                                partyId = null,
+                                name = firstPicked.name,
+                                phoneNumber = firstPicked.normalizedPhoneNumber.ifBlank { firstPicked.rawPhoneNumber },
+                                preferredCurrency = preferredCurr
+                            )
+                        )
+                    } else {
+                        state
+                    }
+                }
+            }
             closeInAppContactPicker()
         }
     }
@@ -1132,8 +1219,7 @@ class UdhaarViewModel(
     fun openWhatsAppReminderModal(transactionId: Long) {
         localState.update {
             it.copy(
-                whatsAppPreviewTransactionId = transactionId,
-                detailTransactionId = null
+                whatsAppPreviewTransactionId = transactionId
             )
         }
     }
@@ -1395,6 +1481,13 @@ class UdhaarViewModel(
         }
     }
 
+    fun retryCloudBackup(onComplete: ((Boolean) -> Unit)? = null) {
+        viewModelScope.launch {
+            val result = repository.syncProfileAndRecordsToCloud()
+            onComplete?.invoke(result.isSuccess)
+        }
+    }
+
     fun deleteMyCloudData(onComplete: () -> Unit = {}) {
         viewModelScope.launch {
             repository.deleteMyCloudData()
@@ -1447,14 +1540,27 @@ class UdhaarViewModel(
 
     fun deleteTransaction(transaction: UdhaarTransaction) {
         viewModelScope.launch {
+            val staged = localState.value.draftAttachments
             appContext?.let { ctx ->
+                for (draft in staged) {
+                    AttachmentManager.deleteAttachmentFile(ctx, draft.localPath)
+                }
                 ReminderScheduler.cancelReminder(ctx, transaction.id)
                 com.jyotirmoyb.udhaar.notification.RecurringReminderScheduler.cancelRemindersForTransaction(ctx, transaction.id)
                 UdhaarWidgetProvider.updateAllWidgets(ctx)
             }
             repository.deleteTransaction(transaction)
             localState.update {
+                val returnScreen = when {
+                    it.activeScreen == ActiveScreen.ADD_EDIT && it.selectedPartyIdForSheet != null -> ActiveScreen.PARTY_DETAIL
+                    it.activeScreen == ActiveScreen.ADD_EDIT -> ActiveScreen.DASHBOARD
+                    else -> it.activeScreen
+                }
                 it.copy(
+                    activeScreen = returnScreen,
+                    editingTransaction = null,
+                    preselectedPartyDraft = null,
+                    draftAttachments = emptyList(),
                     detailTransactionId = null,
                     whatsAppPreviewTransactionId = null,
                     lastDeletedTransaction = transaction,
@@ -1907,14 +2013,81 @@ class UdhaarViewModel(
     // --- Backup / Export / Import Operations ---
     fun generateFullLedgerBackupJson(onReady: (String) -> Unit) {
         viewModelScope.launch {
-            val (parties, transactions, payments) = repository.getFullLedgerSnapshot()
+            val snapshot = repository.getFullLedgerBackupSnapshot()
+            val settings = uiState.value.userSettings
+            val attachments = repository.getLocalAttachmentsMap()
+            val settingsMap = mapOf(
+                "upiId" to settings.upiId,
+                "payeeName" to settings.payeeName,
+                "phoneNumber" to settings.phoneNumber,
+                "profilePhotoUri" to settings.profilePhotoUri,
+                "defaultCurrency" to settings.defaultCurrency.name,
+                "inrEnabled" to settings.inrEnabled,
+                "nprEnabled" to settings.nprEnabled,
+                "themeMode" to settings.themeMode.name,
+                "fontScale" to settings.fontScale.name
+            )
             val json = LedgerBackupManager.buildBackupJson(
-                parties = parties,
-                transactions = transactions,
-                partialPayments = payments,
+                parties = snapshot.parties,
+                transactions = snapshot.transactions,
+                partialPayments = snapshot.partialPayments,
+                chatThreads = snapshot.chatThreads,
+                chatMessages = snapshot.chatMessages,
+                settings = settingsMap,
+                attachments = attachments,
+                attachmentRecords = snapshot.attachments,
                 exportType = "FULL_LEDGER"
             )
             onReady(json)
+        }
+    }
+
+    fun generateLocalEncryptedUdhaarBackup(
+        passphrase: String,
+        onReady: (Result<ByteArray>) -> Unit
+    ) {
+        viewModelScope.launch {
+            val result = runCatching {
+                val snapshot = repository.getFullLedgerBackupSnapshot()
+                val settings = uiState.value.userSettings
+                val attachments = repository.getLocalAttachmentsMap()
+                val settingsMap = mapOf(
+                    "upiId" to settings.upiId,
+                    "payeeName" to settings.payeeName,
+                    "phoneNumber" to settings.phoneNumber,
+                    "profilePhotoUri" to settings.profilePhotoUri,
+                    "defaultCurrency" to settings.defaultCurrency.name,
+                    "inrEnabled" to settings.inrEnabled,
+                    "nprEnabled" to settings.nprEnabled,
+                    "themeMode" to settings.themeMode.name,
+                    "fontScale" to settings.fontScale.name
+                )
+                val plainJson = LedgerBackupManager.buildBackupJson(
+                    parties = snapshot.parties,
+                    transactions = snapshot.transactions,
+                    partialPayments = snapshot.partialPayments,
+                    chatThreads = snapshot.chatThreads,
+                    chatMessages = snapshot.chatMessages,
+                    settings = settingsMap,
+                    attachments = attachments,
+                    attachmentRecords = snapshot.attachments,
+                    exportType = "FULL_LEDGER"
+                )
+                val preview = BackupPreviewSummary(
+                    partiesCount = snapshot.parties.size,
+                    transactionsCount = snapshot.transactions.size,
+                    paymentsCount = snapshot.partialPayments.size,
+                    attachmentsCount = attachments.size,
+                    appVersion = "9.0",
+                    createdAtMillis = System.currentTimeMillis()
+                )
+                DriveBackupCrypto.encrypt(
+                    plainBytes = plainJson.toByteArray(Charsets.UTF_8),
+                    passphrase = passphrase,
+                    preview = preview
+                )
+            }
+            onReady(result)
         }
     }
 
@@ -1935,14 +2108,32 @@ class UdhaarViewModel(
         }
     }
 
-    fun importLedgerBackupJson(jsonString: String, onResult: (Result<Int>) -> Unit) {
+    fun importLedgerBackupJson(
+        jsonString: String,
+        passphrase: String? = null,
+        replaceExisting: Boolean = false,
+        onResult: (Result<Int>) -> Unit
+    ) {
         viewModelScope.launch {
             val result = runCatching {
-                val parsed = LedgerBackupManager.parseBackupJson(jsonString)
-                repository.importLedgerData(
-                    parties = parsed.parties,
-                    transactions = parsed.transactions,
-                    partialPayments = parsed.partialPayments
+                val plainJson = if (DriveBackupCrypto.isEncryptedBackupContainer(jsonString)) {
+                    val effectivePass = passphrase?.takeIf { it.isNotBlank() }
+                        ?: repository.getAutoBackupPassphrase()
+                        ?: throw com.jyotirmoyb.udhaar.backup.InvalidPassphraseException(
+                            "Passphrase required to decrypt .udhaar backup file."
+                        )
+                    val decryptedBytes = DriveBackupCrypto.decrypt(
+                        jsonString.toByteArray(Charsets.UTF_8),
+                        effectivePass
+                    )
+                    String(decryptedBytes, Charsets.UTF_8)
+                } else {
+                    jsonString
+                }
+                val parsed = LedgerBackupManager.parseBackupJson(plainJson)
+                repository.restoreFullLedgerBackup(
+                    backup = parsed,
+                    replaceExisting = replaceExisting
                 )
             }
             onResult(result)
@@ -2095,7 +2286,8 @@ class UdhaarViewModel(
                     chatThreads = snapshot.chatThreads,
                     chatMessages = snapshot.chatMessages,
                     settings = settingsMap,
-                    attachments = attachments
+                    attachments = attachments,
+                    attachmentRecords = snapshot.attachments
                 )
 
                 val preview = BackupPreviewSummary(
@@ -2103,7 +2295,7 @@ class UdhaarViewModel(
                     transactionsCount = snapshot.transactions.size,
                     paymentsCount = snapshot.partialPayments.size,
                     attachmentsCount = attachments.size,
-                    appVersion = "7.0",
+                    appVersion = "9.0",
                     createdAtMillis = System.currentTimeMillis()
                 )
 

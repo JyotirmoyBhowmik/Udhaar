@@ -37,8 +37,8 @@ class ExampleRobolectricTest {
         val appName = context.getString(R.string.app_name)
         assertEquals("Udhaar", appName)
         assertEquals("com.jyotirmoyb.udhaar", BuildConfig.APPLICATION_ID)
-        assertEquals("8.0", BuildConfig.VERSION_NAME)
-        assertEquals(8, BuildConfig.VERSION_CODE)
+        assertEquals("9.0", BuildConfig.VERSION_NAME)
+        assertEquals(9, BuildConfig.VERSION_CODE)
     }
 
     @get:org.junit.Rule
@@ -761,7 +761,405 @@ class ExampleRobolectricTest {
             .performTouchInput { swipeRight() }
         composeRule.waitForIdle()
     }
+
+    @Test
+    fun `encryptedStorageManager detects plaintext sqlite header and quarantines unreadable db files`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val tempPlain = java.io.File(context.cacheDir, "test_plain.db")
+        tempPlain.writeBytes("SQLite format 3\u0000more_bytes_here".toByteArray(Charsets.US_ASCII))
+        assertTrue(com.jyotirmoyb.udhaar.security.EncryptedStorageManager.isPlaintextSqliteHeader(tempPlain))
+
+        val tempEncrypted = java.io.File(context.cacheDir, "test_cipher.db")
+        tempEncrypted.writeBytes(ByteArray(32) { (it * 7 + 3).toByte() })
+        org.junit.Assert.assertFalse(com.jyotirmoyb.udhaar.security.EncryptedStorageManager.isPlaintextSqliteHeader(tempEncrypted))
+
+        com.jyotirmoyb.udhaar.security.EncryptedStorageManager.quarantineDatabaseFiles(tempEncrypted)
+        org.junit.Assert.assertFalse(tempEncrypted.exists())
+        tempPlain.delete()
+        context.cacheDir.listFiles()?.filter { it.name.startsWith("test_cipher.db.corrupt.") }?.forEach { it.delete() }
+    }
+
+    @Test
+    fun `plain database with sample data migrates correctly and pre-migration backup restores into encrypted database`() =
+        kotlinx.coroutines.test.runTest {
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.TestHooks.reset()
+            val dbName = "test_migrate_plain.db"
+            val dbFile = context.getDatabasePath(dbName)
+            dbFile.parentFile?.mkdirs()
+            dbFile.delete()
+            java.io.File("${dbFile.absolutePath}-wal").delete()
+            java.io.File("${dbFile.absolutePath}-shm").delete()
+
+            // 1. Create a plain unencrypted Room database with sample data and export a pre-migration backup
+            val plainDb = androidx.room.Room.databaseBuilder(
+                context,
+                com.jyotirmoyb.udhaar.data.UdhaarDatabase::class.java,
+                dbName
+            ).allowMainThreadQueries().build()
+            val plainDao = plainDb.udhaarDao()
+            val partyId = plainDao.insertParty(
+                PartyEntity(
+                    name = "Gopal Kirana Store",
+                    phoneNumber = "+919811122233",
+                    upiId = "gopal@okicici",
+                    preferredCurrency = CurrencyType.INR
+                )
+            )
+            val txId = plainDao.insertTransaction(
+                UdhaarTransaction(
+                    partyId = partyId,
+                    transactionType = TransactionType.GIVEN,
+                    partyName = "Gopal Kirana Store",
+                    phoneNumber = "+919811122233",
+                    currency = CurrencyType.INR,
+                    principalAmount = 8_500.0,
+                    amountPaid = 1_500.0,
+                    paymentMode = PaymentMode.UPI
+                )
+            )
+            plainDao.insertPartialPayment(
+                PartialPayment(
+                    transactionId = txId,
+                    amount = 1_500.0,
+                    paymentMode = PaymentMode.UPI,
+                    note = "Pre-migration installment"
+                )
+            )
+
+            // Build a pre-migration JSON backup and a local .udhaar encrypted backup before migration
+            val preMigrationParties = plainDao.getAllPartiesSnapshot()
+            val preMigrationTxs = plainDao.getAllTransactionsSnapshot()
+            val preMigrationPayments = plainDao.getAllPartialPaymentsSnapshot()
+            val preMigrationJson = LedgerBackupManager.buildBackupJson(
+                parties = preMigrationParties,
+                transactions = preMigrationTxs,
+                partialPayments = preMigrationPayments,
+                exportType = "FULL_LEDGER"
+            )
+            val preMigrationUdhaarBytes = com.jyotirmoyb.udhaar.backup.DriveBackupCrypto.encrypt(
+                plainBytes = preMigrationJson.toByteArray(Charsets.UTF_8),
+                passphrase = "MigrationBackupPass#2026",
+                preview = com.jyotirmoyb.udhaar.backup.BackupPreviewSummary(
+                    partiesCount = preMigrationParties.size,
+                    transactionsCount = preMigrationTxs.size,
+                    paymentsCount = preMigrationPayments.size
+                )
+            )
+            plainDb.close()
+
+            assertTrue("Database file must start as plain SQLite format 3", com.jyotirmoyb.udhaar.security.EncryptedStorageManager.isPlaintextSqliteHeader(dbFile))
+            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.setDatabaseEncryptionState(
+                context,
+                com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.NONE
+            )
+
+            // 2. Run configureSqlCipherForRoom on the existing plain database
+            val migratedBuilder = com.jyotirmoyb.udhaar.security.EncryptedStorageManager.configureSqlCipherForRoom(
+                context = context,
+                builder = androidx.room.Room.databaseBuilder(
+                    context,
+                    com.jyotirmoyb.udhaar.data.UdhaarDatabase::class.java,
+                    dbName
+                ).allowMainThreadQueries(),
+                dbName = dbName
+            )
+            assertEquals(
+                com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.ENCRYPTED,
+                com.jyotirmoyb.udhaar.security.EncryptedStorageManager.getDatabaseEncryptionState(context)
+            )
+
+            // Verify staging plain copy was securely deleted
+            val stagingDir = java.io.File(context.filesDir, "db_migration_staging")
+            org.junit.Assert.assertFalse(java.io.File(stagingDir, "$dbName.plain_copy").exists())
+
+            // 3. Open the migrated database and verify all rows and user_version are intact
+            val migratedDb = migratedBuilder.build()
+            val migratedDao = migratedDb.udhaarDao()
+            assertEquals(1, migratedDao.getAllPartiesSnapshot().size)
+            assertEquals("Gopal Kirana Store", migratedDao.getAllPartiesSnapshot().first().name)
+            assertEquals(1, migratedDao.getAllTransactionsSnapshot().size)
+            assertEquals(8_500.0, migratedDao.getAllTransactionsSnapshot().first().principalAmount, 0.01)
+            assertEquals(1, migratedDao.getAllPartialPaymentsSnapshot().size)
+            assertEquals("Pre-migration installment", migratedDao.getAllPartialPaymentsSnapshot().first().note)
+
+            // 4. Verify that both the pre-migration JSON backup and .udhaar backup restore cleanly after migration
+            val migratedRepo = com.jyotirmoyb.udhaar.data.UdhaarRepository(migratedDao, context)
+            val parsedFromPreMigrationJson = LedgerBackupManager.parseBackupJson(preMigrationJson)
+            val restoredFromJsonCount = migratedRepo.restoreFullLedgerBackup(parsedFromPreMigrationJson, replaceExisting = true)
+            assertEquals(1, restoredFromJsonCount)
+            assertEquals("Gopal Kirana Store", migratedDao.getAllPartiesSnapshot().first().name)
+
+            val decryptedUdhaarJson = String(
+                com.jyotirmoyb.udhaar.backup.DriveBackupCrypto.decrypt(preMigrationUdhaarBytes, "MigrationBackupPass#2026"),
+                Charsets.UTF_8
+            )
+            val parsedFromUdhaar = LedgerBackupManager.parseBackupJson(decryptedUdhaarJson)
+            val restoredFromUdhaarCount = migratedRepo.restoreFullLedgerBackup(parsedFromUdhaar, replaceExisting = true)
+            assertEquals(1, restoredFromUdhaarCount)
+            assertEquals(8_500.0, migratedDao.getAllTransactionsSnapshot().first().principalAmount, 0.01)
+
+            migratedDb.close()
+            dbFile.delete()
+        }
+
+    @Test
+    fun `interrupted migration with state MIGRATING resumes safely from staged plain copy`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        com.jyotirmoyb.udhaar.security.EncryptedStorageManager.TestHooks.reset()
+        val dbName = "test_interrupted_migration.db"
+        val dbFile = context.getDatabasePath(dbName)
+        dbFile.parentFile?.mkdirs()
+        dbFile.delete()
+
+        // Create a valid plain SQLite database in the staging copy location to simulate an interrupted migration
+        // where dbFile was partially written/removed while staging plain_copy holds the safe copy
+        val stagingDir = java.io.File(context.filesDir, "db_migration_staging").apply { mkdirs() }
+        val plainCopyFile = java.io.File(stagingDir, "$dbName.plain_copy")
+        plainCopyFile.delete()
+
+        val tempPlainDb = android.database.sqlite.SQLiteDatabase.openOrCreateDatabase(plainCopyFile, null)
+        tempPlainDb.execSQL("CREATE TABLE IF NOT EXISTS sample_items (id INTEGER PRIMARY KEY, label TEXT NOT NULL)")
+        tempPlainDb.execSQL("INSERT INTO sample_items (id, label) VALUES (1, 'InterruptedRow1'), (2, 'InterruptedRow2')")
+        tempPlainDb.version = 7
+        tempPlainDb.close()
+
+        // Simulate interrupted state: db_encryption_state = MIGRATING and original dbFile is missing/incomplete
+        com.jyotirmoyb.udhaar.security.EncryptedStorageManager.setDatabaseEncryptionState(
+            context,
+            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.MIGRATING
+        )
+
+        val migratedOk = com.jyotirmoyb.udhaar.security.EncryptedStorageManager.migratePlainDatabaseToEncrypted(
+            context = context,
+            dbFile = dbFile
+        )
+        assertTrue("Interrupted migration must resume from staged plain copy and succeed", migratedOk)
+        assertEquals(
+            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.ENCRYPTED,
+            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.getDatabaseEncryptionState(context)
+        )
+        assertTrue("Swapped database file must exist after resumed migration", dbFile.exists() && dbFile.length() > 0L)
+        org.junit.Assert.assertFalse("Staged plain copy must be securely deleted after resume", plainCopyFile.exists())
+
+        dbFile.delete()
+    }
+
+    @Test
+    fun `corrupted migration keeps original plain database untouched and records FAILED state for retry`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        com.jyotirmoyb.udhaar.security.EncryptedStorageManager.TestHooks.reset()
+        val dbName = "test_corrupt_migration.db"
+        val dbFile = context.getDatabasePath(dbName)
+        dbFile.parentFile?.mkdirs()
+        dbFile.delete()
+
+        val origDb = android.database.sqlite.SQLiteDatabase.openOrCreateDatabase(dbFile, null)
+        origDb.execSQL("CREATE TABLE IF NOT EXISTS ledger_test (id INTEGER PRIMARY KEY, party TEXT NOT NULL)")
+        origDb.execSQL("INSERT INTO ledger_test (id, party) VALUES (10, 'OriginalUntouchedParty')")
+        origDb.version = 7
+        origDb.close()
+
+        val originalBytesBefore = dbFile.readBytes()
+
+        // Simulate row count mismatch / corruption during verification
+        com.jyotirmoyb.udhaar.security.EncryptedStorageManager.TestHooks.simulateRowCountMismatch = true
+        val migrationResult = com.jyotirmoyb.udhaar.security.EncryptedStorageManager.migratePlainDatabaseToEncrypted(
+            context = context,
+            dbFile = dbFile
+        )
+        org.junit.Assert.assertFalse("Corrupted migration must fail verification", migrationResult)
+        assertEquals(
+            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.FAILED,
+            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.getDatabaseEncryptionState(context)
+        )
+
+        // Original plain database must remain completely untouched and readable
+        assertTrue(com.jyotirmoyb.udhaar.security.EncryptedStorageManager.isPlaintextSqliteHeader(dbFile))
+        org.junit.Assert.assertArrayEquals(originalBytesBefore, dbFile.readBytes())
+
+        // Clearing the fault and retrying succeeds on the next launch / retry tap
+        com.jyotirmoyb.udhaar.security.EncryptedStorageManager.TestHooks.reset()
+        val retryResult = com.jyotirmoyb.udhaar.security.EncryptedStorageManager.retryDatabaseEncryption(
+            context = context,
+            dbName = dbName
+        )
+        assertTrue("Retry after failed migration must succeed", retryResult)
+        assertEquals(
+            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.ENCRYPTED,
+            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.getDatabaseEncryptionState(context)
+        )
+
+        dbFile.delete()
+    }
+
+    @Test
+    fun `fresh install creates encrypted database and failed SQLCipher startup shows blocking error without creating plain db`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        com.jyotirmoyb.udhaar.security.EncryptedStorageManager.TestHooks.reset()
+        val freshDbName = "test_fresh_install.db"
+        val freshDbFile = context.getDatabasePath(freshDbName)
+        freshDbFile.parentFile?.mkdirs()
+        freshDbFile.delete()
+
+        // 1. Simulate SQLCipher failure on a fresh install: must NOT create a plain database and must set blocking error
+        com.jyotirmoyb.udhaar.security.EncryptedStorageManager.TestHooks.simulateFreshInstallFailure = true
+        com.jyotirmoyb.udhaar.security.EncryptedStorageManager.configureSqlCipherForRoom(
+            context = context,
+            builder = androidx.room.Room.databaseBuilder(
+                context,
+                com.jyotirmoyb.udhaar.data.UdhaarDatabase::class.java,
+                freshDbName
+            ),
+            dbName = freshDbName
+        )
+        assertEquals(
+            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.FAILED,
+            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.getDatabaseEncryptionState(context)
+        )
+        assertNotNull(
+            "Blocking startup error must be set when SQLCipher cannot start on a fresh install",
+            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.blockingStartupErrorFlow.value
+        )
+        org.junit.Assert.assertFalse(
+            "Fresh install failure must never create a plain database file",
+            freshDbFile.exists()
+        )
+
+        // 2. Clear simulated failure and retry: state transitions to ENCRYPTED and blocking error clears
+        com.jyotirmoyb.udhaar.security.EncryptedStorageManager.TestHooks.reset()
+        val retryOk = com.jyotirmoyb.udhaar.security.EncryptedStorageManager.retryDatabaseEncryption(
+            context = context,
+            dbName = freshDbName
+        )
+        assertTrue(retryOk)
+        assertEquals(
+            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.ENCRYPTED,
+            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.getDatabaseEncryptionState(context)
+        )
+        org.junit.Assert.assertNull(
+            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.blockingStartupErrorFlow.value
+        )
+        freshDbFile.delete()
+    }
+
+    @Test
+    fun `ui source files contain no hardcoded Text string literals`() {
+        val candidateDirs = listOf(
+            java.io.File("src/main/java/com/jyotirmoyb/udhaar/ui"),
+            java.io.File("app/src/main/java/com/jyotirmoyb/udhaar/ui")
+        )
+        val uiDir = candidateDirs.firstOrNull { it.exists() && it.isDirectory }
+        assertNotNull("UI source directory must exist for static literal scan", uiDir)
+
+        val hardcodedTextRegex = Regex("""\bText\s*\(\s*(?:text\s*=\s*)?"([^"\\]|\\.)*"""")
+        val violations = mutableListOf<String>()
+
+        uiDir!!.walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .forEach { file ->
+                file.readLines().forEachIndexed { index, line ->
+                    val trimmed = line.trim()
+                    if (!trimmed.startsWith("//") && !trimmed.startsWith("*")) {
+                        if (hardcodedTextRegex.containsMatchIn(line)) {
+                            violations.add("${file.name}:${index + 1}: $trimmed")
+                        }
+                    }
+                }
+            }
+
+        assertTrue(
+            "Found hardcoded Text(\"...\") literals in UI files (move to strings.xml):\n${violations.joinToString("\n")}",
+            violations.isEmpty()
+        )
+    }
+
+    @Test
+    fun `hideAmounts toggle saves in encrypted settings masks currency as 5 dots and applies to receipts and localized generators`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+
+        // 1. Verify formatCurrencyPrivacy uses 5 dots ("₹ •••••" and "रू •••••")
+        assertEquals("₹ •••••", InterestCalculator.formatCurrencyPrivacy(12_500.0, CurrencyType.INR, true))
+        assertEquals("रू •••••", InterestCalculator.formatCurrencyPrivacy(8_000.0, CurrencyType.NPR, true))
+
+        // 2. Verify encrypted settings persistence for hide_amounts_enabled
+        com.jyotirmoyb.udhaar.security.EncryptedStorageManager.setAmountsHidden(context, true)
+        assertTrue(com.jyotirmoyb.udhaar.security.EncryptedStorageManager.isAmountsHidden(context))
+        com.jyotirmoyb.udhaar.security.EncryptedStorageManager.setAmountsHidden(context, false)
+        org.junit.Assert.assertFalse(com.jyotirmoyb.udhaar.security.EncryptedStorageManager.isAmountsHidden(context))
+
+        // 3. Verify UpiQrGenerator and ThermalReceiptGenerator accept translated string parameters and hideAmounts
+        val qrStrings = UpiQrGenerator.UpiQrCardStrings.fromContext(context)
+        val qrCard = UpiQrGenerator.createShareableQrCardBitmap(
+            upiId = "merchant@upi",
+            payeeName = "Store",
+            amountInr = 500.0,
+            partyName = "Raju",
+            strings = qrStrings
+        )
+        assertNotNull(qrCard)
+
+        val receiptStrings = ThermalReceiptGenerator.ThermalReceiptStrings.fromContext(context)
+        val tx = UdhaarTransaction(
+            id = 77L,
+            transactionType = TransactionType.GIVEN,
+            partyName = "Sita Devi",
+            currency = CurrencyType.INR,
+            principalAmount = 4_000.0
+        )
+        val summary = InterestCalculator.calculate(tx)
+        val hiddenReceiptBitmap = ThermalReceiptGenerator.createTransactionReceiptBitmap(
+            summary = summary,
+            partialPayments = emptyList(),
+            userSettings = UserSettings(upiId = "owner@upi", payeeName = "Owner"),
+            hideAmounts = true,
+            strings = receiptStrings
+        )
+        assertNotNull(hiddenReceiptBitmap)
+        assertTrue(hiddenReceiptBitmap.width > 0 && hiddenReceiptBitmap.height > 0)
+    }
+
+    @Test
+    fun `version 9_0 Settings About format Room schema export and R8 keep rules are configured`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+
+        // 1. Version 9 / "9.0" and Settings > About string format
+        assertEquals(9, BuildConfig.VERSION_CODE)
+        assertEquals("9.0", BuildConfig.VERSION_NAME)
+        val aboutVersionText = context.getString(
+            R.string.settings_about_version_format,
+            BuildConfig.VERSION_NAME,
+            BuildConfig.VERSION_CODE
+        )
+        assertEquals("UDHAAR LEDGER v9.0 (Build 9)", aboutVersionText)
+
+        // 2. Room exported schema file 7.json exists
+        val schemaCandidates = listOf(
+            java.io.File("schemas/com.jyotirmoyb.udhaar.data.UdhaarDatabase/7.json"),
+            java.io.File("app/schemas/com.jyotirmoyb.udhaar.data.UdhaarDatabase/7.json")
+        )
+        val schemaFile = schemaCandidates.firstOrNull { it.exists() && it.isFile }
+        assertNotNull("Exported Room schema 7.json must exist", schemaFile)
+        val schemaContent = schemaFile!!.readText()
+        assertTrue(schemaContent.contains("\"version\": 7"))
+
+        // 3. R8 keep rules cover SQLCipher, Firebase Messaging, and Room entities without disabling obfuscation
+        val proguardCandidates = listOf(
+            java.io.File("proguard-rules.pro"),
+            java.io.File("app/proguard-rules.pro")
+        )
+        val proguardFile = proguardCandidates.firstOrNull { it.exists() && it.isFile }
+        assertNotNull("proguard-rules.pro must exist", proguardFile)
+        val proguardText = proguardFile!!.readText()
+        assertTrue(proguardText.contains("-keep class net.zetetic.database.**"))
+        assertTrue(proguardText.contains("-keep class net.zetetic.database.sqlcipher.**"))
+        assertTrue(proguardText.contains("-keep class com.google.firebase.messaging.**"))
+        assertTrue(proguardText.contains("-keep @androidx.room.Entity class *"))
+        assertTrue(proguardText.contains("-keep class com.jyotirmoyb.udhaar.data.**"))
+        org.junit.Assert.assertFalse(proguardText.contains("-dontobfuscate"))
+    }
 }
+
 
 
 

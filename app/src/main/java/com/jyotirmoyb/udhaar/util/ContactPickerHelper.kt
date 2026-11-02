@@ -1,9 +1,14 @@
 package com.jyotirmoyb.udhaar.util
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.ContactsContract
+import android.widget.Toast
+import androidx.activity.result.ActivityResult
+import androidx.activity.result.ActivityResultLauncher
+import com.jyotirmoyb.udhaar.R
 
 object ContactPickerHelper {
 
@@ -22,6 +27,81 @@ object ContactPickerHelper {
      */
     fun createFallbackPickContactIntent(): Intent {
         return Intent(Intent.ACTION_PICK, ContactsContract.Contacts.CONTENT_URI)
+    }
+
+    /**
+     * Safely launches the system contact picker with automatic fallback.
+     * Never exposes internal ActivityResultLauncher or registration messages;
+     * shows a plain-language Toast if no contacts app is available.
+     */
+    fun launchSystemContactPicker(
+        context: Context,
+        launcher: ActivityResultLauncher<Intent>
+    ) {
+        val primaryIntent = createPickContactIntent()
+        val launchedPrimary = runCatching {
+            launcher.launch(primaryIntent)
+            true
+        }.getOrDefault(false)
+
+        if (!launchedPrimary) {
+            val fallbackIntent = createFallbackPickContactIntent()
+            val launchedFallback = runCatching {
+                launcher.launch(fallbackIntent)
+                true
+            }.getOrDefault(false)
+
+            if (!launchedFallback) {
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.contact_error_no_app),
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    /**
+     * Handles the ActivityResult from the system contact picker and shows plain-language
+     * messages if reading the selected contact fails.
+     */
+    fun handleContactPickerResult(
+        context: Context,
+        result: ActivityResult,
+        onContactPicked: (name: String, phone: String) -> Unit
+    ) {
+        val contactUri = result.data?.data
+        if (result.resultCode == Activity.RESULT_CANCELED && contactUri == null) {
+            return
+        }
+        if (contactUri == null) {
+            Toast.makeText(
+                context,
+                context.getString(R.string.contact_error_read_failed),
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+        val extracted = runCatching {
+            extractContactInfo(context, contactUri)
+        }.getOrNull()
+
+        if (extracted != null) {
+            val (pickedName, pickedPhone) = extracted
+            onContactPicked(pickedName, pickedPhone)
+            val label = pickedName.ifBlank { pickedPhone }
+            Toast.makeText(
+                context,
+                context.getString(R.string.contact_imported_fmt, label),
+                Toast.LENGTH_SHORT
+            ).show()
+        } else {
+            Toast.makeText(
+                context,
+                context.getString(R.string.contact_error_read_failed),
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 
     /**

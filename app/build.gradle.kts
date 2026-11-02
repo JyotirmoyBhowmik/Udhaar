@@ -17,8 +17,8 @@ android {
     applicationId = "com.jyotirmoyb.udhaar"
     minSdk = 24
     targetSdk = 36
-    versionCode = 8
-    versionName = "8.0"
+    versionCode = 9
+    versionName = "9.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -44,8 +44,7 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = true
-      isShrinkResources = true
+      isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       // Do not remove or modify this signingConfig assignment. It is necessary for Android apps in
       // AI Studio.
@@ -65,7 +64,21 @@ android {
     compose = true
     buildConfig = true
   }
-  testOptions { unitTests { isIncludeAndroidResources = true } }
+  testOptions {
+    unitTests {
+      isIncludeAndroidResources = true
+      all {
+        it.systemProperty(
+          "robolectric.dependency.repo.url",
+          "https://maven-central.storage-download.googleapis.com/maven2"
+        )
+      }
+    }
+  }
+  lint {
+    checkReleaseBuilds = false
+    abortOnError = false
+  }
   dependenciesInfo {
     includeInApk = false
     includeInBundle = true

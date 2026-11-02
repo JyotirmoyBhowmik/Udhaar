@@ -79,9 +79,10 @@
       padding: 10px 0;
       border-bottom: 1px solid var(--border);
       font-size: 14px;
+      gap: 12px;
     }
-    .row span:first-child { color: var(--muted); }
-    .row span:last-child { font-weight: 600; text-align: right; }
+    .row span:first-child { color: var(--muted); flex-shrink: 0; }
+    .row span:last-child { font-weight: 600; text-align: right; word-break: break-word; }
     .hash-box {
       margin-top: 14px;
       padding: 10px 12px;
@@ -92,6 +93,12 @@
       font-size: 11px;
       color: var(--muted);
       word-break: break-all;
+    }
+    .privacy-note {
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.4;
     }
     .actions {
       display: grid;
@@ -142,9 +149,9 @@
     <div class="brand">
       <div>
         <h1>UDHAAR</h1>
-        <p style="font-size: 12px; color: var(--muted);">Read-Only Shared Verification Record</p>
+        <p id="subtitleLabel" style="font-size: 12px; color: var(--muted);">Read-Only Shared Verification Record</p>
       </div>
-      <span class="badge" id="statusBadge">PENDING</span>
+      <span class="badge" id="statusBadge">READ-ONLY</span>
     </div>
 
     <div class="amount-box">
@@ -153,22 +160,28 @@
     </div>
 
     <div id="detailsList">
-      <div class="row"><span>Lender (Given by)</span><span id="lenderVal">—</span></div>
-      <div class="row"><span>Borrower (Taken by)</span><span id="borrowerVal">—</span></div>
-      <div class="row"><span>Start Date</span><span id="startVal">—</span></div>
-      <div class="row"><span>Due Date</span><span id="dueVal">Open-ended</span></div>
-      <div class="row"><span>Interest Terms</span><span id="interestVal">Interest-free (0%)</span></div>
+      <div class="row"><span id="labelRow1">Lender (Given by)</span><span id="lenderVal">—</span></div>
+      <div class="row"><span id="labelRow2">Borrower (Taken by)</span><span id="borrowerVal">—</span></div>
+      <div class="row" id="phoneRow" style="display: none;"><span>Phone (Masked)</span><span id="phoneVal">—</span></div>
+      <div class="row" id="upiRow" style="display: none;"><span>UPI ID (Masked)</span><span id="upiVal">—</span></div>
+      <div class="row"><span id="labelRow3">Start Date</span><span id="startVal">—</span></div>
+      <div class="row"><span id="labelRow4">Due Date</span><span id="dueVal">Open-ended</span></div>
+      <div class="row"><span id="labelRow5">Interest Terms</span><span id="interestVal">Interest-free (0%)</span></div>
+      <div class="row" id="noteRow" style="display: none;"><span>Decrypted Note</span><span id="noteVal">—</span></div>
     </div>
 
     <div class="hash-box" id="hashVal">SHA-256: Verifying cryptographic digest…</div>
+    <p class="privacy-note" id="privacyNote">
+      Phone numbers and UPI IDs are masked on the web for privacy. Open in the Udhaar app to verify or settle.
+    </p>
 
     <div class="status-banner" id="statusBanner"></div>
 
     <div class="actions">
       <button class="btn-confirm" id="confirmBtn" type="button">✓ Confirm Record</button>
       <button class="btn-dispute" id="disputeBtn" type="button">✕ Dispute Terms</button>
-      <a class="btn-link btn-install" id="installBtn" href="intent://jyotirmoyb.com/u/#Intent;scheme=https;package=com.jyotirmoyb.udhaar;end">
-        Open or Install Udhaar App
+      <a class="btn-link btn-install" id="installBtn" href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar">
+        Get it on Google Play
       </a>
     </div>
   </main>
@@ -176,54 +189,238 @@
   <script>
     (function () {
       const params = new URLSearchParams(window.location.search);
-      const encoded = params.get("d") || "";
-      const fullUrl = window.location.href;
-      const installBtn = document.getElementById("installBtn");
-      installBtn.href = "intent://jyotirmoyb.com" + window.location.pathname + window.location.search +
-        "#Intent;scheme=https;package=com.jyotirmoyb.udhaar;S.browser_fallback_url=" +
-        encodeURIComponent("https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar") + ";end";
+      const hashParams = new URLSearchParams(
+        window.location.hash.startsWith("#") ? window.location.hash.slice(1) : ""
+      );
+      const pathname = window.location.pathname || "";
+      const isProfileLink = pathname.indexOf("/u/p/") !== -1;
+      const ua = navigator.userAgent || "";
+      const isAndroid = /Android/i.test(ua);
 
-      function decodeBase64Url(str) {
+      function extractTokenFromLocation() {
+        if (isProfileLink) {
+          return pathname.split("/u/p/")[1] || "";
+        }
+        if (pathname.indexOf("/u/") !== -1) {
+          const seg = pathname.split("/u/")[1] || "";
+          if (seg && seg !== "index.html") return seg;
+        }
+        if (pathname.indexOf("/v/") !== -1) {
+          const seg = pathname.split("/v/")[1] || "";
+          if (seg && seg !== "index.html") return seg;
+        }
+        return params.get("d") || params.get("token") || params.get("tx") || "";
+      }
+
+      /**
+       * Masks a phone number to show only the first 2 and last 2 digits of the 10-digit subscriber
+       * number (e.g. "98*** ***10"). Never displays a full phone number on the web page.
+       */
+      function maskPhoneNumber(raw) {
+        if (!raw) return "—";
+        const digitsOnly = String(raw).replace(/\D+/g, "");
+        if (!digitsOnly) return "—";
+        const core = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
+        if (core.length <= 4) {
+          return core.charAt(0) + "***";
+        }
+        const firstTwo = core.slice(0, 2);
+        const lastTwo = core.slice(-2);
+        return firstTwo + "*** ***" + lastTwo;
+      }
+
+      /**
+       * Masks a UPI ID (VPA) so only the first 2 and last 2 characters of the handle are visible
+       * before the @domain (e.g. "ba*** ***an@okaxis"). Never displays an unmasked UPI ID.
+       */
+      function maskUpiId(raw) {
+        if (!raw) return "—";
+        const trimmed = String(raw).trim();
+        if (!trimmed) return "—";
+        const atIndex = trimmed.indexOf("@");
+        const localPart = atIndex >= 0 ? trimmed.slice(0, atIndex) : trimmed;
+        const domainSuffix = atIndex >= 0 ? trimmed.slice(atIndex) : "";
+        if (localPart.length <= 4) {
+          return localPart.charAt(0) + "***" + domainSuffix;
+        }
+        const firstTwo = localPart.slice(0, 2);
+        const lastTwo = localPart.slice(-2);
+        return firstTwo + "*** ***" + lastTwo + domainSuffix;
+      }
+
+      const rawToken = extractTokenFromLocation().split("?")[0].split("#")[0].trim();
+      const fragmentKey = hashParams.get("key") || "";
+      const playStoreUrl = "https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar";
+      const intentHref =
+        "intent://jyotirmoyb.com" +
+        window.location.pathname +
+        window.location.search +
+        window.location.hash +
+        "#Intent;scheme=https;package=com.jyotirmoyb.udhaar;S.browser_fallback_url=" +
+        encodeURIComponent(playStoreUrl) +
+        ";end";
+
+      const targetAppHref = isAndroid ? intentHref : playStoreUrl;
+      const installBtn = document.getElementById("installBtn");
+      installBtn.textContent = isAndroid ? "Open in Udhaar" : "Get it on Google Play";
+      installBtn.href = targetAppHref;
+
+      function base64UrlToBytes(b64url) {
+        const pad = b64url.length % 4 === 0 ? "" : "=".repeat(4 - (b64url.length % 4));
+        const b64 = b64url.replace(/-/g, "+").replace(/_/g, "/") + pad;
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) {
+          bytes[i] = bin.charCodeAt(i);
+        }
+        return bytes;
+      }
+
+      function decodeTokenString(str) {
+        if (!str) return null;
         try {
-          const pad = str.length % 4 === 0 ? "" : "=".repeat(4 - (str.length % 4));
-          const b64 = str.replace(/-/g, "+").replace(/_/g, "/") + pad;
-          return JSON.parse(decodeURIComponent(escape(atob(b64))));
+          const bytes = base64UrlToBytes(str);
+          const text = new TextDecoder("utf-8").decode(bytes);
+          if (text.trim().startsWith("{")) {
+            return JSON.parse(text);
+          }
+          const map = {};
+          const pairs = text.split("&");
+          for (let i = 0; i < pairs.length; i++) {
+            const idx = pairs[i].indexOf("=");
+            if (idx > 0) {
+              const k = pairs[i].slice(0, idx);
+              const v = decodeURIComponent(pairs[i].slice(idx + 1).replace(/\+/g, "%20"));
+              map[k] = v;
+            }
+          }
+          return Object.keys(map).length > 0 ? map : null;
         } catch (e) {
           return null;
         }
       }
 
       function fmtDate(ms) {
-        if (!ms || ms <= 0) return "Open-ended";
-        const d = new Date(Number(ms));
+        const num = Number(ms);
+        if (!num || num <= 0 || isNaN(num)) return "Open-ended";
+        const d = new Date(num);
         if (isNaN(d.getTime())) return "Open-ended";
         const dateStr = d.toLocaleDateString("en-IN", {
-          day: "2-digit", month: "short", year: "numeric"
+          day: "2-digit",
+          month: "short",
+          year: "numeric"
         });
         if (d.getHours() !== 0 || d.getMinutes() !== 0) {
           const timeStr = d.toLocaleTimeString("en-IN", {
-            hour: "2-digit", minute: "2-digit", hour12: true
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true
           });
           return dateStr + ", " + timeStr;
         }
         return dateStr;
       }
 
-      const payload = encoded ? decodeBase64Url(encoded) : null;
-      if (payload) {
-        const symbol = payload.c === "NPR" ? "रू " : "₹";
-        document.getElementById("amountValue").textContent = symbol + Number(payload.p || 0).toLocaleString("en-IN");
-        document.getElementById("lenderVal").textContent = payload.ln || "—";
-        document.getElementById("borrowerVal").textContent = payload.bn || "—";
-        document.getElementById("startVal").textContent = fmtDate(payload.sd);
-        document.getElementById("dueVal").textContent = fmtDate(payload.ed);
-        document.getElementById("interestVal").textContent = payload.ie
-          ? (payload.ir + "% " + (payload.it || "SIMPLE") + " (" + (payload.irp || "PER_ANNUM") + ")")
+      async function decryptE2eeNote(cipherB64Url, remoteId, shareToken) {
+        if (!cipherB64Url || !remoteId || !shareToken || !window.crypto || !window.crypto.subtle) {
+          return "";
+        }
+        try {
+          const combined = base64UrlToBytes(cipherB64Url);
+          if (combined.length <= 12) return "";
+          const iv = combined.slice(0, 12);
+          const ciphertext = combined.slice(12);
+          const material = new TextEncoder().encode("udhaar-e2ee-v1|" + remoteId + "|" + shareToken);
+          const keyDigest = await window.crypto.subtle.digest("SHA-256", material);
+          const aesKey = await window.crypto.subtle.importKey(
+            "raw",
+            keyDigest,
+            { name: "AES-GCM" },
+            false,
+            ["decrypt"]
+          );
+          const plainBuf = await window.crypto.subtle.decrypt(
+            { name: "AES-GCM", iv: iv, tagLength: 128 },
+            aesKey,
+            ciphertext
+          );
+          return new TextDecoder("utf-8").decode(plainBuf);
+        } catch (e) {
+          return "";
+        }
+      }
+
+      const decoded = decodeTokenString(rawToken);
+
+      if (isProfileLink && decoded && (decoded.name || decoded.upi || decoded.phone)) {
+        document.getElementById("subtitleLabel").textContent = "Verified Udhaar Payment Profile (Read-Only)";
+        document.getElementById("statusBadge").textContent = "PROFILE";
+        document.getElementById("roleLabel").textContent = "Display Name";
+        document.getElementById("amountValue").textContent = decoded.name || "Udhaar User";
+        document.getElementById("labelRow1").textContent = "UPI ID (Masked)";
+        document.getElementById("lenderVal").textContent = maskUpiId(decoded.upi);
+        document.getElementById("labelRow2").textContent = "Phone (Masked)";
+        document.getElementById("borrowerVal").textContent = maskPhoneNumber(decoded.phone);
+        document.getElementById("labelRow3").textContent = "Profile Verification";
+        document.getElementById("startVal").textContent = "End-to-End Signed";
+        document.getElementById("labelRow4").parentElement.style.display = "none";
+        document.getElementById("labelRow5").parentElement.style.display = "none";
+        document.getElementById("confirmBtn").style.display = "none";
+        document.getElementById("disputeBtn").style.display = "none";
+        document.getElementById("hashVal").textContent =
+          "Open this link inside the Udhaar Android app to import the full verified payment profile.";
+      } else if (decoded) {
+        const currency = decoded.cur || decoded.c || "INR";
+        const symbol = currency === "NPR" ? "रू " : "₹";
+        const amount = Number(decoded.amt || decoded.p || 0);
+        const lender = decoded.lender || decoded.ln || "—";
+        const borrower = decoded.borrower || decoded.bn || "—";
+        const rawPhone = decoded.phone || decoded.ph || "";
+        const rawUpi = decoded.upi || "";
+        const startMs = decoded.start || decoded.sd || 0;
+        const expMs = decoded.exp || decoded.ed || 0;
+        const ie = decoded.ie === "true" || decoded.ie === true;
+        const ir = Number(decoded.ir || 0);
+        const it = decoded.it || "SIMPLE";
+        const irp = decoded.irp || "PER_ANNUM";
+        const cf = decoded.cf || "YEARLY";
+        const contentHash = decoded.hash || decoded.h || "";
+        const remoteId = decoded.rid || params.get("tx") || "";
+        const shareToken = fragmentKey || decoded.tok || "";
+
+        document.getElementById("amountValue").textContent =
+          symbol + amount.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+        document.getElementById("lenderVal").textContent = lender;
+        document.getElementById("borrowerVal").textContent = borrower;
+
+        if (rawPhone) {
+          document.getElementById("phoneRow").style.display = "flex";
+          document.getElementById("phoneVal").textContent = maskPhoneNumber(rawPhone);
+        }
+        if (rawUpi) {
+          document.getElementById("upiRow").style.display = "flex";
+          document.getElementById("upiVal").textContent = maskUpiId(rawUpi);
+        }
+
+        document.getElementById("startVal").textContent = fmtDate(startMs);
+        document.getElementById("dueVal").textContent = fmtDate(expMs);
+        document.getElementById("interestVal").textContent = ie
+          ? ir + "% " + it + " (" + irp + (it === "COMPOUND" ? " • " + cf : "") + ")"
           : "Interest-free (0%)";
-        document.getElementById("hashVal").textContent = "SHA-256: " + (payload.h || "Unverified");
+        document.getElementById("hashVal").textContent =
+          "SHA-256: " + (contentHash || "Unverified");
+
+        if (decoded.enote && remoteId && shareToken) {
+          decryptE2eeNote(decoded.enote, remoteId, shareToken).then(function (plainNote) {
+            if (plainNote) {
+              document.getElementById("noteRow").style.display = "flex";
+              document.getElementById("noteVal").textContent = plainNote;
+            }
+          });
+        }
       } else {
         document.getElementById("hashVal").textContent =
-          "Open this link inside the Udhaar Android app or append the ?d= verification payload.";
+          "Read-only verification preview. Use the button below to open in Udhaar or get it on Google Play.";
       }
 
       function showActionBanner(text, bg, color) {
@@ -237,23 +434,30 @@
       document.getElementById("confirmBtn").addEventListener("click", function () {
         document.getElementById("statusBadge").textContent = "CONFIRMED";
         showActionBanner(
-          "Confirmed! Opening Udhaar to sign and sync your confirmation to the shared audit trail…",
+          isAndroid
+            ? "Confirmed! Opening Udhaar to sign and sync your confirmation to the shared audit trail…"
+            : "Confirmed! Install Udhaar on Android from Google Play to sync your cryptographic confirmation.",
           "#cde9dc",
           "#0b3625"
         );
-        window.location.href = fullUrl;
+        window.location.href = targetAppHref;
       });
 
       document.getElementById("disputeBtn").addEventListener("click", function () {
-        const reason = window.prompt("Enter reason for disputing this record:", "Amount or due date is incorrect");
+        const reason = window.prompt(
+          "Enter reason for disputing this record:",
+          "Amount or due date is incorrect"
+        );
         if (reason !== null) {
           document.getElementById("statusBadge").textContent = "DISPUTED";
           showActionBanner(
-            "Dispute noted (" + reason + "). Opening Udhaar to record your dispute on the audit trail…",
+            isAndroid
+              ? "Dispute noted (" + reason + "). Opening Udhaar to record your dispute on the audit trail…"
+              : "Dispute noted (" + reason + "). Install Udhaar on Android from Google Play to submit your dispute.",
             "#f89894",
             "#5a1513"
           );
-          window.location.href = fullUrl;
+          window.location.href = targetAppHref;
         }
       });
     })();

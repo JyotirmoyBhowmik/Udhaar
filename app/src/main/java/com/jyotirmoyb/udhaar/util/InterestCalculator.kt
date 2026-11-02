@@ -164,7 +164,41 @@ object InterestCalculator {
     }
 
     fun formatCurrencyPrivacy(amount: Double, currency: CurrencyType, isHidden: Boolean): String {
-        return if (isHidden) "${currency.symbol} ••••" else formatCurrency(amount, currency)
+        return if (isHidden) "${currency.symbol} •••••" else formatCurrency(amount, currency)
+    }
+
+    fun formatSubtitleBreakdownPrivacy(
+        summary: CalculatedUdhaarSummary,
+        isHidden: Boolean
+    ): String {
+        if (!isHidden) return summary.subtitleBreakdown
+        val tx = summary.transaction
+        val currency = tx.currency
+        val maskedAmt = formatCurrencyPrivacy(0.0, currency, isHidden = true)
+        val subtitleParts = mutableListOf<String>()
+        val amountLabel = if (tx.transactionType == com.jyotirmoyb.udhaar.data.TransactionType.GIVEN) {
+            "Amount lent"
+        } else {
+            "Amount borrowed"
+        }
+        subtitleParts.add("$amountLabel: $maskedAmt")
+        if (tx.isInterestEnabled && tx.interestRate > 0.0) {
+            val typeShort = if (tx.interestType == InterestType.SIMPLE) {
+                "Simple"
+            } else {
+                "Compound ${tx.compoundFrequency.label}"
+            }
+            val rateFormatted = formatRate(tx.interestRate)
+            subtitleParts.add(
+                "Interest: $maskedAmt ($rateFormatted${tx.interestRatePeriod.shortSuffix} • $typeShort • ${summary.elapsedDays}d)"
+            )
+        } else {
+            subtitleParts.add("Interest: $maskedAmt (0% • Interest Free)")
+        }
+        if (summary.amountPaid > 0.0) {
+            subtitleParts.add("Paid: $maskedAmt")
+        }
+        return subtitleParts.joinToString("  |  ")
     }
 
     fun formatAmount(amount: Double): String {

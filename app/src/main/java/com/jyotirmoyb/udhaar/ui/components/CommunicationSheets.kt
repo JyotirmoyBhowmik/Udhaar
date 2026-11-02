@@ -493,25 +493,20 @@ fun ChatThreadBottomSheet(
                                 hideExactAmount = false,
                                 upiId = myUpiId
                             )
-                            val sanitized = InterestCalculator.sanitizePhoneForWhatsApp(
-                                partyPhone.ifBlank { tx?.phoneNumber.orEmpty() },
-                                transactionSummary.transaction.currency
+                            com.jyotirmoyb.udhaar.util.WhatsAppReminderLauncher.launchReminder(
+                                context = context,
+                                rawPhoneNumber = partyPhone.ifBlank { tx?.phoneNumber.orEmpty() },
+                                currency = transactionSummary.transaction.currency,
+                                message = msg
                             )
-                            val url = if (sanitized.isNotBlank()) {
-                                "https://wa.me/$sanitized?text=${Uri.encode(msg)}"
-                            } else {
-                                "https://wa.me/?text=${Uri.encode(msg)}"
-                            }
-                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                         } else {
                             val msg = "Namaste $effectivePartyName, messaging you from Udhaar Ledger."
-                            val sanitized = partyPhone.filter { it.isDigit() }
-                            val url = if (sanitized.isNotBlank()) {
-                                "https://wa.me/$sanitized?text=${Uri.encode(msg)}"
-                            } else {
-                                "https://wa.me/?text=${Uri.encode(msg)}"
-                            }
-                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                            com.jyotirmoyb.udhaar.util.WhatsAppReminderLauncher.launchReminder(
+                                context = context,
+                                rawPhoneNumber = partyPhone,
+                                currency = com.jyotirmoyb.udhaar.data.CurrencyType.INR,
+                                message = msg
+                            )
                         }
                     },
                     modifier = Modifier

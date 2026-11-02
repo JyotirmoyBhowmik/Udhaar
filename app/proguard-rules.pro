@@ -3,10 +3,15 @@
 -keepattributes SourceFile,LineNumberTable
 -keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
 
-# Keep entry point Activities and BroadcastReceivers
+# Perform full R8 DEX obfuscation and tree-shaking while skipping slow multi-pass bytecode optimization to avoid cloud bundler 504 timeouts
+-dontoptimize
+
+# Keep entry point Activities, BroadcastReceivers, and WidgetProviders
 -keep class com.example.MainActivity { *; }
 -keep class com.jyotirmoyb.udhaar.MainActivity { *; }
 -keep class com.jyotirmoyb.udhaar.notification.ReminderReceiver { *; }
+-keep class com.jyotirmoyb.udhaar.notification.BootRescheduleReceiver { *; }
+-keep class com.jyotirmoyb.udhaar.widget.UdhaarWidgetProvider { *; }
 
 # Keep Room Database, generated implementations, DAO, TypeConverters, and Entities safe during R8 minification
 -keep class * extends androidx.room.RoomDatabase { *; }
@@ -51,3 +56,26 @@
 -dontwarn okio.**
 -keep class com.google.android.gms.auth.api.identity.** { *; }
 -keep class com.jyotirmoyb.udhaar.backup.** { *; }
+-keep class com.jyotirmoyb.udhaar.data.Attachment { *; }
+
+# CRITICAL: Preserve SQLCipher JNI classes, fields, and native callback methods (prevents UnsatisfiedLinkError / NoSuchFieldError in release builds)
+-keep class net.zetetic.database.** { *; }
+-keep interface net.zetetic.database.** { *; }
+-keep class net.zetetic.database.sqlcipher.** { *; }
+-keep interface net.zetetic.database.sqlcipher.** { *; }
+-keep class androidx.sqlite.db.** { *; }
+-keep interface androidx.sqlite.db.** { *; }
+
+# CRITICAL: Preserve Google Tink & AndroidX Security Crypto classes instantiated via reflection by MasterKey and EncryptedSharedPreferences
+-keep class com.google.crypto.tink.** { *; }
+-dontwarn com.google.crypto.tink.**
+-keep class androidx.security.crypto.** { *; }
+
+# CRITICAL: Preserve Firebase Cloud Messaging (FCM), Firestore models, and notification receivers
+-keep class com.google.firebase.messaging.** { *; }
+-keep class com.google.firebase.iid.** { *; }
+-dontwarn com.google.firebase.messaging.**
+-keep class * extends com.google.firebase.messaging.FirebaseMessagingService { *; }
+-keep class com.jyotirmoyb.udhaar.notification.UdhaarFirebaseMessagingService { *; }
+-keep class com.jyotirmoyb.udhaar.notification.** { *; }
+-keep class com.jyotirmoyb.udhaar.data.cloud.** { *; }

@@ -73,8 +73,9 @@ class UdhaarWidgetProvider : AppWidgetProvider() {
                     }
                 }
 
-                val formattedReceive = InterestCalculator.formatCurrency(toReceiveInr, CurrencyType.INR)
-                val formattedPay = InterestCalculator.formatCurrency(toPayInr, CurrencyType.INR)
+                val isAmountsHidden = com.jyotirmoyb.udhaar.security.EncryptedStorageManager.isAmountsHidden(context)
+                val formattedReceive = InterestCalculator.formatCurrencyPrivacy(toReceiveInr, CurrencyType.INR, isAmountsHidden)
+                val formattedPay = InterestCalculator.formatCurrencyPrivacy(toPayInr, CurrencyType.INR, isAmountsHidden)
 
                 for (widgetId in appWidgetIds) {
                     val views = RemoteViews(context.packageName, R.layout.widget_udhaar_summary)

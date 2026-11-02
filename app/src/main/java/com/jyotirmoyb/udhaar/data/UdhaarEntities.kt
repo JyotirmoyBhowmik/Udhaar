@@ -333,6 +333,13 @@ enum class AutoBackupFrequency(val label: String) {
     }
 }
 
+enum class CloudBackupState {
+    IDLE,
+    BACKING_UP,
+    BACKED_UP,
+    FAILED
+}
+
 data class UserSettings(
     val upiId: String = "",
     val payeeName: String = "",
@@ -348,6 +355,9 @@ data class UserSettings(
     val cloudVerificationConsent: Boolean = false,
     val cloudUserId: String = "",
     val cloudUserEmail: String = "",
+    val cloudLastBackupTimeMillis: Long = 0L,
+    val cloudBackupState: CloudBackupState = CloudBackupState.IDLE,
+    val cloudBackupError: String = "",
     val driveUserEmail: String = "",
     val driveAccessToken: String = "",
     val driveLastBackupTimeMillis: Long = 0L,

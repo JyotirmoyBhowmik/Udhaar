@@ -11,6 +11,7 @@ import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import androidx.core.content.FileProvider
 import com.jyotirmoyb.udhaar.BuildConfig
+import com.jyotirmoyb.udhaar.R
 import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.PartialPayment
 import com.jyotirmoyb.udhaar.data.TransactionType
@@ -23,16 +24,100 @@ import java.io.FileOutputStream
  * Enhancement B: Thermal-Style Monochrome Statement Receipt Generator (Image & PDF Share)
  * Renders high-contrast #000000 on #FFFFFF thermal receipts offline with Party Name, Currency (INR ₹ / NPR रू),
  * Principal, Interest Rate & Breakdown, Partial Repayments Table, Net Balance Due, UPI QR code (if applicable),
- * and Timestamp, and shares directly via WhatsApp / FileProvider.
+ * and Timestamp, supporting localized strings and amount privacy masking.
  */
 object ThermalReceiptGenerator {
+
+    data class ThermalReceiptStrings(
+        val txHeaderTitle: String = "UDHAAR • THERMAL STATEMENT",
+        val partyHeaderTitle: String = "UDHAAR • PARTY KHATA RECEIPT",
+        val receiptNumberPrefix: String = "RECEIPT #",
+        val generatedPrefix: String = "GENERATED:",
+        val partyNameLabel: String = "PARTY NAME",
+        val partyAccountLabel: String = "PARTY / ACCOUNT",
+        val contactPhoneLabel: String = "CONTACT PHONE",
+        val partyUpiVpaLabel: String = "PARTY UPI VPA",
+        val totalRecordsLabel: String = "TOTAL RECORDS",
+        val activeSuffix: String = "ACTIVE",
+        val recordTypeLabel: String = "RECORD TYPE",
+        val givenToReceiveValue: String = "GIVEN (TO RECEIVE)",
+        val takenToPayValue: String = "TAKEN (TO PAY)",
+        val verificationLabel: String = "VERIFICATION",
+        val contentShaLabel: String = "CONTENT SHA-256",
+        val currencyModeLabel: String = "CURRENCY & MODE",
+        val startDateLabel: String = "START DATE",
+        val dueStatusLabel: String = "DUE / STATUS",
+        val financialBreakdownTitle: String = "FINANCIAL BREAKDOWN",
+        val principalAmountLabel: String = "PRINCIPAL AMOUNT",
+        val interestZeroLabel: String = "INTEREST (0% • INTEREST FREE)",
+        val interestPrefix: String = "INTEREST",
+        val grossTotalLabel: String = "GROSS TOTAL",
+        val repaidSoFarLabel: String = "REPAID SO FAR",
+        val partialRepaymentsTitle: String = "PARTIAL REPAYMENTS AUDIT",
+        val noPartialInstallmentsText: String = "No partial installments recorded yet.",
+        val immutableAuditTimelineTitle: String = "IMMUTABLE AUDIT TIMELINE",
+        val recordCreatedText: String = "RECORD CREATED",
+        val finalStatusSettledText: String = "FINAL STATUS: SETTLED",
+        val netBalanceDuePrefix: String = "NET BALANCE DUE",
+        val scanToSettleUpiPrefix: String = "SCAN TO SETTLE VIA UPI:",
+        val netLedgerPositionTitle: String = "NET LEDGER POSITION",
+        val itemizedLoanRecordsTitle: String = "ITEMIZED LOAN RECORDS",
+        val noActiveOrSettledRecordsText: String = "No active or settled records.",
+        val scanToSettleNetInrPrefix: String = "SCAN TO SETTLE NET INR BALANCE",
+        val generatedOfflineFooterPrefix: String = "GENERATED OFFLINE BY UDHAAR"
+    ) {
+        companion object {
+            fun fromContext(context: Context): ThermalReceiptStrings {
+                return ThermalReceiptStrings(
+                    txHeaderTitle = context.getString(R.string.receipt_tx_header_title),
+                    partyHeaderTitle = context.getString(R.string.receipt_party_header_title),
+                    receiptNumberPrefix = context.getString(R.string.receipt_number_prefix),
+                    generatedPrefix = context.getString(R.string.receipt_generated_prefix),
+                    partyNameLabel = context.getString(R.string.receipt_party_name_label),
+                    partyAccountLabel = context.getString(R.string.receipt_party_account_label),
+                    contactPhoneLabel = context.getString(R.string.receipt_contact_phone_label),
+                    partyUpiVpaLabel = context.getString(R.string.receipt_party_upi_vpa_label),
+                    totalRecordsLabel = context.getString(R.string.receipt_total_records_label),
+                    activeSuffix = context.getString(R.string.receipt_active_suffix),
+                    recordTypeLabel = context.getString(R.string.receipt_record_type_label),
+                    givenToReceiveValue = context.getString(R.string.receipt_given_to_receive),
+                    takenToPayValue = context.getString(R.string.receipt_taken_to_pay),
+                    verificationLabel = context.getString(R.string.receipt_verification_label),
+                    contentShaLabel = context.getString(R.string.receipt_content_sha_label),
+                    currencyModeLabel = context.getString(R.string.receipt_currency_mode_label),
+                    startDateLabel = context.getString(R.string.receipt_start_date_label),
+                    dueStatusLabel = context.getString(R.string.receipt_due_status_label),
+                    financialBreakdownTitle = context.getString(R.string.receipt_financial_breakdown_title),
+                    principalAmountLabel = context.getString(R.string.receipt_principal_amount_label),
+                    interestZeroLabel = context.getString(R.string.receipt_interest_zero_label),
+                    interestPrefix = context.getString(R.string.receipt_interest_prefix),
+                    grossTotalLabel = context.getString(R.string.receipt_gross_total_label),
+                    repaidSoFarLabel = context.getString(R.string.receipt_repaid_so_far_label),
+                    partialRepaymentsTitle = context.getString(R.string.receipt_partial_repayments_title),
+                    noPartialInstallmentsText = context.getString(R.string.receipt_no_partial_installments),
+                    immutableAuditTimelineTitle = context.getString(R.string.receipt_immutable_audit_timeline_title),
+                    recordCreatedText = context.getString(R.string.receipt_record_created),
+                    finalStatusSettledText = context.getString(R.string.receipt_final_status_settled),
+                    netBalanceDuePrefix = context.getString(R.string.receipt_net_balance_due_prefix),
+                    scanToSettleUpiPrefix = context.getString(R.string.receipt_scan_to_settle_upi_prefix),
+                    netLedgerPositionTitle = context.getString(R.string.receipt_net_ledger_position_title),
+                    itemizedLoanRecordsTitle = context.getString(R.string.receipt_itemized_loan_records_title),
+                    noActiveOrSettledRecordsText = context.getString(R.string.receipt_no_active_or_settled_records),
+                    scanToSettleNetInrPrefix = context.getString(R.string.receipt_scan_to_settle_net_inr_prefix),
+                    generatedOfflineFooterPrefix = context.getString(R.string.receipt_generated_offline_footer_prefix)
+                )
+            }
+        }
+    }
 
     fun createTransactionReceiptBitmap(
         summary: CalculatedUdhaarSummary,
         partialPayments: List<PartialPayment>,
         userSettings: UserSettings,
         partyUpiId: String? = null,
-        auditTrail: List<com.jyotirmoyb.udhaar.data.AuditTrailEntry> = emptyList()
+        auditTrail: List<com.jyotirmoyb.udhaar.data.AuditTrailEntry> = emptyList(),
+        hideAmounts: Boolean = false,
+        strings: ThermalReceiptStrings = ThermalReceiptStrings()
     ): Bitmap {
         val tx = summary.transaction
         val currency = tx.currency
@@ -56,7 +141,7 @@ object ThermalReceiptGenerator {
             val uri = UpiQrGenerator.buildUpiUri(
                 upiId = targetUpiId,
                 payeeName = targetPayee,
-                amountInr = summary.netBalanceDue,
+                amountInr = if (hideAmounts) null else summary.netBalanceDue,
                 transactionNote = "Udhaar #${tx.id} - ${tx.partyName}"
             )
             UpiQrGenerator.generateQrBitmap(uri, sizePx = 300)
@@ -128,9 +213,9 @@ object ThermalReceiptGenerator {
 
         // Top Banner
         canvas.drawRect(20f, 20f, width - 20f, 160f, fillBlack)
-        canvas.drawText("UDHAAR • THERMAL STATEMENT", width / 2f, 82f, headerTitlePaint)
+        canvas.drawText(strings.txHeaderTitle, width / 2f, 82f, headerTitlePaint)
         canvas.drawText(
-            "RECEIPT #${tx.id}  •  ${InterestCalculator.formatDateTime(System.currentTimeMillis())}",
+            "${strings.receiptNumberPrefix}${tx.id}  •  ${InterestCalculator.formatDateTime(System.currentTimeMillis())}",
             width / 2f,
             126f,
             headerSubPaint
@@ -158,46 +243,62 @@ object ThermalReceiptGenerator {
         }
 
         // Party & Record Metadata
-        drawRow("PARTY NAME", tx.partyName.uppercase(), boldLabel = true)
+        drawRow(strings.partyNameLabel, tx.partyName.uppercase(), boldLabel = true)
         if (tx.phoneNumber.isNotBlank()) {
-            drawRow("CONTACT PHONE", InterestCalculator.maskPhoneNumber(tx.phoneNumber))
+            drawRow(strings.contactPhoneLabel, InterestCalculator.maskPhoneNumber(tx.phoneNumber))
         }
-        drawRow("RECORD TYPE", if (isGiven) "GIVEN (TO RECEIVE)" else "TAKEN (TO PAY)")
-        drawRow("VERIFICATION", tx.verificationStatus.shortBadge, boldLabel = true)
+        drawRow(
+            strings.recordTypeLabel,
+            if (isGiven) strings.givenToReceiveValue else strings.takenToPayValue
+        )
+        drawRow(strings.verificationLabel, tx.verificationStatus.shortBadge, boldLabel = true)
         val effectiveHash = tx.contentHash.ifBlank {
             VerificationCryptoHelper.computeTransactionContentHash(tx)
         }
-        drawRow("CONTENT SHA-256", "${effectiveHash.take(12)}…${effectiveHash.takeLast(6)}")
-        drawRow("CURRENCY & MODE", "${currency.displayName} • ${tx.paymentMode.label.uppercase()}")
-        drawRow("START DATE", InterestCalculator.formatDate(tx.startDateMillis))
+        drawRow(strings.contentShaLabel, "${effectiveHash.take(12)}…${effectiveHash.takeLast(6)}")
+        drawRow(strings.currencyModeLabel, "${currency.displayName} • ${tx.paymentMode.label.uppercase()}")
+        drawRow(strings.startDateLabel, InterestCalculator.formatDate(tx.startDateMillis))
         drawRow(
-            "DUE / STATUS",
+            strings.dueStatusLabel,
             tx.expiryDateMillis?.let { InterestCalculator.formatDate(it) } ?: summary.dueStatusText
         )
 
         drawDashedDivider()
 
         // Financial Breakdown
-        canvas.drawText("FINANCIAL BREAKDOWN", leftX, y, sectionTitlePaint)
+        canvas.drawText(strings.financialBreakdownTitle, leftX, y, sectionTitlePaint)
         y += 44f
-        drawRow("PRINCIPAL AMOUNT", InterestCalculator.formatCurrency(summary.principal, currency))
+        drawRow(
+            strings.principalAmountLabel,
+            InterestCalculator.formatCurrencyPrivacy(summary.principal, currency, hideAmounts)
+        )
         val interestDesc = if (tx.isInterestEnabled && tx.interestRate > 0.0) {
             val typeLbl = if (tx.interestType.name == "SIMPLE") "Simple" else "Comp.${tx.compoundFrequency.label}"
-            "INTEREST (${InterestCalculator.formatRate(tx.interestRate)}${tx.interestRatePeriod.shortSuffix} $typeLbl, ${summary.elapsedDays}d)"
+            "${strings.interestPrefix} (${InterestCalculator.formatRate(tx.interestRate)}${tx.interestRatePeriod.shortSuffix} $typeLbl, ${summary.elapsedDays}d)"
         } else {
-            "INTEREST (0% • INTEREST FREE)"
+            strings.interestZeroLabel
         }
-        drawRow(interestDesc, "+ ${InterestCalculator.formatCurrency(summary.accruedInterest, currency)}")
-        drawRow("GROSS TOTAL", InterestCalculator.formatCurrency(summary.grossTotal, currency), boldLabel = true)
-        drawRow("REPAID SO FAR", "- ${InterestCalculator.formatCurrency(summary.amountPaid, currency)}")
+        drawRow(
+            interestDesc,
+            "+ ${InterestCalculator.formatCurrencyPrivacy(summary.accruedInterest, currency, hideAmounts)}"
+        )
+        drawRow(
+            strings.grossTotalLabel,
+            InterestCalculator.formatCurrencyPrivacy(summary.grossTotal, currency, hideAmounts),
+            boldLabel = true
+        )
+        drawRow(
+            strings.repaidSoFarLabel,
+            "- ${InterestCalculator.formatCurrencyPrivacy(summary.amountPaid, currency, hideAmounts)}"
+        )
 
         drawDashedDivider()
 
         // Partial Repayments Audit Trail Table
-        canvas.drawText("PARTIAL REPAYMENTS AUDIT (${partialPayments.size})", leftX, y, sectionTitlePaint)
+        canvas.drawText("${strings.partialRepaymentsTitle} (${partialPayments.size})", leftX, y, sectionTitlePaint)
         y += 42f
         if (partialPayments.isEmpty()) {
-            canvas.drawText("No partial installments recorded yet.", leftX, y, labelPaint)
+            canvas.drawText(strings.noPartialInstallmentsText, leftX, y, labelPaint)
             y += 44f
         } else {
             val chronological = partialPayments.sortedBy { it.paidAtMillis }.takeLast(12)
@@ -206,18 +307,21 @@ object ThermalReceiptGenerator {
                 val ackTag = if (p.isAcknowledged) "✓ACK" else "⏳PEND"
                 val byPart = if (p.recordedByName.isNotBlank()) " by ${p.recordedByName.take(10)}" else ""
                 val leftCol = "${idx + 1}. $dateStr [${p.paymentMode.shortBadge}•$ackTag]$byPart"
-                drawRow(leftCol, "- ${InterestCalculator.formatCurrency(p.amount, currency)}")
+                drawRow(
+                    leftCol,
+                    "- ${InterestCalculator.formatCurrencyPrivacy(p.amount, currency, hideAmounts)}"
+                )
             }
         }
 
         drawDashedDivider()
 
         // Immutable Verification & Audit Timeline Section
-        canvas.drawText("IMMUTABLE AUDIT TIMELINE (${auditItems.size})", leftX, y, sectionTitlePaint)
+        canvas.drawText("${strings.immutableAuditTimelineTitle} (${auditItems.size})", leftX, y, sectionTitlePaint)
         y += 42f
         if (auditItems.isEmpty()) {
             val createdStr = InterestCalculator.fmtDate(tx.createdAtMillis)
-            drawRow("1. $createdStr • RECORD CREATED", tx.verificationStatus.shortBadge)
+            drawRow("1. $createdStr • ${strings.recordCreatedText}", tx.verificationStatus.shortBadge)
         } else {
             auditItems.forEachIndexed { idx, ev ->
                 val dStr = InterestCalculator.fmtDate(ev.eventTimeMillis)
@@ -249,13 +353,13 @@ object ThermalReceiptGenerator {
             textAlign = Paint.Align.RIGHT
         }
         canvas.drawText(
-            if (tx.isSettled) "FINAL STATUS: SETTLED" else "NET BALANCE DUE (${currency.code})",
+            if (tx.isSettled) strings.finalStatusSettledText else "${strings.netBalanceDuePrefix} (${currency.code})",
             leftX + 24f,
             netBoxTop + 48f,
             netLabelPaint
         )
         canvas.drawText(
-            InterestCalculator.formatCurrency(summary.netBalanceDue, currency),
+            InterestCalculator.formatCurrencyPrivacy(summary.netBalanceDue, currency, hideAmounts),
             rightX - 24f,
             netBoxTop + 98f,
             netValuePaint
@@ -274,7 +378,7 @@ object ThermalReceiptGenerator {
                 typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
                 textAlign = Paint.Align.CENTER
             }
-            canvas.drawText("SCAN TO SETTLE VIA UPI: ${InterestCalculator.maskUpiId(targetUpiId)}", width / 2f, y, qrCaptionPaint)
+            canvas.drawText("${strings.scanToSettleUpiPrefix} ${InterestCalculator.maskUpiId(targetUpiId)}", width / 2f, y, qrCaptionPaint)
             y += 38f
         }
 
@@ -286,7 +390,7 @@ object ThermalReceiptGenerator {
             textAlign = Paint.Align.CENTER
         }
         canvas.drawText(
-            "GENERATED OFFLINE BY UDHAAR v${BuildConfig.VERSION_NAME} • ${BuildConfig.APPLICATION_ID}",
+            "${strings.generatedOfflineFooterPrefix} v${BuildConfig.VERSION_NAME} • ${BuildConfig.APPLICATION_ID}",
             width / 2f,
             height - 42f,
             footerPaint
@@ -298,7 +402,9 @@ object ThermalReceiptGenerator {
     fun createPartyStatementReceiptBitmap(
         khata: PartyKhataSummary,
         enabledCurrencies: List<CurrencyType>,
-        userSettings: UserSettings
+        userSettings: UserSettings,
+        hideAmounts: Boolean = false,
+        strings: ThermalReceiptStrings = ThermalReceiptStrings()
     ): Bitmap {
         val party = khata.party
         val inrEnabled = CurrencyType.INR in enabledCurrencies
@@ -314,7 +420,7 @@ object ThermalReceiptGenerator {
             val uri = UpiQrGenerator.buildUpiUri(
                 upiId = targetUpiId,
                 payeeName = if (khata.inrNet > 0) userSettings.payeeName.ifBlank { "Udhaar" } else party.name,
-                amountInr = qrAmount,
+                amountInr = if (hideAmounts) null else qrAmount,
                 transactionNote = "Party Khata Settlement - ${party.name}"
             )
             UpiQrGenerator.generateQrBitmap(uri, sizePx = 280)
@@ -382,9 +488,9 @@ object ThermalReceiptGenerator {
 
         // Top Banner
         canvas.drawRect(20f, 20f, width - 20f, 160f, fillBlack)
-        canvas.drawText("UDHAAR • PARTY KHATA RECEIPT", width / 2f, 82f, headerTitlePaint)
+        canvas.drawText(strings.partyHeaderTitle, width / 2f, 82f, headerTitlePaint)
         canvas.drawText(
-            "GENERATED: ${InterestCalculator.formatDateTime(System.currentTimeMillis())}",
+            "${strings.generatedPrefix} ${InterestCalculator.formatDateTime(System.currentTimeMillis())}",
             width / 2f,
             126f,
             headerSubPaint
@@ -406,19 +512,26 @@ object ThermalReceiptGenerator {
             y += 38f
         }
 
-        drawRow("PARTY / ACCOUNT", party.name.uppercase())
-        if (party.phoneNumber.isNotBlank()) drawRow("CONTACT PHONE", InterestCalculator.maskPhoneNumber(party.phoneNumber))
-        if (party.upiId.isNotBlank()) drawRow("PARTY UPI VPA", InterestCalculator.maskUpiId(party.upiId))
-        drawRow("TOTAL RECORDS", "${khata.transactions.size} (${khata.activeLoanCount} ACTIVE)")
+        drawRow(strings.partyAccountLabel, party.name.uppercase())
+        if (party.phoneNumber.isNotBlank()) drawRow(strings.contactPhoneLabel, InterestCalculator.maskPhoneNumber(party.phoneNumber))
+        if (party.upiId.isNotBlank()) drawRow(strings.partyUpiVpaLabel, InterestCalculator.maskUpiId(party.upiId))
+        drawRow(strings.totalRecordsLabel, "${khata.transactions.size} (${khata.activeLoanCount} ${strings.activeSuffix})")
 
         drawDashedDivider()
 
-        canvas.drawText("NET LEDGER POSITION", leftX, y, sectionTitlePaint)
+        canvas.drawText(strings.netLedgerPositionTitle, leftX, y, sectionTitlePaint)
         y += 44f
         if (inrEnabled) {
-            drawRow("INR (₹) TO RECEIVE (GIVEN)", InterestCalculator.formatCurrency(khata.inrToReceive, CurrencyType.INR))
-            drawRow("INR (₹) TO PAY (TAKEN)", InterestCalculator.formatCurrency(khata.inrToPay, CurrencyType.INR))
+            drawRow(
+                "INR (₹) ${strings.givenToReceiveValue}",
+                InterestCalculator.formatCurrencyPrivacy(khata.inrToReceive, CurrencyType.INR, hideAmounts)
+            )
+            drawRow(
+                "INR (₹) ${strings.takenToPayValue}",
+                InterestCalculator.formatCurrencyPrivacy(khata.inrToPay, CurrencyType.INR, hideAmounts)
+            )
             val inrStatus = when {
+                hideAmounts -> InterestCalculator.formatCurrencyPrivacy(0.0, CurrencyType.INR, true)
                 khata.inrNet > 0.01 -> "RECEIVE ${InterestCalculator.formatCurrency(khata.inrNet, CurrencyType.INR)}"
                 khata.inrNet < -0.01 -> "PAY ${InterestCalculator.formatCurrency(-khata.inrNet, CurrencyType.INR)}"
                 else -> "₹0 (SETTLED)"
@@ -426,9 +539,16 @@ object ThermalReceiptGenerator {
             drawRow("INR (₹) NET BALANCE", inrStatus)
         }
         if (nprEnabled) {
-            drawRow("NPR (रू) TO RECEIVE (GIVEN)", InterestCalculator.formatCurrency(khata.nprToReceive, CurrencyType.NPR))
-            drawRow("NPR (रू) TO PAY (TAKEN)", InterestCalculator.formatCurrency(khata.nprToPay, CurrencyType.NPR))
+            drawRow(
+                "NPR (रू) ${strings.givenToReceiveValue}",
+                InterestCalculator.formatCurrencyPrivacy(khata.nprToReceive, CurrencyType.NPR, hideAmounts)
+            )
+            drawRow(
+                "NPR (रू) ${strings.takenToPayValue}",
+                InterestCalculator.formatCurrencyPrivacy(khata.nprToPay, CurrencyType.NPR, hideAmounts)
+            )
             val nprStatus = when {
+                hideAmounts -> InterestCalculator.formatCurrencyPrivacy(0.0, CurrencyType.NPR, true)
                 khata.nprNet > 0.01 -> "RECEIVE ${InterestCalculator.formatCurrency(khata.nprNet, CurrencyType.NPR)}"
                 khata.nprNet < -0.01 -> "PAY ${InterestCalculator.formatCurrency(-khata.nprNet, CurrencyType.NPR)}"
                 else -> "रू0 (SETTLED)"
@@ -438,10 +558,10 @@ object ThermalReceiptGenerator {
 
         drawDashedDivider()
 
-        canvas.drawText("ITEMIZED LOAN RECORDS (${itemsToRender.size})", leftX, y, sectionTitlePaint)
+        canvas.drawText("${strings.itemizedLoanRecordsTitle} (${itemsToRender.size})", leftX, y, sectionTitlePaint)
         y += 44f
         if (itemsToRender.isEmpty()) {
-            canvas.drawText("No active or settled records.", leftX, y, labelPaint)
+            canvas.drawText(strings.noActiveOrSettledRecordsText, leftX, y, labelPaint)
             y += 44f
         } else {
             itemsToRender.forEachIndexed { index, item ->
@@ -450,9 +570,9 @@ object ThermalReceiptGenerator {
                 val verBadge = t.verificationStatus.shortBadge
                 val dateStr = InterestCalculator.formatDate(t.startDateMillis)
                 val statusAmt = if (t.isSettled) {
-                    "SETTLED (${InterestCalculator.formatCurrency(item.grossTotal, t.currency)})"
+                    "SETTLED (${InterestCalculator.formatCurrencyPrivacy(item.grossTotal, t.currency, hideAmounts)})"
                 } else {
-                    InterestCalculator.formatCurrency(item.netBalanceDue, t.currency)
+                    InterestCalculator.formatCurrencyPrivacy(item.netBalanceDue, t.currency, hideAmounts)
                 }
                 drawRow("${index + 1}. $dateStr [$badge • $verBadge]", statusAmt)
             }
@@ -469,7 +589,7 @@ object ThermalReceiptGenerator {
                 typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
                 textAlign = Paint.Align.CENTER
             }
-            canvas.drawText("SCAN TO SETTLE NET INR BALANCE (${InterestCalculator.maskUpiId(targetUpiId)})", width / 2f, y, qrCaptionPaint)
+            canvas.drawText("${strings.scanToSettleNetInrPrefix} (${InterestCalculator.maskUpiId(targetUpiId)})", width / 2f, y, qrCaptionPaint)
         }
 
         val footerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -479,7 +599,7 @@ object ThermalReceiptGenerator {
             textAlign = Paint.Align.CENTER
         }
         canvas.drawText(
-            "GENERATED OFFLINE BY UDHAAR v${BuildConfig.VERSION_NAME} • ${BuildConfig.APPLICATION_ID}",
+            "${strings.generatedOfflineFooterPrefix} v${BuildConfig.VERSION_NAME} • ${BuildConfig.APPLICATION_ID}",
             width / 2f,
             height - 40f,
             footerPaint
