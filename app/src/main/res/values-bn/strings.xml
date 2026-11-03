@@ -659,6 +659,62 @@
     <string name="drive_delete_backups_dialog_title">সব Google Drive ব্যাকআপ মুছে ফেলবেন?</string>
     <string name="drive_delete_backups_dialog_msg">এটি আপনার ব্যক্তিগত Google Drive AppData ফোল্ডার থেকে সমস্ত এনক্রিপ্ট করা লেজার ব্যাকআপ ফাইল স্থায়ীভাবে মুছে ফেলবে। এই ক্রিয়াটি ফিরিয়ে আনা যাবে না।</string>
     <string name="drive_delete_backups_confirm">স্থায়ীভাবে মুছে ফেলুন</string>
+
+    <!-- Upgraded Polite Reminders & Quiet Hours -->
+    <string name="reminder_level_1_title">স্তর ১: বিনীত অনুস্মারক</string>
+    <string name="reminder_level_2_title">স্তর ২: বন্ধুভাবাপন্ন ফলো-আপ</string>
+    <string name="reminder_level_3_title">স্তর ৩: সুস্পষ্ট অনুস্মারক</string>
+    <string name="reminder_level_4_title">স্তর ৪: চূড়ান্ত নোটিশ</string>
+    <string name="reminder_draft_level_1">নমস্কার {name}, মনে করিয়ে দিচ্ছি যে ₹{amount}-এর নির্ধারিত তারিখ {due_date}। সুবিধামতো UPI {upi_id}-এ পাঠাতে পারেন। ধন্যবাদ! - {my_name}</string>
+    <string name="reminder_draft_level_1_hidden">নমস্কার {name}, আমাদের বাকি হিসাবের নির্ধারিত তারিখ {due_date}। সুবিধামতো UPI {upi_id}-এ পরিশোধ করতে পারেন। ধন্যবাদ! - {my_name}</string>
+    <string name="reminder_draft_level_2">নমস্কার {name}, আশা করি ভালো আছেন। ₹{amount}-এর পেমেন্ট {due_date}-এ নির্ধারিত ছিল ({days_overdue} দিন আগে)। অনুগ্রহ করে জানাবেন কবে নাগাদ পরিশোধ করতে পারবেন? ধন্যবাদ! - {my_name}</string>
+    <string name="reminder_draft_level_2_hidden">নমস্কার {name}, আশা করি ভালো আছেন। বাকি পেমেন্ট {due_date}-এ নির্ধারিত ছিল ({days_overdue} দিন আগে)। অনুগ্রহ করে জানাবেন কবে নাগাদ পরিশোধ করতে পারবেন? ধন্যবাদ! - {my_name}</string>
+    <string name="reminder_draft_level_3">নমস্কার {name}, বাকি ₹{remaining} (মোট ₹{amount}-এর মধ্যে, ইতিমধ্যে প্রাপ্ত: ₹{paid_so_far}) সংক্রান্ত ফলো-আপ, যা এখন {days_overdue} দিন ধরে বকেয়া। অনুগ্রহ করে দ্রুত পরিশোধ করুন অথবা একটি নির্দিষ্ট তারিখ জানান। UPI: {upi_id}। ধন্যবাদ, {my_name}।</string>
+    <string name="reminder_draft_level_3_hidden">নমস্কার {name}, বাকি হিসাব সংক্রান্ত ফলো-আপ যা এখন {days_overdue} দিন ধরে বকেয়া। অনুগ্রহ করে দ্রুত পরিশোধ করুন অথবা একটি নির্দিষ্ট তারিখ জানান। UPI: {upi_id}। ধন্যবাদ, {my_name}।</string>
+    <string name="reminder_draft_level_4">নমস্কার {name}, ₹{remaining}-এর পেমেন্ট {days_overdue} দিন ধরে বকেয়া (নির্ধারিত তারিখ ছিল {due_date})। অনুগ্রহ করে আজই পরিশোধ করুন অথবা একটি স্পষ্ট পরিশোধ পরিকল্পনা জানান যাতে আমরা হিসাবটি সম্পন্ন করতে পারি। UPI: {upi_id}। শুভেচ্ছান্তে, {my_name}।</string>
+    <string name="reminder_draft_level_4_hidden">নমস্কার {name}, আমাদের বাকি হিসাব {days_overdue} দিন ধরে বকেয়া (নির্ধারিত তারিখ ছিল {due_date})। অনুগ্রহ করে আজই পরিশোধ করুন অথবা একটি স্পষ্ট পরিশোধ পরিকল্পনা জানান যাতে আমরা হিসাবটি সম্পন্ন করতে পারি। UPI: {upi_id}। শুভেচ্ছান্তে, {my_name}।</string>
+    <string name="borrower_msg_i_paid">নমস্কার {name}, আমি ₹{amount} পরিশোধ করেছি। অনুগ্রহ করে যাচাই করে নিশ্চিত করুন। ধন্যবাদ, {my_name}।</string>
+    <string name="borrower_msg_need_more_time">নমস্কার {name}, আমি কি ₹{amount} ফেরত দেওয়ার জন্য {new_date} পর্যন্ত সময় পেতে পারি? বোঝার জন্য ধন্যবাদ। - {my_name}</string>
+    <string name="borrower_msg_ask_details">নমস্কার {name}, আমাদের বাকি ₹{amount}-এর বিস্তারিত তথ্য বা বিবরণ কি শেয়ার করতে পারবেন? ধন্যবাদ, {my_name}।</string>
+    <string name="borrower_self_reminder_fmt">আপনাকে %3$s-এর মধ্যে %2$s-কে %1$s ফেরত দিতে হবে</string>
+    <string name="borrower_self_reminder_overdue_fmt">বকেয়া: আপনাকে %2$s-কে %1$s ফেরত দিতে হবে (%3$d দিন অতিবাহিত)</string>
+    <string name="borrower_btn_i_paid">আমি পরিশোধ করেছি</string>
+    <string name="borrower_btn_need_more_time">অতিরিক্ত সময় প্রয়োজন</string>
+    <string name="borrower_btn_ask_details">বিবরণ চান</string>
+    <string name="time_to_remind_fmt">%1$s-কে মনে করিয়ে দিন — %2$s বকেয়া %3$d দিন</string>
+    <string name="time_to_remind_due_today_fmt">%1$s-কে মনে করিয়ে দিন — %2$s আজ নির্ধারিত</string>
+    <string name="time_to_remind_upcoming_fmt">%1$s-এর কাছ থেকে আসছে — %2$s নির্ধারিত %3$d দিনে</string>
+    <string name="snooze_1_day">১ দিনের জন্য স্থগিত</string>
+    <string name="snooze_3_days">৩ দিনের জন্য স্থগিত</string>
+    <string name="snooze_1_week">১ সপ্তাহের জন্য স্থগিত</string>
+    <string name="stop_reminders_for_record">এই রেকর্ডের জন্য অনুস্মারক বন্ধ করুন</string>
+    <string name="resume_reminders_for_record">অনুস্মারক পুনরায় চালু করুন</string>
+    <string name="snoozed_until_fmt">%1$s পর্যন্ত স্থগিত</string>
+    <string name="reminders_stopped_badge">অনুস্মারক থামানো হয়েছে</string>
+    <string name="reminder_channel_whatsapp">WhatsApp-এ পাঠান</string>
+    <string name="reminder_channel_sms">SMS-এ পাঠান</string>
+    <string name="reminder_channel_chat">Udhaar চ্যাটে পাঠান</string>
+    <string name="reminder_channel_copy">ক্লিপবোর্ডে কপি করুন</string>
+    <string name="copied_to_clipboard">বার্তা ক্লিপবোর্ডে কপি হয়েছে</string>
+    <string name="quiet_hours_settings_title">শান্ত সময় (Quiet Hours)</string>
+    <string name="quiet_hours_settings_subtitle">বিশ্রামের সময়ে অনুস্মারক স্থগিত রাখুন (ডিফল্ট: রাত ৯টা থেকে সকাল ৮টা)</string>
+    <string name="quiet_hours_start_label">শান্ত সময় শুরু (যেমন ২১:০০ / রাত ৯টা)</string>
+    <string name="quiet_hours_end_label">শান্ত সময় শেষ (যেমন ০৮:০০ / সকাল ৮টা)</string>
+    <string name="quiet_hours_override_label">শান্ত সময়েও অনুস্মারক পাঠানোর অনুমতি দিন</string>
+    <string name="quiet_hours_override_desc">এই ব্যক্তির জন্য শান্ত সময়েও জরুরি অনুস্মারক পাঠান</string>
+    <string name="preferred_language_label">পছন্দের অনুস্মারক ভাষা</string>
+    <string name="escalation_ranges_title">অনুস্মারক পর্যায়ক্রমিক সময়সূচী</string>
+    <string name="escalation_ranges_subtitle">প্রতিটি স্তরের জন্য নির্ধারিত তারিখের আগের এবং পরের দিন নির্ধারণ করুন</string>
+    <string name="escalation_l1_days">স্তর ১: নির্ধারিত তারিখের কত দিন আগে (বিনীত)</string>
+    <string name="escalation_l2_days">স্তর ২: সর্বোচ্চ বকেয়া দিন (বন্ধুভাবাপন্ন)</string>
+    <string name="escalation_l3_days">স্তর ৩: সর্বোচ্চ বকেয়া দিন (সুস্পষ্ট)</string>
+    <string name="hide_exact_amount_switch">সঠিক পরিমাণ লুকান</string>
+    <string name="add_upi_id_switch">UPI ID অন্তর্ভুক্ত করুন</string>
+    <string name="available_placeholders_label">উপলব্ধ প্লেসহোল্ডার</string>
+    <string name="extension_picker_title">প্রস্তাবিত নতুন তারিখ নির্বাচন করুন</string>
+    <string name="reminder_editor_title_fmt">%1$s-কে অনুস্মারক পাঠান</string>
+    <string name="reminder_editor_level_label">অনুস্মারকের স্তর</string>
+    <string name="reminder_editor_preview_label">বার্তা পূর্বরূপ ও সম্পাদনা</string>
 </resources>
 
 

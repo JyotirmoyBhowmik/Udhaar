@@ -93,6 +93,13 @@ class UdhaarTypeConverters {
     @TypeConverter
     fun toExtensionRequestStatus(value: String): ExtensionRequestStatus =
         runCatching { ExtensionRequestStatus.valueOf(value) }.getOrDefault(ExtensionRequestStatus.NONE)
+
+    @TypeConverter
+    fun fromReminderChannel(value: ReminderChannel): String = value.name
+
+    @TypeConverter
+    fun toReminderChannel(value: String): ReminderChannel =
+        runCatching { ReminderChannel.valueOf(value) }.getOrDefault(ReminderChannel.NOTIFICATION)
 }
 
 @Database(
@@ -103,9 +110,10 @@ class UdhaarTypeConverters {
         AuditTrailEntry::class,
         ChatThreadMetadata::class,
         ChatMessageEntity::class,
-        Attachment::class
+        Attachment::class,
+        ReminderEvent::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 @TypeConverters(UdhaarTypeConverters::class)
@@ -388,13 +396,52 @@ abstract class UdhaarDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                if (!hasColumn(db, "parties", "language")) {
+                    db.execSQL("ALTER TABLE `parties` ADD COLUMN `language` TEXT NOT NULL DEFAULT ''")
+                }
+                if (!hasColumn(db, "parties", "quietHoursOverride")) {
+                    db.execSQL("ALTER TABLE `parties` ADD COLUMN `quietHoursOverride` INTEGER NOT NULL DEFAULT 0")
+                }
+                if (!hasColumn(db, "udhaar_transactions", "remindersDisabled")) {
+                    db.execSQL("ALTER TABLE `udhaar_transactions` ADD COLUMN `remindersDisabled` INTEGER NOT NULL DEFAULT 0")
+                }
+                if (!hasColumn(db, "udhaar_transactions", "snoozedUntilMillis")) {
+                    db.execSQL("ALTER TABLE `udhaar_transactions` ADD COLUMN `snoozedUntilMillis` INTEGER")
+                }
+                if (!hasColumn(db, "udhaar_transactions", "lastReminderSentMillis")) {
+                    db.execSQL("ALTER TABLE `udhaar_transactions` ADD COLUMN `lastReminderSentMillis` INTEGER")
+                }
+                if (!hasColumn(db, "udhaar_transactions", "lastReminderLevel")) {
+                    db.execSQL("ALTER TABLE `udhaar_transactions` ADD COLUMN `lastReminderLevel` INTEGER NOT NULL DEFAULT 0")
+                }
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `reminder_events` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `recordId` INTEGER NOT NULL,
+                        `level` INTEGER NOT NULL,
+                        `sentTimeMillis` INTEGER NOT NULL,
+                        `channel` TEXT NOT NULL,
+                        FOREIGN KEY(`recordId`) REFERENCES `udhaar_transactions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_reminder_events_recordId` ON `reminder_events` (`recordId`)"
+                )
+            }
+        }
+
         val ALL_MIGRATIONS: Array<Migration> = arrayOf(
             MIGRATION_1_2,
             MIGRATION_2_3,
             MIGRATION_3_4,
             MIGRATION_4_5,
             MIGRATION_5_6,
-            MIGRATION_6_7
+            MIGRATION_6_7,
+            MIGRATION_7_8
         )
 
         @Volatile

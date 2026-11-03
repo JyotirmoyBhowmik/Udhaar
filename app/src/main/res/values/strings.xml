@@ -660,6 +660,62 @@
     <string name="drive_delete_backups_dialog_title">Delete all Google Drive backups?</string>
     <string name="drive_delete_backups_dialog_msg">This will permanently remove all encrypted ledger backup files from your private Google Drive AppData folder. This action cannot be undone.</string>
     <string name="drive_delete_backups_confirm">Delete Permanently</string>
+
+    <!-- Upgraded Polite Reminders & Quiet Hours -->
+    <string name="reminder_level_1_title">Level 1: Gentle</string>
+    <string name="reminder_level_2_title">Level 2: Friendly Follow-up</string>
+    <string name="reminder_level_3_title">Level 3: Firm</string>
+    <string name="reminder_level_4_title">Level 4: Final Notice</string>
+    <string name="reminder_draft_level_1">Hi {name}, just a friendly reminder that ₹{amount} is due on {due_date}. You can pay via UPI to {upi_id} when convenient. Thank you! - {my_name}</string>
+    <string name="reminder_draft_level_1_hidden">Hi {name}, just a friendly reminder about our pending settlement due on {due_date}. You can pay via UPI to {upi_id} when convenient. Thank you! - {my_name}</string>
+    <string name="reminder_draft_level_2">Hi {name}, hope you are well. The payment of ₹{amount} was due on {due_date} ({days_overdue} days ago). Could you please let me know when you will be able to clear this? Thank you! - {my_name}</string>
+    <string name="reminder_draft_level_2_hidden">Hi {name}, hope you are well. The pending payment was due on {due_date} ({days_overdue} days ago). Could you please let me know when you will be able to clear this? Thank you! - {my_name}</string>
+    <string name="reminder_draft_level_3">Hi {name}, following up regarding the balance of ₹{remaining} (out of ₹{amount}, paid so far: ₹{paid_so_far}), which is now {days_overdue} days overdue. Please clear this at your earliest convenience or let me know a firm date. UPI: {upi_id}. Thank you, {my_name}.</string>
+    <string name="reminder_draft_level_3_hidden">Hi {name}, following up regarding the pending balance which is now {days_overdue} days overdue. Please clear this at your earliest convenience or let me know a firm date. UPI: {upi_id}. Thank you, {my_name}.</string>
+    <string name="reminder_draft_level_4">Hi {name}, the payment of ₹{remaining} has been overdue for {days_overdue} days (due {due_date}). Please settle this balance or share a clear repayment plan today so we can close this record. UPI: {upi_id}. Regards, {my_name}.</string>
+    <string name="reminder_draft_level_4_hidden">Hi {name}, our pending settlement has been overdue for {days_overdue} days (due {due_date}). Please settle this balance or share a clear repayment plan today so we can close this record. UPI: {upi_id}. Regards, {my_name}.</string>
+    <string name="borrower_msg_i_paid">Hi {name}, I have completed the payment of ₹{amount}. Please verify and acknowledge. Thanks, {my_name}.</string>
+    <string name="borrower_msg_need_more_time">Hi {name}, could I please request an extension until {new_date} to return the ₹{amount}? Thank you for understanding. - {my_name}</string>
+    <string name="borrower_msg_ask_details">Hi {name}, could you please share the details and statement for our pending ₹{amount} record? Thanks, {my_name}.</string>
+    <string name="borrower_self_reminder_fmt">You need to return %1$s to %2$s by %3$s</string>
+    <string name="borrower_self_reminder_overdue_fmt">Overdue: You need to return %1$s to %2$s (%3$d days overdue)</string>
+    <string name="borrower_btn_i_paid">I paid</string>
+    <string name="borrower_btn_need_more_time">I need more time</string>
+    <string name="borrower_btn_ask_details">Ask for details</string>
+    <string name="time_to_remind_fmt">Time to remind %1$s — %2$s overdue %3$d days</string>
+    <string name="time_to_remind_due_today_fmt">Time to remind %1$s — %2$s due today</string>
+    <string name="time_to_remind_upcoming_fmt">Upcoming payment from %1$s — %2$s due in %3$d days</string>
+    <string name="snooze_1_day">Snooze 1 day</string>
+    <string name="snooze_3_days">Snooze 3 days</string>
+    <string name="snooze_1_week">Snooze 1 week</string>
+    <string name="stop_reminders_for_record">Stop reminders for this record</string>
+    <string name="resume_reminders_for_record">Resume reminders</string>
+    <string name="snoozed_until_fmt">Snoozed until %1$s</string>
+    <string name="reminders_stopped_badge">Reminders paused</string>
+    <string name="reminder_channel_whatsapp">Send via WhatsApp</string>
+    <string name="reminder_channel_sms">Send via SMS</string>
+    <string name="reminder_channel_chat">Send in Udhaar Chat</string>
+    <string name="reminder_channel_copy">Copy to Clipboard</string>
+    <string name="copied_to_clipboard">Message copied to clipboard</string>
+    <string name="quiet_hours_settings_title">Quiet Hours</string>
+    <string name="quiet_hours_settings_subtitle">Pause reminders during restful hours (default: 9 PM to 8 AM)</string>
+    <string name="quiet_hours_start_label">Quiet hours start (e.g. 21:00 / 9 PM)</string>
+    <string name="quiet_hours_end_label">Quiet hours end (e.g. 08:00 / 8 AM)</string>
+    <string name="quiet_hours_override_label">Allow reminders during quiet hours</string>
+    <string name="quiet_hours_override_desc">Deliver reminders even during quiet hours for this contact</string>
+    <string name="preferred_language_label">Preferred Reminder Language</string>
+    <string name="escalation_ranges_title">Reminder Escalation Schedules</string>
+    <string name="escalation_ranges_subtitle">Configure days before and after due date for each reminder tone</string>
+    <string name="escalation_l1_days">Level 1: Days before due date (Gentle)</string>
+    <string name="escalation_l2_days">Level 2: Max overdue days (Friendly follow-up)</string>
+    <string name="escalation_l3_days">Level 3: Max overdue days (Firm)</string>
+    <string name="hide_exact_amount_switch">Hide exact amount</string>
+    <string name="add_upi_id_switch">Include UPI ID</string>
+    <string name="available_placeholders_label">Available placeholders</string>
+    <string name="extension_picker_title">Select Proposed Extension Date</string>
+    <string name="reminder_editor_title_fmt">Send Reminder to %1$s</string>
+    <string name="reminder_editor_level_label">Escalation Tone</string>
+    <string name="reminder_editor_preview_label">Message Preview &amp; Editor</string>
 </resources>
 
 

@@ -117,7 +117,18 @@ object RecurringReminderScheduler {
         }
     }
 
+    fun scheduleDailyWorker(context: Context) {
+        val dailyWork = androidx.work.PeriodicWorkRequestBuilder<ReminderWorker>(24, java.util.concurrent.TimeUnit.HOURS)
+            .build()
+        androidx.work.WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            "udhaar_daily_reminder_worker",
+            androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+            dailyWork
+        )
+    }
+
     fun rescheduleAllActiveReminders(context: Context) {
+        scheduleDailyWorker(context)
         CoroutineScope(Dispatchers.IO).launch {
             runCatching {
                 val db = UdhaarDatabase.getInstance(context)

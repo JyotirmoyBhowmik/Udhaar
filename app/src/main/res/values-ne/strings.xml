@@ -659,6 +659,62 @@
     <string name="drive_delete_backups_dialog_title">सबै Google Drive ब्याकअपहरू मेटाउने?</string>
     <string name="drive_delete_backups_dialog_msg">यसले तपाईंको व्यक्तिगत Google Drive AppData फोल्डरबाट सबै इन्क्रिप्टेड खाता ब्याकअप फाइलहरू स्थायी रूपमा हटाउनेछ। यो कार्य उल्टाउन सकिँदैन।</string>
     <string name="drive_delete_backups_confirm">स्थायी रूपमा मेटाउनुहोस्</string>
+
+    <!-- Upgraded Polite Reminders & Quiet Hours -->
+    <string name="reminder_level_1_title">तह १: विनम्र सम्झना</string>
+    <string name="reminder_level_2_title">तह २: मित्रवत फलो-अप</string>
+    <string name="reminder_level_3_title">तह ३: स्पष्ट सम्झना</string>
+    <string name="reminder_level_4_title">तह ४: अन्तिम सूचना</string>
+    <string name="reminder_draft_level_1">नमस्ते {name}, सम्झना गराउन चाहन्छु कि ₹{amount} भुक्तानी गर्ने मिति {due_date} हो। सजिलो भएमा UPI {upi_id} मा पठाउन सक्नुहुन्छ। धन्यवाद! - {my_name}</string>
+    <string name="reminder_draft_level_1_hidden">नमस्ते {name}, हाम्रो बाँकी हिसाब तिर्ने मिति {due_date} हो। सहज भएमा UPI {upi_id} मा पठाउन सक्नुहुन्छ। धन्यवाद! - {my_name}</string>
+    <string name="reminder_draft_level_2">नमस्ते {name}, आशा छ सन्चै हुनुहुन्छ। ₹{amount} को भुक्तानी {due_date} मा गर्नुपर्ने थियो ({days_overdue} दिन अघि)। कृपया कहिलेसम्म तिर्न सक्नुहुन्छ जानकारी दिनुहोला? धन्यवाद! - {my_name}</string>
+    <string name="reminder_draft_level_2_hidden">नमस्ते {name}, आशा छ सन्चै हुनुहुन्छ। बाँकी भुक्तानी {due_date} मा गर्नुपर्ने थियो ({days_overdue} दिन पहिले)। कृपया कहिलेसम्म तिर्न सक्नुहुन्छ जानकारी दिनुहोला? धन्यवाद! - {my_name}</string>
+    <string name="reminder_draft_level_3">नमस्ते {name}, बाँकी ₹{remaining} (कुल ₹{amount} मध्ये, हालसम्म प्राप्त: ₹{paid_so_far}) को सम्बन्धमा, जुन अहिले {days_overdue} दिन ढिलो भएको छ। कृपया यथाशीघ्र भुक्तानी गर्नुहोला वा निश्चित मिति बताउनुहोला। UPI: {upi_id}। धन्यवाद, {my_name}।</string>
+    <string name="reminder_draft_level_3_hidden">नमस्ते {name}, बाँकी रकम जुन अहिले {days_overdue} दिन ढिलो भएको छ, त्यस सम्बन्धमा। कृपया सकेसम्म चाँडो भुक्तानी गर्नुहोला वा निश्चित मिति बताउनुहोला। UPI: {upi_id}। धन्यवाद, {my_name}।</string>
+    <string name="reminder_draft_level_4">नमस्ते {name}, ₹{remaining} को भुक्तानी {days_overdue} दिनदेखि बाँकी छ (मिति {due_date} थियो)। कृपया आजै भुक्तानी गर्नुहोस् वा स्पष्ट योजना बताउनुहोस् ताकि हामी यो हिसाब बन्द गर्न सकौं। UPI: {upi_id}। सादर, {my_name}।</string>
+    <string name="reminder_draft_level_4_hidden">नमस्ते {name}, हाम्रो बाँकी हिसाब {days_overdue} दिनदेखि बाँकी छ (मिति {due_date} थियो)। कृपया आजै भुक्तानी गर्नुहोस् वा स्पष्ट योजना बताउनुहोस् ताकि हामी यो हिसाब बन्द गर्न सकौं। UPI: {upi_id}। सादर, {my_name}।</string>
+    <string name="borrower_msg_i_paid">नमस्ते {name}, मैले ₹{amount} भुक्तानी गरिसकेको छु। कृपया प्रमाणित गरी पुष्टि गरिदिनुहोला। धन्यवाद, {my_name}।</string>
+    <string name="borrower_msg_need_more_time">नमस्ते {name}, के म ₹{amount} फिर्ता गर्न {new_date} सम्मको म्याद थप गर्न अनुरोध गर्न सक्छु? बुझिदिनुभएकोमा धन्यवाद। - {my_name}</string>
+    <string name="borrower_msg_ask_details">नमस्ते {name}, के तपाईं हाम्रो बाँकी ₹{amount} को विवरण पठाउन सक्नुहुन्छ? धन्यवाद, {my_name}।</string>
+    <string name="borrower_self_reminder_fmt">तपाईंले %3$s सम्ममा %2$s लाई %1$s फिर्ता गर्नुपर्नेछ</string>
+    <string name="borrower_self_reminder_overdue_fmt">म्याद नाघेको: तपाईंले %2$s लाई %1$s फिर्ता गर्नुपर्नेछ (%3$d दिन ढिलो)</string>
+    <string name="borrower_btn_i_paid">मैले भुक्तानी गरेँ</string>
+    <string name="borrower_btn_need_more_time">थप समय चाहिन्छ</string>
+    <string name="borrower_btn_ask_details">विवरण माग्नुहोस्</string>
+    <string name="time_to_remind_fmt">%1$s लाई सम्झाउनुहोस् — %2$s %3$d दिन ढिलो</string>
+    <string name="time_to_remind_due_today_fmt">%1$s लाई सम्झाउनुहोस् — %2$s आज तिर्नुपर्ने</string>
+    <string name="time_to_remind_upcoming_fmt">%1$s बाट आउन बाँकी — %2$s %3$d दिनमा तिर्नुपर्ने</string>
+    <string name="snooze_1_day">१ दिनका लागि सार्नुहोस्</string>
+    <string name="snooze_3_days">३ दिनका लागि सार्नुहोस्</string>
+    <string name="snooze_1_week">१ हप्ताका लागि सार्नुहोस्</string>
+    <string name="stop_reminders_for_record">यस हिसाबको सम्झना बन्द गर्नुहोस्</string>
+    <string name="resume_reminders_for_record">सम्झना पुनः सुरु गर्नुहोस्</string>
+    <string name="snoozed_until_fmt">%1$s सम्म सारिएको</string>
+    <string name="reminders_stopped_badge">सम्झना रोकिएको छ</string>
+    <string name="reminder_channel_whatsapp">WhatsApp मा पठाउनुहोस्</string>
+    <string name="reminder_channel_sms">SMS मार्फत पठाउनुहोस्</string>
+    <string name="reminder_channel_chat">Udhaar च्याटमा पठाउनुहोस्</string>
+    <string name="reminder_channel_copy">क्लिपबोर्डमा प्रतिलिपि गर्नुहोस्</string>
+    <string name="copied_to_clipboard">सन्देश क्लिपबोर्डमा प्रतिलिपि गरियो</string>
+    <string name="quiet_hours_settings_title">शान्त समय (Quiet Hours)</string>
+    <string name="quiet_hours_settings_subtitle">विश्रामको समयमा सम्झना सूचनाहरू रोक्नुहोस् (पूर्वनिर्धारित: राती ९ देखि बिहान ८)</string>
+    <string name="quiet_hours_start_label">शान्त समय सुरु (जस्तै २१:०० / राती ९ बजे)</string>
+    <string name="quiet_hours_end_label">शान्त समय समाप्त (जस्तै ०८:०० / बिहान ८ बजे)</string>
+    <string name="quiet_hours_override_label">शान्त समयमा पनि सम्झना पठाउन अनुमति दिनुहोस्</string>
+    <string name="quiet_hours_override_desc">यस व्यक्तिका लागि शान्त समयमा पनि जरुरी सम्झना पठाउनुहोस्</string>
+    <string name="preferred_language_label">मनपर्ने सम्झना भाषा</string>
+    <string name="escalation_ranges_title">सम्झना चरण तालिकाहरू</string>
+    <string name="escalation_ranges_subtitle">प्रत्येक तहका लागि म्याद अघि र पछिका दिनहरू तय गर्नुहोस्</string>
+    <string name="escalation_l1_days">तह १: म्याद भन्दा कति दिन अघि (विनम्र)</string>
+    <string name="escalation_l2_days">तह २: अधिकतम ढिलाइ दिन (मित्रवत)</string>
+    <string name="escalation_l3_days">तह ३: अधिकतम ढिलाइ दिन (स्पष्ट)</string>
+    <string name="hide_exact_amount_switch">सटीक रकम लुकाउनुहोस्</string>
+    <string name="add_upi_id_switch">UPI ID समावेश गर्नुहोस्</string>
+    <string name="available_placeholders_label">उपलब्ध प्लेसहोल्डरहरू</string>
+    <string name="extension_picker_title">प्रस्तावित नयाँ मिति छान्नुहोस्</string>
+    <string name="reminder_editor_title_fmt">%1$s लाई सम्झना पठाउनुहोस्</string>
+    <string name="reminder_editor_level_label">सम्झनाको तह</string>
+    <string name="reminder_editor_preview_label">सन्देश पूर्वावलोकन र सम्पादन</string>
 </resources>
 
 

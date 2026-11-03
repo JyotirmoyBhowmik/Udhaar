@@ -231,6 +231,34 @@ interface UdhaarDao {
     @Query("DELETE FROM chat_messages")
     suspend fun deleteAllChatMessages()
 
+    // --- Reminder Event & Snooze Queries ---
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertReminderEvent(event: ReminderEvent): Long
+
+    @Query("SELECT * FROM reminder_events WHERE recordId = :recordId ORDER BY sentTimeMillis DESC")
+    fun getReminderEventsForRecord(recordId: Long): Flow<List<ReminderEvent>>
+
+    @Query("SELECT * FROM reminder_events WHERE recordId = :recordId ORDER BY sentTimeMillis DESC")
+    suspend fun getReminderEventsForRecordSnapshot(recordId: Long): List<ReminderEvent>
+
+    @Query("UPDATE udhaar_transactions SET snoozedUntilMillis = :snoozedUntilMillis WHERE id = :id")
+    suspend fun updateTransactionSnooze(id: Long, snoozedUntilMillis: Long?)
+
+    @Query("UPDATE udhaar_transactions SET remindersDisabled = :disabled WHERE id = :id")
+    suspend fun updateTransactionRemindersDisabled(id: Long, disabled: Boolean)
+
+    @Query("UPDATE udhaar_transactions SET lastReminderSentMillis = :sentMillis, lastReminderLevel = :level WHERE id = :id")
+    suspend fun updateTransactionLastReminder(id: Long, level: Int, sentMillis: Long)
+
+    @Query("UPDATE parties SET language = :language WHERE partyId = :partyId")
+    suspend fun updatePartyLanguage(partyId: Long, language: String)
+
+    @Query("UPDATE parties SET quietHoursOverride = :override WHERE partyId = :partyId")
+    suspend fun updatePartyQuietHoursOverride(partyId: Long, override: Boolean)
+
+    @Query("DELETE FROM reminder_events")
+    suspend fun deleteAllReminderEvents()
+
     @Transaction
     suspend fun clearAllLedgerData() {
         deleteAllAttachments()
@@ -238,6 +266,7 @@ interface UdhaarDao {
         deleteAllAuditTrail()
         deleteAllChatMessages()
         deleteAllChatThreads()
+        deleteAllReminderEvents()
         deleteAllTransactions()
         deleteAllParties()
     }

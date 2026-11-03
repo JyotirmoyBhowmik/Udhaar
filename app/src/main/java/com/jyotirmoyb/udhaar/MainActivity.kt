@@ -1326,7 +1326,23 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
             WhatsAppReminderModal(
                 summary = reminderSummary,
                 userSettings = uiState.userSettings,
+                party = linkedParty,
                 fallbackPhoneNumber = linkedParty?.phoneNumber.orEmpty(),
+                onRecordReminderEvent = { level, channel ->
+                    viewModel.recordReminderSent(reminderSummary.transaction.id, level, channel)
+                },
+                onSendInAppChat = if (linkedParty != null) {
+                    { msg ->
+                        viewModel.sendChatMessage(
+                            threadKey = "party_${linkedParty.partyId}",
+                            scope = com.jyotirmoyb.udhaar.data.ChatThreadScope.PARTY,
+                            transaction = reminderSummary.transaction,
+                            partyId = linkedParty.partyId,
+                            partyName = linkedParty.name,
+                            textContent = msg
+                        )
+                    }
+                } else null,
                 onDismiss = viewModel::closeWhatsAppReminderModal
             )
         }

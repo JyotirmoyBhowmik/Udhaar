@@ -659,6 +659,62 @@
     <string name="drive_delete_backups_dialog_title">সকলো Google Drive বেকআপ মচি পেলাব বিচাৰে নেকি?</string>
     <string name="drive_delete_backups_dialog_msg">ই আপোনাৰ ব্যক্তিগত Google Drive AppData ফোল্ডাৰৰ পৰা সকলো এনক্ৰিপ্ট কৰা বেকআপ ফাইল স্থায়ীভাৱে মচি পেলাব। এই কাৰ্য্য পুনৰুদ্ধাৰ কৰিব নোৱাৰি।</string>
     <string name="drive_delete_backups_confirm">স্থায়ীভাৱে মচি পেলাওক</string>
+
+    <!-- Upgraded Polite Reminders & Quiet Hours -->
+    <string name="reminder_level_1_title">স্তৰ ১: বিনম্ৰ সোঁৱৰণি</string>
+    <string name="reminder_level_2_title">স্তৰ ২: বন্ধুত্বপূৰ্ণ অনুসৰণ</string>
+    <string name="reminder_level_3_title">স্তৰ ৩: স্পষ্ট সোঁৱৰণি</string>
+    <string name="reminder_level_4_title">স্তৰ ৪: চূড়ান্ত জাননী</string>
+    <string name="reminder_draft_level_1">নমস্কাৰ {name}, সোঁৱৰাই দিছোঁ যে ₹{amount}-ৰ পৰিশোধৰ তাৰিখ {due_date}। সুবিধা অনুসৰি UPI {upi_id}-ত দিব পাৰে। ধন্যবাদ! - {my_name}</string>
+    <string name="reminder_draft_level_1_hidden">নমস্কাৰ {name}, আমাৰ বাকী থকা হিচাপৰ তাৰিখ {due_date}। সুবিধা অনুসৰি UPI {upi_id}-ত পৰিশোধ কৰিব পাৰে। ধন্যবাদ! - {my_name}</string>
+    <string name="reminder_draft_level_2">নমস্কাৰ {name}, আশা কৰোঁ ভালে আছে। ₹{amount}-ৰ পৰিশোধ {due_date}-ত আছিল ({days_overdue} দিন পূৰ্বে)। অনুগ্ৰহ কৰি জনাব কেতিয়ালৈকে দিব পাৰিব? ধন্যবাদ! - {my_name}</string>
+    <string name="reminder_draft_level_2_hidden">নমস্কাৰ {name}, আশা কৰোঁ ভালে আছে। বাকী ধন {due_date}-ত দিব লাগিছিল ({days_overdue} দিন আগত)। অনুগ্ৰহ কৰি জনাব কেতিয়া দিব পাৰিব? ধন্যবাদ! - {my_name}</string>
+    <string name="reminder_draft_level_3">নমস্কাৰ {name}, বাকী থকা ₹{remaining} (মুঠ ₹{amount}-ৰ ভিতৰত, এতিয়ালৈকে পোৱা: ₹{paid_so_far}) সন্দৰ্ভত, যি এতিয়া {days_overdue} দিন বাকী আছে। অনুগ্ৰহ কৰি সোনকালে নিষ্পত্তি কৰক বা এটা নিশ্চিত তাৰিখ কওক। UPI: {upi_id}। ধন্যবাদ, {my_name}।</string>
+    <string name="reminder_draft_level_3_hidden">নমস্কাৰ {name}, বাকী ধন এতিয়া {days_overdue} দিন ধৰি বাকী আছে। অনুগ্ৰহ কৰি সোনকালে নিষ্পত্তি কৰক বা এটা তাৰিখ জনাওক। UPI: {upi_id}। ধন্যবাদ, {my_name}।</string>
+    <string name="reminder_draft_level_4">নমস্কাৰ {name}, ₹{remaining}-ৰ পৰিশোধ {days_overdue} দিন ধৰি বাকী আছে (তাৰিখ আছিল {due_date})। অনুগ্ৰহ কৰি আজি পৰিশোধ কৰক বা এটা স্পষ্ট পৰিকল্পনা জনাওক যাতে আমি এই হিচাপ শেষ কৰিব পাৰোঁ। UPI: {upi_id}। শ্ৰদ্ধাৰে, {my_name}।</string>
+    <string name="reminder_draft_level_4_hidden">নমস্কাৰ {name}, আমাৰ বাকী হিচাপ {days_overdue} দিন ধৰি বাকী আছে (তাৰিখ আছিল {due_date})। অনুগ্ৰহ কৰি আজি পৰিশোধ কৰক বা এটা স্পষ্ট পৰিকল্পনা জনাওক যাতে আমি এই হিচাপ শেষ কৰিব পাৰোঁ। UPI: {upi_id}। শ্ৰদ্ধাৰে, {my_name}।</string>
+    <string name="borrower_msg_i_paid">নমস্কাৰ {name}, মই ₹{amount} পৰিশোধ কৰিছোঁ। অনুগ্ৰহ কৰি পৰীক্ষা কৰি নিশ্চিত কৰক। ধন্যবাদ, {my_name}।</string>
+    <string name="borrower_msg_need_more_time">নমস্কাৰ {name}, মই ₹{amount} ওভতাই দিবলৈ {new_date} লৈকে কিছু সময় অনুৰোধ কৰিব পাৰোঁ নেকি? বুজি পোৱাৰ বাবে ধন্যবাদ। - {my_name}</string>
+    <string name="borrower_msg_ask_details">নমস্কাৰ {name}, আমাৰ বাকী থকা ₹{amount}-ৰ বিতং তথ্য অনুগ্ৰহ কৰি জনাবনে? ধন্যবাদ, {my_name}।</string>
+    <string name="borrower_self_reminder_fmt">আপুনি %3$s-ৰ ভিতৰত %2$s-ক %1$s ওভতাই দিব লাগিব</string>
+    <string name="borrower_self_reminder_overdue_fmt">অভাৰডিউ: আপুনি %2$s-ক %1$s ওভতাই দিব লাগিব (%3$d দিন অতিবাহিত)</string>
+    <string name="borrower_btn_i_paid">মই পৰিশোধ কৰিলোঁ</string>
+    <string name="borrower_btn_need_more_time">অতিৰিক্ত সময় লাগে</string>
+    <string name="borrower_btn_ask_details">বিৱৰণ বিচাৰক</string>
+    <string name="time_to_remind_fmt">%1$s-ক সোঁৱৰাই দিয়ক — %2$s বাকী %3$d দিন</string>
+    <string name="time_to_remind_due_today_fmt">%1$s-ক সোঁৱৰাই দিয়ক — %2$s আজিৰ দিনত পৰিশোধযোগ্য</string>
+    <string name="time_to_remind_upcoming_fmt">%1$s-ৰ পৰা আহিবলগীয়া — %2$s %3$d দিনত পৰিশোধযোগ্য</string>
+    <string name="snooze_1_day">১ দিনৰ বাবে স্থগিত</string>
+    <string name="snooze_3_days">৩ দিনৰ বাবে স্থগিত</string>
+    <string name="snooze_1_week">১ সপ্তাহৰ বাবে স্থগিত</string>
+    <string name="stop_reminders_for_record">এই হিচাপৰ সোঁৱৰণি বন্ধ কৰক</string>
+    <string name="resume_reminders_for_record">সোঁৱৰণি পুনৰ আৰম্ভ কৰক</string>
+    <string name="snoozed_until_fmt">%1$s লৈ স্থগিত</string>
+    <string name="reminders_stopped_badge">সোঁৱৰণি বন্ধ আছে</string>
+    <string name="reminder_channel_whatsapp">WhatsApp-ত পঠিয়াওক</string>
+    <string name="reminder_channel_sms">SMS-ত পঠিয়াওক</string>
+    <string name="reminder_channel_chat">Udhaar চাটত পঠিয়াওক</string>
+    <string name="reminder_channel_copy">ক্লিপবৰ্ডত প্ৰতিলিপি কৰক</string>
+    <string name="copied_to_clipboard">বাৰ্তা ক্লিপবৰ্ডত প্ৰতিলিপি হ\'ল</string>
+    <string name="quiet_hours_settings_title">শান্ত সময় (Quiet Hours)</string>
+    <string name="quiet_hours_settings_subtitle">বিৰতিৰ সময়ত সোঁৱৰণি স্থগিত ৰাখক (ডিফল্ট: নিশা ৯ বজাৰ পৰা পুৱা ৮ বজা)</string>
+    <string name="quiet_hours_start_label">শান্ত সময় আৰম্ভ (যেনে ২১:০০ / নিশা ৯ বজা)</string>
+    <string name="quiet_hours_end_label">শান্ত সময় সমাপ্ত (যেনে ০৮:০০ / পুৱা ৮ বজা)</string>
+    <string name="quiet_hours_override_label">শান্ত সময়তো সোঁৱৰণি পঠিওৱাৰ অনুমতি দিয়ক</string>
+    <string name="quiet_hours_override_desc">এই ব্যক্তিৰ বাবে শান্ত সময়তো জৰুৰী সোঁৱৰণি প্ৰেৰণ কৰক</string>
+    <string name="preferred_language_label">পছন্দৰ সোঁৱৰণি ভাষা</string>
+    <string name="escalation_ranges_title">সোঁৱৰণি ক্ৰমবিকাশ সূচী</string>
+    <string name="escalation_ranges_subtitle">প্ৰতিটো স্তৰৰ বাবে পৰিশোধ তাৰিখৰ আগৰ আৰু পিছৰ দিন নিৰ্ধাৰণ কৰক</string>
+    <string name="escalation_l1_days">স্তৰ ১: তাৰিখৰ কিমান দিন আগত (বিনম্ৰ)</string>
+    <string name="escalation_l2_days">স্তৰ ২: সৰ্বাধিক বাকী দিন (বন্ধুত্বপূৰ্ণ)</string>
+    <string name="escalation_l3_days">স্তৰ ৩: সৰ্বাধিক বাকী দিন (স্পষ্ট)</string>
+    <string name="hide_exact_amount_switch">প্ৰকৃত পৰিমাণ লুকুৱাওক</string>
+    <string name="add_upi_id_switch">UPI ID অন্তৰ্ভুক্ত কৰক</string>
+    <string name="available_placeholders_label">উপলব্ধ প্লেচহোল্ডাৰ</string>
+    <string name="extension_picker_title">প্ৰস্তাৱিত নতুন তাৰিখ বাছক</string>
+    <string name="reminder_editor_title_fmt">%1$s-ক সোঁৱৰণি পঠিয়াওক</string>
+    <string name="reminder_editor_level_label">সোঁৱৰণিৰ স্তৰ</string>
+    <string name="reminder_editor_preview_label">বাৰ্তা পূৰ্বৰূপ আৰু সম্পাদনা</string>
 </resources>
 
 

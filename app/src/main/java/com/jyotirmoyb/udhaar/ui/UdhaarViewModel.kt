@@ -1240,6 +1240,68 @@ class UdhaarViewModel(
         localState.update { it.copy(whatsAppPreviewTransactionId = null) }
     }
 
+    fun snoozeTransaction(recordId: Long, days: Int) {
+        viewModelScope.launch {
+            repository.snoozeTransaction(recordId, days)
+        }
+    }
+
+    fun clearTransactionSnooze(recordId: Long) {
+        viewModelScope.launch {
+            repository.clearTransactionSnooze(recordId)
+        }
+    }
+
+    fun stopTransactionReminders(recordId: Long) {
+        viewModelScope.launch {
+            repository.stopTransactionReminders(recordId)
+        }
+    }
+
+    fun enableTransactionReminders(recordId: Long) {
+        viewModelScope.launch {
+            repository.enableTransactionReminders(recordId)
+        }
+    }
+
+    fun recordReminderSent(recordId: Long, level: Int, channel: com.jyotirmoyb.udhaar.data.ReminderChannel) {
+        viewModelScope.launch {
+            repository.recordReminderEvent(recordId, level, channel)
+        }
+    }
+
+    fun updatePartyLanguage(partyId: Long, language: String) {
+        viewModelScope.launch {
+            repository.updatePartyLanguage(partyId, language)
+        }
+    }
+
+    fun updatePartyQuietHoursOverride(partyId: Long, override: Boolean) {
+        viewModelScope.launch {
+            repository.updatePartyQuietHoursOverride(partyId, override)
+        }
+    }
+
+    fun updateReminderSettings(
+        quietHoursEnabled: Boolean,
+        quietHoursStartHour: Int,
+        quietHoursEndHour: Int,
+        reminderLevel1DaysBefore: Int,
+        reminderLevel2MaxOverdueDays: Int,
+        reminderLevel3MaxOverdueDays: Int
+    ) {
+        viewModelScope.launch {
+            repository.updateReminderSettings(
+                quietHoursEnabled = quietHoursEnabled,
+                quietHoursStartHour = quietHoursStartHour,
+                quietHoursEndHour = quietHoursEndHour,
+                reminderLevel1DaysBefore = reminderLevel1DaysBefore,
+                reminderLevel2MaxOverdueDays = reminderLevel2MaxOverdueDays,
+                reminderLevel3MaxOverdueDays = reminderLevel3MaxOverdueDays
+            )
+        }
+    }
+
     fun openGlobalQrModal() {
         localState.update {
             it.copy(

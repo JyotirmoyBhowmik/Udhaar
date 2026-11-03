@@ -130,6 +130,8 @@ data class PartyEntity(
     val linkedUserId: String = "",
     val isFavorite: Boolean = false,
     val preferredCurrency: CurrencyType = CurrencyType.INR,
+    val language: String = "",
+    val quietHoursOverride: Boolean = false,
     val lastInteractionMillis: Long = System.currentTimeMillis(),
     val createdAtMillis: Long = System.currentTimeMillis()
 )
@@ -154,6 +156,10 @@ data class UdhaarTransaction(
     val startDateMillis: Long = System.currentTimeMillis(),
     val expiryDateMillis: Long? = null,
     val reminderDateMillis: Long? = null,
+    val remindersDisabled: Boolean = false,
+    val snoozedUntilMillis: Long? = null,
+    val lastReminderSentMillis: Long? = null,
+    val lastReminderLevel: Int = 0,
     val notes: String = "",
     val isSettled: Boolean = false,
     val settledAtMillis: Long? = null,
@@ -340,6 +346,35 @@ enum class CloudBackupState {
     FAILED
 }
 
+enum class ReminderChannel(val label: String) {
+    WHATSAPP("WhatsApp"),
+    SMS("SMS"),
+    IN_APP_CHAT("Udhaar Chat"),
+    CLIPBOARD("Clipboard"),
+    NOTIFICATION("Notification")
+}
+
+@Entity(
+    tableName = "reminder_events",
+    foreignKeys = [
+        ForeignKey(
+            entity = UdhaarTransaction::class,
+            parentColumns = ["id"],
+            childColumns = ["recordId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index(value = ["recordId"])]
+)
+data class ReminderEvent(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0L,
+    val recordId: Long,
+    val level: Int,
+    val sentTimeMillis: Long = System.currentTimeMillis(),
+    val channel: ReminderChannel = ReminderChannel.NOTIFICATION
+)
+
 data class UserSettings(
     val upiId: String = "",
     val payeeName: String = "",
@@ -369,7 +404,14 @@ data class UserSettings(
     val driveLastAttemptTimeMillis: Long = 0L,
     val driveConsecutiveFailures: Int = 0,
     val driveNeedsReconnect: Boolean = false,
-    val hasCompletedOnboarding: Boolean = false
+    val hasCompletedOnboarding: Boolean = false,
+    // --- Upgraded Reminder Policies & Quiet Hours ---
+    val quietHoursEnabled: Boolean = true,
+    val quietHoursStartHour: Int = 21,
+    val quietHoursEndHour: Int = 8,
+    val reminderLevel1DaysBefore: Int = 3,
+    val reminderLevel2MaxOverdueDays: Int = 7,
+    val reminderLevel3MaxOverdueDays: Int = 30
 ) {
     val driveAccountEmail: String get() = driveUserEmail
     val driveLastBackupMillis: Long get() = driveLastBackupTimeMillis

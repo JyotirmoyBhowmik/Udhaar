@@ -86,6 +86,12 @@ open class UdhaarRepository(
         val DRIVE_CONSECUTIVE_FAILURES = intPreferencesKey("drive_consecutive_failures")
         val DRIVE_NEEDS_RECONNECT = booleanPreferencesKey("drive_needs_reconnect")
         val HAS_COMPLETED_ONBOARDING = booleanPreferencesKey("has_completed_onboarding")
+        val QUIET_HOURS_ENABLED = booleanPreferencesKey("quiet_hours_enabled")
+        val QUIET_HOURS_START_HOUR = intPreferencesKey("quiet_hours_start_hour")
+        val QUIET_HOURS_END_HOUR = intPreferencesKey("quiet_hours_end_hour")
+        val REMINDER_L1_DAYS_BEFORE = intPreferencesKey("reminder_l1_days_before")
+        val REMINDER_L2_MAX_OVERDUE = intPreferencesKey("reminder_l2_max_overdue")
+        val REMINDER_L3_MAX_OVERDUE = intPreferencesKey("reminder_l3_max_overdue")
     }
 
     val allParties: Flow<List<PartyEntity>> = dao.getAllParties().catch { e ->
@@ -196,7 +202,13 @@ open class UdhaarRepository(
                 driveLastAttemptTimeMillis = prefs[PrefKeys.DRIVE_LAST_ATTEMPT_TIME] ?: 0L,
                 driveConsecutiveFailures = prefs[PrefKeys.DRIVE_CONSECUTIVE_FAILURES] ?: 0,
                 driveNeedsReconnect = prefs[PrefKeys.DRIVE_NEEDS_RECONNECT] ?: false,
-                hasCompletedOnboarding = prefs[PrefKeys.HAS_COMPLETED_ONBOARDING] ?: false
+                hasCompletedOnboarding = prefs[PrefKeys.HAS_COMPLETED_ONBOARDING] ?: false,
+                quietHoursEnabled = prefs[PrefKeys.QUIET_HOURS_ENABLED] ?: true,
+                quietHoursStartHour = prefs[PrefKeys.QUIET_HOURS_START_HOUR] ?: 21,
+                quietHoursEndHour = prefs[PrefKeys.QUIET_HOURS_END_HOUR] ?: 8,
+                reminderLevel1DaysBefore = prefs[PrefKeys.REMINDER_L1_DAYS_BEFORE] ?: 3,
+                reminderLevel2MaxOverdueDays = prefs[PrefKeys.REMINDER_L2_MAX_OVERDUE] ?: 7,
+                reminderLevel3MaxOverdueDays = prefs[PrefKeys.REMINDER_L3_MAX_OVERDUE] ?: 30
             )
         } ?: inMemorySettingsFallback
 
@@ -303,6 +315,66 @@ open class UdhaarRepository(
     }
 
     // --- Transaction & Audit Operations ---
+    // --- Upgraded Reminder Operations ---
+    suspend fun snoozeTransaction(recordId: Long, days: Int) {
+        val targetMillis = com.jyotirmoyb.udhaar.reminder.ReminderEngine.calculateSnoozeDate(days)
+        dao.updateTransactionSnooze(recordId, targetMillis)
+    }
+
+    suspend fun clearTransactionSnooze(recordId: Long) {
+        dao.updateTransactionSnooze(recordId, null)
+    }
+
+    suspend fun stopTransactionReminders(recordId: Long) {
+        dao.updateTransactionRemindersDisabled(recordId, true)
+    }
+
+    suspend fun enableTransactionReminders(recordId: Long) {
+        dao.updateTransactionRemindersDisabled(recordId, false)
+    }
+
+    suspend fun recordReminderEvent(recordId: Long, level: Int, channel: ReminderChannel) {
+        val now = System.currentTimeMillis()
+        dao.insertReminderEvent(
+            ReminderEvent(
+                recordId = recordId,
+                level = level,
+                sentTimeMillis = now,
+                channel = channel
+            )
+        )
+        dao.updateTransactionLastReminder(recordId, now, level)
+    }
+
+    fun getReminderEvents(recordId: Long): Flow<List<ReminderEvent>> =
+        dao.getReminderEventsForRecord(recordId)
+
+    suspend fun updatePartyLanguage(partyId: Long, language: String) {
+        dao.updatePartyLanguage(partyId, language)
+    }
+
+    suspend fun updatePartyQuietHoursOverride(partyId: Long, override: Boolean) {
+        dao.updatePartyQuietHoursOverride(partyId, override)
+    }
+
+    suspend fun updateReminderSettings(
+        quietHoursEnabled: Boolean,
+        quietHoursStartHour: Int,
+        quietHoursEndHour: Int,
+        reminderLevel1DaysBefore: Int,
+        reminderLevel2MaxOverdueDays: Int,
+        reminderLevel3MaxOverdueDays: Int
+    ) {
+        context?.dataStore?.edit { prefs ->
+            prefs[PrefKeys.QUIET_HOURS_ENABLED] = quietHoursEnabled
+            prefs[PrefKeys.QUIET_HOURS_START_HOUR] = quietHoursStartHour
+            prefs[PrefKeys.QUIET_HOURS_END_HOUR] = quietHoursEndHour
+            prefs[PrefKeys.REMINDER_L1_DAYS_BEFORE] = reminderLevel1DaysBefore
+            prefs[PrefKeys.REMINDER_L2_MAX_OVERDUE] = reminderLevel2MaxOverdueDays
+            prefs[PrefKeys.REMINDER_L3_MAX_OVERDUE] = reminderLevel3MaxOverdueDays
+        }
+    }
+
     fun getPartialPayments(transactionId: Long): Flow<List<PartialPayment>> =
         dao.getPartialPaymentsForTransaction(transactionId)
 
