@@ -733,6 +733,91 @@ class ExampleUnitTest {
         assertFalse(settingsAfterSuccess.driveNeedsReconnect)
         assertTrue(settingsAfterSuccess.driveLastBackupTimeMillis > 0L)
     }
+
+    @Test
+    fun appSigningCertificateHelper_formatsAndComputesFingerprintsCorrectly() {
+        val testBytes = byteArrayOf(0x01, 0x0A, 0x10, 0xFF.toByte())
+        val formatted = com.jyotirmoyb.udhaar.util.AppSigningCertificateHelper.formatFingerprint(testBytes)
+        assertEquals("01:0A:10:FF", formatted)
+
+        val emptyFormatted = com.jyotirmoyb.udhaar.util.AppSigningCertificateHelper.formatFingerprint(byteArrayOf())
+        assertEquals("", emptyFormatted)
+
+        val helloBytes = "hello".toByteArray(Charsets.UTF_8)
+        val sha256 = com.jyotirmoyb.udhaar.util.AppSigningCertificateHelper.computeDigest(helloBytes, "SHA-256")
+        assertEquals(
+            "2C:F2:4D:BA:5F:B0:A3:0E:26:E8:3B:2A:C5:B9:E2:9E:1B:16:1E:5C:1F:A7:42:5E:73:04:33:62:93:8B:98:24",
+            sha256
+        )
+
+        val sha1 = com.jyotirmoyb.udhaar.util.AppSigningCertificateHelper.computeDigest(helloBytes, "SHA-1")
+        assertEquals(
+            "AA:F4:C6:1D:DC:C5:E8:A2:DA:BE:DE:0F:3B:48:2C:D9:AE:A9:43:4D",
+            sha1
+        )
+    }
+
+    @Test
+    fun driveConnectionErrorMapper_diagnosesAllRequestedErrorPatternsCorrectly() {
+        val pkg = "com.jyotirmoyb.udhaar"
+
+        // 1. ApiException 10 (DEVELOPER_ERROR)
+        val diag10 = com.jyotirmoyb.udhaar.backup.DriveConnectionErrorMapper.diagnose(
+            statusCode = 10,
+            httpCode = null,
+            rawMessage = "10: Developer error",
+            packageName = pkg
+        )
+        assertTrue(diag10.plainLanguageFix.contains("Package name or SHA-1 not registered"))
+        assertTrue(diag10.plainLanguageFix.contains(pkg))
+        assertTrue(diag10.technicalDetails.contains("10"))
+
+        // 2. ApiException 12500 (SIGN_IN_FAILED)
+        val diag12500 = com.jyotirmoyb.udhaar.backup.DriveConnectionErrorMapper.diagnose(
+            statusCode = 12500,
+            httpCode = null,
+            rawMessage = "12500: Sign in failed",
+            packageName = pkg
+        )
+        assertTrue(diag12500.plainLanguageFix.contains("Package name or SHA-1 not registered"))
+        assertTrue(diag12500.plainLanguageFix.contains(pkg))
+
+        // 3. access_denied / access blocked
+        val diagDenied = com.jyotirmoyb.udhaar.backup.DriveConnectionErrorMapper.diagnose(
+            statusCode = null,
+            httpCode = null,
+            rawMessage = "OAuth error: access_denied - Access blocked: app not verified",
+            packageName = pkg
+        )
+        assertTrue(diagDenied.plainLanguageFix.contains("Add your Gmail as a test user, or publish the consent screen"))
+
+        // 4. HTTP 403 accessNotConfigured / SERVICE_DISABLED
+        val diag403 = com.jyotirmoyb.udhaar.backup.DriveConnectionErrorMapper.diagnose(
+            statusCode = null,
+            httpCode = 403,
+            rawMessage = "Google Drive API has not been used in project 1234 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/drive.googleapis.com/overview",
+            packageName = pkg
+        )
+        assertTrue(diag403.plainLanguageFix.contains("Enable the Google Drive API in the Google Cloud project"))
+
+        // 5. HTTP 401 unauthorized
+        val diag401 = com.jyotirmoyb.udhaar.backup.DriveConnectionErrorMapper.diagnose(
+            statusCode = null,
+            httpCode = 401,
+            rawMessage = "401 Unauthorized",
+            packageName = pkg
+        )
+        assertTrue(diag401.plainLanguageFix.contains("Reconnect Google Drive"))
+
+        // 6. Network error
+        val diagNetwork = com.jyotirmoyb.udhaar.backup.DriveConnectionErrorMapper.diagnose(
+            statusCode = null,
+            httpCode = null,
+            rawMessage = "java.net.UnknownHostException: Unable to resolve host oauth2.googleapis.com: No address associated with hostname",
+            packageName = pkg
+        )
+        assertTrue(diagNetwork.plainLanguageFix.contains("Unable to connect to Google servers"))
+    }
 }
 
 

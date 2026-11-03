@@ -12,6 +12,7 @@ import com.jyotirmoyb.udhaar.R
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.tasks.await
 import org.json.JSONArray
 import org.json.JSONObject
@@ -143,14 +144,35 @@ data class CloudChatMessage(
  * - Implements structured error reporting via [handleFirestoreError].
  */
 class VerificationCloudRepository(
-    private val db: FirebaseFirestore
+    private val rawDb: FirebaseFirestore?
 ) {
-    constructor(context: Context) : this(
-        FirebaseFirestore.getInstance(
-            FirebaseApp.getInstance(),
-            context.applicationContext.getString(R.string.firestore_database_id)
-        )
-    )
+    val isAvailable: Boolean get() = rawDb != null
+
+    private val db: FirebaseFirestore
+        get() = rawDb ?: throw IllegalStateException("Firebase not configured: verification and chat are off")
+
+    constructor(context: Context) : this(initFirestoreSafely(context))
+
+    companion object {
+        private fun initFirestoreSafely(context: Context): FirebaseFirestore? {
+            return try {
+                val apps = FirebaseApp.getApps(context)
+                val app = if (apps.isEmpty()) {
+                    FirebaseApp.initializeApp(context)
+                } else {
+                    apps.first()
+                }
+                if (app != null) {
+                    FirebaseFirestore.getInstance(
+                        app,
+                        context.applicationContext.getString(R.string.firestore_database_id)
+                    )
+                } else null
+            } catch (_: Throwable) {
+                null
+            }
+        }
+    }
 
     private fun handleFirestoreError(
         exception: Exception,
@@ -404,7 +426,9 @@ class VerificationCloudRepository(
         }
     }
 
-    fun observeSharedRecord(remoteId: String): Flow<CloudSharedRecord?> = callbackFlow {
+    fun observeSharedRecord(remoteId: String): Flow<CloudSharedRecord?> {
+        if (!isAvailable) return flowOf(null)
+        return callbackFlow {
         val path = "shared_records/$remoteId"
         val registration: ListenerRegistration = db.collection("shared_records")
             .document(remoteId)
@@ -424,6 +448,7 @@ class VerificationCloudRepository(
                 }
             }
         awaitClose { registration.remove() }
+        }
     }
 
     suspend fun createPartialPayment(payment: CloudPartialPayment) {
@@ -637,26 +662,29 @@ class VerificationCloudRepository(
         }
     }
 
-    fun observeChatThread(threadId: String): Flow<CloudChatThread?> = callbackFlow {
-        val path = "chat_threads/$threadId"
-        val registration: ListenerRegistration = db.collection("chat_threads")
-            .document(threadId)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    try {
-                        handleFirestoreError(error, OperationType.GET, path)
-                    } catch (_: Exception) {
+    fun observeChatThread(threadId: String): Flow<CloudChatThread?> {
+        if (!isAvailable) return flowOf(null)
+        return callbackFlow {
+            val path = "chat_threads/$threadId"
+            val registration: ListenerRegistration = db.collection("chat_threads")
+                .document(threadId)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        try {
+                            handleFirestoreError(error, OperationType.GET, path)
+                        } catch (_: Exception) {
+                        }
+                        close(error)
+                        return@addSnapshotListener
                     }
-                    close(error)
-                    return@addSnapshotListener
+                    if (snapshot != null && snapshot.exists()) {
+                        trySend(mapToChatThread(snapshot.data.orEmpty(), threadId))
+                    } else {
+                        trySend(null)
+                    }
                 }
-                if (snapshot != null && snapshot.exists()) {
-                    trySend(mapToChatThread(snapshot.data.orEmpty(), threadId))
-                } else {
-                    trySend(null)
-                }
-            }
-        awaitClose { registration.remove() }
+            awaitClose { registration.remove() }
+        }
     }
 
     suspend fun updateTypingStatus(
@@ -780,27 +808,30 @@ class VerificationCloudRepository(
         }
     }
 
-    fun observeChatMessages(threadId: String, participantUid: String): Flow<List<CloudChatMessage>> = callbackFlow {
-        val path = "chat_threads/$threadId/messages"
-        val registration: ListenerRegistration = db.collection("chat_threads")
-            .document(threadId)
-            .collection("messages")
-            .whereArrayContains("participantUids", participantUid)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    try {
-                        handleFirestoreError(error, OperationType.LIST, path)
-                    } catch (_: Exception) {
+    fun observeChatMessages(threadId: String, participantUid: String): Flow<List<CloudChatMessage>> {
+        if (!isAvailable) return flowOf(emptyList())
+        return callbackFlow {
+            val path = "chat_threads/$threadId/messages"
+            val registration: ListenerRegistration = db.collection("chat_threads")
+                .document(threadId)
+                .collection("messages")
+                .whereArrayContains("participantUids", participantUid)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        try {
+                            handleFirestoreError(error, OperationType.LIST, path)
+                        } catch (_: Exception) {
+                        }
+                        close(error)
+                        return@addSnapshotListener
                     }
-                    close(error)
-                    return@addSnapshotListener
+                    val items = snapshot?.documents.orEmpty().map { doc ->
+                        mapToChatMessage(doc.data.orEmpty(), doc.id, threadId)
+                    }.sortedBy { it.sentAtMillis }
+                    trySend(items)
                 }
-                val items = snapshot?.documents.orEmpty().map { doc ->
-                    mapToChatMessage(doc.data.orEmpty(), doc.id, threadId)
-                }.sortedBy { it.sentAtMillis }
-                trySend(items)
-            }
-        awaitClose { registration.remove() }
+            awaitClose { registration.remove() }
+        }
     }
 
     /**

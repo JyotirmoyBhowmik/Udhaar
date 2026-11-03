@@ -641,8 +641,24 @@
     <string name="drive_connection_test_step_fmt">असफल चरण: %1$s</string>
     <string name="drive_connection_test_code_fmt">त्रुटि कोड: %1$s</string>
     <string name="drive_common_causes_title">सामान्य Google Drive सेटअप कारणहरू</string>
-    <string name="drive_common_causes_body">• Drive API सक्रिय छैन: Google Cloud Console मा Google Drive API सक्रिय गर्नुहोस्।\n• SHA-1 दर्ता गरिएको छैन: Android OAuth 2.0 Client ID मा debug, upload र Play App Signing SHA-1 थप्नुहोस्।\n• परीक्षण प्रयोगकर्ता होइन: Testing मोडमा OAuth Consent Screen &gt; Test Users मा आफ्नो इमेल थप्नुहोस्।</string>
+    <string name="drive_common_causes_body">१. Google Cloud Console मा Google Drive API सक्षम गरिएको छैन।\n२. Android OAuth Client ID मा SHA-1 प्रमाणपत्र फिंगरप्रिन्ट दर्ता गरिएको छैन।\n३. साइन-इन गरिएको खाता OAuth सहमति स्क्रिन परीक्षण प्रयोगकर्ताहरूमा थपिएको छैन।</string>
     <string name="drive_backing_up_progress">ब्याकअप हुँदैछ…</string>
+    <string name="drive_signing_credentials_title">एप साइनिङ प्रमाणहरू</string>
+    <string name="drive_signing_credentials_desc">यी मानहरूलाई Google Cloud Console (APIs &amp; Services &gt; Credentials &gt; OAuth client ID &gt; Android) र Firebase प्रोजेक्ट सेटिङहरूमा प्रतिलिपि गर्नुहोस्।</string>
+    <string name="drive_package_name_label">प्याकेज नाम</string>
+    <string name="drive_sha1_label">SHA-1 प्रमाणपत्र औंठाछाप</string>
+    <string name="drive_sha256_label">SHA-256 प्रमाणपत्र औंठाछाप</string>
+    <string name="drive_copied_toast_fmt">%1$s क्लिपबोर्डमा प्रतिलिपि गरियो</string>
+    <string name="drive_copy_button_content_desc">%1$s प्रतिलिपि गर्नुहोस्</string>
+    <string name="drive_technical_details_title">प्राविधिक विवरणहरू</string>
+    <string name="drive_show_technical_details">प्राविधिक विवरण देखाउनुहोस्</string>
+    <string name="drive_hide_technical_details">प्राविधिक विवरण लुकाउनुहोस्</string>
+    <string name="drive_privacy_policy_button">गोपनीयता नीति र डाटा सुरक्षा</string>
+    <string name="drive_privacy_policy_desc">तपाईंको इन्क्रिप्टेड ब्याकअप मात्र तपाईंको व्यक्तिगत Google Drive AppData फोल्डरमा भण्डारण हुन्छ। विकासकर्तालाई कुनै पनि डाटा पठाइँदैन।</string>
+    <string name="drive_delete_backups_button">मेरा Drive ब्याकअपहरू मेटाउनुहोस्</string>
+    <string name="drive_delete_backups_dialog_title">सबै Google Drive ब्याकअपहरू मेटाउने?</string>
+    <string name="drive_delete_backups_dialog_msg">यसले तपाईंको व्यक्तिगत Google Drive AppData फोल्डरबाट सबै इन्क्रिप्टेड खाता ब्याकअप फाइलहरू स्थायी रूपमा हटाउनेछ। यो कार्य उल्टाउन सकिँदैन।</string>
+    <string name="drive_delete_backups_confirm">स्थायी रूपमा मेटाउनुहोस्</string>
 </resources>
 
 

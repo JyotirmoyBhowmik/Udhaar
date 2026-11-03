@@ -1,6 +1,9 @@
 package com.jyotirmoyb.udhaar.ui.components
 import com.jyotirmoyb.udhaar.R
+import com.jyotirmoyb.udhaar.BuildConfig
 
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 
 import android.content.ClipData
@@ -1568,6 +1571,7 @@ fun ProfileSettingsModal(
     driveOperationError: String? = null,
     hasPendingDriveResolution: Boolean = false,
     driveConnectionTestReport: com.jyotirmoyb.udhaar.backup.DriveConnectionTestReport? = null,
+    appSigningInfo: com.jyotirmoyb.udhaar.util.AppSigningInfo? = null,
     onSignInWithGoogleForDrive: () -> Unit = {},
     onReconnectGoogleDrive: () -> Unit = onSignInWithGoogleForDrive,
     onRunDriveConnectionTest: () -> Unit = {},
@@ -1576,6 +1580,7 @@ fun ProfileSettingsModal(
     onBackupNowToDrive: (passphrase: String, savePassphraseForAuto: Boolean) -> Unit = { _, _ -> },
     onRestoreDriveBackup: (com.jyotirmoyb.udhaar.backup.DriveRemoteBackup, passphrase: String) -> Unit = { _, _ -> },
     onDeleteDriveBackup: (com.jyotirmoyb.udhaar.backup.DriveRemoteBackup) -> Unit = {},
+    onDeleteAllDriveBackups: () -> Unit = {},
     onUpdateAutoBackupSettings: (com.jyotirmoyb.udhaar.data.AutoBackupFrequency, Boolean, String?) -> Unit = { _, _, _ -> },
     onRefreshDriveBackups: () -> Unit = {},
     onClearDriveOperationError: () -> Unit = {},
@@ -1595,6 +1600,8 @@ fun ProfileSettingsModal(
     }
 
     val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    val uriHandler = LocalUriHandler.current
     var payeeName by rememberSaveable(currentSettings.payeeName) { mutableStateOf(currentSettings.payeeName) }
     var upiId by rememberSaveable(currentSettings.upiId) { mutableStateOf(currentSettings.upiId) }
     var phoneNumber by rememberSaveable(currentSettings.phoneNumber) { mutableStateOf(currentSettings.phoneNumber) }
@@ -1642,6 +1649,8 @@ fun ProfileSettingsModal(
     var selectedRestoreBackup by remember { mutableStateOf<com.jyotirmoyb.udhaar.backup.DriveRemoteBackup?>(null) }
     var restorePassphrase by rememberSaveable { mutableStateOf("") }
     var restorePassphraseVisible by rememberSaveable { mutableStateOf(false) }
+    var showDeleteAllBackupsDialog by rememberSaveable { mutableStateOf(false) }
+    var showTechnicalDetails by rememberSaveable { mutableStateOf(false) }
 
     val validateAndSave: (Boolean) -> Unit = { closeAfterSave ->
         val trimmedPin = securityPin.trim()
@@ -2868,6 +2877,93 @@ fun ProfileSettingsModal(
                             }
                         }
 
+                        // App Signing Credentials (Package name, SHA-1, SHA-256 with Copy buttons)
+                        val appPkg = appSigningInfo?.packageName ?: BuildConfig.APPLICATION_ID
+                        val sha1Val = appSigningInfo?.sha1Fingerprint ?: ""
+                        val sha256Val = appSigningInfo?.sha256Fingerprint ?: ""
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
+                                .padding(12.dp)
+                                .testTag("app_signing_credentials_card"),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Fingerprint,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = stringResource(R.string.drive_signing_credentials_title),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Text(
+                                text = stringResource(R.string.drive_signing_credentials_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            SigningCredentialRow(
+                                label = stringResource(R.string.drive_package_name_label),
+                                value = appPkg,
+                                testTag = "package_name_row",
+                                copyTag = "copy_package_name_button",
+                                onCopy = {
+                                    clipboardManager.setText(AnnotatedString(appPkg))
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.drive_copied_toast_fmt, context.getString(R.string.drive_package_name_label)),
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            )
+
+                            if (sha1Val.isNotBlank()) {
+                                SigningCredentialRow(
+                                    label = stringResource(R.string.drive_sha1_label),
+                                    value = sha1Val,
+                                    testTag = "sha1_credential_row",
+                                    copyTag = "copy_sha1_button",
+                                    onCopy = {
+                                        clipboardManager.setText(AnnotatedString(sha1Val))
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(R.string.drive_copied_toast_fmt, "SHA-1"),
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                )
+                            }
+
+                            if (sha256Val.isNotBlank()) {
+                                SigningCredentialRow(
+                                    label = stringResource(R.string.drive_sha256_label),
+                                    value = sha256Val,
+                                    testTag = "sha256_credential_row",
+                                    copyTag = "copy_sha256_button",
+                                    onCopy = {
+                                        clipboardManager.setText(AnnotatedString(sha256Val))
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(R.string.drive_copied_toast_fmt, "SHA-256"),
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                )
+                            }
+                        }
+
                         // "Run connection test" Button & Diagnostic Result Card
                         OutlinedButton(
                             onClick = onRunDriveConnectionTest,
@@ -2928,18 +3024,68 @@ fun ProfileSettingsModal(
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
-                                if (driveConnectionTestReport.errorCode.isNotBlank()) {
+
+                                val plainFix = driveConnectionTestReport.plainLanguageFix
+                                if (!plainFix.isNullOrBlank()) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.surface,
+                                        border = BorderStroke(1.dp, testBorderColor.copy(alpha = 0.5f)),
+                                        modifier = Modifier.fillMaxWidth().testTag("drive_plain_fix_box")
+                                    ) {
+                                        Text(
+                                            text = plainFix,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.padding(10.dp)
+                                        )
+                                    }
+                                } else {
                                     Text(
-                                        text = stringResource(R.string.drive_connection_test_code_fmt, driveConnectionTestReport.errorCode),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        text = driveConnectionTestReport.errorMessage,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
-                                Text(
-                                    text = driveConnectionTestReport.errorMessage,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
+
+                                val techDetails = driveConnectionTestReport.technicalDetails
+                                    ?: listOfNotNull(
+                                        driveConnectionTestReport.errorCode.takeIf { it.isNotBlank() }?.let { "Code: $it" },
+                                        driveConnectionTestReport.errorMessage.takeIf { it.isNotBlank() }
+                                    ).joinToString("\n")
+
+                                if (techDetails.isNotBlank()) {
+                                    TextButton(
+                                        onClick = { showTechnicalDetails = !showTechnicalDetails },
+                                        modifier = Modifier.testTag("toggle_technical_details_button")
+                                    ) {
+                                        Text(
+                                            text = if (showTechnicalDetails) {
+                                                stringResource(R.string.drive_hide_technical_details)
+                                            } else {
+                                                stringResource(R.string.drive_show_technical_details)
+                                            },
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                    if (showTechnicalDetails) {
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                            modifier = Modifier.fillMaxWidth().testTag("drive_technical_details_panel")
+                                        ) {
+                                            Text(
+                                                text = techDetails,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(8.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
                                 OutlinedButton(
                                     onClick = onClearDriveConnectionTestReport,
                                     modifier = Modifier
@@ -2974,6 +3120,76 @@ fun ProfileSettingsModal(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+
+                        // Privacy Policy & Data Safety link
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surface,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.drive_privacy_policy_button),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = stringResource(R.string.drive_privacy_policy_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                OutlinedButton(
+                                    onClick = {
+                                        uriHandler.openUri("https://udhaar.jyotirmoyb.com/privacy.html")
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(40.dp)
+                                        .testTag("drive_privacy_policy_button"),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.drive_privacy_policy_button),
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
+                            }
+                        }
+
+                        // "Delete my Drive backups" button
+                        if (currentSettings.driveAccountEmail.isNotBlank() || driveRemoteBackups.isNotEmpty()) {
+                            OutlinedButton(
+                                onClick = { showDeleteAllBackupsDialog = true },
+                                enabled = !isDriveOperationInProgress,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(42.dp)
+                                    .testTag("drive_delete_all_backups_button"),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                            ) {
+                                Icon(
+                                    Icons.Default.DeleteOutline,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = stringResource(R.string.drive_delete_backups_button),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
                         }
 
                         if (currentSettings.driveAccountEmail.isNotBlank()) {
@@ -3877,6 +4093,96 @@ fun ProfileSettingsModal(
                 }
             }
         )
+    }
+
+    if (showDeleteAllBackupsDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteAllBackupsDialog = false },
+            title = {
+                Text(
+                    text = stringResource(R.string.drive_delete_backups_dialog_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(R.string.drive_delete_backups_dialog_msg),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteAllBackupsDialog = false
+                        onDeleteAllDriveBackups()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    ),
+                    modifier = Modifier.testTag("confirm_delete_all_drive_backups_button")
+                ) {
+                    Text(stringResource(R.string.drive_delete_backups_confirm))
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showDeleteAllBackupsDialog = false },
+                    modifier = Modifier.testTag("cancel_delete_all_drive_backups_button")
+                ) {
+                    Text(stringResource(R.string.ui_str_cancel_1507c4))
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun SigningCredentialRow(
+    label: String,
+    value: String,
+    testTag: String,
+    copyTag: String,
+    onCopy: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(testTag),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(
+                onClick = onCopy,
+                modifier = Modifier
+                    .size(36.dp)
+                    .testTag(copyTag)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = stringResource(R.string.drive_copy_button_content_desc, label),
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
     }
 }
 

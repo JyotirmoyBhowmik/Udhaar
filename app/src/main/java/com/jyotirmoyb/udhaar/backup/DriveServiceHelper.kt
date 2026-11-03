@@ -62,7 +62,8 @@ sealed class DriveTokenOutcome {
         val errorType: DriveErrorType,
         val errorCode: String,
         val message: String,
-        val cause: Throwable? = null
+        val cause: Throwable? = null,
+        val statusCode: Int? = null
     ) : DriveTokenOutcome()
 }
 
@@ -136,7 +137,8 @@ class GmsDriveTokenProvider(
                     errorType = mappedType,
                     errorCode = "GMS_$code ($statusName)",
                     message = "Google Authorization failed [code $code - $statusName]: ${apiEx.statusMessage ?: apiEx.localizedMessage ?: "Unknown error"}",
-                    cause = apiEx
+                    cause = apiEx,
+                    statusCode = code
                 )
             } catch (ioEx: IOException) {
                 SafeLogger.w("GmsDriveTokenProvider", "Drive authorize network failure", ioEx)
@@ -187,6 +189,8 @@ data class DriveConnectionTestReport(
     val failedStep: String? = null,
     val errorCode: String = "",
     val errorMessage: String = "",
+    val plainLanguageFix: String = "",
+    val technicalDetails: String = "",
     val connectedEmail: String? = null,
     val visibleBackupCount: Int = 0,
     val needsReconnect: Boolean = false,
@@ -199,10 +203,12 @@ open class DriveServiceHelper(
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
         .build(),
-    private val tokenProvider: DriveTokenProvider? = null
+    private val tokenProvider: DriveTokenProvider? = null,
+    private val context: Context? = null
 ) {
     constructor(context: Context) : this(
-        tokenProvider = GmsDriveTokenProvider(context.applicationContext)
+        tokenProvider = GmsDriveTokenProvider(context.applicationContext),
+        context = context.applicationContext
     )
 
     companion object {
@@ -522,6 +528,31 @@ open class DriveServiceHelper(
     }
 
     /**
+     * Deletes all backup files found in the user's Google Drive `appDataFolder`.
+     * Returns the count of successfully deleted backup files.
+     */
+    open suspend fun deleteAllBackups(): DriveResult<Int> =
+        executeWithFreshToken { freshToken ->
+            deleteAllBackupsWithToken(freshToken)
+        }
+
+    protected open suspend fun deleteAllBackupsWithToken(accessToken: String): DriveResult<Int> {
+        val listRes = listBackupsWithToken(accessToken)
+        if (listRes is DriveResult.Error) {
+            return listRes
+        }
+        val files = (listRes as DriveResult.Success).data
+        var deletedCount = 0
+        for (file in files) {
+            val del = deleteBackupWithToken(accessToken, file.fileId)
+            if (del is DriveResult.Success) {
+                deletedCount++
+            }
+        }
+        return DriveResult.Success(deletedCount)
+    }
+
+    /**
      * Resolves the signed-in Google account email properly via Drive `about` endpoint,
      * `AuthorizationResult`, or Firebase Auth.
      */
@@ -565,6 +596,7 @@ open class DriveServiceHelper(
      * 3. Reports exactly which step failed with the real error code and message.
      */
     open suspend fun runConnectionTest(): DriveConnectionTestReport {
+        val appPkg = context?.packageName ?: "com.jyotirmoyb.udhaar"
         val provider = tokenProvider
             ?: return DriveConnectionTestReport(
                 passed = false,
@@ -572,29 +604,48 @@ open class DriveServiceHelper(
                 apiStepPassed = false,
                 failedStep = "Step 1: Google Drive Authorization",
                 errorCode = "NO_TOKEN_PROVIDER",
-                errorMessage = "Drive token provider is not initialized."
+                errorMessage = "Drive token provider is not initialized.",
+                plainLanguageFix = "Google Play Services Authorization Client is not available on this device.",
+                technicalDetails = "DriveTokenProvider instance is null."
             )
 
         return when (val authOutcome = provider.getFreshAccessToken(forceRefreshAfter401 = null)) {
-            is DriveTokenOutcome.NeedsResolution -> DriveConnectionTestReport(
-                passed = false,
-                authStepPassed = false,
-                apiStepPassed = false,
-                failedStep = "Step 1: Google Drive Authorization (authorize)",
-                errorCode = "RESOLUTION_REQUIRED",
-                errorMessage = "Google Drive permission requires interactive approval. Tap 'Reconnect' to grant access.",
-                needsReconnect = true,
-                resolutionPendingIntent = authOutcome.pendingIntent
-            )
-            is DriveTokenOutcome.Failed -> DriveConnectionTestReport(
-                passed = false,
-                authStepPassed = false,
-                apiStepPassed = false,
-                failedStep = "Step 1: Google Drive Authorization (authorize)",
-                errorCode = authOutcome.errorCode,
-                errorMessage = authOutcome.message,
-                needsReconnect = authOutcome.errorType == DriveErrorType.EXPIRED_SIGN_IN
-            )
+            is DriveTokenOutcome.NeedsResolution -> {
+                val diagnosis = DriveConnectionErrorMapper.diagnose(
+                    rawMessage = authOutcome.message,
+                    packageName = appPkg
+                )
+                DriveConnectionTestReport(
+                    passed = false,
+                    authStepPassed = false,
+                    apiStepPassed = false,
+                    failedStep = "Step 1: Google Drive Authorization (authorize)",
+                    errorCode = "RESOLUTION_REQUIRED",
+                    errorMessage = authOutcome.message,
+                    plainLanguageFix = diagnosis.plainFix,
+                    technicalDetails = diagnosis.technicalDetails.ifBlank { "Google Drive permission requires interactive approval via StartIntentSenderForResult." },
+                    needsReconnect = true,
+                    resolutionPendingIntent = authOutcome.pendingIntent
+                )
+            }
+            is DriveTokenOutcome.Failed -> {
+                val diagnosis = DriveConnectionErrorMapper.diagnose(
+                    statusCode = authOutcome.statusCode,
+                    rawMessage = authOutcome.message,
+                    packageName = appPkg
+                )
+                DriveConnectionTestReport(
+                    passed = false,
+                    authStepPassed = false,
+                    apiStepPassed = false,
+                    failedStep = "Step 1: Google Drive Authorization (authorize)",
+                    errorCode = authOutcome.errorCode,
+                    errorMessage = authOutcome.message,
+                    plainLanguageFix = diagnosis.plainFix,
+                    technicalDetails = diagnosis.technicalDetails.ifBlank { authOutcome.message },
+                    needsReconnect = authOutcome.errorType == DriveErrorType.EXPIRED_SIGN_IN
+                )
+            }
             is DriveTokenOutcome.TokenReady -> {
                 var tokenToUse = authOutcome.accessToken
                 var listResult = listBackupsWithToken(tokenToUse)
@@ -604,6 +655,11 @@ open class DriveServiceHelper(
                         tokenToUse = refreshed.accessToken
                         listResult = listBackupsWithToken(tokenToUse)
                     } else if (refreshed is DriveTokenOutcome.NeedsResolution) {
+                        val diag = DriveConnectionErrorMapper.diagnose(
+                            httpCode = 401,
+                            rawMessage = refreshed.message,
+                            packageName = appPkg
+                        )
                         return DriveConnectionTestReport(
                             passed = false,
                             authStepPassed = false,
@@ -611,6 +667,8 @@ open class DriveServiceHelper(
                             failedStep = "Step 1: Token Refresh After HTTP 401",
                             errorCode = "HTTP_401_RESOLUTION_REQUIRED",
                             errorMessage = refreshed.message,
+                            plainLanguageFix = diag.plainFix,
+                            technicalDetails = diag.technicalDetails,
                             needsReconnect = true,
                             resolutionPendingIntent = refreshed.pendingIntent
                         )
@@ -629,6 +687,8 @@ open class DriveServiceHelper(
                             failedStep = null,
                             errorCode = "HTTP 200 OK",
                             errorMessage = "Step 1 (Authorization) & Step 2 (Drive appDataFolder API) succeeded. ${listResult.data.size} backup file(s) found.",
+                            plainLanguageFix = "Connection test passed! Your Google Drive AppData folder is connected and ready for encrypted backups.",
+                            technicalDetails = "Step 1: Authorization passed with scope https://www.googleapis.com/auth/drive.appdata\nStep 2: Google Drive API call (files.list appDataFolder) returned HTTP 200 OK (${listResult.data.size} backup files).",
                             connectedEmail = resolvedEmail,
                             visibleBackupCount = listResult.data.size,
                             needsReconnect = false
@@ -647,6 +707,12 @@ open class DriveServiceHelper(
                                 append(" (").append(listResult.apiReason).append(")")
                             }
                         }
+                        val diag = DriveConnectionErrorMapper.diagnose(
+                            rawMessage = listResult.message,
+                            httpCode = listResult.httpCode,
+                            apiReason = listResult.apiReason,
+                            packageName = appPkg
+                        )
                         DriveConnectionTestReport(
                             passed = false,
                             authStepPassed = true,
@@ -654,6 +720,8 @@ open class DriveServiceHelper(
                             failedStep = "Step 2: Google Drive API Call (files.list appDataFolder)",
                             errorCode = codeStr,
                             errorMessage = listResult.message,
+                            plainLanguageFix = diag.plainFix,
+                            technicalDetails = diag.technicalDetails.ifBlank { listResult.message },
                             connectedEmail = authOutcome.accountEmail,
                             needsReconnect = listResult.needsReconnect || listResult.httpCode == 401,
                             resolutionPendingIntent = listResult.resolutionPendingIntent

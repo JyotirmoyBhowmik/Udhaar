@@ -641,8 +641,24 @@
     <string name="drive_connection_test_step_fmt">বিফল স্তৰ: %1$s</string>
     <string name="drive_connection_test_code_fmt">ত্ৰুটি ক’ড: %1$s</string>
     <string name="drive_common_causes_title">সাধাৰণ Google Drive ছেটআপ কাৰণসমূহ</string>
-    <string name="drive_common_causes_body">• Drive API সক্ৰিয় নহয়: Google Cloud Console-ত Google Drive API সক্ৰিয় কৰক।\n• SHA-1 পঞ্জীয়ন কৰা হোৱা নাই: Android OAuth 2.0 ক্লায়েন্ট ID-ত debug, upload আৰু Play App Signing SHA-1 যোগ কৰক।\n• টেষ্ট ইউজাৰ নহয়: Testing মোডত OAuth Consent Screen &gt; Test Users-ত আপোনাৰ ইমেইল যোগ কৰক।</string>
+    <string name="drive_common_causes_body">১. Google Cloud Console-ত Google Drive API সক্ষম কৰা নাই।\n২. Android OAuth Client ID-ত SHA-1 প্ৰমাণপত্ৰ আঙুলিৰ ছাপ পঞ্জীয়ন কৰা নাই।\n৩. ছাইন-ইন কৰা একাউণ্টটো OAuth সন্মতি স্ক্ৰিন পৰীক্ষা ব্যৱহাৰকাৰীৰ তালিকাত নাই।</string>
     <string name="drive_backing_up_progress">বেকআপ হৈ আছে…</string>
+    <string name="drive_signing_credentials_title">এপ্লিকেশ্বন চাইনিং প্ৰমাণপত্ৰ</string>
+    <string name="drive_signing_credentials_desc">এই তথ্যসমূহ Google Cloud Console (APIs &amp; Services &gt; Credentials &gt; OAuth client ID &gt; Android) আৰু Firebase প্ৰকল্প ছেটিংছত সংলগ্ন কৰক।</string>
+    <string name="drive_package_name_label">পেকেজৰ নাম</string>
+    <string name="drive_sha1_label">SHA-1 প্ৰমাণপত্ৰ ফিংগাৰপ্ৰিণ্ট</string>
+    <string name="drive_sha256_label">SHA-256 প্ৰমাণপত্ৰ ফিংগাৰপ্ৰিণ্ট</string>
+    <string name="drive_copied_toast_fmt">%1$s ক্লিপবৰ্ডত প্ৰতিলিপি কৰা হ\'ল</string>
+    <string name="drive_copy_button_content_desc">%1$s প্ৰতিলিপি কৰক</string>
+    <string name="drive_technical_details_title">প্ৰযুক্তিগত বিৱৰণ</string>
+    <string name="drive_show_technical_details">প্ৰযুক্তিগত বিৱৰণ চাওক</string>
+    <string name="drive_hide_technical_details">প্ৰযুক্তিগত বিৱৰণ লুকুৱাওক</string>
+    <string name="drive_privacy_policy_button">গোপনীয়তা নীতি আৰু তথ্য সুৰক্ষা</string>
+    <string name="drive_privacy_policy_desc">কেৱল আপোনাৰ এনক্ৰিপ্ট কৰা বেকআপহে ব্যক্তিগত Google Drive AppData ফোল্ডাৰত জমা থাকে। ডেভেলপাৰলৈ কোনো তথ্য প্ৰেৰণ কৰা নহয়।</string>
+    <string name="drive_delete_backups_button">মোৰ Drive বেকআপসমূহ মচি পেলাওক</string>
+    <string name="drive_delete_backups_dialog_title">সকলো Google Drive বেকআপ মচি পেলাব বিচাৰে নেকি?</string>
+    <string name="drive_delete_backups_dialog_msg">ই আপোনাৰ ব্যক্তিগত Google Drive AppData ফোল্ডাৰৰ পৰা সকলো এনক্ৰিপ্ট কৰা বেকআপ ফাইল স্থায়ীভাৱে মচি পেলাব। এই কাৰ্য্য পুনৰুদ্ধাৰ কৰিব নোৱাৰি।</string>
+    <string name="drive_delete_backups_confirm">স্থায়ীভাৱে মচি পেলাওক</string>
 </resources>
 
 

@@ -2318,6 +2318,23 @@ open class UdhaarRepository(
         recordDriveBackupSuccess(timeMillis, sizeBytes)
     }
 
+    open suspend fun clearDriveBackupMetadata() {
+        inMemorySettingsFallback.value = inMemorySettingsFallback.value.copy(
+            driveLastBackupTimeMillis = 0L,
+            driveLastBackupSizeBytes = 0L,
+            driveLastErrorCode = DriveBackupErrorCode.NONE,
+            driveLastErrorMessage = "",
+            driveConsecutiveFailures = 0
+        )
+        context?.dataStore?.edit { prefs ->
+            prefs.remove(PrefKeys.DRIVE_LAST_BACKUP_TIME)
+            prefs.remove(PrefKeys.DRIVE_LAST_BACKUP_SIZE)
+            prefs.remove(PrefKeys.DRIVE_LAST_ERROR_CODE)
+            prefs.remove(PrefKeys.DRIVE_LAST_ERROR_MESSAGE)
+            prefs.remove(PrefKeys.DRIVE_CONSECUTIVE_FAILURES)
+        }
+    }
+
     open suspend fun recordDriveBackupSuccess(timeMillis: Long, sizeBytes: Long) {
         inMemorySettingsFallback.value = inMemorySettingsFallback.value.copy(
             driveLastBackupTimeMillis = timeMillis,

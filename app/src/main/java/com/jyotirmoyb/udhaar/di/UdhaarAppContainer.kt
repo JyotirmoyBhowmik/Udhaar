@@ -29,8 +29,8 @@ class UdhaarAppContainer(context: Context) {
         UdhaarDatabase.getInstance(appContext)
     }
 
-    val cloudRepository: VerificationCloudRepository by lazy {
-        VerificationCloudRepository(appContext)
+    val cloudRepository: VerificationCloudRepository? by lazy {
+        runCatching { VerificationCloudRepository(appContext) }.getOrNull()
     }
 
     val driveServiceHelper: DriveServiceHelper by lazy {

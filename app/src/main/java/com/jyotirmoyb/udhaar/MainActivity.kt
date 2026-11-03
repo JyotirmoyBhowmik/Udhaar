@@ -332,6 +332,18 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                     credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
                 ) {
                     val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                    val isFirebaseConfigured = runCatching {
+                        com.google.firebase.FirebaseApp.getApps(context).isNotEmpty()
+                    }.getOrDefault(false)
+
+                    if (!isFirebaseConfigured) {
+                        Toast.makeText(
+                            context,
+                            "Firebase not configured: verification and chat are off",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        return@launch
+                    }
                     val firebaseCred = GoogleAuthProvider.getCredential(googleIdTokenCredential.idToken, null)
                     val authResult = FirebaseAuth.getInstance().signInWithCredential(firebaseCred).await()
                     val user = authResult.user
@@ -902,6 +914,7 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                                     driveOperationError = uiState.driveOperationError,
                                     hasPendingDriveResolution = uiState.driveResolutionPendingIntent != null,
                                     driveConnectionTestReport = uiState.driveConnectionTestReport,
+                                    appSigningInfo = viewModel.getAppSigningInfo(),
                                     onSignInWithGoogleForDrive = signInOrReconnectGoogleDrive,
                                     onReconnectGoogleDrive = signInOrReconnectGoogleDrive,
                                     onRunDriveConnectionTest = viewModel::runDriveConnectionTest,
@@ -915,6 +928,9 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                                     },
                                     onDeleteDriveBackup = { backup ->
                                         viewModel.deleteDriveBackup(backup)
+                                    },
+                                    onDeleteAllDriveBackups = {
+                                        viewModel.deleteAllDriveBackups()
                                     },
                                     onUpdateAutoBackupSettings = { freq, wifiOnly, pass ->
                                         viewModel.updateDriveAutoBackupSettings(freq, wifiOnly, pass)

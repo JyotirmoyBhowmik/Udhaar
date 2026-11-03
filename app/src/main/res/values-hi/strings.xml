@@ -641,8 +641,24 @@
     <string name="drive_connection_test_step_fmt">विफल चरण: %1$s</string>
     <string name="drive_connection_test_code_fmt">त्रुटि कोड: %1$s</string>
     <string name="drive_common_causes_title">सामान्य Google Drive सेटअप कारण</string>
-    <string name="drive_common_causes_body">• Drive API सक्षम नहीं: Google Cloud Console में Google Drive API सक्षम करें।\n• SHA-1 पंजीकृत नहीं: Android OAuth 2.0 क्लाइंट ID में debug, upload और Play App Signing SHA-1 जोड़ें।\n• टेस्ट यूज़र नहीं: Testing मोड में OAuth Consent Screen &gt; Test Users में अपना ईमेल जोड़ें।</string>
+    <string name="drive_common_causes_body">1. Google Cloud Console में Google Drive API सक्षम नहीं है।\n2. Android OAuth Client ID में SHA-1 प्रमाणपत्र फ़िंगरप्रिंट पंजीकृत नहीं है।\n3. साइन-इन किया गया खाता OAuth सहमति स्क्रीन परीक्षण उपयोगकर्ताओं में शामिल नहीं है।</string>
     <string name="drive_backing_up_progress">बैकअप हो रहा है…</string>
+    <string name="drive_signing_credentials_title">ऐप साइनिंग क्रेडेंशियल्स</string>
+    <string name="drive_signing_credentials_desc">इन मानों को Google Cloud Console (APIs &amp; Services &gt; Credentials &gt; OAuth client ID &gt; Android) और Firebase प्रोजेक्ट सेटिंग्स में कॉपी करें।</string>
+    <string name="drive_package_name_label">पैकेज नाम</string>
+    <string name="drive_sha1_label">SHA-1 प्रमाणपत्र फिंगरप्रिंट</string>
+    <string name="drive_sha256_label">SHA-256 प्रमाणपत्र फिंगरप्रिंट</string>
+    <string name="drive_copied_toast_fmt">%1$s क्लिपबोर्ड पर कॉपी किया गया</string>
+    <string name="drive_copy_button_content_desc">%1$s कॉपी करें</string>
+    <string name="drive_technical_details_title">तकनीकी विवरण</string>
+    <string name="drive_show_technical_details">तकनीकी विवरण दिखाएं</string>
+    <string name="drive_hide_technical_details">तकनीकी विवरण छुपाएं</string>
+    <string name="drive_privacy_policy_button">गोपनीयता नीति और डेटा सुरक्षा</string>
+    <string name="drive_privacy_policy_desc">केवल आपका एन्क्रिप्टेड बैकअप आपके निजी Google Drive AppData फ़ोल्डर में सहेजा जाता है। डेवलपर को कोई डेटा नहीं भेजा जाता है।</string>
+    <string name="drive_delete_backups_button">मेरे Drive बैकअप हटाएं</string>
+    <string name="drive_delete_backups_dialog_title">सभी Google Drive बैकअप हटाएं?</string>
+    <string name="drive_delete_backups_dialog_msg">यह आपके निजी Google Drive AppData फ़ोल्डर से सभी एन्क्रिप्टेड लेजर बैकअप फाइलों को स्थायी रूप से हटा देगा। यह क्रिया पूर्ववत नहीं की जा सकती।</string>
+    <string name="drive_delete_backups_confirm">स्थायी रूप से हटाएं</string>
 </resources>
 
 

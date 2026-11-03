@@ -138,7 +138,13 @@
 
     <h2>3. Optional Cloud Features (Google Drive Backup &amp; Mutual Verification)</h2>
     <ul>
-      <li><strong>Encrypted Google Drive Backup (<code>drive.appdata</code>):</strong> When enabled, your ledger backup is encrypted on your device using <code>AES-256-GCM</code> (derived from your passphrase via <code>PBKDF2WithHmacSHA256</code> with 120,000 iterations) before being uploaded to your private Google Drive <code>appDataFolder</code>. Neither the developer nor third parties can access or decrypt your Google Drive backups.</li>
+      <li><strong>Encrypted Google Drive Backup (<code>drive.appdata</code>):</strong> When you enable Google Drive backup, Udhaar stores only your client-side encrypted backup file inside your private Google Drive Application Data folder (<code>appDataFolder</code>).
+        <ul style="margin-top:6px; margin-bottom:6px;">
+          <li><strong>Client-Side AES-256-GCM Encryption:</strong> Your backup is encrypted on your local Android device before upload using <code>AES-256-GCM</code> with a key derived from your secret passphrase via <code>PBKDF2WithHmacSHA256</code> (120,000 iterations and random 128-bit salt).</li>
+          <li><strong>Zero Data Sent to Developer:</strong> Backups are transferred directly between your Android device and Google's Drive servers. Absolutely zero backup data, metadata, or passphrases are ever sent to, accessed by, or stored by the app developer or any intermediary server.</li>
+          <li><strong>Hidden App Data Isolation:</strong> Files in <code>appDataFolder</code> are strictly isolated to the Udhaar application and cannot be accessed by other Google Drive apps.</li>
+        </ul>
+      </li>
       <li><strong>Mutual Record Verification &amp; Party Chat (Firebase Firestore &amp; FCM):</strong> When you sign in with Google and explicitly share a verification link (<code>https://udhaar.jyotirmoyb.com/u/...</code>) or message a counterparty, the shared transaction snapshot, verification status, chat messages, and Firebase Cloud Messaging (FCM) registration token are stored in Google Cloud Firestore with TLS encryption in transit and strict participant-only security rules.</li>
     </ul>
 
@@ -147,19 +153,29 @@
       Udhaar contains <strong>no advertising SDKs</strong> and never sells or shares your personal or financial data with marketers. Internal error handling redacts phone numbers, UPI IDs, names, currency amounts, tokens, and PINs.
     </p>
 
-    <h2 id="delete-data">5. How to Delete Your Cloud Data &amp; Account Records</h2>
+    <h2 id="delete-data">5. How to Delete Your Cloud Data &amp; Google Drive Backups</h2>
     <div class="callout">
-      <div class="callout-title">Instant In-App Deletion (Recommended)</div>
+      <div class="callout-title">1. Delete Google Drive Backups</div>
       <p style="margin-bottom:6px;">
-        You can permanently delete all of your cloud-synced data directly inside the Udhaar Android app at any time:
+        You can permanently delete all encrypted ledger backups stored in your Google Drive at any time through either of the following methods:
+      </p>
+      <ul style="padding-left:20px; font-size:14px; margin-bottom:8px;">
+        <li><strong>In-App Deletion (Instant):</strong> Open Udhaar &rarr; Tap <strong>Settings (Gear)</strong> &rarr; Scroll to <strong>Backup &amp; Sync</strong> &rarr; Tap <strong>Delete my Drive backups</strong> &rarr; Confirm <strong>Delete Permanently</strong>. This connects to Google Drive and permanently deletes every file inside the Udhaar <code>appDataFolder</code>.</li>
+        <li><strong>Via Google Drive Web Interface:</strong> Visit <a href="https://drive.google.com" target="_blank" rel="noopener">drive.google.com</a> &rarr; Click <strong>Settings (Gear icon)</strong> &rarr; Select <strong>Manage Apps</strong> &rarr; Find <strong>Udhaar</strong> &rarr; Click <strong>Options</strong> &rarr; Select <strong>Delete hidden app data</strong>.</li>
+        <li><strong>Revoke App Access:</strong> You can completely revoke Udhaar’s authorization at any time by visiting <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account Permissions</a> and removing Udhaar.</li>
+      </ul>
+
+      <div class="callout-title" style="margin-top:14px;">2. Delete Counterparty Cloud Verification Records</div>
+      <p style="margin-bottom:6px;">
+        To delete your cloud verification profile, shared link records, and mutual chat messages:
       </p>
       <ol style="padding-left:20px; font-size:14px;">
-        <li>Open <strong>Udhaar</strong> and tap the <strong>Settings (Gear)</strong> icon in the top bar.</li>
+        <li>Open <strong>Udhaar</strong> &rarr; Tap <strong>Settings (Gear)</strong>.</li>
         <li>Scroll to <strong>Cloud Verification &amp; Account</strong>.</li>
         <li>Tap <strong>Delete My Cloud Data</strong> and confirm.</li>
       </ol>
       <p style="margin-top:8px; margin-bottom:0;">
-        This immediately deletes your <code>/user_profiles/{uid}</code> profile, your authored <code>/shared_records</code>, your <code>/chat_threads</code> and messages in Cloud Firestore, revokes your device’s FCM push token, and signs you out—while keeping your local on-device ledger intact (which you can also clear at any time via Android System Settings &rarr; Apps &rarr; Udhaar &rarr; Clear Storage).
+        This immediately purges your <code>/user_profiles/{uid}</code> profile, your authored <code>/shared_records</code>, your <code>/chat_threads</code> and messages in Cloud Firestore, revokes your device’s FCM push token, and signs you out.
       </p>
     </div>
     <p>

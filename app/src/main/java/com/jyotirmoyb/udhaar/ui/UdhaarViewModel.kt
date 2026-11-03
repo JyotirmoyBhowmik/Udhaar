@@ -2324,6 +2324,51 @@ class UdhaarViewModel(
         localState.update { it.copy(driveConnectionTestReport = null) }
     }
 
+    fun getAppSigningInfo(): com.jyotirmoyb.udhaar.util.AppSigningInfo =
+        appContext?.let { com.jyotirmoyb.udhaar.util.AppSigningCertificateHelper.getSigningInfo(it) }
+            ?: com.jyotirmoyb.udhaar.util.AppSigningInfo(
+                packageName = com.jyotirmoyb.udhaar.BuildConfig.APPLICATION_ID,
+                sha1 = "Unavailable",
+                sha256 = "Unavailable"
+            )
+
+    fun deleteAllDriveBackups(onComplete: ((Result<Int>) -> Unit)? = null) {
+        viewModelScope.launch {
+            localState.update {
+                it.copy(
+                    isDriveOperationInProgress = true,
+                    driveOperationStatusMessage = "Deleting all backups from Google Drive AppData...",
+                    driveOperationError = null
+                )
+            }
+            val result = driveHelper.deleteAllBackups()
+            when (result) {
+                is DriveResult.Success -> {
+                    repository.clearDriveBackupMetadata()
+                    localState.update {
+                        it.copy(
+                            isDriveOperationInProgress = false,
+                            driveOperationStatusMessage = "Deleted ${result.data} backup file(s) from Google Drive.",
+                            driveRemoteBackups = emptyList(),
+                            driveOperationError = null
+                        )
+                    }
+                    onComplete?.invoke(Result.success(result.data))
+                }
+                is DriveResult.Error -> {
+                    localState.update {
+                        it.copy(
+                            isDriveOperationInProgress = false,
+                            driveOperationStatusMessage = null,
+                            driveOperationError = result.message
+                        )
+                    }
+                    onComplete?.invoke(Result.failure(IllegalStateException(result.message)))
+                }
+            }
+        }
+    }
+
     fun uploadDriveBackup(
         passphrase: String,
         savePassphraseForAutoBackup: Boolean = false,
