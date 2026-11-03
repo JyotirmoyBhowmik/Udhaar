@@ -14,17 +14,16 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class VerificationDomainUiState(
+    val isProcessing: Boolean = false,
     val activeShareTransactionId: Long? = null,
     val activeShareUrl: String? = null,
     val incomingPayload: VerificationCryptoHelper.SharedVerificationPayload? = null,
     val incomingProfilePayload: VerificationCryptoHelper.SharedPaymentProfilePayload? = null,
-    val isProcessing: Boolean = false,
     val lastError: UdhaarAppError? = null
 )
 
 /**
- * Domain ViewModel managing two-party verification links (`https://udhaar.jyotirmoyb.com/u/<token>`),
- * payment profile links (`https://udhaar.jyotirmoyb.com/u/p/<token>`), and mutual confirmation.
+ * Domain ViewModel for Two-Party Verification, content hash calculation, and cryptographic token verification.
  */
 class VerificationViewModel(
     private val verificationRepository: VerificationRepository
@@ -36,20 +35,19 @@ class VerificationViewModel(
     fun generateShareLink(transaction: UdhaarTransaction, onReady: (String) -> Unit = {}) {
         viewModelScope.launch {
             _state.update { it.copy(isProcessing = true, lastError = null) }
-            verificationRepository.prepareVerificationShare(transaction)
-                .onSuccess { (updatedTx, url) ->
-                    _state.update {
-                        it.copy(
-                            isProcessing = false,
-                            activeShareTransactionId = updatedTx.id,
-                            activeShareUrl = url
-                        )
-                    }
-                    onReady(url)
+            try {
+                val (updatedTx, url) = verificationRepository.prepareVerificationShare(transaction)
+                _state.update {
+                    it.copy(
+                        isProcessing = false,
+                        activeShareTransactionId = updatedTx.id,
+                        activeShareUrl = url
+                    )
                 }
-                .onFailure { err ->
-                    _state.update { it.copy(isProcessing = false, lastError = err) }
-                }
+                onReady(url)
+            } catch (t: Throwable) {
+                _state.update { it.copy(isProcessing = false, lastError = UdhaarAppError.fromThrowable(t)) }
+            }
         }
     }
 
@@ -73,14 +71,13 @@ class VerificationViewModel(
         val payload = _state.value.incomingPayload ?: return
         viewModelScope.launch {
             _state.update { it.copy(isProcessing = true, lastError = null) }
-            verificationRepository.confirmIncomingVerification(payload)
-                .onSuccess { tx ->
-                    _state.update { it.copy(isProcessing = false, incomingPayload = null) }
-                    onConfirmed(tx.id)
-                }
-                .onFailure { err ->
-                    _state.update { it.copy(isProcessing = false, lastError = err) }
-                }
+            try {
+                val tx = verificationRepository.processIncomingVerificationResponse(payload, confirm = true, disputeReason = "")
+                _state.update { it.copy(isProcessing = false, incomingPayload = null) }
+                onConfirmed(tx.id)
+            } catch (t: Throwable) {
+                _state.update { it.copy(isProcessing = false, lastError = UdhaarAppError.fromThrowable(t)) }
+            }
         }
     }
 
@@ -88,14 +85,13 @@ class VerificationViewModel(
         val payload = _state.value.incomingPayload ?: return
         viewModelScope.launch {
             _state.update { it.copy(isProcessing = true, lastError = null) }
-            verificationRepository.disputeIncomingVerification(payload, disputeReason)
-                .onSuccess { tx ->
-                    _state.update { it.copy(isProcessing = false, incomingPayload = null) }
-                    onDisputed(tx.id)
-                }
-                .onFailure { err ->
-                    _state.update { it.copy(isProcessing = false, lastError = err) }
-                }
+            try {
+                val tx = verificationRepository.processIncomingVerificationResponse(payload, confirm = false, disputeReason = disputeReason)
+                _state.update { it.copy(isProcessing = false, incomingPayload = null) }
+                onDisputed(tx.id)
+            } catch (t: Throwable) {
+                _state.update { it.copy(isProcessing = false, lastError = UdhaarAppError.fromThrowable(t)) }
+            }
         }
     }
 

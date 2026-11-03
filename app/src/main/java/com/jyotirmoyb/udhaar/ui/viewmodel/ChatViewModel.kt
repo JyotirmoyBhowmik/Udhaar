@@ -54,7 +54,11 @@ class ChatViewModel(
     fun openThread(threadKey: String) {
         activeThreadKeyFlow.update { threadKey }
         viewModelScope.launch {
-            chatRepository.markThreadMessagesRead(threadKey)
+            try {
+                chatRepository.markThreadRead(threadKey)
+            } catch (t: Throwable) {
+                lastErrorFlow.update { UdhaarAppError.fromThrowable(t) }
+            }
         }
     }
 
@@ -73,15 +77,17 @@ class ChatViewModel(
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
-            chatRepository.sendMessage(
-                threadKey = threadKey,
-                scope = scope,
-                transactionId = transactionId,
-                partyId = partyId,
-                partyName = partyName,
-                textContent = trimmed
-            ).onFailure { err ->
-                lastErrorFlow.update { err }
+            try {
+                chatRepository.sendChatMessage(
+                    threadKey = threadKey,
+                    scope = scope,
+                    transactionId = transactionId,
+                    partyId = partyId,
+                    partyName = partyName,
+                    textContent = trimmed
+                )
+            } catch (t: Throwable) {
+                lastErrorFlow.update { UdhaarAppError.fromThrowable(t) }
             }
         }
     }

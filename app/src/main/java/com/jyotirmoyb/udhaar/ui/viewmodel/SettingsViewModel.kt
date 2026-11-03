@@ -25,8 +25,7 @@ data class SettingsDomainUiState(
 )
 
 /**
- * Domain ViewModel managing user profile, UPI VPA, theme/font scale, PIN/biometric security,
- * and cloud data deletion (`deleteMyCloudData`).
+ * Domain ViewModel managing user profile, UPI VPA, theme/font scale, PIN/biometric security.
  */
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository
@@ -70,43 +69,35 @@ class SettingsViewModel(
         onSaved: () -> Unit = {}
     ) {
         viewModelScope.launch {
-            settingsRepository.saveProfileAndSettings(
-                upiId = upiId,
-                payeeName = payeeName,
-                defaultCurrency = defaultCurrency,
-                inrEnabled = inrEnabled,
-                nprEnabled = nprEnabled,
-                themeMode = themeMode,
-                fontScale = fontScale,
-                biometricLockEnabled = biometricLockEnabled,
-                securityPin = securityPin,
-                phoneNumber = phoneNumber,
-                profilePhotoUri = profilePhotoUri,
-                cloudVerificationConsent = cloudVerificationConsent
-            ).onSuccess {
+            try {
+                settingsRepository.updateSettings(
+                    upiId = upiId,
+                    payeeName = payeeName,
+                    defaultCurrency = defaultCurrency,
+                    inrEnabled = inrEnabled,
+                    nprEnabled = nprEnabled,
+                    themeMode = themeMode,
+                    fontScale = fontScale,
+                    biometricLockEnabled = biometricLockEnabled,
+                    securityPin = securityPin,
+                    phoneNumber = phoneNumber,
+                    profilePhotoUri = profilePhotoUri,
+                    cloudVerificationConsent = cloudVerificationConsent
+                )
                 statusBannerFlow.update { "Settings saved." }
                 onSaved()
-            }.onFailure { err ->
-                lastErrorFlow.update { err }
+            } catch (t: Throwable) {
+                lastErrorFlow.update { UdhaarAppError.fromThrowable(t) }
             }
         }
     }
 
-    fun deleteMyCloudData(onComplete: () -> Unit = {}) {
-        viewModelScope.launch {
-            isDeletingFlow.update { true }
-            lastErrorFlow.update { null }
-            settingsRepository.deleteMyCloudData()
-                .onSuccess {
-                    isDeletingFlow.update { false }
-                    statusBannerFlow.update { "Cloud verification records, chat threads, and FCM token deleted." }
-                    onComplete()
-                }
-                .onFailure { err ->
-                    isDeletingFlow.update { false }
-                    lastErrorFlow.update { err }
-                }
-        }
+    fun clearBanner() {
+        statusBannerFlow.update { null }
+    }
+
+    fun clearError() {
+        lastErrorFlow.update { null }
     }
 
     class Factory(

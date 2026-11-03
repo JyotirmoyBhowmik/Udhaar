@@ -11,6 +11,7 @@ import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.PaymentMode
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
 import com.jyotirmoyb.udhaar.data.repository.LedgerRepository
+import com.jyotirmoyb.udhaar.data.repository.PaymentRepository
 import com.jyotirmoyb.udhaar.util.CalculatedUdhaarSummary
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 import com.jyotirmoyb.udhaar.util.UdhaarAppError
@@ -37,7 +38,8 @@ data class LedgerDomainUiState(
  * Domain ViewModel managing ledger records, parties, repayments, attachments, and filtering.
  */
 class LedgerViewModel(
-    private val ledgerRepository: LedgerRepository
+    private val ledgerRepository: LedgerRepository,
+    private val paymentRepository: PaymentRepository? = null
 ) : ViewModel() {
 
     private val selectedCurrencyFlow = MutableStateFlow(CurrencyType.INR)
@@ -90,25 +92,29 @@ class LedgerViewModel(
         onSuccess: (Long) -> Unit = {}
     ) {
         viewModelScope.launch {
-            ledgerRepository.recordPartialPayment(
-                transaction = transaction,
-                paymentAmount = amount,
-                paymentMode = paymentMode,
-                note = note,
-                totalAccruedAmount = totalAccruedAmount,
-                actorName = actorName
-            ).onSuccess(onSuccess).onFailure { err ->
-                lastErrorFlow.update { err }
+            try {
+                val id = paymentRepository?.recordPartialPayment(
+                    transaction = transaction,
+                    paymentAmount = amount,
+                    paymentMode = paymentMode,
+                    note = note,
+                    totalAccruedAmount = totalAccruedAmount,
+                    actorName = actorName
+                ) ?: 0L
+                onSuccess(id)
+            } catch (t: Throwable) {
+                lastErrorFlow.update { UdhaarAppError.fromThrowable(t) }
             }
         }
     }
 
     class Factory(
-        private val ledgerRepository: LedgerRepository
+        private val ledgerRepository: LedgerRepository,
+        private val paymentRepository: PaymentRepository? = null
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return LedgerViewModel(ledgerRepository) as T
+            return LedgerViewModel(ledgerRepository, paymentRepository) as T
         }
     }
 }

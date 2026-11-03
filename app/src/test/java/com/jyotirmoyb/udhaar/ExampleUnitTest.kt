@@ -578,8 +578,8 @@ class ExampleUnitTest {
         } as com.jyotirmoyb.udhaar.data.UdhaarDao
 
         val repo = object : com.jyotirmoyb.udhaar.data.UdhaarRepository(fakeDao, context = null) {
-            override suspend fun getFullLedgerBackupSnapshot(): FullLedgerSnapshot {
-                return FullLedgerSnapshot(
+            override suspend fun getFullLedgerBackupSnapshot(): com.jyotirmoyb.udhaar.data.FullLedgerSnapshot {
+                return com.jyotirmoyb.udhaar.data.FullLedgerSnapshot(
                     parties = emptyList(),
                     transactions = emptyList(),
                     partialPayments = emptyList(),

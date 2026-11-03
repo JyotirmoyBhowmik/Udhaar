@@ -61,20 +61,23 @@ class BackupViewModel(
                     lastError = null
                 )
             }
-            backupRepository.encryptAndUploadToDrive(accessToken, plainJson, passphrase, preview)
-                .onSuccess { uploaded ->
+            try {
+                val uploaded = backupRepository.encryptAndUploadToDrive(accessToken, plainJson, passphrase, preview)
+                uploaded.onSuccess { res ->
                     _state.update {
                         it.copy(
                             isBusy = false,
-                            statusMessage = "Encrypted backup uploaded (${uploaded.fileName}).",
-                            remoteBackups = listOf(uploaded) + it.remoteBackups
+                            statusMessage = "Encrypted backup uploaded (${res.fileName}).",
+                            remoteBackups = listOf(res) + it.remoteBackups
                         )
                     }
-                    onComplete(uploaded)
-                }
-                .onFailure { err ->
+                    onComplete(res)
+                }.onFailure { err ->
                     _state.update { it.copy(isBusy = false, statusMessage = null, lastError = err) }
                 }
+            } catch (t: Throwable) {
+                _state.update { it.copy(isBusy = false, statusMessage = null, lastError = UdhaarAppError.fromThrowable(t)) }
+            }
         }
     }
 
@@ -91,20 +94,19 @@ class BackupViewModel(
                     lastError = null
                 )
             }
-            backupRepository.downloadAndDecryptDriveBackup(accessToken, backup.fileId, passphrase)
-                .onSuccess { parsed ->
-                    _state.update {
-                        it.copy(
-                            isBusy = false,
-                            statusMessage = null,
-                            pendingRestoreBackup = backup,
-                            pendingRestoreParsed = parsed
-                        )
-                    }
+            try {
+                val parsed = backupRepository.downloadAndDecryptDriveBackup(accessToken, backup.fileId, passphrase)
+                _state.update {
+                    it.copy(
+                        isBusy = false,
+                        statusMessage = null,
+                        pendingRestoreBackup = backup,
+                        pendingRestoreParsed = parsed
+                    )
                 }
-                .onFailure { err ->
-                    _state.update { it.copy(isBusy = false, statusMessage = null, lastError = err) }
-                }
+            } catch (t: Throwable) {
+                _state.update { it.copy(isBusy = false, statusMessage = null, lastError = UdhaarAppError.fromThrowable(t)) }
+            }
         }
     }
 
@@ -112,21 +114,20 @@ class BackupViewModel(
         val parsed = _state.value.pendingRestoreParsed ?: return
         viewModelScope.launch {
             _state.update { it.copy(isBusy = true, lastError = null) }
-            backupRepository.restoreParsedBackup(parsed, replaceExisting)
-                .onSuccess { count ->
-                    _state.update {
-                        it.copy(
-                            isBusy = false,
-                            statusMessage = "Restored $count records.",
-                            pendingRestoreBackup = null,
-                            pendingRestoreParsed = null
-                        )
-                    }
-                    onRestored(count)
+            try {
+                val count = backupRepository.restoreFullLedgerBackup(parsed, replaceExisting)
+                _state.update {
+                    it.copy(
+                        isBusy = false,
+                        statusMessage = "Restored $count records.",
+                        pendingRestoreBackup = null,
+                        pendingRestoreParsed = null
+                    )
                 }
-                .onFailure { err ->
-                    _state.update { it.copy(isBusy = false, statusMessage = null, lastError = err) }
-                }
+                onRestored(count)
+            } catch (t: Throwable) {
+                _state.update { it.copy(isBusy = false, statusMessage = null, lastError = UdhaarAppError.fromThrowable(t)) }
+            }
         }
     }
 
