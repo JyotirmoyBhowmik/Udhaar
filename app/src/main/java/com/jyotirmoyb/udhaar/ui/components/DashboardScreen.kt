@@ -962,43 +962,18 @@ private fun TopLedgerSummaryCard(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = animatedReceivableText,
-                        style = MaterialTheme.typography.displayMedium.copy(
-                            fontFamily = IbmPlexMonoFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 22.sp
-                        ),
-                        color = ReceivableCardInk,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .weight(1f, fill = false)
-                            .testTag("summary_total_to_receive")
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .background(ReceivableBadgeBg, UdhaarShapeTokens.Corner8)
-                            .padding(horizontal = 6.dp, vertical = 3.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.ui_str_received_a7503f),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                letterSpacing = 0.3.sp
-                            ),
-                            color = ReceivableCardInk,
-                            maxLines = 1
-                        )
-                    }
-                }
+                Text(
+                    text = animatedReceivableText,
+                    style = MaterialTheme.typography.displayMedium.copy(
+                        fontFamily = IbmPlexMonoFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp
+                    ),
+                    color = ReceivableCardInk,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.testTag("summary_total_to_receive")
+                )
 
                 Spacer(modifier = Modifier.height(10.dp))
 

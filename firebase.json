@@ -1,17 +1,14 @@
 {
-  "firestore": [
-    {
-      "database": "ai-studio-android-udhaar-42622035-52d2-4bfb-8070-8962975a82cf",
-      "rules": "firestore.rules"
-    }
-  ],
+  "firestore": {
+    "rules": "firestore.rules"
+  },
   "hosting": {
     "public": "web",
     "ignore": [
       "firebase.json",
-      "**/.git/**",
-      "**/.DS_Store",
-      "**/node_modules/**"
+      "**/.*",
+      "**/node_modules/**",
+      "README.md"
     ],
     "headers": [
       {
@@ -22,60 +19,25 @@
             "value": "application/json"
           },
           {
+            "key": "Access-Control-Allow-Origin",
+            "value": "*"
+          },
+          {
             "key": "Cache-Control",
-            "value": "public, max-age=3600"
+            "value": "no-cache, no-store, must-revalidate"
           }
         ]
       }
     ],
     "rewrites": [
       {
-        "source": "/u",
-        "destination": "/u/index.html"
-      },
-      {
         "source": "/u/**",
         "destination": "/u/index.html"
       },
       {
-        "source": "/v/**",
-        "destination": "/u/index.html"
-      },
-      {
-        "source": "/verify",
-        "destination": "/u/index.html"
-      },
-      {
-        "source": "/verify/**",
-        "destination": "/u/index.html"
+        "source": "**",
+        "destination": "/index.html"
       }
     ]
-  },
-  "functions": [
-    {
-      "source": "functions",
-      "codebase": "default",
-      "runtime": "nodejs20",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "*.local"
-      ]
-    }
-  ],
-  "emulators": {
-    "firestore": {
-      "host": "127.0.0.1",
-      "port": 8085
-    },
-    "auth": {
-      "host": "127.0.0.1",
-      "port": 9099
-    },
-    "ui": {
-      "enabled": false
-    }
   }
 }

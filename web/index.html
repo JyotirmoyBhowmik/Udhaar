@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Udhaar — Encrypted Khata, UPI &amp; Two-Party Verification Ledger</title>
+  <meta name="description" content="Udhaar is a privacy-first, 256-bit SQLCipher encrypted personal &amp; business khata ledger with two-party cryptographic verification, UPI QR receipts, interest tracking, and multi-language support." />
+  <meta name="theme-color" content="#0B1220" />
+  <script>
+    // If a verification payload or profile link is passed on the root URL, forward to /u/
+    if (window.location.search || window.location.hash) {
+      window.location.replace("/u/" + window.location.search + window.location.hash);
+    }
+  </script>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --bg-elevated: #111c30;
+      --card: #162238;
+      --card-inner: #1d2d49;
+      --border: rgba(148, 163, 184, 0.16);
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --emerald: #10b981;
+      --emerald-soft: rgba(16, 185, 129, 0.14);
+      --rose: #f43f5e;
+      --rose-soft: rgba(244, 63, 94, 0.14);
+      --amber: #f59e0b;
+      --amber-soft: rgba(245, 158, 11, 0.15);
+      --indigo: #6366f1;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      background: radial-gradient(circle at 15% 0%, #13284c 0%, var(--bg) 52%);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    a { color: inherit; }
+    .container {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+    /* Navbar */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      backdrop-filter: blur(16px);
+      background: rgba(11, 18, 32, 0.82);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 68px;
+      gap: 16px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      font-weight: 800;
+      font-size: 20px;
+      letter-spacing: -0.02em;
+    }
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #042f2e;
+      font-weight: 900;
+      font-size: 20px;
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.32);
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .nav-links a {
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .btn-play-sm {
+      background: var(--emerald);
+      color: #042f2e;
+      font-weight: 700;
+      font-size: 13px;
+      padding: 9px 16px;
+      border-radius: 10px;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    /* Hero */
+    .hero {
+      padding: 56px 0 48px;
+      display: grid;
+      grid-template-columns: 1.12fr 0.88fr;
+      gap: 44px;
+      align-items: center;
+    }
+    @media (max-width: 920px) {
+      .hero { grid-template-columns: 1fr; padding: 36px 0; }
+      .nav-links { display: none; }
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--emerald-soft);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #34d399;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 6px 14px;
+      border-radius: 999px;
+      margin-bottom: 18px;
+    }
+    .hero h1 {
+      font-size: clamp(32px, 4.5vw, 50px);
+      line-height: 1.12;
+      margin: 0 0 18px;
+      letter-spacing: -0.025em;
+    }
+    .hero h1 span {
+      background: linear-gradient(90deg, #34d399, #fbbf24);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p.lead {
+      font-size: 17px;
+      color: var(--muted);
+      margin: 0 0 26px;
+      max-width: 560px;
+    }
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 26px;
+    }
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #032219;
+      font-weight: 800;
+      font-size: 15px;
+      padding: 14px 22px;
+      border-radius: 14px;
+      text-decoration: none;
+      box-shadow: 0 10px 28px rgba(16, 185, 129, 0.28);
+    }
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-weight: 700;
+      font-size: 15px;
+      padding: 14px 20px;
+      border-radius: 14px;
+      text-decoration: none;
+    }
+    /* Quick Verify Bar */
+    .verify-box {
+      background: rgba(22, 34, 56, 0.85);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      max-width: 540px;
+    }
+    .verify-box label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: #94a3b8;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+    .verify-form {
+      display: flex;
+      gap: 8px;
+    }
+    .verify-form input {
+      flex: 1;
+      background: #0b1220;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 11px 14px;
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+    }
+    .verify-form input:focus { border-color: var(--emerald); }
+    .verify-form button {
+      background: var(--emerald);
+      color: #042f2e;
+      border: none;
+      border-radius: 10px;
+      padding: 0 16px;
+      font-weight: 800;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    /* Interactive App Snapshot Phone Mockup */
+    .preview-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .screen-tabs {
+      display: flex;
+      gap: 6px;
+      background: #111c30;
+      padding: 5px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .screen-tab {
+      background: transparent;
+      color: var(--muted);
+      border: none;
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .screen-tab.active {
+      background: var(--emerald);
+      color: #042f2e;
+    }
+    .phone-frame {
+      width: 344px;
+      max-width: 100%;
+      background: #0d1526;
+      border: 6px solid #26354d;
+      border-radius: 38px;
+      padding: 14px;
+      box-shadow: 0 28px 60px rgba(0, 0, 0, 0.55);
+      position: relative;
+    }
+    .phone-statusbar {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #94a3b8;
+      padding: 2px 10px 10px;
+      font-weight: 600;
+    }
+    .app-screen { display: none; }
+    .app-screen.active { display: block; }
+    .app-topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .app-title {
+      font-weight: 800;
+      font-size: 17px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .chip-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .mini-chip {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #1a2740;
+      color: #cbd5e1;
+      border: 1px solid var(--border);
+    }
+    .mini-chip.active {
+      background: var(--emerald-soft);
+      color: #34d399;
+      border-color: rgba(16, 185, 129, 0.4);
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .sum-card {
+      border-radius: 14px;
+      padding: 11px;
+      border: 1px solid var(--border);
+    }
+    .sum-card.given {
+      background: linear-gradient(145deg, rgba(16, 185, 129, 0.16), rgba(16, 185, 129, 0.05));
+      border-color: rgba(16, 185, 129, 0.32);
+    }
+    .sum-card.taken {
+      background: linear-gradient(145deg, rgba(244, 63, 94, 0.16), rgba(244, 63, 94, 0.05));
+      border-color: rgba(244, 63, 94, 0.32);
+    }
+    .sum-label {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .sum-card.given .sum-label { color: #34d399; }
+    .sum-card.taken .sum-label { color: #fb7185; }
+    .sum-val {
+      font-size: 18px;
+      font-weight: 800;
+      margin-top: 3px;
+    }
+    .tx-card {
+      background: #152238;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 11px;
+      margin-bottom: 8px;
+    }
+    .tx-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .tx-name { font-weight: 700; font-size: 13px; }
+    .tx-amt { font-weight: 800; font-size: 14px; }
+    .tx-amt.green { color: #34d399; }
+    .tx-amt.red { color: #fb7185; }
+    .tx-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      color: var(--muted);
+    }
+    .badge-verified {
+      background: var(--emerald-soft);
+      color: #34d399;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 9px;
+    }
+    .badge-pending {
+      background: var(--amber-soft);
+      color: #fbbf24;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 9px;
+    }
+    .fab-mock {
+      margin-top: 8px;
+      background: var(--emerald);
+      color: #042f2e;
+      font-weight: 800;
+      font-size: 12px;
+      text-align: center;
+      padding: 10px;
+      border-radius: 12px;
+    }
+    .qr-mock {
+      background: #f8fafc;
+      color: #0f172a;
+      border-radius: 14px;
+      padding: 14px;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .qr-grid {
+      width: 112px;
+      height: 112px;
+      margin: 8px auto;
+      background:
+        repeating-linear-gradient(90deg, #0f172a 0 8px, transparent 8px 16px),
+        repeating-linear-gradient(0deg, #0f172a 0 8px, #e2e8f0 8px 16px);
+      border: 6px solid #0f172a;
+      border-radius: 8px;
+    }
+    /* Features Grid */
+    .section {
+      padding: 56px 0;
+      border-top: 1px solid var(--border);
+    }
+    .section-head {
+      text-align: center;
+      max-width: 640px;
+      margin: 0 auto 38px;
+    }
+    .section-head h2 {
+      font-size: 30px;
+      margin: 0 0 10px;
+    }
+    .section-head p {
+      color: var(--muted);
+      margin: 0;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 20px;
+    }
+    .feat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px;
+    }
+    .feat-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: var(--emerald-soft);
+      color: #34d399;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin-bottom: 14px;
+    }
+    .feat-card h3 {
+      margin: 0 0 8px;
+      font-size: 17px;
+    }
+    .feat-card p {
+      margin: 0;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 0;
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container nav">
+      <a href="/" class="brand">
+        <span class="brand-icon">₹</span>
+        <span>Udhaar</span>
+      </a>
+      <nav class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#security">Security</a>
+        <a href="#verify-section">Verify Record</a>
+        <a href="/.well-known/assetlinks.json">App Links JSON</a>
+      </nav>
+      <a class="btn-play-sm" href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar">Get on Google Play</a>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <div>
+        <div class="pill">🔒 256-BIT SQLCIPHER ENCRYPTED • TWO-PARTY VERIFIED</div>
+        <h1>Smart Personal &amp; Business <span>Udhaar Khata</span> with Cryptographic Proof.</h1>
+        <p class="lead">
+          Track money lent (Given) and borrowed (Taken) across <strong>INR (₹)</strong> and <strong>NPR (रू)</strong> with hardware-backed SQLCipher encryption, instant WhatsApp &amp; QR two-party verification, UPI payment slips, and encrypted Drive backups.
+        </p>
+        <div class="cta-row">
+          <a class="btn-primary" href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar">
+            <span>▶</span> Download on Google Play
+          </a>
+          <a class="btn-secondary" href="#verify-section">
+            Verify a Shared Link
+          </a>
+        </div>
+
+        <div class="verify-box" id="verify-section">
+          <label for="verifyInput">Have an Udhaar Verification or Payment Link?</label>
+          <form class="verify-form" onsubmit="return openVerifyLink(event)">
+            <input id="verifyInput" type="text" placeholder="Paste https://udhaar.jyotirmoyb.com/u/... link or code" />
+            <button type="submit">Inspect</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Interactive Application Preview Snapshot -->
+      <div class="preview-wrap">
+        <div class="screen-tabs">
+          <button class="screen-tab active" onclick="showScreen('ledger', this)">1. Ledger Home</button>
+          <button class="screen-tab" onclick="showScreen('verify', this)">2. QR Verify</button>
+          <button class="screen-tab" onclick="showScreen('security', this)">3. Security Vault</button>
+        </div>
+
+        <div class="phone-frame">
+          <div class="phone-statusbar">
+            <span>9:41</span>
+            <span>🔒 SQLCipher AES-256</span>
+          </div>
+
+          <!-- Screen 1: Ledger Home Snapshot -->
+          <div id="screen-ledger" class="app-screen active">
+            <div class="app-topbar">
+              <div class="app-title">
+                <span style="color:#10b981;">●</span> Udhaar Khata
+              </div>
+              <button onclick="toggleMask()" id="maskBtn" style="background:#1d2d49;border:1px solid var(--border);color:#cbd5e1;border-radius:8px;padding:4px 8px;font-size:11px;cursor:pointer;">👁 Hide</button>
+            </div>
+
+            <div class="chip-row">
+              <span class="mini-chip active">All (14)</span>
+              <span class="mini-chip">INR ₹</span>
+              <span class="mini-chip">Verified ✓</span>
+              <span class="mini-chip">Overdue</span>
+            </div>
+
+            <div class="summary-grid">
+              <div class="sum-card given">
+                <div class="sum-label">GIVEN • TO RECEIVE</div>
+                <div class="sum-val amount-mask" data-real="₹ 42,500">₹ 42,500</div>
+              </div>
+              <div class="sum-card taken">
+                <div class="sum-label">TAKEN • TO PAY</div>
+                <div class="sum-val amount-mask" data-real="₹ 8,200">₹ 8,200</div>
+              </div>
+            </div>
+
+            <div class="tx-card">
+              <div class="tx-head">
+                <span class="tx-name">Rahul Sharma</span>
+                <span class="tx-amt green amount-mask" data-real="₹ 15,000">₹ 15,000</span>
+              </div>
+              <div class="tx-meta">
+                <span>UPI • 1.5%/mo Simple • Due 18 Nov</span>
+                <span class="badge-verified">VERIFIED ✓</span>
+              </div>
+            </div>
+
+            <div class="tx-card">
+              <div class="tx-head">
+                <span class="tx-name">Anita Traders</span>
+                <span class="tx-amt red amount-mask" data-real="₹ 8,200">₹ 8,200</span>
+              </div>
+              <div class="tx-meta">
+                <span>Online • Paid ₹ 3,000 partial</span>
+                <span class="badge-verified">VERIFIED ✓</span>
+              </div>
+            </div>
+
+            <div class="tx-card">
+              <div class="tx-head">
+                <span class="tx-name">Suresh Kalita</span>
+                <span class="tx-amt green amount-mask" data-real="₹ 27,500">₹ 27,500</span>
+              </div>
+              <div class="tx-meta">
+                <span>Cash • Proof Attached (PDF)</span>
+                <span class="badge-pending">PENDING</span>
+              </div>
+            </div>
+
+            <div class="fab-mock">+ NEW UDHAAR</div>
+          </div>
+
+          <!-- Screen 2: Two-Party QR & Link Verification Snapshot -->
+          <div id="screen-verify" class="app-screen">
+            <div class="app-topbar">
+              <div class="app-title">Two-Party Verification</div>
+              <span class="badge-verified">SHA-256 SIGNED</span>
+            </div>
+            <div class="qr-mock">
+              <div style="font-size:11px;font-weight:800;color:#059669;">UDHAAR VERIFICATION QR</div>
+              <div class="qr-grid"></div>
+              <div style="font-size:11px;color:#475569;">Scan inside Udhaar or any camera to verify at <strong>udhaar.jyotirmoyb.com/u/...</strong></div>
+            </div>
+            <div class="tx-card">
+              <div class="tx-head">
+                <span class="tx-name">Rahul Sharma</span>
+                <span class="tx-amt green">₹ 15,000</span>
+              </div>
+              <div class="tx-meta">
+                <span>Hash: 9f4c...82e1</span>
+                <span class="badge-verified">BOTH CONFIRMED</span>
+              </div>
+            </div>
+            <div class="fab-mock">SEND VERIFICATION ON WHATSAPP</div>
+          </div>
+
+          <!-- Screen 3: Security & Encrypted Backup Snapshot -->
+          <div id="screen-security" class="app-screen">
+            <div class="app-topbar">
+              <div class="app-title">Security &amp; Vault</div>
+              <span class="badge-verified">ACTIVE</span>
+            </div>
+            <div class="tx-card">
+              <div class="tx-head">
+                <span class="tx-name">SQLCipher 256-Bit DB</span>
+                <span class="badge-verified">Database encrypted: Yes</span>
+              </div>
+              <div class="tx-meta">
+                <span>Android Keystore AES-256 hardware-wrapped key</span>
+              </div>
+            </div>
+            <div class="tx-card">
+              <div class="tx-head">
+                <span class="tx-name">Biometric &amp; PIN Lock</span>
+                <span class="badge-verified">ENABLED</span>
+              </div>
+              <div class="tx-meta">
+                <span>PBKDF2-HMAC-SHA256 + Screenshot Protection</span>
+              </div>
+            </div>
+            <div class="tx-card">
+              <div class="tx-head">
+                <span class="tx-name">Encrypted Cloud &amp; .udhaar Backup</span>
+                <span class="badge-verified">SYNCED</span>
+              </div>
+              <div class="tx-meta">
+                <span>AES-GCM encrypted Google Drive &amp; local archive</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="features">
+      <div class="section-head">
+        <h2>Built for Real Trust &amp; Financial Privacy</h2>
+        <p>Every feature is designed to work offline-first on your phone while letting both lender and borrower verify the exact same numbers.</p>
+      </div>
+      <div class="grid-3">
+        <div class="feat-card" id="security">
+          <div class="feat-icon">🔐</div>
+          <h3>256-Bit SQLCipher Database Encryption</h3>
+          <p>Your local Room ledger is encrypted at rest with SQLCipher and an Android Keystore-protected 256-bit key, with automatic verified migration from older installs.</p>
+        </div>
+        <div class="feat-card">
+          <div class="feat-icon">🤝</div>
+          <h3>Two-Party Verification Links</h3>
+          <p>Share tamper-evident <code>udhaar.jyotirmoyb.com/u/...</code> links or QR codes over WhatsApp. Both parties can confirm, record partial payments, or request due-date extensions.</p>
+        </div>
+        <div class="feat-card">
+          <div class="feat-icon">🧾</div>
+          <h3>UPI QR, Thermal Receipts &amp; PDF Statements</h3>
+          <p>Generate instant UPI collect QR codes, thermal-style image receipts, and itemized party khata PDF statements with cryptographic verification links.</p>
+        </div>
+        <div class="feat-card">
+          <div class="feat-icon">📈</div>
+          <h3>Simple &amp; Compound Interest + Installments</h3>
+          <p>Configure monthly or annual interest rates, record partial payments with receipt attachments, and view transparent principal vs. interest breakdowns.</p>
+        </div>
+        <div class="feat-card">
+          <div class="feat-icon">🌏</div>
+          <h3>5 Languages &amp; Dual Currency (₹ &amp; रू)</h3>
+          <p>Full support for English, हिन्दी (Hindi), বাংলা (Bengali), অসমীয়া (Assamese), and नेपाली (Nepali), with INR (₹) and NPR (रू) ledgers.</p>
+        </div>
+        <div class="feat-card">
+          <div class="feat-icon">☁️</div>
+          <h3>Encrypted Drive &amp; Local .udhaar Backups</h3>
+          <p>Export password-encrypted <code>.udhaar</code> archives with receipt attachments or schedule automatic encrypted backups to your personal Google Drive.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p><strong>Udhaar (`com.jyotirmoyb.udhaar`)</strong> • Official Verification &amp; Product Portal at <code>udhaar.jyotirmoyb.com</code></p>
+    </div>
+  </footer>
+
+  <script>
+    function showScreen(id, btn) {
+      document.querySelectorAll('.app-screen').forEach(function(el) { el.classList.remove('active'); });
+      document.querySelectorAll('.screen-tab').forEach(function(el) { el.classList.remove('active'); });
+      document.getElementById('screen-' + id).classList.add('active');
+      btn.classList.add('active');
+    }
+    var masked = false;
+    function toggleMask() {
+      masked = !masked;
+      document.querySelectorAll('.amount-mask').forEach(function(el) {
+        el.textContent = masked ? '₹ •••••' : el.getAttribute('data-real');
+      });
+      document.getElementById('maskBtn').textContent = masked ? '👁 Show' : '👁 Hide';
+    }
+    function openVerifyLink(e) {
+      e.preventDefault();
+      var raw = (document.getElementById('verifyInput').value || '').trim();
+      if (!raw) return false;
+      var idx = raw.indexOf('/u/');
+      if (idx !== -1) {
+        window.location.href = raw.substring(idx);
+      } else {
+        window.location.href = '/u/?d=' + encodeURIComponent(raw);
+      }
+      return false;
+    }
+  </script>
+</body>
+</html>

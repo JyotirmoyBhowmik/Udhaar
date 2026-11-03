@@ -188,13 +188,16 @@ object ContactPickerHelper {
                 context.contentResolver.query(contactUri, null, null, null, null)?.use { cursor ->
                     if (cursor.moveToFirst()) {
                         for (i in 0 until cursor.columnCount) {
-                            val col = cursor.getColumnName(i).lowercase()
-                            val valStr = cursor.getString(i).orEmpty().trim()
-                            if (name.isBlank() && (col.contains("display_name") || col == "name") && valStr.isNotBlank() && !valStr.contains("@")) {
-                                name = valStr
-                            }
-                            if (phone.isBlank() && (col.contains("data1") || col.contains("number") || col.contains("phone")) && valStr.any { it.isDigit() }) {
-                                phone = valStr
+                            runCatching {
+                                if (cursor.getType(i) == android.database.Cursor.FIELD_TYPE_BLOB) return@runCatching
+                                val col = cursor.getColumnName(i).orEmpty().lowercase()
+                                val valStr = cursor.getString(i).orEmpty().trim()
+                                if (name.isBlank() && (col.contains("display_name") || col == "name") && valStr.isNotBlank() && !valStr.contains("@")) {
+                                    name = valStr
+                                }
+                                if (phone.isBlank() && (col.contains("data1") || col.contains("number") || col.contains("phone")) && valStr.any { it.isDigit() }) {
+                                    phone = valStr
+                                }
                             }
                         }
                     }

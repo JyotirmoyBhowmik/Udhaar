@@ -2533,6 +2533,7 @@ fun ProfileSettingsModal(
     onRetryDatabaseEncryption: () -> Unit = {},
     onExportLocalUdhaarSaf: (passphrase: String) -> Unit = {},
     onRetryCloudBackup: () -> Unit = {},
+    onOpenContactPicker: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     // Ensure FLAG_SECURE is cleared on the Settings screen so it renders visibly on all displays & screenshots
@@ -3999,6 +4000,20 @@ fun ProfileSettingsModal(
                             Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(stringResource(R.string.ui_str_import_restore_json_backup_61b7ef), style = MaterialTheme.typography.labelMedium)
+                        }
+
+                        OutlinedButton(
+                            onClick = onOpenContactPicker,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .testTag("settings_import_contacts_button"),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.ui_str_import_from_contacts_8cdd06), style = MaterialTheme.typography.labelMedium)
                         }
 
                         HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)

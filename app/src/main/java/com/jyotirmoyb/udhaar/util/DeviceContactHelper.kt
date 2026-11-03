@@ -68,45 +68,117 @@ object DeviceContactHelper {
             val seenKeys = mutableSetOf<String>()
 
             while (c.moveToNext()) {
-                val id = if (idIdx >= 0) c.getLong(idIdx) else 0L
-                val lookupKey = if (lookupIdx >= 0) c.getString(lookupIdx).orEmpty() else "$id"
-                val name = if (nameIdx >= 0) c.getString(nameIdx).orEmpty().trim() else ""
-                val rawNumber = if (numIdx >= 0) c.getString(numIdx).orEmpty().trim() else ""
-                val thumbUri = if (thumbIdx >= 0) c.getString(thumbIdx).orEmpty() else ""
-                val photoUri = if (photoIdx >= 0) c.getString(photoIdx).orEmpty() else thumbUri
+                runCatching {
+                    val id = if (idIdx >= 0) runCatching { c.getLong(idIdx) }.getOrDefault(0L) else 0L
+                    val rawLookupKey = if (lookupIdx >= 0) runCatching { c.getString(lookupIdx) }.getOrNull().orEmpty() else "$id"
+                    val name = if (nameIdx >= 0) runCatching { c.getString(nameIdx) }.getOrNull().orEmpty().trim() else ""
+                    val rawNumber = if (numIdx >= 0) runCatching { c.getString(numIdx) }.getOrNull().orEmpty().trim() else ""
+                    val thumbUri = if (thumbIdx >= 0) runCatching { c.getString(thumbIdx) }.getOrNull().orEmpty() else ""
+                    val photoUri = if (photoIdx >= 0) runCatching { c.getString(photoIdx) }.getOrNull().orEmpty() else thumbUri
 
-                if (name.isBlank() && rawNumber.isBlank()) continue
+                    if (name.isBlank() && rawNumber.isBlank()) return@runCatching
 
-                val normalized = InterestCalculator.normalizeToE164(rawNumber, currency)
-                val dedupKey = if (normalized.isNotBlank()) normalized else name.lowercase()
+                    val normalized = InterestCalculator.normalizeToE164(rawNumber, currency)
+                    val dedupKey = if (normalized.isNotBlank()) normalized else "${name.lowercase()}_${rawNumber}"
 
-                if (seenKeys.add(dedupKey)) {
-                    val matchingParty = existingParties.find { party ->
-                        InterestCalculator.arePhonesEquivalent(party.phoneNumber, rawNumber, currency) ||
-                            (party.alternatePhoneNumber.isNotBlank() && InterestCalculator.arePhonesEquivalent(party.alternatePhoneNumber, rawNumber, currency)) ||
-                            party.name.trim().equals(name, ignoreCase = true)
-                    }
+                    if (seenKeys.add(dedupKey)) {
+                        val matchingParty = existingParties.find { party ->
+                            InterestCalculator.arePhonesEquivalent(party.phoneNumber, rawNumber, currency) ||
+                                (party.alternatePhoneNumber.isNotBlank() && InterestCalculator.arePhonesEquivalent(party.alternatePhoneNumber, rawNumber, currency)) ||
+                                party.name.trim().equals(name, ignoreCase = true)
+                        }
 
-                    val isInLedger = matchingParty != null
-                    val hasUdhaarApp = matchingParty?.linkedUserId?.isNotBlank() == true
+                        val isInLedger = matchingParty != null
+                        val hasUdhaarApp = matchingParty?.linkedUserId?.isNotBlank() == true
+                        val baseLookup = rawLookupKey.ifBlank { id.toString() }
+                        val uniqueLookupKey = "${baseLookup}_${dedupKey}_${contactList.size}"
 
-                    contactList.add(
-                        DeviceContact(
-                            contactId = id,
-                            lookupKey = if (lookupKey.isNotBlank()) lookupKey else dedupKey,
-                            displayName = name.ifBlank { rawNumber },
-                            rawPhoneNumber = rawNumber,
-                            normalizedPhoneNumber = normalized,
-                            photoThumbnailUri = thumbUri.ifBlank { null },
-                            photoUri = photoUri,
-                            isInLedger = isInLedger,
-                            hasUdhaarApp = hasUdhaarApp
+                        contactList.add(
+                            DeviceContact(
+                                contactId = id,
+                                lookupKey = uniqueLookupKey,
+                                displayName = name.ifBlank { rawNumber },
+                                rawPhoneNumber = rawNumber,
+                                normalizedPhoneNumber = normalized,
+                                photoThumbnailUri = thumbUri.ifBlank { null },
+                                photoUri = photoUri,
+                                isInLedger = isInLedger,
+                                hasUdhaarApp = hasUdhaarApp
+                            )
                         )
-                    )
+                    }
                 }
             }
         }
 
         contactList.sortedBy { it.displayName.lowercase() }
+    }
+
+    /**
+     * Parses contacts from a standard vCard (.vcf) text payload so users importing a .vcf
+     * contacts file from Settings can import their contacts directly into People Directory.
+     */
+    fun parseVCardContacts(
+        vcfContent: String,
+        currency: CurrencyType = CurrencyType.INR
+    ): List<DeviceContact> {
+        val results = mutableListOf<DeviceContact>()
+        val seen = mutableSetOf<String>()
+        var currentName = ""
+        val currentPhones = mutableListOf<String>()
+
+        fun flushCard() {
+            val cleanName = currentName.trim()
+            if (cleanName.isNotBlank() || currentPhones.isNotEmpty()) {
+                val phonesToUse = if (currentPhones.isEmpty()) listOf("") else currentPhones
+                for (rawPhone in phonesToUse) {
+                    val normalized = InterestCalculator.normalizeToE164(rawPhone, currency)
+                    val dedup = if (normalized.isNotBlank()) normalized else cleanName.lowercase()
+                    if (dedup.isNotBlank() && seen.add(dedup)) {
+                        results.add(
+                            DeviceContact(
+                                contactId = results.size.toLong() + 1L,
+                                lookupKey = "vcf_${dedup}_${results.size}",
+                                displayName = cleanName.ifBlank { rawPhone },
+                                rawPhoneNumber = rawPhone,
+                                normalizedPhoneNumber = normalized
+                            )
+                        )
+                    }
+                }
+            }
+            currentName = ""
+            currentPhones.clear()
+        }
+
+        vcfContent.lineSequence().forEach { rawLine ->
+            val line = rawLine.trim()
+            when {
+                line.equals("BEGIN:VCARD", ignoreCase = true) -> {
+                    currentName = ""
+                    currentPhones.clear()
+                }
+                line.equals("END:VCARD", ignoreCase = true) -> {
+                    flushCard()
+                }
+                line.startsWith("FN:", ignoreCase = true) || line.startsWith("FN;", ignoreCase = true) -> {
+                    val value = line.substringAfter(":", "").trim()
+                    if (value.isNotBlank()) currentName = value
+                }
+                currentName.isBlank() && (line.startsWith("N:", ignoreCase = true) || line.startsWith("N;", ignoreCase = true)) -> {
+                    val parts = line.substringAfter(":", "").split(";").map { it.trim() }.filter { it.isNotBlank() }
+                    if (parts.isNotEmpty()) {
+                        currentName = if (parts.size >= 2) "${parts[1]} ${parts[0]}".trim() else parts[0]
+                    }
+                }
+                line.startsWith("TEL:", ignoreCase = true) || line.startsWith("TEL;", ignoreCase = true) -> {
+                    val phoneVal = line.substringAfter(":", "").trim()
+                    if (phoneVal.isNotBlank()) {
+                        currentPhones.add(phoneVal)
+                    }
+                }
+            }
+        }
+        return results
     }
 }

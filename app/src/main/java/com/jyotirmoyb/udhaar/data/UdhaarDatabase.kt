@@ -296,33 +296,71 @@ abstract class UdhaarDatabase : RoomDatabase() {
             }
         }
 
+        private fun rebuildAttachmentsTableWithExactSchema(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `attachments` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `transactionId` INTEGER NOT NULL,
+                    `paymentId` INTEGER,
+                    `fileName` TEXT NOT NULL,
+                    `mimeType` TEXT NOT NULL,
+                    `sizeBytes` INTEGER NOT NULL,
+                    `localPath` TEXT NOT NULL,
+                    `remoteUrl` TEXT,
+                    `addedAtMillis` INTEGER NOT NULL,
+                    `addedBy` TEXT NOT NULL,
+                    `sha256` TEXT NOT NULL,
+                    FOREIGN KEY(`transactionId`) REFERENCES `udhaar_transactions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                    FOREIGN KEY(`paymentId`) REFERENCES `partial_payments`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            db.execSQL("DROP TABLE IF EXISTS `attachments_new`")
+            db.execSQL(
+                """
+                CREATE TABLE `attachments_new` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `transactionId` INTEGER NOT NULL,
+                    `paymentId` INTEGER,
+                    `fileName` TEXT NOT NULL,
+                    `mimeType` TEXT NOT NULL,
+                    `sizeBytes` INTEGER NOT NULL,
+                    `localPath` TEXT NOT NULL,
+                    `remoteUrl` TEXT,
+                    `addedAtMillis` INTEGER NOT NULL,
+                    `addedBy` TEXT NOT NULL,
+                    `sha256` TEXT NOT NULL,
+                    FOREIGN KEY(`transactionId`) REFERENCES `udhaar_transactions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                    FOREIGN KEY(`paymentId`) REFERENCES `partial_payments`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                INSERT INTO `attachments_new` (
+                    `id`, `transactionId`, `paymentId`, `fileName`, `mimeType`,
+                    `sizeBytes`, `localPath`, `remoteUrl`, `addedAtMillis`, `addedBy`, `sha256`
+                )
+                SELECT
+                    `id`, `transactionId`, `paymentId`, `fileName`, `mimeType`,
+                    `sizeBytes`, `localPath`, `remoteUrl`, `addedAtMillis`, `addedBy`, `sha256`
+                FROM `attachments`
+                """.trimIndent()
+            )
+            db.execSQL("DROP TABLE `attachments`")
+            db.execSQL("ALTER TABLE `attachments_new` RENAME TO `attachments`")
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_attachments_transactionId` ON `attachments` (`transactionId`)"
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_attachments_paymentId` ON `attachments` (`paymentId`)"
+            )
+        }
+
         val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
-                    """
-                    CREATE TABLE IF NOT EXISTS `attachments` (
-                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                        `transactionId` INTEGER NOT NULL,
-                        `paymentId` INTEGER,
-                        `fileName` TEXT NOT NULL,
-                        `mimeType` TEXT NOT NULL,
-                        `sizeBytes` INTEGER NOT NULL,
-                        `localPath` TEXT NOT NULL,
-                        `remoteUrl` TEXT NOT NULL,
-                        `addedAtMillis` INTEGER NOT NULL,
-                        `addedBy` TEXT NOT NULL,
-                        `sha256` TEXT NOT NULL,
-                        FOREIGN KEY(`transactionId`) REFERENCES `udhaar_transactions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
-                        FOREIGN KEY(`paymentId`) REFERENCES `partial_payments`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
-                    )
-                    """.trimIndent()
-                )
-                db.execSQL(
-                    "CREATE INDEX IF NOT EXISTS `index_attachments_transactionId` ON `attachments` (`transactionId`)"
-                )
-                db.execSQL(
-                    "CREATE INDEX IF NOT EXISTS `index_attachments_paymentId` ON `attachments` (`paymentId`)"
-                )
+                rebuildAttachmentsTableWithExactSchema(db)
             }
         }
 
@@ -346,6 +384,7 @@ abstract class UdhaarDatabase : RoomDatabase() {
                 if (!hasColumn(db, "parties", "lastInteractionMillis")) {
                     db.execSQL("ALTER TABLE `parties` ADD COLUMN `lastInteractionMillis` INTEGER NOT NULL DEFAULT 0")
                 }
+                rebuildAttachmentsTableWithExactSchema(db)
             }
         }
 

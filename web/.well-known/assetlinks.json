@@ -1,13 +1,17 @@
 [
   {
     "relation": [
-      "delegate_permission/common.handle_all_urls"
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
     ],
     "target": {
       "namespace": "android_app",
       "package_name": "com.jyotirmoyb.udhaar",
       "sha256_cert_fingerprints": [
-        "FB:F9:7F:66:8F:61:1E:9B:49:CB:6D:A9:40:17:E8:1C:79:FE:9F:B3:57:B7:2B:15:DB:6D:D2:D9:35:9C:F0:EA"
+        "FB:F9:7F:66:8F:61:1E:9B:49:CB:6D:A9:40:17:E8:1C:79:FE:9F:B3:57:B7:2B:15:DB:6D:D2:D9:35:9C:F0:EA",
+        "6E:C6:02:03:6D:C8:8B:11:A6:E8:6B:19:63:15:28:04:8A:BB:80:15:E8:F2:36:D9:B2:E0:AB:49:55:41:09:33",
+        "D5:83:63:59:01:59:15:B8:F0:A7:A4:4F:C9:F7:3E:DF:3E:8D:92:70:83:6D:78:A7:03:B0:CC:D1:CD:7C:41:E1",
+        "23:BB:AC:CE:CD:64:6D:70:B3:3D:AB:E4:18:C2:5C:DF:1F:9B:72:F1:F9:C7:CA:AC:41:0C:4F:88:EE:0E:62:F5"
       ]
     }
   }

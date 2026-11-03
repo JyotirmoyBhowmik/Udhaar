@@ -388,7 +388,7 @@ fun InAppContactPickerModal(
                         ) {
                             itemsIndexed(
                                 items = filteredContacts,
-                                key = { _, contact -> contact.lookupKey }
+                                key = { index, contact -> "${contact.lookupKey}_$index" }
                             ) { _, contact ->
                                 val isSelected = contact.lookupKey in selectedLookupKeys
                                 Box(modifier = udhaarAnimateItem(reducedMotion)) {
@@ -399,7 +399,7 @@ fun InAppContactPickerModal(
                                             onToggle = {
                                                 if (isSelected) {
                                                     selectedLookupKeys.remove(contact.lookupKey)
-                                                } else {
+                                                } else if (contact.lookupKey !in selectedLookupKeys) {
                                                     selectedLookupKeys.add(contact.lookupKey)
                                                 }
                                             }

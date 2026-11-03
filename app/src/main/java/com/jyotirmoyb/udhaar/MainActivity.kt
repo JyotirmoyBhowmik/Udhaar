@@ -262,27 +262,48 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
         pendingJsonToSave = null
     }
 
-    // Storage Access Framework: OpenDocument for Importing JSON Backup
+    // Storage Access Framework: OpenDocument for Importing JSON Backup or vCard (.vcf) Contacts
     val openDocumentLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
             runCatching {
-                val jsonString = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-                if (!jsonString.isNullOrBlank()) {
-                    viewModel.importLedgerBackupJson(jsonString) { result ->
-                        result.onSuccess { count ->
+                val rawContent = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                if (!rawContent.isNullOrBlank()) {
+                    if (rawContent.trimStart().startsWith("BEGIN:VCARD", ignoreCase = true)) {
+                        val vcfContacts = com.jyotirmoyb.udhaar.util.DeviceContactHelper.parseVCardContacts(
+                            vcfContent = rawContent,
+                            currency = uiState.summaryCurrency
+                        )
+                        if (vcfContacts.isNotEmpty()) {
+                            viewModel.importSelectedContacts(vcfContacts)
                             Toast.makeText(
                                 context,
-                                "Imported $count ledger records successfully.",
+                                context.getString(R.string.contact_imported_count_fmt, vcfContacts.size),
                                 Toast.LENGTH_LONG
                             ).show()
-                        }.onFailure {
+                        } else {
                             Toast.makeText(
                                 context,
-                                "Invalid Udhaar JSON backup file.",
+                                context.getString(R.string.contact_error_read_failed),
                                 Toast.LENGTH_SHORT
                             ).show()
+                        }
+                    } else {
+                        viewModel.importLedgerBackupJson(rawContent) { result ->
+                            result.onSuccess { count ->
+                                Toast.makeText(
+                                    context,
+                                    "Imported $count ledger records successfully.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }.onFailure {
+                                Toast.makeText(
+                                    context,
+                                    "Invalid Udhaar JSON backup file.",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
                         }
                     }
                 }
@@ -898,6 +919,7 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                                             }
                                         }
                                     },
+                                    onOpenContactPicker = requestContactsFlow,
                                     onDismiss = viewModel::closeSettingsModal
                                 )
                             }
