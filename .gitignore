@@ -17,3 +17,7 @@ local.properties
 .env
 debug.keystore
 *-debug.log
+.aistudio/
+/public/
+.build-outputs/
+firebase-applet-config.json

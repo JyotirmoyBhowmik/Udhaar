@@ -99,10 +99,11 @@ object InterestCalculator {
             subtitleParts.add("Paid: ${formatCurrency(paid, currency)}")
         }
 
+        val expiryMillis = transaction.expiryDateMillis
         val dueStatusText = when {
             transaction.isSettled -> "SETTLED"
-            isOverdue -> "OVERDUE • ${formatDate(transaction.expiryDateMillis!!)}"
-            transaction.expiryDateMillis != null -> "DUE: ${formatDate(transaction.expiryDateMillis)}"
+            isOverdue && expiryMillis != null -> "OVERDUE • ${formatDate(expiryMillis)}"
+            expiryMillis != null -> "DUE: ${formatDate(expiryMillis)}"
             else -> "NO EXPIRY"
         }
 

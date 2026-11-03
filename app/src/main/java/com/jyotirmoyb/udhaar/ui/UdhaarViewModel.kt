@@ -25,8 +25,12 @@ import com.jyotirmoyb.udhaar.ui.components.SuccessAnimationEvent
 import com.jyotirmoyb.udhaar.ui.theme.AppFontScale
 import com.jyotirmoyb.udhaar.ui.theme.AppThemeMode
 import com.jyotirmoyb.udhaar.util.AttachmentManager
+import android.app.PendingIntent
 import com.jyotirmoyb.udhaar.backup.BackupPreviewSummary
 import com.jyotirmoyb.udhaar.backup.DriveBackupCrypto
+import com.jyotirmoyb.udhaar.backup.DriveBackupErrorCode
+import com.jyotirmoyb.udhaar.backup.DriveBackupWorker
+import com.jyotirmoyb.udhaar.backup.DriveConnectionTestReport
 import com.jyotirmoyb.udhaar.backup.DriveErrorType
 import com.jyotirmoyb.udhaar.backup.DriveRemoteBackup
 import com.jyotirmoyb.udhaar.backup.DriveResult
@@ -171,6 +175,8 @@ data class UdhaarUiState(
     val isDriveOperationInProgress: Boolean = false,
     val driveOperationStatusMessage: String? = null,
     val driveOperationError: String? = null,
+    val driveResolutionPendingIntent: PendingIntent? = null,
+    val driveConnectionTestReport: DriveConnectionTestReport? = null,
     val pendingRestoreBackup: DriveRemoteBackup? = null,
     val pendingRestoreParsed: com.jyotirmoyb.udhaar.util.ParsedLedgerBackup? = null,
     val showRestorePreviewDialog: Boolean = false,
@@ -244,6 +250,8 @@ private data class LocalUiFilterState(
     val isDriveOperationInProgress: Boolean = false,
     val driveOperationStatusMessage: String? = null,
     val driveOperationError: String? = null,
+    val driveResolutionPendingIntent: PendingIntent? = null,
+    val driveConnectionTestReport: DriveConnectionTestReport? = null,
     val pendingRestoreBackup: DriveRemoteBackup? = null,
     val pendingRestoreParsed: com.jyotirmoyb.udhaar.util.ParsedLedgerBackup? = null,
     val showRestorePreviewDialog: Boolean = false,
@@ -380,7 +388,9 @@ class UdhaarViewModel(
         val paymentsMap = partialPayments.groupBy { it.transactionId }
         val auditMap = auditEntries.groupBy { it.transactionId }
         val attachmentsByTx = core.attachments.filter { it.transactionId > 0L }.groupBy { it.transactionId }
-        val attachmentsByPayment = core.attachments.filter { it.paymentId != null && it.paymentId > 0L }.groupBy { it.paymentId!! }
+        val attachmentsByPayment = core.attachments
+            .mapNotNull { att -> att.paymentId?.takeIf { it > 0L }?.let { pid -> pid to att } }
+            .groupBy({ it.first }, { it.second })
 
         val threadsByKey = chatThreads.associateBy { it.threadKey }
         val messagesByThreadKey = chatMessages.groupBy { it.threadKey }
@@ -699,6 +709,8 @@ class UdhaarViewModel(
             isDriveOperationInProgress = local.isDriveOperationInProgress,
             driveOperationStatusMessage = local.driveOperationStatusMessage,
             driveOperationError = local.driveOperationError,
+            driveResolutionPendingIntent = local.driveResolutionPendingIntent,
+            driveConnectionTestReport = local.driveConnectionTestReport,
             pendingRestoreBackup = local.pendingRestoreBackup,
             pendingRestoreParsed = local.pendingRestoreParsed,
             showRestorePreviewDialog = local.showRestorePreviewDialog,
@@ -1317,7 +1329,7 @@ class UdhaarViewModel(
     }
 
     /**
-     * Handles an incoming Android App Link (`https://jyotirmoyb.com/u/<token>` or `.../u/p/<token>`)
+     * Handles an incoming Android App Link (`https://udhaar.jyotirmoyb.com/u/<token>` or `.../u/p/<token>`)
      * or a pasted/scanned verification or payment profile token.
      */
     fun handleIncomingDeepLinkOrToken(
@@ -2141,12 +2153,39 @@ class UdhaarViewModel(
     }
 
     // --- Phase 5: Google Drive Backup & Restore Operations ---
-    private val driveHelper: DriveServiceHelper = DriveServiceHelper()
+    private val driveHelper: DriveServiceHelper = appContext?.let { DriveServiceHelper(it) } ?: DriveServiceHelper()
 
-    fun setDriveAccountState(email: String, accessToken: String) {
+    fun setDriveAccountState(initialEmail: String = "") {
         viewModelScope.launch {
-            repository.updateDriveAccount(email, accessToken)
-            refreshDriveBackups(accessToken)
+            val resolvedEmail = if (initialEmail.contains("@")) {
+                initialEmail.trim()
+            } else {
+                driveHelper.fetchConnectedAccountEmail()
+                    ?: uiState.value.userSettings.cloudUserEmail.takeIf { it.contains("@") }
+                    ?: initialEmail.trim().ifBlank { "Connected Google Account" }
+            }
+            repository.updateDriveAccount(resolvedEmail)
+            localState.update {
+                it.copy(
+                    driveResolutionPendingIntent = null,
+                    driveOperationError = null
+                )
+            }
+            refreshDriveBackups()
+        }
+    }
+
+    fun handleDriveNeedsResolution(pendingIntent: PendingIntent?, message: String) {
+        viewModelScope.launch {
+            repository.setDriveNeedsReconnect(true, message)
+            localState.update {
+                it.copy(
+                    isDriveOperationInProgress = false,
+                    driveOperationStatusMessage = null,
+                    driveOperationError = message,
+                    driveResolutionPendingIntent = pendingIntent
+                )
+            }
         }
     }
 
@@ -2157,7 +2196,9 @@ class UdhaarViewModel(
                 it.copy(
                     driveRemoteBackups = emptyList(),
                     driveOperationStatusMessage = null,
-                    driveOperationError = null
+                    driveOperationError = null,
+                    driveResolutionPendingIntent = null,
+                    driveConnectionTestReport = null
                 )
             }
         }
@@ -2204,10 +2245,9 @@ class UdhaarViewModel(
         }
     }
 
-    fun refreshDriveBackups(tokenOverride: String? = null) {
+    fun refreshDriveBackups() {
         viewModelScope.launch {
-            val token = tokenOverride ?: uiState.value.userSettings.driveAccessToken
-            if (token.isBlank()) return@launch
+            if (uiState.value.userSettings.driveUserEmail.isBlank()) return@launch
 
             localState.update {
                 it.copy(
@@ -2216,27 +2256,72 @@ class UdhaarViewModel(
                     driveOperationError = null
                 )
             }
-            when (val res = driveHelper.listBackups(token)) {
+            when (val res = driveHelper.listBackups()) {
                 is DriveResult.Success -> {
+                    val currentEmail = uiState.value.userSettings.driveUserEmail
+                    if (!currentEmail.contains("@")) {
+                        val fetchedEmail = driveHelper.fetchConnectedAccountEmail()
+                        if (!fetchedEmail.isNullOrBlank()) {
+                            repository.updateDriveAccount(fetchedEmail)
+                        }
+                    }
                     localState.update {
                         it.copy(
                             driveRemoteBackups = res.data,
                             isDriveOperationInProgress = false,
-                            driveOperationStatusMessage = null
+                            driveOperationStatusMessage = null,
+                            driveResolutionPendingIntent = null
                         )
                     }
                 }
                 is DriveResult.Error -> {
+                    if (res.needsReconnect || res.errorType == DriveErrorType.EXPIRED_SIGN_IN) {
+                        repository.setDriveNeedsReconnect(true, res.message)
+                    }
                     localState.update {
                         it.copy(
                             isDriveOperationInProgress = false,
                             driveOperationStatusMessage = null,
-                            driveOperationError = res.message
+                            driveOperationError = res.message,
+                            driveResolutionPendingIntent = res.resolutionPendingIntent ?: it.driveResolutionPendingIntent
                         )
                     }
                 }
             }
         }
+    }
+
+    fun runDriveConnectionTest() {
+        viewModelScope.launch {
+            localState.update {
+                it.copy(
+                    isDriveOperationInProgress = true,
+                    driveOperationStatusMessage = "Running Google Drive connection test (Step 1: Auth, Step 2: Drive API)...",
+                    driveOperationError = null
+                )
+            }
+            val report = driveHelper.runConnectionTest()
+            if (report.passed && !report.connectedEmail.isNullOrBlank()) {
+                repository.updateDriveAccount(report.connectedEmail)
+            } else if (report.needsReconnect) {
+                repository.setDriveNeedsReconnect(true, report.errorMessage)
+            }
+            localState.update {
+                it.copy(
+                    isDriveOperationInProgress = false,
+                    driveOperationStatusMessage = null,
+                    driveConnectionTestReport = report,
+                    driveResolutionPendingIntent = report.resolutionPendingIntent ?: it.driveResolutionPendingIntent
+                )
+            }
+            if (report.passed) {
+                refreshDriveBackups()
+            }
+        }
+    }
+
+    fun clearDriveConnectionTestReport() {
+        localState.update { it.copy(driveConnectionTestReport = null) }
     }
 
     fun uploadDriveBackup(
@@ -2245,9 +2330,9 @@ class UdhaarViewModel(
         onComplete: ((Result<DriveRemoteBackup>) -> Unit)? = null
     ) {
         viewModelScope.launch {
-            val token = uiState.value.userSettings.driveAccessToken
-            if (token.isBlank()) {
-                val err = "Google Drive is not signed in."
+            if (uiState.value.userSettings.driveUserEmail.isBlank()) {
+                val err = DriveBackupWorker.plainErrorDescription(DriveBackupErrorCode.NOT_CONNECTED)
+                repository.recordDriveBackupFailure(DriveBackupErrorCode.NOT_CONNECTED, err)
                 localState.update { it.copy(driveOperationError = err) }
                 onComplete?.invoke(Result.failure(IllegalStateException(err)))
                 return@launch
@@ -2306,44 +2391,56 @@ class UdhaarViewModel(
                 )
 
                 localState.update {
-                    it.copy(driveOperationStatusMessage = "Uploading encrypted backup to hidden AppData folder...")
+                    it.copy(driveOperationStatusMessage = "Authorizing & uploading encrypted backup to Google Drive AppData...")
                 }
 
                 val dateStr = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
                 val fileName = "udhaar_backup_${dateStr}.udhaar"
 
-                when (val uploadRes = driveHelper.uploadBackup(token, fileName, encryptedBytes, preview)) {
+                when (val uploadRes = driveHelper.uploadBackup(fileName = fileName, encryptedBytes = encryptedBytes, preview = preview)) {
                     is DriveResult.Success -> {
-                        repository.updateDriveLastBackup(System.currentTimeMillis(), uploadRes.data.sizeBytes)
+                        repository.recordDriveBackupSuccess(System.currentTimeMillis(), uploadRes.data.sizeBytes)
                         if (savePassphraseForAutoBackup) {
                             repository.saveAutoBackupPassphrase(passphrase)
                         }
                         localState.update {
                             it.copy(
                                 isDriveOperationInProgress = false,
-                                driveOperationStatusMessage = "Backup completed successfully! (${uploadRes.data.sizeBytes / 1024} KB)"
+                                driveOperationStatusMessage = "Backup completed successfully! (${uploadRes.data.sizeBytes / 1024} KB)",
+                                driveResolutionPendingIntent = null
                             )
                         }
-                        refreshDriveBackups(token)
+                        refreshDriveBackups()
                         onComplete?.invoke(Result.success(uploadRes.data))
                     }
                     is DriveResult.Error -> {
+                        val mappedCode = when (uploadRes.errorType) {
+                            DriveErrorType.NO_NETWORK -> DriveBackupErrorCode.NO_NETWORK
+                            DriveErrorType.EXPIRED_SIGN_IN -> DriveBackupErrorCode.AUTH_EXPIRED
+                            DriveErrorType.QUOTA_EXCEEDED -> DriveBackupErrorCode.QUOTA
+                            DriveErrorType.NOT_FOUND, DriveErrorType.UNKNOWN -> DriveBackupErrorCode.OTHER
+                        }
+                        repository.recordDriveBackupFailure(mappedCode, uploadRes.message)
                         localState.update {
                             it.copy(
                                 isDriveOperationInProgress = false,
                                 driveOperationStatusMessage = null,
-                                driveOperationError = uploadRes.message
+                                driveOperationError = uploadRes.message,
+                                driveResolutionPendingIntent = uploadRes.resolutionPendingIntent ?: it.driveResolutionPendingIntent
                             )
                         }
                         onComplete?.invoke(Result.failure(IOException(uploadRes.message)))
                     }
                 }
             } catch (e: Exception) {
+                val appError = com.jyotirmoyb.udhaar.util.UdhaarAppError.fromThrowable(e)
+                com.jyotirmoyb.udhaar.util.SafeLogger.w("UdhaarViewModel", "Drive backup upload failed (${appError.code})", e)
+                repository.recordDriveBackupFailure(DriveBackupErrorCode.OTHER, appError.userMessage)
                 localState.update {
                     it.copy(
                         isDriveOperationInProgress = false,
                         driveOperationStatusMessage = null,
-                        driveOperationError = e.localizedMessage ?: "Backup encryption failed."
+                        driveOperationError = appError.userMessage
                     )
                 }
                 onComplete?.invoke(Result.failure(e))
@@ -2357,9 +2454,8 @@ class UdhaarViewModel(
         onPreviewReady: ((Result<com.jyotirmoyb.udhaar.util.ParsedLedgerBackup>) -> Unit)? = null
     ) {
         viewModelScope.launch {
-            val token = uiState.value.userSettings.driveAccessToken
-            if (token.isBlank()) {
-                val err = "Google Drive is not signed in."
+            if (uiState.value.userSettings.driveUserEmail.isBlank()) {
+                val err = DriveBackupWorker.plainErrorDescription(DriveBackupErrorCode.NOT_CONNECTED)
                 localState.update { it.copy(driveOperationError = err) }
                 onPreviewReady?.invoke(Result.failure(IllegalStateException(err)))
                 return@launch
@@ -2374,7 +2470,7 @@ class UdhaarViewModel(
                 )
             }
 
-            when (val dlRes = driveHelper.downloadBackup(token, backup.fileId)) {
+            when (val dlRes = driveHelper.downloadBackup(fileId = backup.fileId)) {
                 is DriveResult.Success -> {
                     localState.update {
                         it.copy(driveOperationStatusMessage = "Decrypting with AES-256 on device...")
@@ -2395,22 +2491,28 @@ class UdhaarViewModel(
                         }
                         onPreviewReady?.invoke(Result.success(parsed))
                     } catch (e: Exception) {
+                        val appError = com.jyotirmoyb.udhaar.util.UdhaarAppError.fromThrowable(e)
+                        com.jyotirmoyb.udhaar.util.SafeLogger.w("UdhaarViewModel", "Drive backup decrypt failed (${appError.code})", e)
                         localState.update {
                             it.copy(
                                 isDriveOperationInProgress = false,
                                 driveOperationStatusMessage = null,
-                                driveOperationError = e.localizedMessage ?: "Decryption failed. Incorrect passphrase."
+                                driveOperationError = appError.userMessage
                             )
                         }
                         onPreviewReady?.invoke(Result.failure(e))
                     }
                 }
                 is DriveResult.Error -> {
+                    if (dlRes.needsReconnect || dlRes.errorType == DriveErrorType.EXPIRED_SIGN_IN) {
+                        repository.setDriveNeedsReconnect(true, dlRes.message)
+                    }
                     localState.update {
                         it.copy(
                             isDriveOperationInProgress = false,
                             driveOperationStatusMessage = null,
-                            driveOperationError = dlRes.message
+                            driveOperationError = dlRes.message,
+                            driveResolutionPendingIntent = dlRes.resolutionPendingIntent ?: it.driveResolutionPendingIntent
                         )
                     }
                     onPreviewReady?.invoke(Result.failure(IOException(dlRes.message)))
@@ -2452,11 +2554,13 @@ class UdhaarViewModel(
                 }
                 onComplete?.invoke(Result.success(restoredCount))
             } catch (e: Exception) {
+                val appError = com.jyotirmoyb.udhaar.util.UdhaarAppError.fromThrowable(e)
+                com.jyotirmoyb.udhaar.util.SafeLogger.w("UdhaarViewModel", "Drive backup restore failed (${appError.code})", e)
                 localState.update {
                     it.copy(
                         isDriveOperationInProgress = false,
                         driveOperationStatusMessage = null,
-                        driveOperationError = "Failed to restore backup: ${e.localizedMessage}"
+                        driveOperationError = appError.userMessage
                     )
                 }
                 onComplete?.invoke(Result.failure(e))
@@ -2466,10 +2570,19 @@ class UdhaarViewModel(
 
     fun deleteDriveBackup(backup: DriveRemoteBackup) {
         viewModelScope.launch {
-            val token = uiState.value.userSettings.driveAccessToken
-            if (token.isBlank()) return@launch
-            driveHelper.deleteBackup(token, backup.fileId)
-            refreshDriveBackups(token)
+            if (uiState.value.userSettings.driveUserEmail.isBlank()) return@launch
+            val delRes = driveHelper.deleteBackup(fileId = backup.fileId)
+            if (delRes is DriveResult.Error && (delRes.needsReconnect || delRes.errorType == DriveErrorType.EXPIRED_SIGN_IN)) {
+                repository.setDriveNeedsReconnect(true, delRes.message)
+                localState.update {
+                    it.copy(
+                        driveOperationError = delRes.message,
+                        driveResolutionPendingIntent = delRes.resolutionPendingIntent ?: it.driveResolutionPendingIntent
+                    )
+                }
+            } else {
+                refreshDriveBackups()
+            }
         }
     }
 

@@ -157,10 +157,11 @@ fun AddEditUdhaarScreen(
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
-        if (success && cameraTempUri != null) {
+        val capturedUri = cameraTempUri
+        if (success && capturedUri != null) {
             val processed = AttachmentManager.processCapturedImage(
                 context = context,
-                sourceUri = cameraTempUri!!,
+                sourceUri = capturedUri,
                 transactionId = initialTransaction?.id ?: 0L,
                 addedBy = "You"
             )
@@ -618,7 +619,8 @@ fun AddEditUdhaarScreen(
                     .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 44.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                if (validationError != null) {
+                val currentValidationError = validationError
+                if (currentValidationError != null) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -627,7 +629,7 @@ fun AddEditUdhaarScreen(
                             .padding(12.dp)
                     ) {
                         Text(
-                            text = validationError!!,
+                            text = currentValidationError,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = PureBlack

@@ -1681,9 +1681,10 @@ fun AddEditPartyModal(
                     .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                if (errorText != null) {
+                val currentErrorText = errorText
+                if (currentErrorText != null) {
                     Text(
-                        text = errorText!!,
+                        text = currentErrorText,
                         style = MaterialTheme.typography.bodySmall,
                         color = PureBlack,
                         fontWeight = FontWeight.Bold

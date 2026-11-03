@@ -631,6 +631,18 @@
     <string name="coach_tip_3_title">টিপ ৩ / ৩ · একসাথে যাচাই করুন</string>
     <string name="coach_tip_3_body">যেকোনো রেকর্ড খুলে যাচাইকরণ লিঙ্ক শেয়ার করুন যাতে উভয় পক্ষ ব্যালেন্সে একমত হয়।</string>
     <string name="settings_about_version_format">উধার খাতা v%1$s (বিল্ড %2$d)</string>
+    <string name="drive_reconnect_button">পুনরায় সংযুক্ত করুন</string>
+    <string name="drive_reconnect_google_drive_prompt_title">Google Drive পুনরায় সংযুক্ত করুন</string>
+    <string name="drive_reconnect_google_drive_prompt_body">Google Drive অনুমোদনের মেয়াদ শেষ হয়েছে। পুনরায় সংযুক্ত করতে ট্যাপ করুন।</string>
+    <string name="drive_run_connection_test_button">কানেকশন টেস্ট চালান</string>
+    <string name="drive_last_error_label_fmt">সর্বশেষ ত্রুটি (%1$s): %2$s</string>
+    <string name="drive_connection_test_passed_title">কানেকশন টেস্ট সফল</string>
+    <string name="drive_connection_test_failed_title">কানেকশন টেস্ট ব্যর্থ</string>
+    <string name="drive_connection_test_step_fmt">ব্যর্থ ধাপ: %1$s</string>
+    <string name="drive_connection_test_code_fmt">ত্রুটি কোড: %1$s</string>
+    <string name="drive_common_causes_title">সাধারণ Google Drive সেটআপ কারণসমূহ</string>
+    <string name="drive_common_causes_body">• Drive API চালু নেই: Google Cloud Console-এ Google Drive API চালু করুন।\n• SHA-1 নিবন্ধিত নয়: Android OAuth 2.0 ক্লায়েন্ট আইডিতে debug, upload ও Play App Signing SHA-1 যোগ করুন।\n• টেস্ট ইউজার নয়: Testing মোডে OAuth Consent Screen &gt; Test Users-এ আপনার ইমেইল যোগ করুন।</string>
+    <string name="drive_backing_up_progress">ব্যাকআপ হচ্ছে…</string>
 </resources>
 
 

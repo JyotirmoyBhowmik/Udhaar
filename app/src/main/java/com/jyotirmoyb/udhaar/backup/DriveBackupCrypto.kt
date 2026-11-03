@@ -1,8 +1,9 @@
 package com.jyotirmoyb.udhaar.backup
 
-import android.util.Base64
+import com.jyotirmoyb.udhaar.BuildConfig
 import org.json.JSONObject
 import java.security.SecureRandom
+import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
@@ -14,7 +15,7 @@ data class BackupPreviewSummary(
     val transactionsCount: Int = 0,
     val paymentsCount: Int = 0,
     val attachmentsCount: Int = 0,
-    val appVersion: String = "7.0",
+    val appVersion: String = BuildConfig.VERSION_NAME,
     val createdAtMillis: Long = System.currentTimeMillis()
 )
 
@@ -49,24 +50,32 @@ object DriveBackupCrypto {
         cipher.init(Cipher.ENCRYPT_MODE, secretKey, GCMParameterSpec(TAG_LENGTH_BITS, iv))
         val ciphertext = cipher.doFinal(plainBytes)
 
-        val json = JSONObject().apply {
-            put("magic", MAGIC)
-            put("kdf", KDF_ALGO)
-            put("iterations", ITERATIONS)
-            put("salt", Base64.encodeToString(salt, Base64.NO_WRAP))
-            put("iv", Base64.encodeToString(iv, Base64.NO_WRAP))
-            put("ciphertext", Base64.encodeToString(ciphertext, Base64.NO_WRAP))
-            put("createdAtMillis", preview.createdAtMillis)
-            put("preview", JSONObject().apply {
-                put("partiesCount", preview.partiesCount)
-                put("transactionsCount", preview.transactionsCount)
-                put("paymentsCount", preview.paymentsCount)
-                put("attachmentsCount", preview.attachmentsCount)
-                put("appVersion", preview.appVersion)
+        val encoder = Base64.getEncoder()
+        val saltB64 = encoder.encodeToString(salt)
+        val ivB64 = encoder.encodeToString(iv)
+        val cipherB64 = encoder.encodeToString(ciphertext)
+
+        val jsonStr = runCatching {
+            JSONObject().apply {
+                put("magic", MAGIC)
+                put("kdf", KDF_ALGO)
+                put("iterations", ITERATIONS)
+                put("salt", saltB64)
+                put("iv", ivB64)
+                put("ciphertext", cipherB64)
                 put("createdAtMillis", preview.createdAtMillis)
-            })
-        }
-        return json.toString().toByteArray(Charsets.UTF_8)
+                put("preview", JSONObject().apply {
+                    put("partiesCount", preview.partiesCount)
+                    put("transactionsCount", preview.transactionsCount)
+                    put("paymentsCount", preview.paymentsCount)
+                    put("attachmentsCount", preview.attachmentsCount)
+                    put("appVersion", preview.appVersion)
+                    put("createdAtMillis", preview.createdAtMillis)
+                })
+            }.toString()
+        }.getOrNull()?.takeIf { it.isNotBlank() }
+            ?: """{"magic":"$MAGIC","kdf":"$KDF_ALGO","iterations":$ITERATIONS,"salt":"$saltB64","iv":"$ivB64","ciphertext":"$cipherB64","createdAtMillis":${preview.createdAtMillis}}"""
+        return jsonStr.toByteArray(Charsets.UTF_8)
     }
 
     fun decrypt(encryptedBytes: ByteArray, passphrase: String): ByteArray {
@@ -91,9 +100,10 @@ object DriveBackupCrypto {
             throw InvalidPassphraseException("Corrupted backup: missing encryption parameters.")
         }
 
-        val salt = Base64.decode(saltStr, Base64.NO_WRAP)
-        val iv = Base64.decode(ivStr, Base64.NO_WRAP)
-        val ciphertext = Base64.decode(ciphertextStr, Base64.NO_WRAP)
+        val decoder = Base64.getMimeDecoder()
+        val salt = decoder.decode(saltStr.trim())
+        val iv = decoder.decode(ivStr.trim())
+        val ciphertext = decoder.decode(ciphertextStr.trim())
 
         return try {
             val keySpec = PBEKeySpec(passphrase.toCharArray(), salt, iterations, KEY_LENGTH_BITS)
@@ -116,7 +126,8 @@ object DriveBackupCrypto {
         return try {
             val json = JSONObject(String(encryptedBytes, Charsets.UTF_8))
             json.optString("magic") == MAGIC
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            com.jyotirmoyb.udhaar.util.SafeLogger.d("DriveBackupCrypto", "Byte array is not an encrypted container")
             false
         }
     }
@@ -125,7 +136,8 @@ object DriveBackupCrypto {
         return try {
             val json = JSONObject(text)
             json.optString("magic") == MAGIC
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            com.jyotirmoyb.udhaar.util.SafeLogger.d("DriveBackupCrypto", "Text is not an encrypted container")
             false
         }
     }
@@ -140,10 +152,11 @@ object DriveBackupCrypto {
                 transactionsCount = p.optInt("transactionsCount", 0),
                 paymentsCount = p.optInt("paymentsCount", 0),
                 attachmentsCount = p.optInt("attachmentsCount", 0),
-                appVersion = p.optString("appVersion", "9.0"),
+                appVersion = p.optString("appVersion", "13.0"),
                 createdAtMillis = p.optLong("createdAtMillis", json.optLong("createdAtMillis", System.currentTimeMillis()))
             )
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            com.jyotirmoyb.udhaar.util.SafeLogger.w("DriveBackupCrypto", "Failed reading backup preview metadata", e)
             null
         }
     }

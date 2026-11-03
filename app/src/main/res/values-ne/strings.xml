@@ -631,6 +631,18 @@
     <string name="coach_tip_3_title">टिप ३ / ३ · सँगै प्रमाणित गर्नुहोस्</string>
     <string name="coach_tip_3_body">प्रमाणीकरण लिङ्क साझा गर्न कुनै पनि रेकर्ड खोल्नुहोस् ताकि दुवै पक्ष बाँकी रकममा सहमत होऊन्।</string>
     <string name="settings_about_version_format">उधार खाता v%1$s (बिल्ड %2$d)</string>
+    <string name="drive_reconnect_button">पुनः जडान गर्नुहोस्</string>
+    <string name="drive_reconnect_google_drive_prompt_title">Google Drive पुनः जडान गर्नुहोस्</string>
+    <string name="drive_reconnect_google_drive_prompt_body">Google Drive अनुमति समाप्त भयो। अनुमति दिन पुनः जडानमा ट्याप गर्नुहोस्।</string>
+    <string name="drive_run_connection_test_button">जडान परीक्षण चलाउनुहोस्</string>
+    <string name="drive_last_error_label_fmt">पछिल्लो त्रुटि (%1$s): %2$s</string>
+    <string name="drive_connection_test_passed_title">जडान परीक्षण सफल</string>
+    <string name="drive_connection_test_failed_title">जडान परीक्षण असफल</string>
+    <string name="drive_connection_test_step_fmt">असफल चरण: %1$s</string>
+    <string name="drive_connection_test_code_fmt">त्रुटि कोड: %1$s</string>
+    <string name="drive_common_causes_title">सामान्य Google Drive सेटअप कारणहरू</string>
+    <string name="drive_common_causes_body">• Drive API सक्रिय छैन: Google Cloud Console मा Google Drive API सक्रिय गर्नुहोस्।\n• SHA-1 दर्ता गरिएको छैन: Android OAuth 2.0 Client ID मा debug, upload र Play App Signing SHA-1 थप्नुहोस्।\n• परीक्षण प्रयोगकर्ता होइन: Testing मोडमा OAuth Consent Screen &gt; Test Users मा आफ्नो इमेल थप्नुहोस्।</string>
+    <string name="drive_backing_up_progress">ब्याकअप हुँदैछ…</string>
 </resources>
 
 

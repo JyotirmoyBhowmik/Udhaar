@@ -837,7 +837,8 @@ class VerificationCloudRepository(
                         }
                     }
                     deleteSharedRecord(remoteId)
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    com.jyotirmoyb.udhaar.util.SafeLogger.w("CloudRepo", "Failed deleting shared record during cloud wipe", e)
                 }
             }
         }
@@ -856,13 +857,20 @@ class VerificationCloudRepository(
                         }
                     }
                     db.collection("chat_threads").document(threadId).delete().await()
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    com.jyotirmoyb.udhaar.util.SafeLogger.w("CloudRepo", "Failed deleting chat thread during cloud wipe", e)
                 }
             }
         }
         try {
             deleteUserProfile(userId)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            com.jyotirmoyb.udhaar.util.SafeLogger.w("CloudRepo", "Failed deleting user profile during cloud wipe", e)
+        }
+        try {
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().deleteToken().await()
+        } catch (e: Exception) {
+            com.jyotirmoyb.udhaar.util.SafeLogger.w("CloudRepo", "Failed revoking FCM token during cloud wipe", e)
         }
     }
 

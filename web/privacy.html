@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy &amp; Data Deletion — Udhaar (com.jyotirmoyb.udhaar)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #000000;
+      --muted: #525252;
+      --border: #000000;
+      --hairline: #e5e5e5;
+      --surface: #f7f7f7;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      line-height: 1.65;
+      padding: 32px 20px 80px;
+    }
+    .container {
+      max-width: 820px;
+      margin: 0 auto;
+      border: 2px solid var(--border);
+      padding: 32px 28px;
+      background: var(--bg);
+    }
+    .badge {
+      display: inline-block;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      background: var(--fg);
+      color: var(--bg);
+      margin-bottom: 14px;
+    }
+    h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 28px;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+    .meta {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--hairline);
+      margin-bottom: 24px;
+    }
+    h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 17px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin: 28px 0 10px;
+      padding-top: 16px;
+      border-top: 1px solid var(--hairline);
+    }
+    p, li {
+      font-size: 14px;
+      color: #171717;
+      margin-bottom: 10px;
+    }
+    ul {
+      padding-left: 20px;
+      margin-bottom: 12px;
+    }
+    code {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      background: var(--surface);
+      padding: 2px 6px;
+      border: 1px solid var(--hairline);
+    }
+    .callout {
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      padding: 16px 18px;
+      margin: 18px 0;
+    }
+    .callout-title {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+    .footer {
+      margin-top: 32px;
+      padding-top: 18px;
+      border-top: 2px solid var(--border);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    a { color: var(--fg); font-weight: 600; text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <span class="badge">UDHAAR • PRIVACY &amp; DATA SAFETY</span>
+    <h1>Privacy Policy &amp; Cloud Data Deletion</h1>
+    <div class="meta">
+      Application: Udhaar (<code>com.jyotirmoyb.udhaar</code>) • Effective &amp; Updated: November 3, 2026 • Developer: Jyotirmoy Bhowmik
+    </div>
+
+    <p>
+      <strong>Udhaar</strong> is an offline-first personal and party loan/ledger application. By default, 100% of your financial records, party profiles, and attachments remain strictly on your device inside an encrypted SQLCipher database. Cloud features (Encrypted Google Drive Backup and Counterparty Mutual Verification) are strictly opt-in.
+    </p>
+
+    <h2>1. On-Device Data &amp; Hardware Encryption</h2>
+    <ul>
+      <li><strong>Encrypted Local Database:</strong> All ledger records, repayments, audit logs, and party details are stored locally in <code>udhaar_ledger.db</code> encrypted with 256-bit AES via SQLCipher and Android Keystore (<code>MasterKey.KeyScheme.AES256_GCM</code>).</li>
+      <li><strong>Biometric &amp; PIN Gate:</strong> Biometric authentication uses Android’s system <code>BiometricPrompt</code> API. Your fallback PIN is salted and hashed using <code>PBKDF2-HMAC-SHA256</code> (60,000 iterations) and never leaves your device.</li>
+    </ul>
+
+    <h2>2. Android Permissions &amp; How They Are Used</h2>
+    <ul>
+      <li><strong>Contacts (<code>android.permission.READ_CONTACTS</code> — Optional):</strong> Requested only when you tap <em>"Browse &amp; Import Multiple Contacts"</em> or <em>"Import from Contacts"</em> to quickly populate a counterparty’s name and phone number in your local People Directory. You may also use the single-contact system picker or import a <code>.vcf</code> file without granting this permission. Your address book is never bulk-uploaded to any server.</li>
+      <li><strong>Camera (<code>android.permission.CAMERA</code> — Optional):</strong> Requested only when you choose to take a photo of a physical receipt, invoice, or UPI proof to attach to a transaction.</li>
+      <li><strong>Notifications (<code>android.permission.POST_NOTIFICATIONS</code> — Optional):</strong> Used to display scheduled local repayment reminders and real-time counterparty verification/chat alerts.</li>
+    </ul>
+
+    <h2>3. Optional Cloud Features (Google Drive Backup &amp; Mutual Verification)</h2>
+    <ul>
+      <li><strong>Encrypted Google Drive Backup (<code>drive.appdata</code>):</strong> When enabled, your ledger backup is encrypted on your device using <code>AES-256-GCM</code> (derived from your passphrase via <code>PBKDF2WithHmacSHA256</code> with 120,000 iterations) before being uploaded to your private Google Drive <code>appDataFolder</code>. Neither the developer nor third parties can access or decrypt your Google Drive backups.</li>
+      <li><strong>Mutual Record Verification &amp; Party Chat (Firebase Firestore &amp; FCM):</strong> When you sign in with Google and explicitly share a verification link (<code>https://udhaar.jyotirmoyb.com/u/...</code>) or message a counterparty, the shared transaction snapshot, verification status, chat messages, and Firebase Cloud Messaging (FCM) registration token are stored in Google Cloud Firestore with TLS encryption in transit and strict participant-only security rules.</li>
+    </ul>
+
+    <h2>4. Zero-PII Telemetry &amp; No Third-Party Ad Sharing</h2>
+    <p>
+      Udhaar contains <strong>no advertising SDKs</strong> and never sells or shares your personal or financial data with marketers. Internal error handling redacts phone numbers, UPI IDs, names, currency amounts, tokens, and PINs.
+    </p>
+
+    <h2 id="delete-data">5. How to Delete Your Cloud Data &amp; Account Records</h2>
+    <div class="callout">
+      <div class="callout-title">Instant In-App Deletion (Recommended)</div>
+      <p style="margin-bottom:6px;">
+        You can permanently delete all of your cloud-synced data directly inside the Udhaar Android app at any time:
+      </p>
+      <ol style="padding-left:20px; font-size:14px;">
+        <li>Open <strong>Udhaar</strong> and tap the <strong>Settings (Gear)</strong> icon in the top bar.</li>
+        <li>Scroll to <strong>Cloud Verification &amp; Account</strong>.</li>
+        <li>Tap <strong>Delete My Cloud Data</strong> and confirm.</li>
+      </ol>
+      <p style="margin-top:8px; margin-bottom:0;">
+        This immediately deletes your <code>/user_profiles/{uid}</code> profile, your authored <code>/shared_records</code>, your <code>/chat_threads</code> and messages in Cloud Firestore, revokes your device’s FCM push token, and signs you out—while keeping your local on-device ledger intact (which you can also clear at any time via Android System Settings &rarr; Apps &rarr; Udhaar &rarr; Clear Storage).
+      </p>
+    </div>
+    <p>
+      If you have uninstalled the app and wish to request deletion of cloud verification records associated with your Google account email or phone number, email <a href="mailto:admin@jyotirmoyb.com?subject=Udhaar%20Cloud%20Data%20Deletion%20Request">admin@jyotirmoyb.com</a> from that email address and your cloud records will be purged within 48 hours.
+    </p>
+
+    <h2>6. Contact &amp; Data Controller</h2>
+    <p>
+      For privacy inquiries, security disclosures, or support, contact:<br />
+      <strong>Jyotirmoy Bhowmik</strong> — <a href="mailto:admin@jyotirmoyb.com">admin@jyotirmoyb.com</a>
+    </p>
+
+    <footer class="footer">
+      <span><a href="/">← Back to Udhaar Home</a></span>
+      <span><a href="/u/">Open Verification Portal</a></span>
+      <span>© 2026 Jyotirmoy Bhowmik</span>
+    </footer>
+  </main>
+</body>
+</html>

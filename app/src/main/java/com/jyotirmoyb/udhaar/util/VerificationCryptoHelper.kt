@@ -220,7 +220,7 @@ object VerificationCryptoHelper {
     )
 
     /**
-     * Generates a verification URL (`https://jyotirmoyb.com/u/<token>`) that acts both as an Android App Link
+     * Generates a verification URL (`https://udhaar.jyotirmoyb.com/u/<token>`) that acts both as an Android App Link
      * and a web fallback URL, embedding the signed verification envelope so it works seamlessly online or offline.
      */
     fun buildVerificationLink(payload: SharedVerificationPayload): String {
@@ -292,12 +292,13 @@ object VerificationCryptoHelper {
                 encryptedNote = map["enote"].orEmpty()
             )
         } catch (e: Exception) {
+            SafeLogger.w("VerificationCrypto", "Failed to parse verification link", e)
             null
         }
     }
 
     /**
-     * Generates a shareable Payment Profile link (`https://jyotirmoyb.com/u/p/<token>`)
+     * Generates a shareable Payment Profile link (`https://udhaar.jyotirmoyb.com/u/p/<token>`)
      * for "Share my payment details" and QR scanning.
      */
     fun buildPaymentProfileLink(profile: SharedPaymentProfilePayload): String {

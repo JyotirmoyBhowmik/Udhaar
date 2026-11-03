@@ -631,6 +631,18 @@
     <string name="coach_tip_3_title">টিপ ৩ / ৩ · একেলগে সত্যাপন কৰক</string>
     <string name="coach_tip_3_body">যিকোনো ৰেকৰ্ড খুলি সত্যাপন লিংক শ্বেয়াৰ কৰক যাতে দুয়ো পক্ষ বাকী টকাত সন্মত হয়।</string>
     <string name="settings_about_version_format">উধাৰ খাতা v%1$s (বিল্ড %2$d)</string>
+    <string name="drive_reconnect_button">পুনৰ সংযোগ কৰক</string>
+    <string name="drive_reconnect_google_drive_prompt_title">Google Drive পুনৰ সংযোগ কৰক</string>
+    <string name="drive_reconnect_google_drive_prompt_body">Google Drive অনুমোদনৰ ম্যাদ উকলিল। অনুমতি দিবলৈ পুনৰ সংযোগত টেপ কৰক।</string>
+    <string name="drive_run_connection_test_button">সংযোগ পৰীক্ষা চলাওক</string>
+    <string name="drive_last_error_label_fmt">শেহতীয়া ত্ৰুটি (%1$s): %2$s</string>
+    <string name="drive_connection_test_passed_title">সংযোগ পৰীক্ষা সফল</string>
+    <string name="drive_connection_test_failed_title">সংযোগ পৰীক্ষা বিফল</string>
+    <string name="drive_connection_test_step_fmt">বিফল স্তৰ: %1$s</string>
+    <string name="drive_connection_test_code_fmt">ত্ৰুটি ক’ড: %1$s</string>
+    <string name="drive_common_causes_title">সাধাৰণ Google Drive ছেটআপ কাৰণসমূহ</string>
+    <string name="drive_common_causes_body">• Drive API সক্ৰিয় নহয়: Google Cloud Console-ত Google Drive API সক্ৰিয় কৰক।\n• SHA-1 পঞ্জীয়ন কৰা হোৱা নাই: Android OAuth 2.0 ক্লায়েন্ট ID-ত debug, upload আৰু Play App Signing SHA-1 যোগ কৰক।\n• টেষ্ট ইউজাৰ নহয়: Testing মোডত OAuth Consent Screen &gt; Test Users-ত আপোনাৰ ইমেইল যোগ কৰক।</string>
+    <string name="drive_backing_up_progress">বেকআপ হৈ আছে…</string>
 </resources>
 
 

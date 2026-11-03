@@ -359,12 +359,16 @@ data class UserSettings(
     val cloudBackupState: CloudBackupState = CloudBackupState.IDLE,
     val cloudBackupError: String = "",
     val driveUserEmail: String = "",
-    val driveAccessToken: String = "",
     val driveLastBackupTimeMillis: Long = 0L,
     val driveLastBackupSizeBytes: Long = 0L,
     val driveAutoBackupFrequency: AutoBackupFrequency = AutoBackupFrequency.OFF,
     val driveAutoBackupWifiOnly: Boolean = true,
     val driveAutoBackupPassphraseSaved: Boolean = false,
+    val driveLastErrorCode: com.jyotirmoyb.udhaar.backup.DriveBackupErrorCode = com.jyotirmoyb.udhaar.backup.DriveBackupErrorCode.NONE,
+    val driveLastErrorMessage: String = "",
+    val driveLastAttemptTimeMillis: Long = 0L,
+    val driveConsecutiveFailures: Int = 0,
+    val driveNeedsReconnect: Boolean = false,
     val hasCompletedOnboarding: Boolean = false
 ) {
     val driveAccountEmail: String get() = driveUserEmail

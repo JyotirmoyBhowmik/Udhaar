@@ -12,6 +12,7 @@ import com.jyotirmoyb.udhaar.data.UserSettings
 import com.jyotirmoyb.udhaar.ui.theme.AppThemeMode
 import com.jyotirmoyb.udhaar.ui.theme.paletteForTheme
 import com.jyotirmoyb.udhaar.util.InterestCalculator
+import kotlinx.coroutines.flow.first
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -414,5 +415,325 @@ class ExampleUnitTest {
         )
         assertEquals("Open-ended", InterestCalculator.fmtDate(0L))
     }
+
+    @Test
+    fun safeLogger_redactsPhonesUpiIdsAmountsTokensAndPins() {
+        val raw = "Failed sync for +91 9876543210, upi merchant@okicici, amount ₹12,500.50, pin=4829, url https://udhaar.jyotirmoyb.com/u/eyJ0eXAiOiJKV1QifQ"
+        val redacted = com.jyotirmoyb.udhaar.util.SafeLogger.redact(raw)
+
+        assertFalse("Phone number must be redacted: $redacted", redacted.contains("9876543210"))
+        assertFalse("UPI ID must be redacted: $redacted", redacted.contains("merchant@okicici"))
+        assertFalse("Amount must be redacted: $redacted", redacted.contains("12,500.50"))
+        assertFalse("PIN must be redacted: $redacted", redacted.contains("4829"))
+        assertFalse("Token URL must be redacted: $redacted", redacted.contains("eyJ0eXAiOiJKV1QifQ"))
+        assertTrue(redacted.contains("[REDACTED_PHONE]"))
+        assertTrue(redacted.contains("[REDACTED_ID]"))
+        assertTrue(redacted.contains("[REDACTED_AMOUNT]"))
+    }
+
+    @Test
+    fun udhaarAppError_mapsExceptionsToClearUserMessages() {
+        val netErr = com.jyotirmoyb.udhaar.util.UdhaarAppError.fromThrowable(java.net.UnknownHostException("Unable to resolve host"))
+        assertEquals(com.jyotirmoyb.udhaar.util.UdhaarAppError.NoNetwork, netErr)
+
+        val passErr = com.jyotirmoyb.udhaar.util.UdhaarAppError.fromThrowable(javax.crypto.AEADBadTagException("Tag mismatch"))
+        assertEquals(com.jyotirmoyb.udhaar.util.UdhaarAppError.WrongPassphrase, passErr)
+
+        val authErr = com.jyotirmoyb.udhaar.util.UdhaarAppError.fromThrowable(IllegalStateException("User is not signed in (401)"))
+        assertEquals(com.jyotirmoyb.udhaar.util.UdhaarAppError.SignedOut, authErr)
+
+        val quotaErr = com.jyotirmoyb.udhaar.util.UdhaarAppError.fromThrowable(RuntimeException("RESOURCE_EXHAUSTED: storageQuotaExceeded"))
+        assertEquals(com.jyotirmoyb.udhaar.util.UdhaarAppError.QuotaExceeded, quotaErr)
+
+        val corruptErr = com.jyotirmoyb.udhaar.util.UdhaarAppError.fromThrowable(IllegalArgumentException("Malformed or tampered JSON payload"))
+        assertEquals(com.jyotirmoyb.udhaar.util.UdhaarAppError.CorruptedFile, corruptErr)
+    }
+
+    @Test
+    fun backupPreviewSummary_usesBuildConfigVersionName() {
+        val summary = com.jyotirmoyb.udhaar.backup.BackupPreviewSummary(
+            partiesCount = 3,
+            transactionsCount = 7
+        )
+        assertEquals(BuildConfig.VERSION_NAME, summary.appVersion)
+    }
+
+    @Test
+    fun driveServiceHelper_fetchesFreshTokenAndRetriesOnceOnHttp401() = kotlinx.coroutines.runBlocking {
+        val requestedForceRefreshTokens = mutableListOf<String?>()
+        val callTokens = mutableListOf<String>()
+        var nextTokenIndex = 0
+        val tokenSequence = listOf("stale-token-1", "refreshed-token-2", "token-3", "token-4")
+
+        val fakeTokenProvider = object : com.jyotirmoyb.udhaar.backup.DriveTokenProvider {
+            override suspend fun getFreshAccessToken(forceRefreshAfter401: String?): com.jyotirmoyb.udhaar.backup.DriveTokenOutcome {
+                requestedForceRefreshTokens.add(forceRefreshAfter401)
+                val token = tokenSequence.getOrElse(nextTokenIndex) { "fallback-token" }
+                nextTokenIndex++
+                return com.jyotirmoyb.udhaar.backup.DriveTokenOutcome.TokenReady(
+                    accessToken = token,
+                    accountEmail = "merchant@example.com"
+                )
+            }
+        }
+
+        val helper = object : com.jyotirmoyb.udhaar.backup.DriveServiceHelper(
+            tokenProvider = fakeTokenProvider
+        ) {
+            override suspend fun listBackupsWithToken(accessToken: String): com.jyotirmoyb.udhaar.backup.DriveResult<List<com.jyotirmoyb.udhaar.backup.DriveRemoteBackup>> {
+                callTokens.add(accessToken)
+                return if (accessToken == "stale-token-1") {
+                    com.jyotirmoyb.udhaar.backup.DriveResult.Error(
+                        errorType = com.jyotirmoyb.udhaar.backup.DriveErrorType.EXPIRED_SIGN_IN,
+                        message = "Unauthorized",
+                        httpCode = 401,
+                        errorCode = "HTTP_401"
+                    )
+                } else {
+                    com.jyotirmoyb.udhaar.backup.DriveResult.Success(
+                        listOf(
+                            com.jyotirmoyb.udhaar.backup.DriveRemoteBackup(
+                                fileId = "file-123",
+                                fileName = "udhaar_backup.udhaar",
+                                sizeBytes = 512L,
+                                createdTimeMillis = 1_700_000_000_000L,
+                                preview = null
+                            )
+                        )
+                    )
+                }
+            }
+
+            override suspend fun uploadBackupWithToken(
+                accessToken: String,
+                fileName: String,
+                encryptedBytes: ByteArray,
+                preview: com.jyotirmoyb.udhaar.backup.BackupPreviewSummary
+            ): com.jyotirmoyb.udhaar.backup.DriveResult<com.jyotirmoyb.udhaar.backup.DriveRemoteBackup> {
+                callTokens.add(accessToken)
+                // Simulate persistent 401 on both initial and retry calls
+                return com.jyotirmoyb.udhaar.backup.DriveResult.Error(
+                    errorType = com.jyotirmoyb.udhaar.backup.DriveErrorType.EXPIRED_SIGN_IN,
+                    message = "Still 401",
+                    httpCode = 401,
+                    errorCode = "HTTP_401"
+                )
+            }
+        }
+
+        // 1. First call gets 401 with "stale-token-1", refreshes once passing forceRefreshAfter401="stale-token-1", and succeeds with "refreshed-token-2"
+        val listResult = helper.listBackups()
+        assertTrue("Expected Success after single 401 token refresh, got $listResult", listResult is com.jyotirmoyb.udhaar.backup.DriveResult.Success)
+        assertEquals(listOf(null, "stale-token-1"), requestedForceRefreshTokens)
+        assertEquals(listOf("stale-token-1", "refreshed-token-2"), callTokens)
+
+        // 2. Upload call gets 401 twice -> refreshes only once and fails with needsReconnect = true and HTTP_401_AFTER_RETRY
+        requestedForceRefreshTokens.clear()
+        callTokens.clear()
+        val uploadResult = helper.uploadBackup(
+            fileName = "backup.udhaar",
+            encryptedBytes = byteArrayOf(1, 2, 3),
+            preview = com.jyotirmoyb.udhaar.backup.BackupPreviewSummary()
+        )
+        assertTrue(uploadResult is com.jyotirmoyb.udhaar.backup.DriveResult.Error)
+        val err = uploadResult as com.jyotirmoyb.udhaar.backup.DriveResult.Error
+        assertEquals(com.jyotirmoyb.udhaar.backup.DriveErrorType.EXPIRED_SIGN_IN, err.errorType)
+        assertEquals("HTTP_401_AFTER_RETRY", err.errorCode)
+        assertTrue("Should require reconnect after retry still returns 401", err.needsReconnect)
+        assertEquals(2, callTokens.size)
+        assertEquals(listOf(null, "token-3"), requestedForceRefreshTokens)
+
+        // 3. When authorize() returns hasResolution, NeedsResolution maps to RESOLUTION_REQUIRED & needsReconnect = true
+        val resolutionHelper = com.jyotirmoyb.udhaar.backup.DriveServiceHelper(
+            tokenProvider = object : com.jyotirmoyb.udhaar.backup.DriveTokenProvider {
+                override suspend fun getFreshAccessToken(forceRefreshAfter401: String?): com.jyotirmoyb.udhaar.backup.DriveTokenOutcome {
+                    return com.jyotirmoyb.udhaar.backup.DriveTokenOutcome.NeedsResolution(
+                        pendingIntent = null,
+                        message = "Consent required"
+                    )
+                }
+            }
+        )
+        val resOutcome = resolutionHelper.listBackups()
+        assertTrue(resOutcome is com.jyotirmoyb.udhaar.backup.DriveResult.Error)
+        val resErr = resOutcome as com.jyotirmoyb.udhaar.backup.DriveResult.Error
+        assertEquals("RESOLUTION_REQUIRED", resErr.errorCode)
+        assertTrue(resErr.needsReconnect)
+    }
+
+    @Test
+    fun driveBackupWorker_handlesAllErrorPathsAndConsecutiveFailureNotification() = kotlinx.coroutines.runBlocking {
+        val fakeDao = java.lang.reflect.Proxy.newProxyInstance(
+            com.jyotirmoyb.udhaar.data.UdhaarDao::class.java.classLoader,
+            arrayOf(com.jyotirmoyb.udhaar.data.UdhaarDao::class.java)
+        ) { _, method, _ ->
+            when (method.returnType) {
+                List::class.java -> emptyList<Any>()
+                kotlinx.coroutines.flow.Flow::class.java -> kotlinx.coroutines.flow.flowOf(emptyList<Any>())
+                java.lang.Boolean.TYPE, Boolean::class.java -> false
+                java.lang.Integer.TYPE, Int::class.java -> 0
+                java.lang.Long.TYPE, Long::class.java -> 0L
+                else -> null
+            }
+        } as com.jyotirmoyb.udhaar.data.UdhaarDao
+
+        val repo = object : com.jyotirmoyb.udhaar.data.UdhaarRepository(fakeDao, context = null) {
+            override suspend fun getFullLedgerBackupSnapshot(): FullLedgerSnapshot {
+                return FullLedgerSnapshot(
+                    parties = emptyList(),
+                    transactions = emptyList(),
+                    partialPayments = emptyList(),
+                    chatThreads = emptyList(),
+                    chatMessages = emptyList(),
+                    attachments = emptyList()
+                )
+            }
+        }
+        val notificationsSent = mutableListOf<Pair<com.jyotirmoyb.udhaar.backup.DriveBackupErrorCode, Int>>()
+
+        var simulatedUploadResult: com.jyotirmoyb.udhaar.backup.DriveResult<com.jyotirmoyb.udhaar.backup.DriveRemoteBackup> =
+            com.jyotirmoyb.udhaar.backup.DriveResult.Success(
+                com.jyotirmoyb.udhaar.backup.DriveRemoteBackup(
+                    fileId = "auto-1",
+                    fileName = "udhaar_auto_backup.udhaar",
+                    sizeBytes = 1024L,
+                    createdTimeMillis = 1_700_000_000_000L,
+                    preview = null
+                )
+            )
+
+        val fakeDriveHelper = object : com.jyotirmoyb.udhaar.backup.DriveServiceHelper(tokenProvider = null) {
+            override suspend fun uploadBackup(
+                accessToken: String,
+                fileName: String,
+                encryptedBytes: ByteArray,
+                preview: com.jyotirmoyb.udhaar.backup.BackupPreviewSummary
+            ): com.jyotirmoyb.udhaar.backup.DriveResult<com.jyotirmoyb.udhaar.backup.DriveRemoteBackup> {
+                return simulatedUploadResult
+            }
+
+            override suspend fun listBackups(accessToken: String): com.jyotirmoyb.udhaar.backup.DriveResult<List<com.jyotirmoyb.udhaar.backup.DriveRemoteBackup>> {
+                return com.jyotirmoyb.udhaar.backup.DriveResult.Success(emptyList())
+            }
+        }
+
+        // Path 1: NOT_CONNECTED (email is blank) -> Failure #1 (no notification yet)
+        val resNotConnected = com.jyotirmoyb.udhaar.backup.DriveBackupWorker.executeBackupWork(
+            repository = repo,
+            driveHelper = fakeDriveHelper,
+            onConsecutiveFailureNotification = { code, count -> notificationsSent.add(code to count) }
+        )
+        assertTrue(resNotConnected is androidx.work.ListenableWorker.Result.Failure)
+        val settingsAfter1 = repo.userSettings.first()
+        assertEquals(com.jyotirmoyb.udhaar.backup.DriveBackupErrorCode.NOT_CONNECTED, settingsAfter1.driveLastErrorCode)
+        assertEquals(1, settingsAfter1.driveConsecutiveFailures)
+        assertTrue("Notification should not fire on 1st failure", notificationsSent.isEmpty())
+
+        // Path 2: NO_PASSPHRASE (email connected, passphrase not saved) -> Failure #2 (fires notification!)
+        repo.updateDriveAccount("merchant@example.com")
+        val resNoPassphrase = com.jyotirmoyb.udhaar.backup.DriveBackupWorker.executeBackupWork(
+            repository = repo,
+            driveHelper = fakeDriveHelper,
+            onConsecutiveFailureNotification = { code, count -> notificationsSent.add(code to count) }
+        )
+        assertTrue(resNoPassphrase is androidx.work.ListenableWorker.Result.Failure)
+        val settingsAfter2 = repo.userSettings.first()
+        assertEquals(com.jyotirmoyb.udhaar.backup.DriveBackupErrorCode.NO_PASSPHRASE, settingsAfter2.driveLastErrorCode)
+        assertEquals(2, settingsAfter2.driveConsecutiveFailures)
+        assertEquals(1, notificationsSent.size)
+        assertEquals(com.jyotirmoyb.udhaar.backup.DriveBackupErrorCode.NO_PASSPHRASE to 2, notificationsSent.last())
+
+        // Save passphrase for remaining network/API error tests
+        repo.saveAutoBackupPassphrase("CorrectHorseBatteryStaple!")
+
+        // Path 3: NO_NETWORK -> returns Result.retry() and records NO_NETWORK
+        simulatedUploadResult = com.jyotirmoyb.udhaar.backup.DriveResult.Error(
+            errorType = com.jyotirmoyb.udhaar.backup.DriveErrorType.NO_NETWORK,
+            message = "Unable to resolve host www.googleapis.com",
+            errorCode = "NETWORK_IO_ERROR"
+        )
+        val resNoNetwork = com.jyotirmoyb.udhaar.backup.DriveBackupWorker.executeBackupWork(
+            repository = repo,
+            driveHelper = fakeDriveHelper,
+            onConsecutiveFailureNotification = { code, count -> notificationsSent.add(code to count) }
+        )
+        assertEquals(androidx.work.ListenableWorker.Result.retry(), resNoNetwork)
+        val settingsAfterNet = repo.userSettings.first()
+        assertEquals(com.jyotirmoyb.udhaar.backup.DriveBackupErrorCode.NO_NETWORK, settingsAfterNet.driveLastErrorCode)
+
+        // Path 4: AUTH_EXPIRED -> returns Result.failure(), sets driveNeedsReconnect = true
+        simulatedUploadResult = com.jyotirmoyb.udhaar.backup.DriveResult.Error(
+            errorType = com.jyotirmoyb.udhaar.backup.DriveErrorType.EXPIRED_SIGN_IN,
+            message = "Token expired",
+            httpCode = 401,
+            errorCode = "HTTP_401_AFTER_RETRY",
+            needsReconnect = true
+        )
+        val resAuthExpired = com.jyotirmoyb.udhaar.backup.DriveBackupWorker.executeBackupWork(
+            repository = repo,
+            driveHelper = fakeDriveHelper,
+            onConsecutiveFailureNotification = { code, count -> notificationsSent.add(code to count) }
+        )
+        assertTrue(resAuthExpired is androidx.work.ListenableWorker.Result.Failure)
+        val settingsAfterAuth = repo.userSettings.first()
+        assertEquals(com.jyotirmoyb.udhaar.backup.DriveBackupErrorCode.AUTH_EXPIRED, settingsAfterAuth.driveLastErrorCode)
+        assertTrue(settingsAfterAuth.driveNeedsReconnect)
+
+        // Path 5: QUOTA -> returns Result.failure(), records QUOTA
+        simulatedUploadResult = com.jyotirmoyb.udhaar.backup.DriveResult.Error(
+            errorType = com.jyotirmoyb.udhaar.backup.DriveErrorType.QUOTA_EXCEEDED,
+            message = "Drive storage full",
+            httpCode = 403,
+            errorCode = "HTTP_403_storageQuotaExceeded"
+        )
+        val resQuota = com.jyotirmoyb.udhaar.backup.DriveBackupWorker.executeBackupWork(
+            repository = repo,
+            driveHelper = fakeDriveHelper,
+            onConsecutiveFailureNotification = { code, count -> notificationsSent.add(code to count) }
+        )
+        assertTrue(resQuota is androidx.work.ListenableWorker.Result.Failure)
+        val settingsAfterQuota = repo.userSettings.first()
+        assertEquals(com.jyotirmoyb.udhaar.backup.DriveBackupErrorCode.QUOTA, settingsAfterQuota.driveLastErrorCode)
+
+        // Path 6: OTHER -> returns Result.failure(), records OTHER
+        simulatedUploadResult = com.jyotirmoyb.udhaar.backup.DriveResult.Error(
+            errorType = com.jyotirmoyb.udhaar.backup.DriveErrorType.UNKNOWN,
+            message = "Drive API not enabled",
+            httpCode = 403,
+            errorCode = "HTTP_403_accessNotConfigured"
+        )
+        val resOther = com.jyotirmoyb.udhaar.backup.DriveBackupWorker.executeBackupWork(
+            repository = repo,
+            driveHelper = fakeDriveHelper,
+            onConsecutiveFailureNotification = { code, count -> notificationsSent.add(code to count) }
+        )
+        assertTrue(resOther is androidx.work.ListenableWorker.Result.Failure)
+        val settingsAfterOther = repo.userSettings.first()
+        assertEquals(com.jyotirmoyb.udhaar.backup.DriveBackupErrorCode.OTHER, settingsAfterOther.driveLastErrorCode)
+
+        // Path 7: SUCCESS -> returns Result.success(), resets consecutiveFailures to 0 and errorCode to NONE
+        simulatedUploadResult = com.jyotirmoyb.udhaar.backup.DriveResult.Success(
+            com.jyotirmoyb.udhaar.backup.DriveRemoteBackup(
+                fileId = "auto-ok",
+                fileName = "udhaar_auto_backup_ok.udhaar",
+                sizeBytes = 2048L,
+                createdTimeMillis = 1_710_000_000_000L,
+                preview = null
+            )
+        )
+        val resSuccess = com.jyotirmoyb.udhaar.backup.DriveBackupWorker.executeBackupWork(
+            repository = repo,
+            driveHelper = fakeDriveHelper,
+            onConsecutiveFailureNotification = { code, count -> notificationsSent.add(code to count) }
+        )
+        assertEquals(androidx.work.ListenableWorker.Result.success(), resSuccess)
+        val settingsAfterSuccess = repo.userSettings.first()
+        assertEquals(com.jyotirmoyb.udhaar.backup.DriveBackupErrorCode.NONE, settingsAfterSuccess.driveLastErrorCode)
+        assertEquals(0, settingsAfterSuccess.driveConsecutiveFailures)
+        assertFalse(settingsAfterSuccess.driveNeedsReconnect)
+        assertTrue(settingsAfterSuccess.driveLastBackupTimeMillis > 0L)
+    }
 }
+
+
 

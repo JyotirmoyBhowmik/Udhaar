@@ -87,6 +87,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -257,10 +258,11 @@ fun TransactionDetailModal(
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
-        if (success && cameraTempUri != null) {
+        val capturedUri = cameraTempUri
+        if (success && capturedUri != null) {
             val processed = AttachmentManager.processCapturedImage(
                 context = context,
-                sourceUri = cameraTempUri!!,
+                sourceUri = capturedUri,
                 transactionId = tx.id,
                 addedBy = "You"
             )
@@ -952,42 +954,45 @@ fun TransactionDetailModal(
                                 }
                             }
                         } else {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
-                                    .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
-                                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
+                            val currentProof = pendingProofAttachment
+                            if (currentProof != null) {
                                 Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                                        .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        Icons.Default.Check,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = stringResource(R.string.ui_fmt_proof_6a6b8f, pendingProofAttachment!!.fileName, AttachmentManager.formatFileSize(pendingProofAttachment!!.sizeBytes)),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                                IconButton(
-                                    onClick = {
-                                        AttachmentManager.deleteAttachmentFile(context, pendingProofAttachment!!.localPath)
-                                        pendingProofAttachment = null
-                                    },
-                                    modifier = Modifier.size(28.dp)
-                                ) {
-                                    Icon(Icons.Default.Close, contentDescription = "Remove proof", modifier = Modifier.size(14.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = stringResource(R.string.ui_fmt_proof_6a6b8f, currentProof.fileName, AttachmentManager.formatFileSize(currentProof.sizeBytes)),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            AttachmentManager.deleteAttachmentFile(context, currentProof.localPath)
+                                            pendingProofAttachment = null
+                                        },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(Icons.Default.Close, contentDescription = "Remove proof", modifier = Modifier.size(14.dp))
+                                    }
                                 }
                             }
                         }
@@ -1012,9 +1017,10 @@ fun TransactionDetailModal(
                                 modifier = Modifier.testTag("reported_by_counterparty_switch")
                             )
                         }
-                        if (errorText != null) {
+                        val currentErrorText = errorText
+                        if (currentErrorText != null) {
                             Text(
-                                text = errorText!!,
+                                text = currentErrorText,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error,
                                 fontWeight = FontWeight.SemiBold
@@ -1522,966 +1528,6 @@ fun TransactionDetailModal(
 }
 
 /**
- * Full-screen attachment viewer with pinch-to-zoom, share, and delete.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AttachmentViewerModal(
-    attachment: Attachment,
-    onDismiss: () -> Unit,
-    onShare: () -> Unit,
-    onDelete: () -> Unit
-) {
-    val context = LocalContext.current
-    var scale by remember { mutableFloatStateOf(1f) }
-    var offset by remember { mutableStateOf(Offset.Zero) }
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-
-    val isImage = attachment.mimeType.startsWith("image/")
-
-    if (showDeleteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text(stringResource(R.string.ui_str_delete_attachment_51a359)) },
-            text = { Text(stringResource(R.string.ui_fmt_permanently_delete_from_this_device_49b352, attachment.fileName)) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showDeleteConfirm = false
-                        onDelete()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError
-                    )
-                ) {
-                    Text(stringResource(R.string.ui_str_delete_d6f563))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text(stringResource(R.string.ui_str_cancel_1507c4))
-                }
-            }
-        )
-    }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = attachment.fileName,
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = stringResource(R.string.ui_fmt_symbol_feee0d, AttachmentManager.formatFileSize(attachment.sizeBytes), attachment.addedBy),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = BorderGrey
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.testTag("close_attachment_viewer_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = PureWhite
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = onShare,
-                        modifier = Modifier.testTag("share_attachment_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = "Share",
-                            tint = PureWhite
-                        )
-                    }
-                    IconButton(
-                        onClick = { showDeleteConfirm = true },
-                        modifier = Modifier.testTag("delete_attachment_viewer_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.DeleteOutline,
-                            contentDescription = "Delete",
-                            tint = Color(0xFFFF5252)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = PureBlack,
-                    titleContentColor = PureWhite,
-                    navigationIconContentColor = PureWhite,
-                    actionIconContentColor = PureWhite
-                )
-            )
-        },
-        containerColor = PureBlack
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            contentAlignment = Alignment.Center
-        ) {
-            if (isImage) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer(
-                            scaleX = scale,
-                            scaleY = scale,
-                            translationX = offset.x,
-                            translationY = offset.y
-                        )
-                        .pointerInput(Unit) {
-                            detectTransformGestures { _, pan, zoom, _ ->
-                                scale = (scale * zoom).coerceIn(1f, 5f)
-                                if (scale > 1f) {
-                                    offset += pan
-                                } else {
-                                    offset = Offset.Zero
-                                }
-                            }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    AsyncImage(
-                        model = File(attachment.localPath),
-                        contentDescription = attachment.fileName,
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .padding(24.dp)
-                        .background(PureWhite, RoundedCornerShape(12.dp))
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Description,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = PureBlack
-                    )
-                    Text(
-                        text = attachment.fileName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = PureBlack,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = stringResource(R.string.ui_fmt_symbol_219ec1, attachment.mimeType, AttachmentManager.formatFileSize(attachment.sizeBytes)),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = SecondaryInkGrey
-                    )
-                    if (attachment.sha256.isNotBlank()) {
-                        Text(
-                            text = stringResource(R.string.ui_fmt_sha_256_c193c6, attachment.sha256.take(24)),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
-                            color = SecondaryInkGrey
-                        )
-                    }
-                    Button(
-                        onClick = {
-                            AttachmentManager.openAttachmentWithIntent(context, attachment.localPath, attachment.mimeType)
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(44.dp)
-                            .testTag("open_external_document_button"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = PureBlack,
-                            contentColor = PureWhite
-                        )
-                    ) {
-                        Text(stringResource(R.string.ui_str_open_in_document_viewer_d2ac9d))
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * Thermal Receipt Statement Preview & PNG Share ModalBottomSheet
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ThermalReceiptModal(
-    title: String,
-    subtitle: String,
-    receiptBitmap: Bitmap,
-    fileNamePrefix: String,
-    shareCaption: String,
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
-    ) {
-        AnimatedSheetContent(
-            modifier = Modifier
-                .fillMaxWidth()
-                .widthIn(max = 600.dp)
-                .align(Alignment.CenterHorizontally)
-                .imePadding()
-                .navigationBarsPadding()
-        ) {
-        Column(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.testTag("close_receipt_modal_button")
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurface)
-                }
-            }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f, fill = false)
-                    .verticalScroll(rememberScrollState())
-                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.5.dp, PureBlack, RoundedCornerShape(12.dp))
-                        .background(PureWhite, RoundedCornerShape(12.dp))
-                        .padding(8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Image(
-                        bitmap = receiptBitmap.asImageBitmap(),
-                        contentDescription = "Thermal Statement Receipt Image",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("thermal_receipt_image_preview"),
-                        contentScale = ContentScale.FillWidth
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(
-                        onClick = {
-                            ThermalReceiptGenerator.shareReceiptBitmapAsPng(
-                                context = context,
-                                bitmap = receiptBitmap,
-                                fileNamePrefix = fileNamePrefix,
-                                captionText = shareCaption
-                            )
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                            .pressScaleFeedback()
-                            .testTag("share_thermal_receipt_image_button"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        )
-                    ) {
-                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(stringResource(R.string.ui_str_share_png_f5593d), style = MaterialTheme.typography.labelLarge)
-                    }
-
-                    OutlinedButton(
-                        onClick = {
-                            ThermalReceiptGenerator.shareReceiptBitmapAsPdf(
-                                context = context,
-                                bitmap = receiptBitmap,
-                                fileNamePrefix = fileNamePrefix,
-                                captionText = shareCaption
-                            )
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                            .pressScaleFeedback()
-                            .testTag("share_thermal_receipt_pdf_button"),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-                    ) {
-                        Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(stringResource(R.string.ui_str_share_pdf_6f8eab), style = MaterialTheme.typography.labelLarge)
-                    }
-                }
-            }
-        }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun UpiQrCodeModal(
-    qrState: QrModalState,
-    userSettings: UserSettings,
-    onSaveUpiSettings: (upiId: String, payeeName: String, defaultCurrency: CurrencyType) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-    val isPayToParty = qrState.isPayToPartyMode && !qrState.customUpiId.isNullOrBlank()
-
-    var upiIdInput by rememberSaveable(qrState) {
-        mutableStateOf(
-            if (isPayToParty) qrState.customUpiId.orEmpty() else userSettings.upiId
-        )
-    }
-    var payeeNameInput by rememberSaveable(qrState) {
-        mutableStateOf(
-            if (isPayToParty) qrState.partyName.orEmpty() else userSettings.payeeName
-        )
-    }
-    var amountText by rememberSaveable(qrState) {
-        mutableStateOf(
-            qrState.initialAmountInr?.let {
-                if (it % 1.0 == 0.0) it.toLong().toString() else String.format(java.util.Locale.US, "%.2f", it)
-            } ?: ""
-        )
-    }
-
-    val parsedAmount = amountText.trim().toDoubleOrNull()
-    val effectiveUpiId = upiIdInput.trim()
-    val effectivePayeeName = payeeNameInput.trim().ifBlank { "Udhaar Payee" }
-
-    val upiUri = remember(effectiveUpiId, effectivePayeeName, parsedAmount, qrState.partyName, isPayToParty) {
-        if (effectiveUpiId.isBlank()) {
-            ""
-        } else {
-            val note = if (isPayToParty) {
-                "Udhaar repayment to ${qrState.partyName ?: effectivePayeeName}"
-            } else {
-                qrState.partyName?.let { "Udhaar settlement - $it" } ?: "Udhaar Payment"
-            }
-            UpiQrGenerator.buildUpiUri(
-                upiId = effectiveUpiId,
-                payeeName = effectivePayeeName,
-                amountInr = parsedAmount,
-                transactionNote = note
-            )
-        }
-    }
-
-    val qrBitmap = remember(upiUri) {
-        if (upiUri.isBlank()) null else UpiQrGenerator.generateQrBitmap(upiUri, sizePx = 560)
-    }
-
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
-    ) {
-        AnimatedSheetContent(
-            modifier = Modifier
-                .fillMaxWidth()
-                .widthIn(max = 600.dp)
-                .align(Alignment.CenterHorizontally)
-                .imePadding()
-                .navigationBarsPadding()
-        ) {
-        Column(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (isPayToParty) stringResource(R.string.ui_str_pay_party_via_upi_81f63b) else stringResource(R.string.ui_str_receive_via_upi_qr_640ed3),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    val settleTargetName = qrState.partyName?.uppercase() ?: stringResource(R.string.ui_party_caps)
-                    Text(
-                        text = if (isPayToParty) {
-                            stringResource(R.string.ui_fmt_settle_directly_3d3daa, settleTargetName)
-                        } else {
-                            qrState.partyName?.let { stringResource(R.string.ui_fmt_for_inr_669ce5, it.uppercase()) } ?: stringResource(R.string.ui_str_global_merchant_personal_qr_7d572f)
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.testTag("close_qr_modal_button")
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurface)
-                }
-            }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f, fill = false)
-                    .verticalScroll(rememberScrollState())
-                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                var showQrUpiId by rememberSaveable { mutableStateOf(false) }
-                OutlinedTextField(
-                    value = upiIdInput,
-                    onValueChange = {
-                        showQrUpiId = true
-                        upiIdInput = it
-                    },
-                    label = { Text(if (isPayToParty) stringResource(R.string.ui_str_party_upi_id_vpa_9c2dfd) else stringResource(R.string.ui_str_your_upi_id_vpa_47fda1)) },
-                    placeholder = { Text(stringResource(R.string.ui_str_e_g_yourname_okaxis_223c45)) },
-                    singleLine = true,
-                    visualTransformation = if (showQrUpiId || upiIdInput.isBlank()) {
-                        VisualTransformation.None
-                    } else {
-                        UpiMaskVisualTransformation
-                    },
-                    trailingIcon = {
-                        if (upiIdInput.isNotBlank()) {
-                            IconButton(onClick = { showQrUpiId = !showQrUpiId }) {
-                                Icon(
-                                    imageVector = if (showQrUpiId) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                    contentDescription = if (showQrUpiId) "Hide UPI ID" else "Show UPI ID"
-                                )
-                            }
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("qr_upi_id_input")
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = payeeNameInput,
-                        onValueChange = { payeeNameInput = it },
-                        label = { Text(stringResource(R.string.ui_str_payee_name_cf3058)) },
-                        singleLine = true,
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("qr_payee_name_input")
-                    )
-                    OutlinedTextField(
-                        value = amountText,
-                        onValueChange = {
-                            if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d*$"))) {
-                                amountText = it
-                            }
-                        },
-                        label = { Text(stringResource(R.string.ui_str_amount_4ecd3f)) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("qr_amount_input")
-                    )
-                }
-
-                if (!isPayToParty && (upiIdInput.trim() != userSettings.upiId || payeeNameInput.trim() != userSettings.payeeName)) {
-                    OutlinedButton(
-                        onClick = {
-                            onSaveUpiSettings(
-                                upiIdInput.trim(),
-                                payeeNameInput.trim(),
-                                userSettings.defaultCurrency
-                            )
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(44.dp)
-                            .testTag("save_upi_from_qr_button"),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-                    ) {
-                        Text(stringResource(R.string.ui_str_save_as_default_upi_profile_a5e997), style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-
-                if (qrBitmap != null) {
-                    Box(
-                        modifier = Modifier
-                            .size(210.dp)
-                            .border(2.dp, PureBlack, RoundedCornerShape(8.dp))
-                            .background(PureWhite, RoundedCornerShape(8.dp))
-                            .padding(10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            bitmap = qrBitmap.asImageBitmap(),
-                            contentDescription = "Generated UPI QR Code",
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .testTag("upi_qr_bitmap_image")
-                        )
-                    }
-                    Text(
-                        text = stringResource(R.string.ui_fmt_vpa_251b59, InterestCalculator.maskUpiId(effectiveUpiId)),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = {
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                clipboard.setPrimaryClip(ClipData.newPlainText("UPI Link", upiUri))
-                                Toast.makeText(context, "UPI Payment Link copied", Toast.LENGTH_SHORT).show()
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp)
-                                .pressScaleFeedback()
-                                .testTag("copy_upi_uri_button"),
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-                        ) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.ui_str_copy_link_1ccac4), style = MaterialTheme.typography.labelMedium)
-                        }
-
-                        Button(
-                            onClick = {
-                                runCatching {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(upiUri))
-                                    context.startActivity(intent)
-                                }.onFailure {
-                                    Toast.makeText(context, "No UPI app installed on this device.", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            modifier = Modifier
-                                .weight(1.3f)
-                                .height(48.dp)
-                                .pressScaleFeedback()
-                                .testTag("launch_upi_app_button"),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            )
-                        ) {
-                            Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.ui_str_open_upi_app_2ab19b), style = MaterialTheme.typography.labelMedium)
-                        }
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                            .padding(20.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = stringResource(R.string.ui_str_enter_a_valid_upi_id_cdd444),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            }
-        }
-        }
-    }
-}
-
-/**
- * Share Udhaar App ModalBottomSheet — Lets users share Play Store link, scan QR, or invite via WhatsApp.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ShareUdhaarAppModal(
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-    val appShareUrl = "https://play.google.com/store/apps/details?id=${context.packageName}"
-    val shareMessage = buildString {
-        appendLine("📒 *Udhaar — Smart Interest & Khata Ledger (INR ₹ & NPR रू)*")
-        appendLine("Track Given/Taken loans, automatic Simple & Compound interest, offline UPI QR codes, thermal receipts, and WhatsApp reminders.")
-        appendLine()
-        append("Download / Open Udhaar App: $appShareUrl")
-    }
-
-    val appQrBitmap = remember(appShareUrl) {
-        UpiQrGenerator.generateQrBitmap(appShareUrl, sizePx = 520)
-    }
-
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .widthIn(max = 600.dp)
-                .align(Alignment.CenterHorizontally)
-                .imePadding()
-                .navigationBarsPadding()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.ui_str_share_udhaar_app_d7b6ea),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = stringResource(R.string.ui_str_invite_friends_customers_or_partner_4ca477),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.testTag("close_share_app_modal_button")
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurface)
-                }
-            }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f, fill = false)
-                    .verticalScroll(rememberScrollState())
-                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                if (appQrBitmap != null) {
-                    Box(
-                        modifier = Modifier
-                            .size(200.dp)
-                            .border(2.dp, PureBlack, RoundedCornerShape(8.dp))
-                            .background(PureWhite, RoundedCornerShape(8.dp))
-                            .padding(10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            bitmap = appQrBitmap.asImageBitmap(),
-                            contentDescription = "Udhaar App Download QR Code",
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .testTag("share_app_qr_image")
-                        )
-                    }
-                }
-
-                Text(
-                    text = stringResource(R.string.ui_str_scan_this_qr_code_with_81d1dd),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-
-                Button(
-                    onClick = {
-                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_SUBJECT, "Udhaar — Interest & Khata Ledger App")
-                            putExtra(Intent.EXTRA_TEXT, shareMessage)
-                        }
-                        context.startActivity(Intent.createChooser(sendIntent, "Share Udhaar App via"))
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .testTag("share_app_native_button"),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.ui_str_share_app_invite_link_e2729b), style = MaterialTheme.typography.labelLarge)
-                }
-
-                OutlinedButton(
-                    onClick = {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("Udhaar App Link", shareMessage))
-                        Toast.makeText(context, "App invite message copied!", Toast.LENGTH_SHORT).show()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .testTag("copy_app_link_button"),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-                ) {
-                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.ui_str_copy_invite_message_1a4bc1), style = MaterialTheme.typography.labelMedium)
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun WhatsAppReminderModal(
-    summary: CalculatedUdhaarSummary,
-    userSettings: UserSettings,
-    fallbackPhoneNumber: String = "",
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-    val tx = summary.transaction
-    val effectivePhone = tx.phoneNumber.ifBlank { fallbackPhoneNumber }
-
-    var hideExactAmount by rememberSaveable(tx.id) { mutableStateOf(false) }
-
-    val generatedMessage = remember(summary, userSettings.upiId, hideExactAmount) {
-        InterestCalculator.buildWhatsAppReminderMessage(
-            summary = summary,
-            hideExactAmount = hideExactAmount,
-            upiId = userSettings.upiId,
-            includeUpiId = true
-        )
-    }
-
-    var editableMessage by rememberSaveable(tx.id, hideExactAmount) {
-        mutableStateOf(generatedMessage)
-    }
-
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        contentWindowInsets = { WindowInsets.navigationBars.union(WindowInsets.ime) }
-    ) {
-        AnimatedSheetContent(
-            modifier = Modifier
-                .fillMaxWidth()
-                .widthIn(max = 600.dp)
-                .align(Alignment.CenterHorizontally)
-                .imePadding()
-                .navigationBarsPadding()
-                .testTag("whatsapp_reminder_modal")
-        ) {
-        Column(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.ui_str_whatsapp_reminder_1e09ce),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    val maskedPhoneSuffix = if (effectivePhone.isNotBlank()) "(${InterestCalculator.maskPhoneNumber(effectivePhone)})" else ""
-                    Text(
-                        text = stringResource(R.string.ui_fmt_to_40e0b0, tx.partyName.uppercase(), maskedPhoneSuffix),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier
-                        .pressScaleFeedback()
-                        .testTag("close_whatsapp_modal_button")
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurface)
-                }
-            }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f, fill = false)
-                    .verticalScroll(rememberScrollState())
-                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Hide Exact Amount Toggle
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.ui_str_hide_exact_amount_in_message_3ff2ab),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = stringResource(R.string.ui_str_send_polite_reminder_without_numeri_6457c4),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    UdhaarAnimatedSwitch(
-                        checked = hideExactAmount,
-                        onCheckedChange = { checked ->
-                            hideExactAmount = checked
-                            editableMessage = InterestCalculator.buildWhatsAppReminderMessage(
-                                summary = summary,
-                                hideExactAmount = checked,
-                                upiId = userSettings.upiId,
-                                includeUpiId = true
-                            )
-                        },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                            checkedTrackColor = MaterialTheme.colorScheme.primary
-                        ),
-                        modifier = Modifier.testTag("hide_exact_amount_switch")
-                    )
-                }
-
-                OutlinedTextField(
-                    value = editableMessage,
-                    onValueChange = { editableMessage = it },
-                    label = { Text(stringResource(R.string.ui_str_preview_customize_message_f24e76)) },
-                    minLines = 5,
-                    maxLines = 9,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("whatsapp_message_input")
-                )
-
-                Button(
-                    onClick = {
-                        com.jyotirmoyb.udhaar.util.WhatsAppReminderLauncher.launchReminder(
-                            context = context,
-                            rawPhoneNumber = effectivePhone,
-                            currency = tx.currency,
-                            message = editableMessage
-                        )
-                        onDismiss()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .pressScaleFeedback()
-                        .testTag("launch_whatsapp_send_button"),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.ui_str_send_via_whatsapp_c707e5), style = MaterialTheme.typography.labelLarge)
-                }
-            }
-        }
-        }
-    }
-}
-
-/**
  * Full-Screen Settings Screen with Sticky Top Bar, Sticky Bottom Save Bar, and 5 Clear Sections:
  * 1. Profile and UPI
  * 2. Security
@@ -2520,7 +1566,12 @@ fun ProfileSettingsModal(
     isDriveOperationInProgress: Boolean = false,
     driveOperationStatusMessage: String? = null,
     driveOperationError: String? = null,
+    hasPendingDriveResolution: Boolean = false,
+    driveConnectionTestReport: com.jyotirmoyb.udhaar.backup.DriveConnectionTestReport? = null,
     onSignInWithGoogleForDrive: () -> Unit = {},
+    onReconnectGoogleDrive: () -> Unit = onSignInWithGoogleForDrive,
+    onRunDriveConnectionTest: () -> Unit = {},
+    onClearDriveConnectionTestReport: () -> Unit = {},
     onSignOutFromDrive: () -> Unit = {},
     onBackupNowToDrive: (passphrase: String, savePassphraseForAuto: Boolean) -> Unit = { _, _ -> },
     onRestoreDriveBackup: (com.jyotirmoyb.udhaar.backup.DriveRemoteBackup, passphrase: String) -> Unit = { _, _ -> },
@@ -3128,9 +2179,10 @@ fun ProfileSettingsModal(
                             },
                             isError = pinValidationError != null,
                             supportingText = {
-                                if (pinValidationError != null) {
+                                val currentPinError = pinValidationError
+                                if (currentPinError != null) {
                                     Text(
-                                        text = pinValidationError!!,
+                                        text = currentPinError,
                                         color = MaterialTheme.colorScheme.error,
                                         style = MaterialTheme.typography.labelSmall
                                     )
@@ -3542,8 +2594,83 @@ fun ProfileSettingsModal(
                             }
                         }
 
-                        // Drive Operation Error Banner
-                        if (driveOperationError != null) {
+                        // Reconnect Google Drive Prompt Banner (when authorize() returns hasResolution or 401 retry fails)
+                        val showReconnectPrompt = hasPendingDriveResolution ||
+                            currentSettings.driveNeedsReconnect ||
+                            currentSettings.driveLastErrorCode == com.jyotirmoyb.udhaar.backup.DriveBackupErrorCode.AUTH_EXPIRED
+                        if (showReconnectPrompt) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, MaterialTheme.colorScheme.error, RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                                    .padding(12.dp)
+                                    .testTag("drive_reconnect_prompt_card"),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.drive_reconnect_google_drive_prompt_title),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                                Text(
+                                    text = stringResource(R.string.drive_reconnect_google_drive_prompt_body),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Button(
+                                    onClick = onReconnectGoogleDrive,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(42.dp)
+                                        .testTag("drive_reconnect_prompt_button"),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.error,
+                                        contentColor = MaterialTheme.colorScheme.onError
+                                    )
+                                ) {
+                                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = stringResource(R.string.drive_reconnect_google_drive_prompt_title),
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                }
+                            }
+                        }
+
+                        // Persisted Last Error in Plain Words (from DriveBackupWorker or last backup attempt)
+                        val persistedErrorCode = currentSettings.driveLastErrorCode
+                        val plainPersistedError = remember(persistedErrorCode, currentSettings.driveLastErrorMessage) {
+                            if (persistedErrorCode != com.jyotirmoyb.udhaar.backup.DriveBackupErrorCode.NONE) {
+                                currentSettings.driveLastErrorMessage.ifBlank {
+                                    com.jyotirmoyb.udhaar.backup.DriveBackupWorker.plainErrorDescription(persistedErrorCode)
+                                }
+                            } else {
+                                ""
+                            }
+                        }
+                        val effectiveErrorText = driveOperationError ?: plainPersistedError.takeIf { it.isNotBlank() }
+
+                        if (effectiveErrorText != null) {
+                            val errorCodeTag = if (persistedErrorCode != com.jyotirmoyb.udhaar.backup.DriveBackupErrorCode.NONE) {
+                                persistedErrorCode.name
+                            } else {
+                                "DRIVE_ERROR"
+                            }
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -3571,20 +2698,23 @@ fun ProfileSettingsModal(
                                     )
                                 }
                                 Text(
-                                    text = driveOperationError,
+                                    text = stringResource(R.string.drive_last_error_label_fmt, errorCodeTag, effectiveErrorText),
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.testTag("drive_last_error_plain_text")
                                 )
-                                OutlinedButton(
-                                    onClick = onClearDriveOperationError,
-                                    modifier = Modifier
-                                        .align(Alignment.End)
-                                        .height(34.dp)
-                                        .testTag("dismiss_drive_error_button"),
-                                    shape = RoundedCornerShape(8.dp),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
-                                ) {
-                                    Text(stringResource(R.string.ui_str_dismiss_d2fd9a), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                                if (driveOperationError != null) {
+                                    OutlinedButton(
+                                        onClick = onClearDriveOperationError,
+                                        modifier = Modifier
+                                            .align(Alignment.End)
+                                            .height(34.dp)
+                                            .testTag("dismiss_drive_error_button"),
+                                        shape = RoundedCornerShape(8.dp),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                                    ) {
+                                        Text(stringResource(R.string.ui_str_dismiss_d2fd9a), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                                    }
                                 }
                             }
                         }
@@ -3644,7 +2774,8 @@ fun ProfileSettingsModal(
                                             text = currentSettings.driveAccountEmail,
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.testTag("drive_connected_email_text")
                                         )
                                         val lastBackupStr = if (currentSettings.driveLastBackupMillis > 0) {
                                             val dateStr = InterestCalculator.fmtDate(currentSettings.driveLastBackupMillis)
@@ -3656,7 +2787,8 @@ fun ProfileSettingsModal(
                                         Text(
                                             text = stringResource(R.string.ui_fmt_last_backup_a7f073, lastBackupStr),
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.testTag("drive_last_backup_text")
                                         )
                                     }
 
@@ -3680,6 +2812,7 @@ fun ProfileSettingsModal(
                                             backupPassphraseError = null
                                             showBackupDialog = true
                                         },
+                                        enabled = !isDriveOperationInProgress,
                                         modifier = Modifier
                                             .weight(1.3f)
                                             .height(44.dp)
@@ -3690,24 +2823,160 @@ fun ProfileSettingsModal(
                                             contentColor = MaterialTheme.colorScheme.onPrimary
                                         )
                                     ) {
-                                        Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(stringResource(R.string.ui_str_back_up_now_e11395), style = MaterialTheme.typography.labelMedium)
+                                        if (isDriveOperationInProgress) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(16.dp),
+                                                strokeWidth = 2.dp,
+                                                color = MaterialTheme.colorScheme.onPrimary
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(stringResource(R.string.drive_backing_up_progress), style = MaterialTheme.typography.labelMedium)
+                                        } else {
+                                            Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(stringResource(R.string.ui_str_back_up_now_e11395), style = MaterialTheme.typography.labelMedium)
+                                        }
                                     }
 
                                     OutlinedButton(
-                                        onClick = onSignOutFromDrive,
+                                        onClick = onReconnectGoogleDrive,
+                                        enabled = !isDriveOperationInProgress,
                                         modifier = Modifier
                                             .weight(1f)
                                             .height(44.dp)
-                                            .testTag("drive_sign_out_button"),
+                                            .testTag("drive_reconnect_button"),
                                         shape = RoundedCornerShape(12.dp),
-                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                                     ) {
-                                        Text(stringResource(R.string.ui_str_sign_out_c790dd), style = MaterialTheme.typography.labelMedium)
+                                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(15.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(stringResource(R.string.drive_reconnect_button), style = MaterialTheme.typography.labelMedium)
                                     }
                                 }
+
+                                OutlinedButton(
+                                    onClick = onSignOutFromDrive,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(40.dp)
+                                        .testTag("drive_sign_out_button"),
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                                ) {
+                                    Text(stringResource(R.string.ui_str_sign_out_c790dd), style = MaterialTheme.typography.labelMedium)
+                                }
                             }
+                        }
+
+                        // "Run connection test" Button & Diagnostic Result Card
+                        OutlinedButton(
+                            onClick = onRunDriveConnectionTest,
+                            enabled = !isDriveOperationInProgress,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
+                                .testTag("drive_connection_test_button"),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.drive_run_connection_test_button), style = MaterialTheme.typography.labelMedium)
+                        }
+
+                        if (driveConnectionTestReport != null) {
+                            val testBorderColor = if (driveConnectionTestReport.passed) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            }
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, testBorderColor, RoundedCornerShape(12.dp))
+                                    .background(testBorderColor.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                                    .padding(12.dp)
+                                    .testTag("drive_connection_test_result_card"),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = if (driveConnectionTestReport.passed) Icons.Default.Check else Icons.Default.Warning,
+                                        contentDescription = null,
+                                        tint = testBorderColor,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Text(
+                                        text = if (driveConnectionTestReport.passed) {
+                                            stringResource(R.string.drive_connection_test_passed_title)
+                                        } else {
+                                            stringResource(R.string.drive_connection_test_failed_title)
+                                        },
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = testBorderColor
+                                    )
+                                }
+                                if (!driveConnectionTestReport.failedStep.isNullOrBlank()) {
+                                    Text(
+                                        text = stringResource(R.string.drive_connection_test_step_fmt, driveConnectionTestReport.failedStep),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                                if (driveConnectionTestReport.errorCode.isNotBlank()) {
+                                    Text(
+                                        text = stringResource(R.string.drive_connection_test_code_fmt, driveConnectionTestReport.errorCode),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Text(
+                                    text = driveConnectionTestReport.errorMessage,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                OutlinedButton(
+                                    onClick = onClearDriveConnectionTestReport,
+                                    modifier = Modifier
+                                        .align(Alignment.End)
+                                        .height(34.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    border = BorderStroke(1.dp, testBorderColor)
+                                ) {
+                                    Text(stringResource(R.string.ui_str_dismiss_d2fd9a), style = MaterialTheme.typography.labelSmall, color = testBorderColor)
+                                }
+                            }
+                        }
+
+                        // Help text for common Google Drive setup causes
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                                .padding(12.dp)
+                                .testTag("drive_common_causes_help_card"),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.drive_common_causes_title),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = stringResource(R.string.drive_common_causes_body),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        if (currentSettings.driveAccountEmail.isNotBlank()) {
 
                             // Automatic Backup with WorkManager
                             Column(
@@ -4332,13 +3601,13 @@ fun ProfileSettingsModal(
                             OutlinedButton(
                                 onClick = {
                                     val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
-                                        data = Uri.parse("mailto:jyotirmoybhowmik@gmail.com")
+                                        data = Uri.parse("mailto:admin@jyotirmoyb.com")
                                         putExtra(Intent.EXTRA_SUBJECT, "Udhaar App Support / Feedback")
                                     }
                                     runCatching {
                                         context.startActivity(emailIntent)
                                     }.onFailure {
-                                        Toast.makeText(context, "Admin Email: jyotirmoybhowmik@gmail.com", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, "Admin Email: admin@jyotirmoyb.com", Toast.LENGTH_LONG).show()
                                     }
                                 },
                                 modifier = Modifier
@@ -4351,6 +3620,51 @@ fun ProfileSettingsModal(
                                 Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(stringResource(R.string.ui_str_contact_admin_email_support_ff5066), style = MaterialTheme.typography.labelMedium)
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        runCatching {
+                                            context.startActivity(
+                                                Intent(Intent.ACTION_VIEW, Uri.parse("https://udhaar.jyotirmoyb.com/privacy.html"))
+                                            )
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
+                                        .testTag("open_privacy_policy_button"),
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                                ) {
+                                    Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(15.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    val privacyPolicyLabel = remember { "Privacy Policy" }
+                                    Text(text = privacyPolicyLabel, style = MaterialTheme.typography.labelSmall)
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        runCatching {
+                                            context.startActivity(
+                                                Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar"))
+                                            )
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
+                                        .testTag("check_play_update_button"),
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                                ) {
+                                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(15.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    val checkUpdateLabel = remember { "Check Update" }
+                                    Text(text = checkUpdateLabel, style = MaterialTheme.typography.labelSmall)
+                                }
                             }
                         }
                     }
@@ -4421,9 +3735,10 @@ fun ProfileSettingsModal(
                             .testTag("backup_confirm_passphrase_input")
                     )
 
-                    if (backupPassphraseError != null) {
+                    val currentBackupPassError = backupPassphraseError
+                    if (currentBackupPassError != null) {
                         Text(
-                            text = backupPassphraseError!!,
+                            text = currentBackupPassError,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.error
                         )
@@ -4487,8 +3802,9 @@ fun ProfileSettingsModal(
         )
     }
 
-    if (showRestoreDialog && selectedRestoreBackup != null) {
-        val backup = selectedRestoreBackup!!
+    val currentRestoreBackup = selectedRestoreBackup
+    if (showRestoreDialog && currentRestoreBackup != null) {
+        val backup = currentRestoreBackup
         AlertDialog(
             onDismissRequest = {
                 showRestoreDialog = false
@@ -4564,112 +3880,8 @@ fun ProfileSettingsModal(
     }
 }
 
-/**
- * Restore Preview Dialog: Previews record counts from parsed decrypted backup
- * and allows the user to choose Merge with existing or Replace all local data.
- */
 @Composable
-fun RestorePreviewDialog(
-    backup: com.jyotirmoyb.udhaar.backup.DriveRemoteBackup,
-    parsed: com.jyotirmoyb.udhaar.util.ParsedLedgerBackup,
-    onMerge: () -> Unit,
-    onReplace: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = stringResource(R.string.ui_str_restore_backup_preview_07b0c7),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.ui_fmt_backup_successfully_decrypted_from_1a9713, backup.fileName),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                        .padding(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    BreakdownLine("Schema Version", "v${parsed.schemaVersion}")
-                    BreakdownLine("Transactions", "${parsed.transactions.size}")
-                    BreakdownLine("Parties", "${parsed.parties.size}")
-                    BreakdownLine("Partial Payments", "${parsed.partialPayments.size}")
-                    BreakdownLine("Chat Messages", "${parsed.chatMessages.size}")
-                    BreakdownLine("Attachments", "${parsed.attachments.size}")
-                    val defaultCurr = parsed.settings["defaultCurrency"] as? String
-                    if (!defaultCurr.isNullOrBlank()) {
-                        BreakdownLine("Currency", defaultCurr)
-                    }
-                }
-
-                Text(
-                    text = stringResource(R.string.ui_str_choose_how_to_apply_this_5b7adc),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = stringResource(R.string.ui_str_merge_adds_all_remote_records_f600c4),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        },
-        confirmButton = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Button(
-                    onClick = onMerge,
-                    modifier = Modifier.testTag("restore_merge_button"),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Text(stringResource(R.string.ui_str_merge_1e0d71))
-                }
-                Button(
-                    onClick = onReplace,
-                    modifier = Modifier.testTag("restore_replace_button"),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError
-                    )
-                ) {
-                    Text(stringResource(R.string.ui_str_replace_all_16af75))
-                }
-            }
-        },
-        dismissButton = {
-            OutlinedButton(
-                onClick = onDismiss,
-                modifier = Modifier.testTag("restore_cancel_button")
-            ) {
-                Text(stringResource(R.string.ui_str_cancel_1507c4))
-            }
-        }
-    )
-}
-
-@Composable
-private fun SettingsSectionCard(
+internal fun SettingsSectionCard(
     sectionNumber: String,
     title: String,
     subtitle: String,
@@ -4722,7 +3934,7 @@ private fun SettingsSectionCard(
 }
 
 @Composable
-private fun BreakdownLine(
+internal fun BreakdownLine(
     label: String,
     value: String,
     bold: Boolean = false

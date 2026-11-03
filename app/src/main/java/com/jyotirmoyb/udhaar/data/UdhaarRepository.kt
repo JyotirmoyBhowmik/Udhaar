@@ -6,9 +6,11 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.jyotirmoyb.udhaar.backup.DriveBackupErrorCode
 import com.jyotirmoyb.udhaar.util.ParsedLedgerBackup
 import com.jyotirmoyb.udhaar.data.cloud.CloudAuditEvent
 import com.jyotirmoyb.udhaar.data.cloud.CloudChatMessage
@@ -25,6 +27,7 @@ import com.jyotirmoyb.udhaar.ui.theme.AppThemeMode
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 import com.jyotirmoyb.udhaar.util.VerificationCryptoHelper
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -36,12 +39,14 @@ import java.util.UUID
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "udhaar_settings")
 
-class UdhaarRepository(
+open class UdhaarRepository(
     private val dao: UdhaarDao,
     private val context: Context? = null,
     private val cloudRepositoryOverride: VerificationCloudRepository? = null
 ) {
     val pinSecurityManager: PinSecurityManager? = context?.let { PinSecurityManager(it) }
+    private val inMemorySettingsFallback = MutableStateFlow(UserSettings())
+    private var inMemoryAutoBackupPassphrase: String? = null
 
     private val cloudRepository: VerificationCloudRepository? by lazy {
         cloudRepositoryOverride ?: context?.let {
@@ -69,25 +74,54 @@ class UdhaarRepository(
         val CLOUD_BACKUP_STATE = stringPreferencesKey("cloud_backup_state")
         val CLOUD_BACKUP_ERROR = stringPreferencesKey("cloud_backup_error")
         val DRIVE_USER_EMAIL = stringPreferencesKey("drive_user_email")
-        val DRIVE_ACCESS_TOKEN = stringPreferencesKey("drive_access_token")
+        val LEGACY_DRIVE_ACCESS_TOKEN = stringPreferencesKey("drive_access_token")
         val DRIVE_LAST_BACKUP_TIME = longPreferencesKey("drive_last_backup_time")
         val DRIVE_LAST_BACKUP_SIZE = longPreferencesKey("drive_last_backup_size")
         val DRIVE_AUTO_BACKUP_FREQ = stringPreferencesKey("drive_auto_backup_freq")
         val DRIVE_AUTO_BACKUP_WIFI = booleanPreferencesKey("drive_auto_backup_wifi")
         val DRIVE_AUTO_BACKUP_KEY_SAVED = booleanPreferencesKey("drive_auto_backup_key_saved")
+        val DRIVE_LAST_ERROR_CODE = stringPreferencesKey("drive_last_error_code")
+        val DRIVE_LAST_ERROR_MESSAGE = stringPreferencesKey("drive_last_error_message")
+        val DRIVE_LAST_ATTEMPT_TIME = longPreferencesKey("drive_last_attempt_time")
+        val DRIVE_CONSECUTIVE_FAILURES = intPreferencesKey("drive_consecutive_failures")
+        val DRIVE_NEEDS_RECONNECT = booleanPreferencesKey("drive_needs_reconnect")
         val HAS_COMPLETED_ONBOARDING = booleanPreferencesKey("has_completed_onboarding")
     }
 
-    val allParties: Flow<List<PartyEntity>> = dao.getAllParties().catch { emit(emptyList()) }
-    val allTransactions: Flow<List<UdhaarTransaction>> = dao.getAllTransactions().catch { emit(emptyList()) }
-    val allPartialPayments: Flow<List<PartialPayment>> = dao.getAllPartialPayments().catch { emit(emptyList()) }
-    val allAuditTrailEntries: Flow<List<AuditTrailEntry>> = dao.getAllAuditTrailEntries().catch { emit(emptyList()) }
-    val allChatThreads: Flow<List<ChatThreadMetadata>> = dao.getAllChatThreads().catch { emit(emptyList()) }
-    val allChatMessages: Flow<List<ChatMessageEntity>> = dao.getAllChatMessages().catch { emit(emptyList()) }
-    val allAttachments: Flow<List<Attachment>> = dao.getAllAttachmentsFlow().catch { emit(emptyList()) }
+    val allParties: Flow<List<PartyEntity>> = dao.getAllParties().catch { e ->
+        com.jyotirmoyb.udhaar.util.SafeLogger.e("UdhaarRepository", "Failed reading parties flow", e)
+        emit(emptyList())
+    }
+    val allTransactions: Flow<List<UdhaarTransaction>> = dao.getAllTransactions().catch { e ->
+        com.jyotirmoyb.udhaar.util.SafeLogger.e("UdhaarRepository", "Failed reading transactions flow", e)
+        emit(emptyList())
+    }
+    val allPartialPayments: Flow<List<PartialPayment>> = dao.getAllPartialPayments().catch { e ->
+        com.jyotirmoyb.udhaar.util.SafeLogger.e("UdhaarRepository", "Failed reading partial payments flow", e)
+        emit(emptyList())
+    }
+    val allAuditTrailEntries: Flow<List<AuditTrailEntry>> = dao.getAllAuditTrailEntries().catch { e ->
+        com.jyotirmoyb.udhaar.util.SafeLogger.e("UdhaarRepository", "Failed reading audit trail flow", e)
+        emit(emptyList())
+    }
+    val allChatThreads: Flow<List<ChatThreadMetadata>> = dao.getAllChatThreads().catch { e ->
+        com.jyotirmoyb.udhaar.util.SafeLogger.e("UdhaarRepository", "Failed reading chat threads flow", e)
+        emit(emptyList())
+    }
+    val allChatMessages: Flow<List<ChatMessageEntity>> = dao.getAllChatMessages().catch { e ->
+        com.jyotirmoyb.udhaar.util.SafeLogger.e("UdhaarRepository", "Failed reading chat messages flow", e)
+        emit(emptyList())
+    }
+    val allAttachments: Flow<List<Attachment>> = dao.getAllAttachmentsFlow().catch { e ->
+        com.jyotirmoyb.udhaar.util.SafeLogger.e("UdhaarRepository", "Failed reading attachments flow", e)
+        emit(emptyList())
+    }
 
-    val userSettings: Flow<UserSettings> = context?.dataStore?.data
-        ?.catch { emit(emptyPreferences()) }
+    open val userSettings: Flow<UserSettings> = context?.dataStore?.data
+        ?.catch { e ->
+            com.jyotirmoyb.udhaar.util.SafeLogger.w("UdhaarRepository", "Failed reading DataStore preferences", e)
+            emit(emptyPreferences())
+        }
         ?.map { prefs ->
             val inrEnabled = prefs[PrefKeys.INR_ENABLED] ?: true
             val nprEnabled = prefs[PrefKeys.NPR_ENABLED] ?: false
@@ -117,6 +151,10 @@ class UdhaarRepository(
 
             val driveAutoFreqStr = prefs[PrefKeys.DRIVE_AUTO_BACKUP_FREQ] ?: AutoBackupFrequency.OFF.name
             val driveAutoFreq = runCatching { AutoBackupFrequency.valueOf(driveAutoFreqStr) }.getOrDefault(AutoBackupFrequency.OFF)
+
+            val driveLastErrorStr = prefs[PrefKeys.DRIVE_LAST_ERROR_CODE] ?: DriveBackupErrorCode.NONE.name
+            val driveLastErrorCode = runCatching { DriveBackupErrorCode.valueOf(driveLastErrorStr) }
+                .getOrDefault(DriveBackupErrorCode.NONE)
 
             val cloudLastBackupMillis = prefs[PrefKeys.CLOUD_LAST_BACKUP_TIME] ?: 0L
             val cloudStateStr = prefs[PrefKeys.CLOUD_BACKUP_STATE].orEmpty()
@@ -148,15 +186,19 @@ class UdhaarRepository(
                 cloudBackupState = effectiveCloudState,
                 cloudBackupError = prefs[PrefKeys.CLOUD_BACKUP_ERROR] ?: "",
                 driveUserEmail = prefs[PrefKeys.DRIVE_USER_EMAIL] ?: "",
-                driveAccessToken = prefs[PrefKeys.DRIVE_ACCESS_TOKEN] ?: "",
                 driveLastBackupTimeMillis = prefs[PrefKeys.DRIVE_LAST_BACKUP_TIME] ?: 0L,
                 driveLastBackupSizeBytes = prefs[PrefKeys.DRIVE_LAST_BACKUP_SIZE] ?: 0L,
                 driveAutoBackupFrequency = driveAutoFreq,
                 driveAutoBackupWifiOnly = prefs[PrefKeys.DRIVE_AUTO_BACKUP_WIFI] ?: true,
                 driveAutoBackupPassphraseSaved = prefs[PrefKeys.DRIVE_AUTO_BACKUP_KEY_SAVED] ?: false,
+                driveLastErrorCode = driveLastErrorCode,
+                driveLastErrorMessage = prefs[PrefKeys.DRIVE_LAST_ERROR_MESSAGE] ?: "",
+                driveLastAttemptTimeMillis = prefs[PrefKeys.DRIVE_LAST_ATTEMPT_TIME] ?: 0L,
+                driveConsecutiveFailures = prefs[PrefKeys.DRIVE_CONSECUTIVE_FAILURES] ?: 0,
+                driveNeedsReconnect = prefs[PrefKeys.DRIVE_NEEDS_RECONNECT] ?: false,
                 hasCompletedOnboarding = prefs[PrefKeys.HAS_COMPLETED_ONBOARDING] ?: false
             )
-        } ?: kotlinx.coroutines.flow.flowOf(UserSettings())
+        } ?: inMemorySettingsFallback
 
     // --- Party Directory Operations ---
     suspend fun saveParty(party: PartyEntity): Long {
@@ -634,7 +676,7 @@ class UdhaarRepository(
      * - Transitions LOCAL_ONLY -> PENDING.
      * - Logs SHARED event in the immutable audit trail.
      * - If Cloud Verification consent is granted and signed in, publishes the record with E2EE notes to Firestore.
-     * - Returns the shareable App Link URL `https://jyotirmoyb.com/u/<token>`.
+     * - Returns the shareable App Link URL `https://udhaar.jyotirmoyb.com/u/<token>`.
      */
     suspend fun prepareVerificationShare(transaction: UdhaarTransaction): Pair<UdhaarTransaction, String> {
         val settings = userSettings.first()
@@ -2198,7 +2240,7 @@ class UdhaarRepository(
         val attachments: List<Attachment> = emptyList()
     )
 
-    suspend fun getFullLedgerBackupSnapshot(): FullLedgerSnapshot {
+    open suspend fun getFullLedgerBackupSnapshot(): FullLedgerSnapshot {
         val parties = dao.getAllPartiesSnapshot()
         val transactions = dao.getAllTransactionsSnapshot()
         val payments = dao.getAllPartialPaymentsSnapshot()
@@ -2208,7 +2250,7 @@ class UdhaarRepository(
         return FullLedgerSnapshot(parties, transactions, payments, threads, messages, attachments)
     }
 
-    fun getLocalAttachmentsMap(): Map<String, String> {
+    open fun getLocalAttachmentsMap(): Map<String, String> {
         val map = mutableMapOf<String, String>()
         val filesDir = context?.filesDir ?: return map
         val attachDir = java.io.File(filesDir, "attachments")
@@ -2227,49 +2269,149 @@ class UdhaarRepository(
         return map
     }
 
-    fun getAutoBackupPassphrase(): String? = pinSecurityManager?.getAutoBackupPassphrase()
+    open fun getAutoBackupPassphrase(): String? =
+        pinSecurityManager?.getAutoBackupPassphrase() ?: inMemoryAutoBackupPassphrase
 
-    suspend fun updateDriveAccount(email: String, accessToken: String) {
+    open suspend fun updateDriveAccount(email: String) {
+        inMemorySettingsFallback.value = inMemorySettingsFallback.value.copy(
+            driveUserEmail = email.trim(),
+            driveNeedsReconnect = false,
+            driveLastErrorCode = DriveBackupErrorCode.NONE,
+            driveLastErrorMessage = ""
+        )
         context?.dataStore?.edit { prefs ->
             prefs[PrefKeys.DRIVE_USER_EMAIL] = email.trim()
-            prefs[PrefKeys.DRIVE_ACCESS_TOKEN] = accessToken.trim()
+            prefs.remove(PrefKeys.LEGACY_DRIVE_ACCESS_TOKEN)
+            prefs[PrefKeys.DRIVE_NEEDS_RECONNECT] = false
+            if (prefs[PrefKeys.DRIVE_LAST_ERROR_CODE] == DriveBackupErrorCode.NOT_CONNECTED.name ||
+                prefs[PrefKeys.DRIVE_LAST_ERROR_CODE] == DriveBackupErrorCode.AUTH_EXPIRED.name
+            ) {
+                prefs[PrefKeys.DRIVE_LAST_ERROR_CODE] = DriveBackupErrorCode.NONE.name
+                prefs.remove(PrefKeys.DRIVE_LAST_ERROR_MESSAGE)
+            }
         }
     }
 
-    suspend fun clearDriveAccount() {
+    open suspend fun clearDriveAccount() {
         pinSecurityManager?.clearAutoBackupPassphrase()
+        inMemoryAutoBackupPassphrase = null
+        inMemorySettingsFallback.value = inMemorySettingsFallback.value.copy(
+            driveUserEmail = "",
+            driveAutoBackupPassphraseSaved = false,
+            driveLastErrorCode = DriveBackupErrorCode.NONE,
+            driveLastErrorMessage = "",
+            driveConsecutiveFailures = 0,
+            driveNeedsReconnect = false
+        )
         context?.dataStore?.edit { prefs ->
             prefs.remove(PrefKeys.DRIVE_USER_EMAIL)
-            prefs.remove(PrefKeys.DRIVE_ACCESS_TOKEN)
+            prefs.remove(PrefKeys.LEGACY_DRIVE_ACCESS_TOKEN)
             prefs.remove(PrefKeys.DRIVE_AUTO_BACKUP_KEY_SAVED)
+            prefs.remove(PrefKeys.DRIVE_LAST_ERROR_CODE)
+            prefs.remove(PrefKeys.DRIVE_LAST_ERROR_MESSAGE)
+            prefs.remove(PrefKeys.DRIVE_CONSECUTIVE_FAILURES)
+            prefs.remove(PrefKeys.DRIVE_NEEDS_RECONNECT)
         }
     }
 
-    suspend fun updateDriveLastBackup(timeMillis: Long, sizeBytes: Long) {
+    open suspend fun updateDriveLastBackup(timeMillis: Long, sizeBytes: Long) {
+        recordDriveBackupSuccess(timeMillis, sizeBytes)
+    }
+
+    open suspend fun recordDriveBackupSuccess(timeMillis: Long, sizeBytes: Long) {
+        inMemorySettingsFallback.value = inMemorySettingsFallback.value.copy(
+            driveLastBackupTimeMillis = timeMillis,
+            driveLastBackupSizeBytes = sizeBytes,
+            driveLastAttemptTimeMillis = timeMillis,
+            driveLastErrorCode = DriveBackupErrorCode.NONE,
+            driveLastErrorMessage = "",
+            driveConsecutiveFailures = 0,
+            driveNeedsReconnect = false
+        )
         context?.dataStore?.edit { prefs ->
             prefs[PrefKeys.DRIVE_LAST_BACKUP_TIME] = timeMillis
             prefs[PrefKeys.DRIVE_LAST_BACKUP_SIZE] = sizeBytes
+            prefs[PrefKeys.DRIVE_LAST_ATTEMPT_TIME] = timeMillis
+            prefs[PrefKeys.DRIVE_LAST_ERROR_CODE] = DriveBackupErrorCode.NONE.name
+            prefs[PrefKeys.DRIVE_LAST_ERROR_MESSAGE] = ""
+            prefs[PrefKeys.DRIVE_CONSECUTIVE_FAILURES] = 0
+            prefs[PrefKeys.DRIVE_NEEDS_RECONNECT] = false
         }
     }
 
-    fun saveAutoBackupPassphrase(passphrase: String) {
+    open suspend fun recordDriveBackupFailure(
+        errorCode: DriveBackupErrorCode,
+        errorMessage: String = "",
+        timeMillis: Long = System.currentTimeMillis()
+    ): Int {
+        val nextFailures = inMemorySettingsFallback.value.driveConsecutiveFailures + 1
+        inMemorySettingsFallback.value = inMemorySettingsFallback.value.copy(
+            driveLastAttemptTimeMillis = timeMillis,
+            driveLastErrorCode = errorCode,
+            driveLastErrorMessage = errorMessage,
+            driveConsecutiveFailures = nextFailures,
+            driveNeedsReconnect = errorCode == DriveBackupErrorCode.AUTH_EXPIRED
+        )
+        var persistedCount = nextFailures
+        context?.dataStore?.edit { prefs ->
+            val currentCount = prefs[PrefKeys.DRIVE_CONSECUTIVE_FAILURES] ?: 0
+            persistedCount = currentCount + 1
+            prefs[PrefKeys.DRIVE_LAST_ATTEMPT_TIME] = timeMillis
+            prefs[PrefKeys.DRIVE_LAST_ERROR_CODE] = errorCode.name
+            prefs[PrefKeys.DRIVE_LAST_ERROR_MESSAGE] = errorMessage
+            prefs[PrefKeys.DRIVE_CONSECUTIVE_FAILURES] = persistedCount
+            prefs[PrefKeys.DRIVE_NEEDS_RECONNECT] = (errorCode == DriveBackupErrorCode.AUTH_EXPIRED)
+        }
+        return persistedCount
+    }
+
+    open suspend fun setDriveNeedsReconnect(needsReconnect: Boolean, message: String = "") {
+        inMemorySettingsFallback.value = inMemorySettingsFallback.value.copy(
+            driveNeedsReconnect = needsReconnect,
+            driveLastErrorCode = if (needsReconnect) DriveBackupErrorCode.AUTH_EXPIRED else inMemorySettingsFallback.value.driveLastErrorCode,
+            driveLastErrorMessage = if (needsReconnect && message.isNotBlank()) message else inMemorySettingsFallback.value.driveLastErrorMessage
+        )
+        context?.dataStore?.edit { prefs ->
+            prefs[PrefKeys.DRIVE_NEEDS_RECONNECT] = needsReconnect
+            if (needsReconnect) {
+                prefs[PrefKeys.DRIVE_LAST_ERROR_CODE] = DriveBackupErrorCode.AUTH_EXPIRED.name
+                if (message.isNotBlank()) {
+                    prefs[PrefKeys.DRIVE_LAST_ERROR_MESSAGE] = message
+                }
+            }
+        }
+    }
+
+    open fun saveAutoBackupPassphrase(passphrase: String) {
+        inMemoryAutoBackupPassphrase = passphrase
+        inMemorySettingsFallback.value = inMemorySettingsFallback.value.copy(
+            driveAutoBackupPassphraseSaved = passphrase.isNotBlank()
+        )
         pinSecurityManager?.saveAutoBackupPassphrase(passphrase)
     }
 
-    suspend fun updateDriveAutoBackupSettings(
+    open suspend fun updateDriveAutoBackupSettings(
         frequency: AutoBackupFrequency,
         wifiOnly: Boolean,
         passphraseToSave: String? = null
     ) {
         if (!passphraseToSave.isNullOrBlank()) {
+            inMemoryAutoBackupPassphrase = passphraseToSave
             pinSecurityManager?.saveAutoBackupPassphrase(passphraseToSave)
         } else if (frequency == AutoBackupFrequency.OFF) {
+            inMemoryAutoBackupPassphrase = null
             pinSecurityManager?.clearAutoBackupPassphrase()
         }
+        val keySaved = getAutoBackupPassphrase() != null
+        inMemorySettingsFallback.value = inMemorySettingsFallback.value.copy(
+            driveAutoBackupFrequency = frequency,
+            driveAutoBackupWifiOnly = wifiOnly,
+            driveAutoBackupPassphraseSaved = keySaved
+        )
         context?.dataStore?.edit { prefs ->
             prefs[PrefKeys.DRIVE_AUTO_BACKUP_FREQ] = frequency.name
             prefs[PrefKeys.DRIVE_AUTO_BACKUP_WIFI] = wifiOnly
-            prefs[PrefKeys.DRIVE_AUTO_BACKUP_KEY_SAVED] = pinSecurityManager?.getAutoBackupPassphrase() != null
+            prefs[PrefKeys.DRIVE_AUTO_BACKUP_KEY_SAVED] = keySaved
         }
         context?.let { ctx ->
             com.jyotirmoyb.udhaar.backup.DriveBackupScheduler.scheduleOrCancel(ctx, frequency, wifiOnly)

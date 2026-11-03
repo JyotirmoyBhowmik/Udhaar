@@ -368,20 +368,38 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                     .getAuthorizationResultFromIntent(activityResult.data)
                 val accessToken = authorizationResult.accessToken
                 if (!accessToken.isNullOrBlank()) {
-                    val email = uiState.userSettings.cloudUserEmail.ifBlank { "Google Drive Account" }
-                    viewModel.setDriveAccountState(email, accessToken)
+                    val accountEmail = runCatching { authorizationResult.toGoogleSignInAccount()?.email }
+                        .getOrNull()
+                        ?.takeIf { it.isNotBlank() }
+                        ?: FirebaseAuth.getInstance().currentUser?.email.orEmpty()
+                        .ifBlank { uiState.userSettings.cloudUserEmail }
+                    viewModel.setDriveAccountState(accountEmail)
                     Toast.makeText(context, "Connected to Google Drive", Toast.LENGTH_SHORT).show()
                 }
             }.onFailure { e ->
                 Toast.makeText(context, "Google Drive authorization failed: ${e.localizedMessage ?: "Unknown error"}", Toast.LENGTH_SHORT).show()
             }
+        } else {
+            viewModel.handleDriveNeedsResolution(
+                pendingIntent = null,
+                message = "Google Drive authorization was canceled. Tap Reconnect to try again."
+            )
         }
     }
 
-    val signInWithGoogleForDrive: () -> Unit = {
-        if (activity != null) {
+    val signInOrReconnectGoogleDrive: () -> Unit = {
+        val pendingResolution = uiState.driveResolutionPendingIntent
+        if (pendingResolution != null) {
             runCatching {
-                val driveScope = Scope("https://www.googleapis.com/auth/drive.appdata")
+                driveAuthLauncher.launch(
+                    IntentSenderRequest.Builder(pendingResolution.intentSender).build()
+                )
+            }.onFailure { err ->
+                Toast.makeText(context, "Could not launch Google Drive consent: ${err.localizedMessage ?: "Error"}", Toast.LENGTH_SHORT).show()
+            }
+        } else if (activity != null) {
+            runCatching {
+                val driveScope = Scope(com.jyotirmoyb.udhaar.backup.DriveServiceHelper.DRIVE_APPDATA_SCOPE)
                 val authRequest = AuthorizationRequest.builder()
                     .setRequestedScopes(listOf(driveScope))
                     .build()
@@ -397,8 +415,12 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                         } else {
                             val accessToken = authorizationResult.accessToken
                             if (!accessToken.isNullOrBlank()) {
-                                val email = uiState.userSettings.cloudUserEmail.ifBlank { "Google Drive Account" }
-                                viewModel.setDriveAccountState(email, accessToken)
+                                val accountEmail = runCatching { authorizationResult.toGoogleSignInAccount()?.email }
+                                    .getOrNull()
+                                    ?.takeIf { it.isNotBlank() }
+                                    ?: FirebaseAuth.getInstance().currentUser?.email.orEmpty()
+                                    .ifBlank { uiState.userSettings.cloudUserEmail }
+                                viewModel.setDriveAccountState(accountEmail)
                                 Toast.makeText(context, "Connected to Google Drive", Toast.LENGTH_SHORT).show()
                             }
                         }
@@ -478,8 +500,9 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
     }
 
     val currentNavDestination = remember(uiState.activeScreen, uiState.detailTransactionId) {
+        val detailId = uiState.detailTransactionId
         when {
-            uiState.detailTransactionId != null -> UdhaarNavDestination.RecordDetail(uiState.detailTransactionId!!)
+            detailId != null -> UdhaarNavDestination.RecordDetail(detailId)
             uiState.activeScreen == ActiveScreen.PARTY_DETAIL -> UdhaarNavDestination.PartyDetail
             uiState.activeScreen == ActiveScreen.ADD_EDIT -> UdhaarNavDestination.AddEdit
             uiState.activeScreen == ActiveScreen.SETTINGS -> UdhaarNavDestination.Settings
@@ -877,7 +900,12 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                                     isDriveOperationInProgress = uiState.isDriveOperationInProgress,
                                     driveOperationStatusMessage = uiState.driveOperationStatusMessage,
                                     driveOperationError = uiState.driveOperationError,
-                                    onSignInWithGoogleForDrive = signInWithGoogleForDrive,
+                                    hasPendingDriveResolution = uiState.driveResolutionPendingIntent != null,
+                                    driveConnectionTestReport = uiState.driveConnectionTestReport,
+                                    onSignInWithGoogleForDrive = signInOrReconnectGoogleDrive,
+                                    onReconnectGoogleDrive = signInOrReconnectGoogleDrive,
+                                    onRunDriveConnectionTest = viewModel::runDriveConnectionTest,
+                                    onClearDriveConnectionTestReport = viewModel::clearDriveConnectionTestReport,
                                     onSignOutFromDrive = signOutFromDrive,
                                     onBackupNowToDrive = { pass, saveAuto ->
                                         viewModel.uploadDriveBackup(pass, saveAuto)
@@ -937,10 +965,12 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
     }
 
     // Google Drive Restore Preview & Confirmation Dialog
-    if (uiState.showRestorePreviewDialog && uiState.pendingRestoreParsed != null && uiState.pendingRestoreBackup != null) {
+    val restoreBackup = uiState.pendingRestoreBackup
+    val restoreParsed = uiState.pendingRestoreParsed
+    if (uiState.showRestorePreviewDialog && restoreParsed != null && restoreBackup != null) {
         RestorePreviewDialog(
-            backup = uiState.pendingRestoreBackup!!,
-            parsed = uiState.pendingRestoreParsed!!,
+            backup = restoreBackup,
+            parsed = restoreParsed,
             onMerge = {
                 viewModel.executeDriveRestore(replaceExisting = false)
             },
@@ -1095,7 +1125,7 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
         )
     }
 
-    // Phase 3: Verification Share Sheet (QR & Link for https://jyotirmoyb.com/u/<token>)
+    // Phase 3: Verification Share Sheet (QR & Link for https://udhaar.jyotirmoyb.com/u/<token>)
     val verifyShareTxId = uiState.verificationShareTransactionId
     val verifyShareLink = uiState.verificationShareLink
     if (verifyShareTxId != null && !verifyShareLink.isNullOrBlank()) {

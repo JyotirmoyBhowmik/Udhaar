@@ -328,7 +328,8 @@ fun BiometricSecurityScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
-                } else if (statusMessage != null) {
+                } else if (!statusMessage.isNullOrBlank()) {
+                    val currentStatusMessage = statusMessage.orEmpty()
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -337,7 +338,7 @@ fun BiometricSecurityScreen(
                             .padding(10.dp)
                     ) {
                         Text(
-                            text = statusMessage!!,
+                            text = currentStatusMessage,
                             style = MaterialTheme.typography.bodySmall,
                             color = PureBlack,
                             textAlign = TextAlign.Center,

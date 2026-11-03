@@ -1,209 +1,78 @@
-# Udhaar — Minimalist Monochrome Loan & Ledger Android Application
+# Udhaar v13.0 — Monochrome Offline-First Loan & Ledger Android Application
 
-**Udhaar** is a distraction-free, strictly monochrome (`#000000` / `#FFFFFF`) offline-first Android application built with Kotlin, Jetpack Compose, and Room SQLite for tracking personal and party-based loans (**Given / Lent** and **Taken / Borrowed**) across **Indian Rupees (`INR ₹`)** and **Nepalese Rupees (`NPR रू`)**.
-
----
-
-## 1. Overview & Monochrome Design Philosophy
-
-Udhaar follows a utilitarian **Swiss-grid typographic aesthetic**:
-- **Strictly Monochrome Palette:** Pure Black (`#000000`) and Pure White (`#FFFFFF`) surfaces separated by `1.dp` hairline borders (`#E5E5E5`) and high-legibility charcoal subtitles (`#525252`).
-- **Zero Visual Clutter:** No gradients, no decorative illustrations, and no distracting animations—every principal figure, accrued interest breakdown, partial repayment, and UPI QR code is immediately scannable.
-- **Bundled Offline Typography:** Uses locally bundled Google Fonts (`Space Grotesk` for bold geometric numerals/headers, `Inter` for clean UI labels, and `IBM Plex Mono` for tabular financial breakdowns).
-- **100% Offline-First & Private:** All financial records, party profiles, and settings remain strictly on-device inside a local Room SQLite database and Jetpack DataStore, protected by a startup **Biometric Security Gate (Fingerprint / Face Unlock + PIN)**.
+**Udhaar** (`com.jyotirmoyb.udhaar`, v13.0 / versionCode 13, Room Schema v7) is a strictly monochrome (`#000000` / `#FFFFFF`) offline-first Android application built with Kotlin, Jetpack Compose, SQLCipher-encrypted Room SQLite, and optional zero-trust Firebase Cloud Verification & Encrypted Google Drive Backup for tracking personal and party-based loans (**Given / Lent** and **Taken / Borrowed**) across **Indian Rupees (`INR ₹`)**, **Nepalese Rupees (`NPR रू`)**, **US Dollars (`USD $`)**, **Euros (`EUR €`)**, **British Pounds (`GBP £`)**, and **Bangladeshi Taka (`BDT ৳`)**.
 
 ---
 
-## 2. Complete Feature Breakdown
+## 1. Key Features (v13.0)
 
-### A. Startup Biometric Security Gate (`BiometricSecurityScreen`)
-- Protects sensitive financial records on launch using AndroidX `BiometricPrompt` (**Fingerprint**, **Face Unlock**, or **Device Credential**).
-- Includes a configurable offline **Fallback Security PIN** (default `0000`) and a one-tap **Lock Now** button in the top bar and settings.
-
-### B. Dual-Currency Ledger (`INR ₹` & `NPR रू`)
-- **Top Split Summary Card:** Displays **Total to Receive (Given)**, **Total to Pay (Taken)**, and **Net Ledger Position** with an instant currency switcher tab (`INR (₹)` | `NPR (रू)`) so balances across currencies never mix.
-- **Real-Time Search & Filtering:** Filter records by `All`, `Given`, `Taken`, `Overdue/Expired`, `INR (₹)`, `NPR (रू)`, or `Settled`.
-
-### C. Dynamic Simple & Compound Interest Engine (`InterestCalculator`)
-- Per-transaction toggle for **Interest Applicable (`Yes / No`)**.
-- Supports **Simple Interest** and **Compound Interest** with selectable rate periods (`% per month` or `% per annum`) and selectable compounding frequencies (`Monthly`, `Quarterly`, `Yearly`).
-- Dynamically calculates accrued interest from `Start Date` up to `Current Date` (or `Expiry Date` / `Settlement Date`) and renders a subtle breakdown subtitle on every card:
-  > `Principal: ₹10,000 | Interest: ₹450 (2%/mo • Simple • 45d) | Paid: ₹2,000`
-
-### D. Partial Repayments & One-Tap Settlement
-- Log multiple partial installment repayments with dates and notes against any active loan.
-- Automatically deducts partial payments from the gross total (`Principal + Accrued Interest`) and marks records settled when fully repaid, or toggle full settlement with a single tap.
-
-### E. People & Contact Directory Management (`PartyEntity` & Per-Party Khata)
-- Dedicated **People Directory (`PEOPLE DIRECTORY`)** tab alongside the main ledger.
-- Create or edit contacts manually, or import directly from the phonebook via Android's zero-permission contact picker (`ContactsContract.CommonDataKinds.Phone.CONTENT_URI`).
-- Automatically formats 10-digit phone numbers with `+91` for `INR` or `+977` for `NPR`.
-- Stores each party's personal **UPI ID (VPA)**, email, preferred currency, and relationship tag (`Friend`, `Supplier`, `Client`, `Family`, `Staff`).
-- **Single-Party Khata Sheet:** Displays all loans `Given`/`Taken` with that contact, separate `INR` and `NPR` net balances, quick buttons to **Call**, **WhatsApp**, **Email**, **Export Single-Party Statement (JSON)**, and **Pay Party via UPI**.
-
-### F. Two-Way Offline UPI QR Code Generator (`UpiQrGenerator` + ZXing)
-1. **Receive Payments (User's UPI QR):** Configure your own **UPI ID (VPA)** and **Payee Name** in Settings to generate a scannable monochrome UPI QR code (`upi://pay?pa=YOUR_UPI_ID&pn=NAME&am=AMOUNT&cu=INR`) globally or pre-filled with the exact due balance of any `Given (INR)` transaction. Share the rendered high-contrast QR card image directly to WhatsApp.
-2. **Pay Party Back (`TAKEN` Loan Settlement):** Open a contact's Single-Party Khata and tap **Pay Party via UPI** to render the party's personal UPI QR code or launch Google Pay / PhonePe / Paytm directly via `upi://pay`.
-
-### G. Smart WhatsApp Reminder Engine & Privacy Toggle
-- Schedule local Android reminder notifications (`AlarmManager` + `ReminderReceiver`) for any active transaction. Tapping the notification deep-links directly into that record's **WhatsApp Reminder Modal**.
-- **Privacy Toggle (`[x] Hide Exact Amount in Message`):**
-  - **Amount Visible:** *"Hello [Name], hope you are doing well. This is a gentle reminder from Udhaar regarding the [Cash/UPI/Online] record of [₹/रू][Total Amount] (Principal: [Amount], Interest: [Interest]) due on [Expiry Date]. Kindly let me know once settled. Thank you!"* (Optionally appends your UPI ID for INR records).
-  - **Amount Hidden (Privacy Mode):** *"Hello [Name], hope you are doing well. This is a gentle reminder regarding our pending account settlement scheduled for [Expiry Date]. Please check at your convenience. Thank you!"*
+- **Hardware-Backed On-Device Security:**
+  - Startup **Biometric Security Gate** (`BiometricPrompt` Fingerprint / Face Unlock + PBKDF2-HMAC-SHA256 salted PIN with exponential lockout backoff).
+  - **SQLCipher 256-bit AES Room Database** (`udhaar_ledger.db`, Schema v7) + `EncryptedSharedPreferences` backed by Android Keystore `MasterKey`.
+  - Optional `FLAG_SECURE` window protection against screenshots and task-switcher previews.
+- **Multi-Currency Ledger & Dynamic Interest Engine:**
+  - Split summary cards for **Receivable (Given)**, **Payable (Taken)**, and **Net Position** with instant currency tabs (`INR`, `NPR`, `USD`, `EUR`, `GBP`, `BDT`).
+  - Simple & Compound Interest (`Monthly`, `Quarterly`, `Yearly` compounding; `% per month` or `% per annum`), partial repayments, and 1-tap settlement.
+  - Immutable **SHA-256 Hash-Chained Audit Trail** (`audit_trail` table) for every record creation, edit, partial payment, and settlement.
+- **People Directory & Per-Party Khata:**
+  - Import contacts via Android's single-contact picker, bulk address-book picker (`READ_CONTACTS` with explicit rationale dialog), or `.vcf` vCard file import.
+  - Per-party statements (Thermal PNG & vector PDF via `PdfStatementGenerator`), custom WhatsApp reminder templates, and two-way offline ZXing UPI QR codes (`UpiQrGenerator`).
+- **Mutual Cryptographic Verification & Party Chat (`https://udhaar.jyotirmoyb.com/u/*`):**
+  - Generate signed SHA-256 verification links (`https://udhaar.jyotirmoyb.com/u/<token>`) and payment profile links (`https://udhaar.jyotirmoyb.com/u/p/<token>`).
+  - Real-time Firestore mutual confirmation (`UNVERIFIED` -> `PENDING_REMOTE` -> `CONFIRMED` / `DISPUTED`) and per-party chat threads with FCM push notifications.
+- **Encrypted Google Drive AppData Backup (`DriveBackupWorker`):**
+  - Client-side `AES-256-GCM` (PBKDF2 120,000 iterations) encrypted snapshots uploaded to Google Drive `appDataFolder` (`drive.appdata` scope).
 
 ---
 
-## 3. Technical Architecture & Room Database Schema
+## 2. Documentation Index (`/docs/`)
 
-### System Architecture (MVVM + Repository)
-```
-┌────────────────────────────────────────────────────────────────────────────┐
-│                        UI LAYER (Jetpack Compose)                          │
-│  • BiometricSecurityScreen (Fingerprint / Face Unlock + PIN Gate)          │
-│  • DashboardScreen (INR/NPR Split Card, Ledger List & People Directory Tab)│
-│  • AddEditUdhaarScreen (Contact Picker, Interest Config, Reminder Picker)  │
-│  • SinglePartyLedgerModal (Per-Party Khata, Call/WA/Email, Pay Party UPI)  │
-│  • ModalsAndSheets (Repayments, UPI QR, Share App QR, Settings & Support)  │
-└─────────────────────────────────────┬──────────────────────────────────────┘
-                                      ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│                      DOMAIN & STATE LAYER (MVVM)                           │
-│  • UdhaarViewModel (Reactive StateFlow combining Parties, Loans, Settings) │
-│  • InterestCalculator (Simple & Compound M/Q/Y Math + WhatsApp Templates)  │
-│  • UpiQrGenerator (Offline ZXing QR Matrix + Shareable PNG Card Renderer)  │
-│  • LedgerBackupManager (Full Ledger & Single-Party JSON Export / Import)   │
-└─────────────────────────────────────┬──────────────────────────────────────┘
-                                      ▼
-┌────────────────────────────────────────────────────────────────────────────┐
-│                   DATA & SYSTEM LAYER (Offline-First)                      │
-│  • UdhaarDatabase (Room SQLite v2: parties, udhaar_transactions, payments) │
-│  • DataStore Preferences (UPI VPA, Payee Name, Default Currency, Bio Lock) │
-│  • ReminderScheduler & ReminderReceiver (AlarmManager Local Notifications) │
-└────────────────────────────────────────────────────────────────────────────┘
+Detailed technical and compliance documentation is organized under `/docs/`:
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Modular MVVM architecture diagram, DI container (`UdhaarAppContainer`), domain ViewModels (`LedgerViewModel`, `VerificationViewModel`, `ChatViewModel`, `BackupViewModel`, `SettingsViewModel`), and domain repositories.
+- [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) — Complete schema reference for all 7 Room SQLite tables (Schema v7) and 3 Cloud Firestore collections.
+- [`docs/SECURITY.md`](docs/SECURITY.md) — Zero-PII logging (`SafeLogger`), Google Cloud API Key restriction guide (`firebase-applet-config.json`), Play Console permission declarations (`SCHEDULE_EXACT_ALARM` removal, `READ_CONTACTS`, `CAMERA`), and complete Google Play Data Safety questionnaire answers.
+- [`FIREBASE_DEPLOY.md`](FIREBASE_DEPLOY.md) — Step-by-step deployment guide for Firebase Hosting (`udhaar.jyotirmoyb.com`), Firestore security rules, Cloud Functions, and Android App Links verification (`adb shell pm get-app-links com.jyotirmoyb.udhaar`).
+
+---
+
+## 3. Setup, Build & Test Instructions
+
+### Prerequisites
+- Android SDK 36, JDK 11+
+- Gradle (invoked directly via `gradle` in the workspace root)
+
+### Build Commands
+```bash
+# Compile Debug APK
+gradle assembleDebug
+
+# Compile Release APK / AAB
+gradle assembleRelease
 ```
 
-### Room Database Entities (`udhaar_ledger.db`, Schema Version 2)
-1. **`PartyEntity` (`parties` table):**
-   - `partyId: Long` (PrimaryKey, auto-generated)
-   - `name: String`, `phoneNumber: String` (auto-sanitized `+91` / `+977`), `upiId: String`, `email: String`, `tagOrNotes: String`, `preferredCurrency: CurrencyType`, `createdAtMillis: Long`
-2. **`UdhaarTransaction` (`udhaar_transactions` table):**
-   - `id: Long` (PrimaryKey, auto-generated), `partyId: Long?`
-   - `transactionType: TransactionType` (`GIVEN` | `TAKEN`), `partyName: String`, `phoneNumber: String`, `currency: CurrencyType` (`INR` | `NPR`)
-   - `principalAmount: Double`, `amountPaid: Double`, `paymentMode: PaymentMode` (`CASH`, `ONLINE`, `UPI`, `PARTY_ACCOUNT`)
-   - `isInterestEnabled: Boolean`, `interestType: InterestType` (`SIMPLE` | `COMPOUND`), `interestRate: Double`, `interestRatePeriod: InterestRatePeriod` (`PER_MONTH` | `PER_ANNUM`), `compoundFrequency: CompoundFrequency` (`MONTHLY`, `QUARTERLY`, `YEARLY`)
-   - `startDateMillis: Long`, `expiryDateMillis: Long?`, `reminderDateMillis: Long?`, `notes: String`, `isSettled: Boolean`, `settledAtMillis: Long?`, `createdAtMillis: Long`
-3. **`PartialPayment` (`partial_payments` table):**
-   - `id: Long` (PrimaryKey), `transactionId: Long` (ForeignKey -> `UdhaarTransaction.id` with `CASCADE` delete), `amount: Double`, `paidAtMillis: Long`, `note: String`
+### Run Unit & Robolectric Tests
+```bash
+# Run JVM Unit Tests (InterestCalculator, VerificationCryptoHelper, SafeLogger, UdhaarResult)
+gradle :app:testDebugUnitTest --tests com.jyotirmoyb.udhaar.ExampleUnitTest
 
-### Package Structure
-```
-com.jyotirmoyb.udhaar
-├── MainActivity.kt                  # FragmentActivity host, SAF launchers & Biometric gate
-├── data/
-│   ├── UdhaarEntities.kt            # PartyEntity, UdhaarTransaction, PartialPayment & enums
-│   ├── UdhaarDao.kt                 # Reactive Flow queries & snapshot methods
-│   ├── UdhaarDatabase.kt            # Room database v3 & TypeConverters
-│   └── UdhaarRepository.kt          # Single source of truth (Room + DataStore)
-├── notification/
-│   ├── ReminderReceiver.kt          # BroadcastReceiver for local settlement notifications
-│   └── ReminderScheduler.kt         # AlarmManager scheduling & cancellation
-├── ui/
-│   ├── UdhaarViewModel.kt           # Ledger, People Directory, QR, Receipt & Backup state
-│   ├── components/
-│   │   ├── BiometricSecurityScreen.kt # Fingerprint / Face Unlock & PIN screen
-│   │   ├── DashboardScreen.kt         # Ledger & People Directory tabs, summary card
-│   │   ├── PeopleDirectoryScreen.kt   # People Directory, Single-Party Khata & Party Modal
-│   │   ├── AddEditUdhaarScreen.kt     # Loan creation/editing with live interest preview
-│   │   └── ModalsAndSheets.kt         # Detail/Repayment, Receipt, UPI QR, Share App, Settings
-│   └── theme/
-│       ├── Color.kt                 # Strictly monochrome & multi-theme color tokens
-│       ├── Type.kt                  # Space Grotesk, Inter & IBM Plex Mono typography
-│       └── Theme.kt                 # Monochrome Material 3 theme
-└── util/
-    ├── InterestCalculator.kt        # Simple/Compound math, phone formatting & WA templates
-    ├── ThermalReceiptGenerator.kt   # Monochrome thermal statement receipt (PNG & PDF share)
-    ├── UpiQrGenerator.kt            # ZXing QR generator & shareable PNG card builder
-    └── LedgerBackupManager.kt       # JSON export/import for Full Ledger & Party Statements
+# Run full unit & Robolectric suite
+gradle :app:testDebugUnitTest
+
+# Run Firestore Security Rules Emulator Tests
+node --test firestore.test.js
 ```
 
 ---
 
-## 4. Build Instructions & How to Give Other Users Access
+## 4. Privacy Policy & Account/Cloud Data Deletion
 
-### Building & Running Locally
-1. Ensure Android SDK 36 and JDK 11+ are configured.
-2. Build the debug or release APK (`Udhaar-v1.1.0-release.apk` / `Udhaar-v1.1.0-release.aab`):
-   ```bash
-   gradle assembleDebug
-   ```
-3. Run the unit and Robolectric test suite:
-   ```bash
-   gradle :app:testDebugUnitTest
-   ```
-
-### Giving Other Users Access to the App & Ledger Records
-1. **Google Play Store Production vs. Internal/Closed Testing:**
-   - **Production Track:** Any user can install directly via `https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar`.
-   - **Internal / Closed Testing Track:** Add the user's Google account email to the authorized testers list in Google Play Console and share the Web Opt-In URL before they open the Play Store link.
-2. **In-App Play Store QR & WhatsApp Invite:**
-   - Tap the **Share** icon in the top bar (or open **Settings -> Share / Give Access to Udhaar**).
-   - Another person nearby can scan the monochrome Play Store QR code right off your screen, or you can tap **Share on WhatsApp** to send the direct Play Store link.
-3. **Thermal Statement Receipts (PNG & PDF) & Offline JSON Ledger Backup:**
-   - **Thermal Statement Receipt:** On any Single Transaction Detail Sheet or Party Khata View, tap **Share Receipt / Statement (Image & PDF)** to render and share a monochrome thermal receipt via WhatsApp or Email.
-   - **Full Ledger Backup:** Go to **Settings -> Offline Ledger Backup & Record Transfer (JSON)** and tap **Export JSON** (saves to device storage via Storage Access Framework) or **Share Backup** (shares via WhatsApp/email using `FileProvider`).
-   - **Single-Party Statement:** Open any person in **People Directory** and tap **Save Statement (JSON)** or **Share Backup (JSON)**.
-   - **Restore / Import:** On any secondary device, open **Settings -> Import Ledger Backup (JSON)** and select the `.json` file to merge parties, loans, and repayment histories offline.
-
-- **Hardware-Backed On-Device Encryption:** Uses Android Keystore `MasterKey` (`AES256_GCM`), `EncryptedSharedPreferences` (`AES256_SIV` + `AES256_GCM`) for user settings and salted PBKDF2 PIN hashes, and **SQLCipher** (`SupportOpenHelperFactory` with a Keystore-wrapped 256-bit key) for the Room SQLite database (`udhaar_ledger.db`).
+- **Live Privacy Policy URL:** [`https://udhaar.jyotirmoyb.com/privacy.html`](https://udhaar.jyotirmoyb.com/privacy.html) (source in `web/privacy.html`, also accessible in-app via **Settings -> About -> Privacy Policy**).
+- **In-App Cloud Data Deletion:** Users can permanently delete all cloud-synced records, chat threads/messages, user profile documents, and revoke their FCM push token at any time via **Settings -> Cloud Verification & Account -> Delete My Cloud Data**.
 
 ---
 
-## 5. App Links Deployment (`jyotirmoyb.com/u`) & Production Configuration Checklist
-
-### A. Domain & App Links Setup (`https://jyotirmoyb.com`)
-1. **Digital Asset Links (`assetlinks.json`):**
-   - Upload `web/.well-known/assetlinks.json` to `https://jyotirmoyb.com/.well-known/assetlinks.json` over HTTPS (`Content-Type: application/json`, HTTP 200 without redirects).
-   - Replace `REPLACE_WITH_YOUR_RELEASE_UPLOAD_OR_PLAY_APP_SIGNING_SHA256_FINGERPRINT` with the Google Play App Signing SHA-256 fingerprint from **Play Console -> Setup -> App signing**.
-2. **Read-Only Web Fallback (`web/u/index.html`):**
-   - Deploy `web/u/index.html` to serve `https://jyotirmoyb.com/u` and `https://jyotirmoyb.com/u/*`.
-   - Recipients without the app see the read-only verification card (Lender, Borrower, Amount, Start/Due Dates with `fmtDate` time precision, Interest Terms, and SHA-256 hash) with **Confirm Record**, **Dispute Terms**, and **Open or Install Udhaar App** actions.
-
-### B. Firebase, Google Sign-In, Drive API & FCM Configuration Checklist
-1. **Firebase Project & `google-services.json`:**
-   - Project ID: `gen-lang-client-0216629575`
-   - Firestore Database ID: `ai-studio-android-udhaar-42622035-52d2-4bfb-8070-8962975a82cf`
-   - Android Package Name: `com.jyotirmoyb.udhaar`
-2. **SHA-1 & SHA-256 Certificate Fingerprints:**
-   - Debug Keystore SHA-1: `FD:AD:95:C3:89:A1:C2:2A:28:18:C8:58:C9:65:C8:30:C7:57:04:AC`
-   - Debug Keystore SHA-256: `FB:F9:7F:66:8F:61:1E:9B:49:CB:6D:A9:40:17:E8:1C:79:FE:9F:B3:57:B7:2B:15:DB:6D:D2:D9:35:9C:F0:EA`
-   - Register both Debug and Play App Signing SHA-1 + SHA-256 fingerprints in **Firebase Console -> Project Settings -> Your apps -> Android (`com.jyotirmoyb.udhaar`)**, then re-download `app/google-services.json`.
-3. **Authentication (Google Sign-In & Phone Auth):**
-   - Enable **Google** provider in **Firebase Console -> Authentication -> Sign-in method** and copy the **Web client ID** into `default_web_client_id`.
-   - If enabling **Phone Auth**, enable Phone Sign-In in Firebase Authentication and ensure Play Integrity API is enabled in Google Cloud Console with both SHA-1 and SHA-256 fingerprints registered.
-4. **Firestore Security Rules & Indexes:**
-   - Deploy zero-trust rules: `firebase deploy --only firestore:rules`
-   - Validate locally against the emulator: `node --test firestore.test.js`
-5. **Google Drive API (`drive.appdata`) & OAuth Consent Screen:**
-   - Enable **Google Drive API** in **Google Cloud Console -> APIs & Services -> Library**.
-   - Configure the **OAuth Consent Screen** with scope `https://www.googleapis.com/auth/drive.appdata`.
-   - Create an **Android OAuth 2.0 Client ID** matching package `com.jyotirmoyb.udhaar` and your SHA-1 fingerprint.
-6. **Firebase Cloud Messaging (FCM) & Cloud Functions:**
-   - `UdhaarFirebaseMessagingService` stores the device's `fcmToken` under `/user_profiles/{uid}` and displays notifications on channel `udhaar_chat_messages_channel` that deep-link directly into the matching chat thread or verification record.
-   - Deploy the push triggers (`onNewChatMessageSendPush` and `onSharedRecordVerificationPush` in `functions/index.js`):
-     ```bash
-     cd functions && npm install && firebase deploy --only functions
-     ```
-7. **`firebase-applet-config.json` Audit & API Key Restrictions:**
-   - `firebase-applet-config.json` and `app/google-services.json` contain only public client identifiers (`projectId`, `appId`, public client `apiKey`, `oAuthClientId`) and **no private service-account keys or client secrets**.
-   - In **Google Cloud Console -> APIs & Services -> Credentials**, restrict:
-     - **Android key**: Set application restriction to **Android apps** (`com.jyotirmoyb.udhaar` + debug & release SHA-1 fingerprints) and restrict APIs to Firebase Installations, FCM Registration, Identity Toolkit, Token Service, and Cloud Firestore.
-     - **Browser/Web key (`AIzaSyCow0JiCsQxTuI2Lr-EfuCb30xJPJSRfxk`)**: Set application restriction to **HTTP referrers** (`https://jyotirmoyb.com/*`, `https://gen-lang-client-0216629575.firebaseapp.com/*`) and restrict APIs to Identity Toolkit, Token Service, and Cloud Firestore.
-
----
-
-## 6. Admin & Developer Contact
+## 5. Admin & Developer Contact
 
 - **Administrator & Lead Developer:** `Jyotirmoy Bhowmik`
-- **Admin Contact Email:** `admin@jyotirmoyb.com`
-- **In-App Support:** Navigate to **`Settings -> Admin & Support -> Contact Admin (admin@jyotirmoyb.com)`**, which triggers a pre-addressed `mailto:admin@jyotirmoyb.com` intent with `"Udhaar App Support (v1.1.0)"` in the subject line (and automatically copies `admin@jyotirmoyb.com` to the clipboard as a fallback).
-
+- **Support Email:** `admin@jyotirmoyb.com`
+- **Production Domain:** `https://udhaar.jyotirmoyb.com`
