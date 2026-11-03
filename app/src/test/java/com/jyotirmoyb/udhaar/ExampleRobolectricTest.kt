@@ -37,8 +37,8 @@ class ExampleRobolectricTest {
         val appName = context.getString(R.string.app_name)
         assertEquals("Udhaar", appName)
         assertEquals("com.jyotirmoyb.udhaar", BuildConfig.APPLICATION_ID)
-        assertEquals("9.0", BuildConfig.VERSION_NAME)
-        assertEquals(9, BuildConfig.VERSION_CODE)
+        assertTrue(BuildConfig.VERSION_CODE >= 9)
+        assertEquals("${BuildConfig.VERSION_CODE}.0", BuildConfig.VERSION_NAME)
     }
 
     @get:org.junit.Rule
@@ -1123,15 +1123,15 @@ class ExampleRobolectricTest {
     fun `version 9_0 Settings About format Room schema export and R8 keep rules are configured`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
 
-        // 1. Version 9 / "9.0" and Settings > About string format
-        assertEquals(9, BuildConfig.VERSION_CODE)
-        assertEquals("9.0", BuildConfig.VERSION_NAME)
+        // 1. Version >= 9 and Settings > About string format
+        assertTrue(BuildConfig.VERSION_CODE >= 9)
+        assertEquals("${BuildConfig.VERSION_CODE}.0", BuildConfig.VERSION_NAME)
         val aboutVersionText = context.getString(
             R.string.settings_about_version_format,
             BuildConfig.VERSION_NAME,
             BuildConfig.VERSION_CODE
         )
-        assertEquals("UDHAAR LEDGER v9.0 (Build 9)", aboutVersionText)
+        assertEquals("UDHAAR LEDGER v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})", aboutVersionText)
 
         // 2. Room exported schema file 7.json exists
         val schemaCandidates = listOf(

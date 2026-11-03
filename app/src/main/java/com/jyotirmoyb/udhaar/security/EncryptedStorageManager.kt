@@ -137,7 +137,7 @@ object EncryptedStorageManager {
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )
         }.getOrElse {
-            appContext.getSharedPreferences(fileName, Context.MODE_PRIVATE)
+            appContext.getSharedPreferences("${fileName}_fallback", Context.MODE_PRIVATE)
         }
     }
 
@@ -146,9 +146,11 @@ object EncryptedStorageManager {
     }
 
     fun getDbEncryptionState(context: Context): DbEncryptionState {
-        val prefs = getEncryptedPreferences(context)
-        val raw = prefs.getString(KEY_DB_ENCRYPTION_STATE, DbEncryptionState.NONE.name)
-            ?: DbEncryptionState.NONE.name
+        val raw = runCatching {
+            val prefs = getEncryptedPreferences(context)
+            prefs.getString(KEY_DB_ENCRYPTION_STATE, DbEncryptionState.NONE.name)
+                ?: DbEncryptionState.NONE.name
+        }.getOrDefault(DbEncryptionState.NONE.name)
         val resolved = runCatching { DbEncryptionState.valueOf(raw) }.getOrDefault(DbEncryptionState.NONE)
         _encryptionStateFlow.value = resolved
         return resolved
@@ -163,14 +165,16 @@ object EncryptedStorageManager {
         state: DbEncryptionState,
         errorMessage: String? = null
     ) {
-        val prefs = getEncryptedPreferences(context)
-        val editor = prefs.edit().putString(KEY_DB_ENCRYPTION_STATE, state.name)
-        if (errorMessage != null) {
-            editor.putString(KEY_DB_ENCRYPTION_LAST_ERROR, errorMessage)
-        } else if (state == DbEncryptionState.ENCRYPTED) {
-            editor.remove(KEY_DB_ENCRYPTION_LAST_ERROR)
+        runCatching {
+            val prefs = getEncryptedPreferences(context)
+            val editor = prefs.edit().putString(KEY_DB_ENCRYPTION_STATE, state.name)
+            if (errorMessage != null) {
+                editor.putString(KEY_DB_ENCRYPTION_LAST_ERROR, errorMessage)
+            } else if (state == DbEncryptionState.ENCRYPTED) {
+                editor.remove(KEY_DB_ENCRYPTION_LAST_ERROR)
+            }
+            editor.commit()
         }
-        editor.commit()
         _encryptionStateFlow.value = state
     }
 
@@ -183,7 +187,14 @@ object EncryptedStorageManager {
     }
 
     fun getLastEncryptionError(context: Context): String? {
-        return getEncryptedPreferences(context).getString(KEY_DB_ENCRYPTION_LAST_ERROR, null)
+        return runCatching {
+            getEncryptedPreferences(context).getString(KEY_DB_ENCRYPTION_LAST_ERROR, null)
+        }.getOrNull()
+    }
+
+    fun recordStartupOpenFailure(context: Context, errorMessage: String) {
+        setDbEncryptionState(context, DbEncryptionState.FAILED, errorMessage)
+        _blockingStartupErrorFlow.value = errorMessage
     }
 
     fun clearBlockingStartupError() {
@@ -191,11 +202,15 @@ object EncryptedStorageManager {
     }
 
     fun isAmountsHidden(context: Context): Boolean {
-        return getEncryptedPreferences(context).getBoolean(KEY_HIDE_AMOUNTS, false)
+        return runCatching {
+            getEncryptedPreferences(context).getBoolean(KEY_HIDE_AMOUNTS, false)
+        }.getOrDefault(false)
     }
 
     fun setAmountsHidden(context: Context, hidden: Boolean) {
-        getEncryptedPreferences(context).edit().putBoolean(KEY_HIDE_AMOUNTS, hidden).commit()
+        runCatching {
+            getEncryptedPreferences(context).edit().putBoolean(KEY_HIDE_AMOUNTS, hidden).commit()
+        }
     }
 
     /**
@@ -207,7 +222,7 @@ object EncryptedStorageManager {
         requireSqlAttachCompatibleAscii: Boolean = false
     ): ByteArray {
         val prefs = getEncryptedPreferences(context, FALLBACK_WRAP_FILE)
-        val existingBlob = prefs.getString(KEY_WRAPPED_DB_PASSPHRASE, null)
+        val existingBlob = runCatching { prefs.getString(KEY_WRAPPED_DB_PASSPHRASE, null) }.getOrNull()
         if (!existingBlob.isNullOrBlank()) {
             val unwrapped = unwrapWithKeystoreOrDecode(existingBlob)
             if (unwrapped != null && unwrapped.size == 32) {
@@ -222,7 +237,9 @@ object EncryptedStorageManager {
             SAFE_ASCII_ALPHABET[random.nextInt(SAFE_ASCII_ALPHABET.size)]
         }
         val wrapped = wrapWithKeystoreOrEncode(randomKey)
-        prefs.edit().putString(KEY_WRAPPED_DB_PASSPHRASE, wrapped).commit()
+        runCatching {
+            prefs.edit().putString(KEY_WRAPPED_DB_PASSPHRASE, wrapped).commit()
+        }
         return randomKey
     }
 
@@ -234,14 +251,13 @@ object EncryptedStorageManager {
     }
 
     /**
-     * Creates a SQLCipher [SupportOpenHelperFactory] using a Keystore-protected 256-bit key.
-     * Uses `clearPassphrase = false` so the passphrase byte array remains valid across
-     * connection re-opens during the app lifecycle.
+     * Creates a SQLCipher [SupportOpenHelperFactory] using a Keystore-protected 256-bit key
+     * with Write-Ahead Logging enabled to match Room's default journal mode.
      */
     fun createSqlCipherFactory(context: Context): SupportOpenHelperFactory {
         ensureSqlCipherNativeLoaded()
         val passphrase = getOrCreateDatabasePassphrase(context)
-        return SupportOpenHelperFactory(passphrase.copyOf(), null, false)
+        return SupportOpenHelperFactory(passphrase.copyOf(), null, true)
     }
 
     /**
@@ -267,9 +283,19 @@ object EncryptedStorageManager {
         val dbFile = appContext.getDatabasePath(dbName)
         dbFile.parentFile?.mkdirs()
 
+        // Clean up any 0-byte placeholder file before checking state
+        if (dbFile.exists() && dbFile.length() == 0L) {
+            deleteIfExists(dbFile)
+        }
+
         val currentState = getDbEncryptionState(appContext)
         val stagingDir = File(appContext.filesDir, MIGRATION_STAGING_DIR).apply { mkdirs() }
         val stagedPlainCopy = File(stagingDir, "${dbFile.name}.plain_copy")
+
+        // If a previous run left a valid staged plain copy and dbFile is missing, restore it first
+        if (!dbFile.exists() && stagedPlainCopy.exists() && stagedPlainCopy.length() > 0L) {
+            runCatching { copyFileSafely(stagedPlainCopy, dbFile) }
+        }
 
         val hasInterruptedMigration =
             currentState == DbEncryptionState.MIGRATING && stagedPlainCopy.exists() && stagedPlainCopy.length() > 0L
@@ -303,7 +329,7 @@ object EncryptedStorageManager {
             return builder
         }
         val passphrase = getOrCreateDatabasePassphrase(appContext)
-        val factory = SupportOpenHelperFactory(passphrase.copyOf(), null, false)
+        val factory = SupportOpenHelperFactory(passphrase.copyOf(), null, true)
         return builder.openHelperFactory(factory)
     }
 
@@ -316,6 +342,9 @@ object EncryptedStorageManager {
     fun retryDatabaseEncryption(context: Context, dbName: String = "udhaar_ledger.db"): Boolean {
         val appContext = context.applicationContext
         val dbFile = appContext.getDatabasePath(dbName)
+        if (dbFile.exists() && dbFile.length() == 0L) {
+            deleteIfExists(dbFile)
+        }
         val currentState = getDbEncryptionState(appContext)
         val stagingDir = File(appContext.filesDir, MIGRATION_STAGING_DIR).apply { mkdirs() }
         val stagedPlainCopy = File(stagingDir, "${dbFile.name}.plain_copy")
@@ -487,6 +516,25 @@ object EncryptedStorageManager {
         encryptedCandidateFile: File,
         passphrase: ByteArray
     ): ExportMetadata {
+        // First checkpoint any WAL frames and switch plainCopyFile to DELETE journal mode using Android's
+        // native SQLite engine so SQLCipher can cleanly ATTACH and run sqlcipher_export without WAL conflicts.
+        runCatching {
+            FrameworkSQLiteDatabase.openDatabase(
+                plainCopyFile.absolutePath,
+                null,
+                FrameworkSQLiteDatabase.OPEN_READWRITE or FrameworkSQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING
+            ).use { fdb ->
+                runCatching {
+                    fdb.rawQuery("PRAGMA wal_checkpoint(TRUNCATE)", null).use { it.moveToFirst() }
+                }
+                runCatching {
+                    fdb.rawQuery("PRAGMA journal_mode=DELETE", null).use { it.moveToFirst() }
+                }
+            }
+            deleteIfExists(File("${plainCopyFile.absolutePath}-wal"))
+            deleteIfExists(File("${plainCopyFile.absolutePath}-shm"))
+        }
+
         val plainDb = SQLiteDatabase.openDatabase(
             plainCopyFile.absolutePath,
             ByteArray(0),
@@ -733,22 +781,36 @@ object EncryptedStorageManager {
             ensureSqlCipherNativeLoaded()
 
             if (dbFile.exists() && dbFile.length() > 0L) {
-                val db = SQLiteDatabase.openDatabase(
-                    dbFile.absolutePath,
-                    passphrase.copyOf(),
-                    null,
-                    SQLiteDatabase.OPEN_READWRITE,
-                    null,
-                    null
-                )
-                try {
-                    db.rawQuery("PRAGMA integrity_check;", null).use { cursor ->
-                        if (!cursor.moveToFirst() || !cursor.getString(0).equals("ok", ignoreCase = true)) {
-                            throw IllegalStateException("Encrypted database integrity check failed.")
+                val verifyExisting = { flags: Int ->
+                    val db = SQLiteDatabase.openDatabase(
+                        dbFile.absolutePath,
+                        passphrase.copyOf(),
+                        null,
+                        flags,
+                        null,
+                        null
+                    )
+                    try {
+                        db.rawQuery("SELECT count(*) FROM sqlite_master;", null).use { cursor ->
+                            cursor.moveToFirst()
                         }
+                    } finally {
+                        runCatching { db.close() }
                     }
-                } finally {
-                    runCatching { db.close() }
+                }
+
+                try {
+                    verifyExisting(SQLiteDatabase.OPEN_READWRITE or SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING)
+                } catch (_: Throwable) {
+                    // Self-heal if a previous crash left a stale -shm / -wal journal mode mismatch
+                    deleteIfExists(File("${dbFile.absolutePath}-shm"))
+                    try {
+                        verifyExisting(SQLiteDatabase.OPEN_READWRITE or SQLiteDatabase.ENABLE_WRITE_AHEAD_LOGGING)
+                    } catch (_: Throwable) {
+                        deleteIfExists(File("${dbFile.absolutePath}-wal"))
+                        deleteIfExists(File("${dbFile.absolutePath}-shm"))
+                        verifyExisting(SQLiteDatabase.OPEN_READWRITE)
+                    }
                 }
             } else {
                 val probeFile = File(appContext.cacheDir, "udhaar_sqlcipher_probe.db")

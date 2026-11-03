@@ -78,13 +78,13 @@ class UdhaarRepository(
         val HAS_COMPLETED_ONBOARDING = booleanPreferencesKey("has_completed_onboarding")
     }
 
-    val allParties: Flow<List<PartyEntity>> = dao.getAllParties()
-    val allTransactions: Flow<List<UdhaarTransaction>> = dao.getAllTransactions()
-    val allPartialPayments: Flow<List<PartialPayment>> = dao.getAllPartialPayments()
-    val allAuditTrailEntries: Flow<List<AuditTrailEntry>> = dao.getAllAuditTrailEntries()
-    val allChatThreads: Flow<List<ChatThreadMetadata>> = dao.getAllChatThreads()
-    val allChatMessages: Flow<List<ChatMessageEntity>> = dao.getAllChatMessages()
-    val allAttachments: Flow<List<Attachment>> = dao.getAllAttachmentsFlow()
+    val allParties: Flow<List<PartyEntity>> = dao.getAllParties().catch { emit(emptyList()) }
+    val allTransactions: Flow<List<UdhaarTransaction>> = dao.getAllTransactions().catch { emit(emptyList()) }
+    val allPartialPayments: Flow<List<PartialPayment>> = dao.getAllPartialPayments().catch { emit(emptyList()) }
+    val allAuditTrailEntries: Flow<List<AuditTrailEntry>> = dao.getAllAuditTrailEntries().catch { emit(emptyList()) }
+    val allChatThreads: Flow<List<ChatThreadMetadata>> = dao.getAllChatThreads().catch { emit(emptyList()) }
+    val allChatMessages: Flow<List<ChatMessageEntity>> = dao.getAllChatMessages().catch { emit(emptyList()) }
+    val allAttachments: Flow<List<Attachment>> = dao.getAllAttachmentsFlow().catch { emit(emptyList()) }
 
     val userSettings: Flow<UserSettings> = context?.dataStore?.data
         ?.catch { emit(emptyPreferences()) }

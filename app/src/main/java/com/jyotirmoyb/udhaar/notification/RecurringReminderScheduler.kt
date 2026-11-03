@@ -119,17 +119,18 @@ object RecurringReminderScheduler {
 
     fun rescheduleAllActiveReminders(context: Context) {
         CoroutineScope(Dispatchers.IO).launch {
-            val db = UdhaarDatabase.getInstance(context)
-            val dao = db.udhaarDao()
-            val transactions = dao.getAllTransactions().first()
-            val allPayments = dao.getAllPartialPayments().first().groupBy { it.transactionId }
+            runCatching {
+                val db = UdhaarDatabase.getInstance(context)
+                val dao = db.udhaarDao()
+                val transactions = dao.getAllTransactions().first()
 
-            for (tx in transactions) {
-                val exp = tx.expiryDateMillis
-                if (!tx.isSettled && exp != null && exp > System.currentTimeMillis()) {
-                    val summary = InterestCalculator.calculate(tx)
-                    val formatted = InterestCalculator.formatCurrency(summary.netBalanceDue, tx.currency)
-                    scheduleRemindersForTransaction(context, tx, formatted)
+                for (tx in transactions) {
+                    val exp = tx.expiryDateMillis
+                    if (!tx.isSettled && exp != null && exp > System.currentTimeMillis()) {
+                        val summary = InterestCalculator.calculate(tx)
+                        val formatted = InterestCalculator.formatCurrency(summary.netBalanceDue, tx.currency)
+                        scheduleRemindersForTransaction(context, tx, formatted)
+                    }
                 }
             }
         }

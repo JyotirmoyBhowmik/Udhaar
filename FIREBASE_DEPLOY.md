@@ -57,16 +57,17 @@ firebase deploy --only firestore:rules,hosting,functions
 
 ---
 
-## 4. Connect Custom Domain (`jyotirmoyb.com`) & Verify App Links
+## 4. Connect Subdomain (`udhaar.jyotirmoyb.com`) in Cloudflare & Verify App Links
 
-1. In **Firebase Console -> Hosting -> Add custom domain**, connect `jyotirmoyb.com` (or serve `web/.well-known/assetlinks.json` and `web/u/index.html` directly on `https://jyotirmoyb.com`).
-2. Verify that Digital Asset Links is publicly reachable with `Content-Type: application/json` and HTTP 200 (no redirects):
+1. In **Firebase Console -> Hosting -> Add custom domain**, enter `udhaar.jyotirmoyb.com`.
+2. In **Cloudflare -> `jyotirmoyb.com` -> DNS -> Records**, add the `TXT` and `A` (or `CNAME`) records for `udhaar` with **Proxy status = DNS only (Grey Cloud)**.
+3. Verify that Digital Asset Links is publicly reachable with `Content-Type: application/json` and HTTP 200 (no redirects):
    ```bash
-   curl -i https://jyotirmoyb.com/.well-known/assetlinks.json
+   curl -i https://udhaar.jyotirmoyb.com/.well-known/assetlinks.json
    ```
-3. On an Android device with `com.jyotirmoyb.udhaar` installed, trigger and inspect App Links verification:
+4. On an Android device with `com.jyotirmoyb.udhaar` installed, trigger and inspect App Links verification:
    ```bash
    adb shell pm verify-app-links --re-verify com.jyotirmoyb.udhaar
    adb shell pm get-app-links com.jyotirmoyb.udhaar
    ```
-   Confirm `jyotirmoyb.com: verified` appears under Domain verification state.
+   Confirm `udhaar.jyotirmoyb.com: verified` appears under Domain verification state.

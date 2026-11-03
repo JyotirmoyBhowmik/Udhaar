@@ -23,13 +23,13 @@ import javax.crypto.spec.SecretKeySpec
  *    (GIVEN) or borrower (TAKEN), both sides see the exact same 64-char SHA-256 contentHash.
  * 2. End-to-End Encryption (AES-256-GCM) for sensitive notes and attachment references stored in Cloud Firestore,
  *    using a key derived from the shared verification token so the backend only stores ciphertext.
- * 3. Self-contained & App-Link-ready URL encoding/decoding (`https://jyotirmoyb.com/u/<token>`) for records
- *    and payment profiles (`https://jyotirmoyb.com/u/p/<token>`).
+ * 3. Self-contained & App-Link-ready URL encoding/decoding (`https://udhaar.jyotirmoyb.com/u/<token>`) for records
+ *    and payment profiles (`https://udhaar.jyotirmoyb.com/u/p/<token>`).
  */
 object VerificationCryptoHelper {
 
-    const val VERIFICATION_URL_PREFIX = "https://jyotirmoyb.com/u/"
-    const val PROFILE_URL_PREFIX = "https://jyotirmoyb.com/u/p/"
+    const val VERIFICATION_URL_PREFIX = "https://udhaar.jyotirmoyb.com/u/"
+    const val PROFILE_URL_PREFIX = "https://udhaar.jyotirmoyb.com/u/p/"
 
     private fun base64UrlEncode(bytes: ByteArray): String {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)

@@ -338,8 +338,8 @@
     <string name="ui_str_party_s_personal_upi_id_cac571">পাৰ্টি\'s Personal UPI ID (ঐচ্ছিক • For Payback)</string>
     <string name="ui_str_party_upi_id_vpa_9c2dfd">পাৰ্টি UPI ID (VPA) *</string>
     <string name="ui_str_passphrase_89950c">পাছফ্ৰেজ</string>
-    <string name="ui_str_paste_https_jyotirmoyb_com_u_6b00ac">Paste https://jyotirmoyb.com/u/... link</string>
-    <string name="ui_str_paste_https_jyotirmoyb_com_u_906892">Paste https://jyotirmoyb.com/u/p/... link</string>
+    <string name="ui_str_paste_https_jyotirmoyb_com_u_6b00ac">Paste https://udhaar.jyotirmoyb.com/u/... link</string>
+    <string name="ui_str_paste_https_jyotirmoyb_com_u_906892">Paste https://udhaar.jyotirmoyb.com/u/p/... link</string>
     <string name="ui_str_pay_party_via_upi_81f63b">PAY পাৰ্টি VIA UPI</string>
     <string name="ui_str_payee_name_cf3058">Payee Name</string>
     <string name="ui_str_payment_mode_8fbf2e">পৰিশোধৰ মাধ্যম</string>
@@ -405,7 +405,7 @@
     <string name="ui_str_save_shared_payment_details_25d811">সংৰক্ষণ শ্বেয়াৰ কৰা পৰিশোধ বিৱৰণ?</string>
     <string name="ui_str_save_statement_json_d2f264">সংৰক্ষণ প্ৰতিবেদন (JSON)</string>
     <string name="ui_str_save_udhaar_3990bf">উধাৰ সংরক্ষণ কৰক</string>
-    <string name="ui_str_scan_inside_udhaar_or_any_27d0ff">Scan inside Udhaar or any camera to verify at jyotirmoyb.com/u/...</string>
+    <string name="ui_str_scan_inside_udhaar_or_any_27d0ff">Scan inside Udhaar or any camera to verify at udhaar.jyotirmoyb.com/u/...</string>
     <string name="ui_str_scan_this_qr_code_with_81d1dd">Scan this QR code with any ফোন camera to open Udhaar on Google Play, or share the invite link below.</string>
     <string name="ui_str_search_contacts_by_name_or_e69b48">সন্ধান কৰক যোগাযোগ by name or ফোন…</string>
     <string name="ui_str_search_people_by_name_phone_d675ac">সন্ধান কৰক ব্যক্তি by name, ফোন, UPI ID, or tag…</string>

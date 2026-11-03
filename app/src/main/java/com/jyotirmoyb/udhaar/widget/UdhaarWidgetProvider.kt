@@ -44,65 +44,66 @@ class UdhaarWidgetProvider : AppWidgetProvider() {
             appWidgetManager: AppWidgetManager,
             appWidgetIds: IntArray
         ) {
-            val pendingResult = CoroutineScope(Dispatchers.IO).launch {
-                val db = UdhaarDatabase.getInstance(context)
-                val dao = db.udhaarDao()
-                val transactions = dao.getAllTransactions().first()
-                val allPayments = dao.getAllPartialPayments().first().groupBy { it.transactionId }
+            CoroutineScope(Dispatchers.IO).launch {
+                runCatching {
+                    val db = UdhaarDatabase.getInstance(context)
+                    val dao = db.udhaarDao()
+                    val transactions = dao.getAllTransactions().first()
 
-                var toReceiveInr = 0.0
-                var toPayInr = 0.0
-                var overdueCount = 0
-                val now = System.currentTimeMillis()
+                    var toReceiveInr = 0.0
+                    var toPayInr = 0.0
+                    var overdueCount = 0
+                    val now = System.currentTimeMillis()
 
-                for (tx in transactions) {
-                    if (tx.isSettled) continue
-                    val summary = InterestCalculator.calculate(tx)
+                    for (tx in transactions) {
+                        if (tx.isSettled) continue
+                        val summary = InterestCalculator.calculate(tx)
 
-                    if (tx.currency == CurrencyType.INR) {
-                        if (tx.transactionType == TransactionType.GIVEN) {
-                            toReceiveInr += summary.netBalanceDue
-                        } else {
-                            toPayInr += summary.netBalanceDue
+                        if (tx.currency == CurrencyType.INR) {
+                            if (tx.transactionType == TransactionType.GIVEN) {
+                                toReceiveInr += summary.netBalanceDue
+                            } else {
+                                toPayInr += summary.netBalanceDue
+                            }
+                        }
+
+                        val exp = tx.expiryDateMillis
+                        if (exp != null && exp > 0 && exp < now) {
+                            overdueCount++
                         }
                     }
 
-                    val exp = tx.expiryDateMillis
-                    if (exp != null && exp > 0 && exp < now) {
-                        overdueCount++
+                    val isAmountsHidden = com.jyotirmoyb.udhaar.security.EncryptedStorageManager.isAmountsHidden(context)
+                    val formattedReceive = InterestCalculator.formatCurrencyPrivacy(toReceiveInr, CurrencyType.INR, isAmountsHidden)
+                    val formattedPay = InterestCalculator.formatCurrencyPrivacy(toPayInr, CurrencyType.INR, isAmountsHidden)
+
+                    for (widgetId in appWidgetIds) {
+                        val views = RemoteViews(context.packageName, R.layout.widget_udhaar_summary)
+                        views.setTextViewText(R.id.widget_total_receive, formattedReceive)
+                        views.setTextViewText(R.id.widget_total_pay, formattedPay)
+                        views.setTextViewText(
+                            R.id.widget_overdue_badge,
+                            if (overdueCount > 0) "$overdueCount OVERDUE" else "ALL CLEAR ✓"
+                        )
+
+                        val intent = Intent(context, MainActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        }
+                        val pendingIntent = PendingIntent.getActivity(
+                            context,
+                            0,
+                            intent,
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                        )
+                        views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
+
+                        appWidgetManager.updateAppWidget(widgetId, views)
                     }
-                }
 
-                val isAmountsHidden = com.jyotirmoyb.udhaar.security.EncryptedStorageManager.isAmountsHidden(context)
-                val formattedReceive = InterestCalculator.formatCurrencyPrivacy(toReceiveInr, CurrencyType.INR, isAmountsHidden)
-                val formattedPay = InterestCalculator.formatCurrencyPrivacy(toPayInr, CurrencyType.INR, isAmountsHidden)
-
-                for (widgetId in appWidgetIds) {
-                    val views = RemoteViews(context.packageName, R.layout.widget_udhaar_summary)
-                    views.setTextViewText(R.id.widget_total_receive, formattedReceive)
-                    views.setTextViewText(R.id.widget_total_pay, formattedPay)
-                    views.setTextViewText(
-                        R.id.widget_overdue_badge,
-                        if (overdueCount > 0) "$overdueCount OVERDUE" else "ALL CLEAR ✓"
-                    )
-
-                    val intent = Intent(context, MainActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    // If any transactions are overdue, trigger the overdue digest check
+                    if (overdueCount > 0) {
+                        ReminderReceiver.checkAndSendOverdueDigest(context, overdueCount, toReceiveInr)
                     }
-                    val pendingIntent = PendingIntent.getActivity(
-                        context,
-                        0,
-                        intent,
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    )
-                    views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
-
-                    appWidgetManager.updateAppWidget(widgetId, views)
-                }
-
-                // If any transactions are overdue, trigger the overdue digest check
-                if (overdueCount > 0) {
-                    ReminderReceiver.checkAndSendOverdueDigest(context, overdueCount, toReceiveInr)
                 }
             }
         }

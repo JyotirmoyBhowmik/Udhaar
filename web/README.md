@@ -1,9 +1,9 @@
-# Udhaar Web Hosting & Android App Links (`jyotirmoyb.com`)
+# Udhaar Web Hosting & Android App Links (`udhaar.jyotirmoyb.com`)
 
 This directory contains the static web files served by Firebase Hosting for Udhaar (`com.jyotirmoyb.udhaar`):
 
-- `web/.well-known/assetlinks.json` — Digital Asset Links manifest for Android App Links auto-verification (`https://jyotirmoyb.com/.well-known/assetlinks.json`).
-- `web/u/index.html` — Responsive read-only web viewer for shared Udhaar records and payment profiles (`https://jyotirmoyb.com/u/...`).
+- `web/.well-known/assetlinks.json` — Digital Asset Links manifest for Android App Links auto-verification (`https://udhaar.jyotirmoyb.com/.well-known/assetlinks.json`).
+- `web/u/index.html` — Responsive read-only web viewer for shared Udhaar records and payment profiles (`https://udhaar.jyotirmoyb.com/u/...`).
 
 ---
 
@@ -42,10 +42,15 @@ Also add the same SHA-1 and SHA-256 fingerprints in the **[Firebase Console](htt
 
 ---
 
-## Deploying to Firebase Hosting
+## Deploying to Firebase Hosting & Connecting `udhaar.jyotirmoyb.com` via Cloudflare DNS
 
-From the repository root, run:
+1. Deploy from the repository root:
+   ```bash
+   firebase deploy --only hosting,functions,firestore:rules
+   ```
+2. In **Firebase Console** → **Build** → **Hosting** → **Add custom domain**, enter:
+   ```text
+   udhaar.jyotirmoyb.com
+   ```
+3. In **Cloudflare Dashboard** → `jyotirmoyb.com` → **DNS** → **Records**, add the records shown by Firebase Hosting for `udhaar` with **Proxy status = DNS only (Grey Cloud)** so Firebase can provision SSL and Google's Digital Asset Links verifier can fetch `https://udhaar.jyotirmoyb.com/.well-known/assetlinks.json` directly without Cloudflare bot challenges.
 
-```bash
-firebase deploy --only hosting,functions,firestore:rules
-```

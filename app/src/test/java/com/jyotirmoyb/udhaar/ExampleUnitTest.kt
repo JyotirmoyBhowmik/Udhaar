@@ -44,7 +44,7 @@ class ExampleUnitTest {
         assertEquals(9_200.0, summary.netBalanceDue, 5.0)
         assertTrue(summary.subtitleBreakdown.contains("Amount lent: रू10,000"))
         assertTrue(summary.subtitleBreakdown.contains("Paid: रू2,000"))
-        assertEquals("रू ••••", InterestCalculator.formatCurrencyPrivacy(10_000.0, CurrencyType.NPR, isHidden = true))
+        assertEquals("रू •••••", InterestCalculator.formatCurrencyPrivacy(10_000.0, CurrencyType.NPR, isHidden = true))
         assertEquals("रू10,000", InterestCalculator.formatCurrencyPrivacy(10_000.0, CurrencyType.NPR, isHidden = false))
     }
 
@@ -194,7 +194,7 @@ class ExampleUnitTest {
                 upiId = "bapan@okaxis"
             )
         )
-        assertTrue(profileLink.startsWith("https://jyotirmoyb.com/u/p/"))
+        assertTrue(profileLink.startsWith("https://udhaar.jyotirmoyb.com/u/p/"))
         val parsedProfile = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.parsePaymentProfileLink(profileLink)
         assertEquals("bapan@okaxis", parsedProfile?.upiId)
     }

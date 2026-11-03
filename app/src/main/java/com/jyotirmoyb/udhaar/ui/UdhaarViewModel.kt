@@ -2078,7 +2078,7 @@ class UdhaarViewModel(
                     transactionsCount = snapshot.transactions.size,
                     paymentsCount = snapshot.partialPayments.size,
                     attachmentsCount = attachments.size,
-                    appVersion = "9.0",
+                    appVersion = com.jyotirmoyb.udhaar.BuildConfig.VERSION_NAME,
                     createdAtMillis = System.currentTimeMillis()
                 )
                 DriveBackupCrypto.encrypt(
@@ -2295,7 +2295,7 @@ class UdhaarViewModel(
                     transactionsCount = snapshot.transactions.size,
                     paymentsCount = snapshot.partialPayments.size,
                     attachmentsCount = attachments.size,
-                    appVersion = "9.0",
+                    appVersion = com.jyotirmoyb.udhaar.BuildConfig.VERSION_NAME,
                     createdAtMillis = System.currentTimeMillis()
                 )
 

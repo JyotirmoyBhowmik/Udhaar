@@ -1016,7 +1016,7 @@ fun RequestPartyPaymentDetailsSheet(
     var pastedProfileLink by remember { mutableStateOf("") }
     val myName = settings.payeeName.ifBlank { "Udhaar User" }
 
-    val requestLink = "https://jyotirmoyb.com/u/request-upi?from=${Uri.encode(myName)}&party=${Uri.encode(party.name)}"
+    val requestLink = "https://udhaar.jyotirmoyb.com/u/request-upi?from=${Uri.encode(myName)}&party=${Uri.encode(party.name)}"
     val qrBitmap = remember(requestLink) {
         UpiQrGenerator.generateQrBitmap(requestLink, sizePx = 500)
     }

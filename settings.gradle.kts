@@ -22,6 +22,12 @@ dependencyResolutionManagement {
   }
 }
 
+buildCache {
+  local {
+    directory = File(rootDir, ".gradle/build-cache")
+  }
+}
+
 rootProject.name = "Udhaar"
 
 include(":app")

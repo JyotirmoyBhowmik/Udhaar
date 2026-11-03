@@ -54,7 +54,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="https"
-                    android:host="jyotirmoyb.com"
+                    android:host="udhaar.jyotirmoyb.com"
                     android:pathPrefix="/u" />
             </intent-filter>
         </activity>

@@ -386,12 +386,11 @@ abstract class UdhaarDatabase : RoomDatabase() {
                 val configuredBuilder = com.jyotirmoyb.udhaar.security.EncryptedStorageManager
                     .configureSqlCipherForRoom(appCtx, baseBuilder, "udhaar_ledger.db")
 
-                // If SQLCipher failed on a fresh install, do NOT create a plain database file on disk.
+                // If SQLCipher failed on a fresh install or existing encrypted database, do NOT
+                // open an encrypted file with plain SQLite or create an unencrypted file on disk.
                 // Return a temporary in-memory database so the UI can render the blocking error screen
                 // with "Export backup" and "Try again".
-                if (com.jyotirmoyb.udhaar.security.EncryptedStorageManager.blockingStartupErrorFlow.value != null &&
-                    !appCtx.getDatabasePath("udhaar_ledger.db").exists()
-                ) {
+                if (com.jyotirmoyb.udhaar.security.EncryptedStorageManager.blockingStartupErrorFlow.value != null) {
                     val fallback = existing ?: Room.inMemoryDatabaseBuilder(
                         appCtx,
                         UdhaarDatabase::class.java
@@ -404,6 +403,24 @@ abstract class UdhaarDatabase : RoomDatabase() {
                         runCatching { existing?.close() }
                     }
                     val instance = configuredBuilder.build()
+                    if (!com.jyotirmoyb.udhaar.security.EncryptedStorageManager.isRunningOnJvmRobolectric()) {
+                        try {
+                            instance.openHelper.writableDatabase
+                        } catch (t: Throwable) {
+                            runCatching { instance.close() }
+                            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.recordStartupOpenFailure(
+                                appCtx,
+                                t.message ?: t.javaClass.simpleName
+                            )
+                            val fallback = Room.inMemoryDatabaseBuilder(
+                                appCtx,
+                                UdhaarDatabase::class.java
+                            ).allowMainThreadQueries().build()
+                            INSTANCE = fallback
+                            isBlockedFallbackInstance = true
+                            return@synchronized fallback
+                        }
+                    }
                     INSTANCE = instance
                     isBlockedFallbackInstance = false
                     instance
