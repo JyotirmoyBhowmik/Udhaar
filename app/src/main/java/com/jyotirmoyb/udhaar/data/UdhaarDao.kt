@@ -248,7 +248,7 @@ interface UdhaarDao {
     suspend fun updateTransactionRemindersDisabled(id: Long, disabled: Boolean)
 
     @Query("UPDATE udhaar_transactions SET lastReminderSentMillis = :sentMillis, lastReminderLevel = :level WHERE id = :id")
-    suspend fun updateTransactionLastReminder(id: Long, level: Int, sentMillis: Long)
+    suspend fun updateTransactionLastReminder(id: Long, sentMillis: Long, level: Int)
 
     @Query("UPDATE parties SET language = :language WHERE partyId = :partyId")
     suspend fun updatePartyLanguage(partyId: Long, language: String)

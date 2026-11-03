@@ -665,17 +665,18 @@
     <string name="reminder_level_2_title">तह २: मित्रवत फलो-अप</string>
     <string name="reminder_level_3_title">तह ३: स्पष्ट सम्झना</string>
     <string name="reminder_level_4_title">तह ४: अन्तिम सूचना</string>
-    <string name="reminder_draft_level_1">नमस्ते {name}, सम्झना गराउन चाहन्छु कि ₹{amount} भुक्तानी गर्ने मिति {due_date} हो। सजिलो भएमा UPI {upi_id} मा पठाउन सक्नुहुन्छ। धन्यवाद! - {my_name}</string>
-    <string name="reminder_draft_level_1_hidden">नमस्ते {name}, हाम्रो बाँकी हिसाब तिर्ने मिति {due_date} हो। सहज भएमा UPI {upi_id} मा पठाउन सक्नुहुन्छ। धन्यवाद! - {my_name}</string>
-    <string name="reminder_draft_level_2">नमस्ते {name}, आशा छ सन्चै हुनुहुन्छ। ₹{amount} को भुक्तानी {due_date} मा गर्नुपर्ने थियो ({days_overdue} दिन अघि)। कृपया कहिलेसम्म तिर्न सक्नुहुन्छ जानकारी दिनुहोला? धन्यवाद! - {my_name}</string>
-    <string name="reminder_draft_level_2_hidden">नमस्ते {name}, आशा छ सन्चै हुनुहुन्छ। बाँकी भुक्तानी {due_date} मा गर्नुपर्ने थियो ({days_overdue} दिन पहिले)। कृपया कहिलेसम्म तिर्न सक्नुहुन्छ जानकारी दिनुहोला? धन्यवाद! - {my_name}</string>
-    <string name="reminder_draft_level_3">नमस्ते {name}, बाँकी ₹{remaining} (कुल ₹{amount} मध्ये, हालसम्म प्राप्त: ₹{paid_so_far}) को सम्बन्धमा, जुन अहिले {days_overdue} दिन ढिलो भएको छ। कृपया यथाशीघ्र भुक्तानी गर्नुहोला वा निश्चित मिति बताउनुहोला। UPI: {upi_id}। धन्यवाद, {my_name}।</string>
-    <string name="reminder_draft_level_3_hidden">नमस्ते {name}, बाँकी रकम जुन अहिले {days_overdue} दिन ढिलो भएको छ, त्यस सम्बन्धमा। कृपया सकेसम्म चाँडो भुक्तानी गर्नुहोला वा निश्चित मिति बताउनुहोला। UPI: {upi_id}। धन्यवाद, {my_name}।</string>
-    <string name="reminder_draft_level_4">नमस्ते {name}, ₹{remaining} को भुक्तानी {days_overdue} दिनदेखि बाँकी छ (मिति {due_date} थियो)। कृपया आजै भुक्तानी गर्नुहोस् वा स्पष्ट योजना बताउनुहोस् ताकि हामी यो हिसाब बन्द गर्न सकौं। UPI: {upi_id}। सादर, {my_name}।</string>
-    <string name="reminder_draft_level_4_hidden">नमस्ते {name}, हाम्रो बाँकी हिसाब {days_overdue} दिनदेखि बाँकी छ (मिति {due_date} थियो)। कृपया आजै भुक्तानी गर्नुहोस् वा स्पष्ट योजना बताउनुहोस् ताकि हामी यो हिसाब बन्द गर्न सकौं। UPI: {upi_id}। सादर, {my_name}।</string>
-    <string name="borrower_msg_i_paid">नमस्ते {name}, मैले ₹{amount} भुक्तानी गरिसकेको छु। कृपया प्रमाणित गरी पुष्टि गरिदिनुहोला। धन्यवाद, {my_name}।</string>
-    <string name="borrower_msg_need_more_time">नमस्ते {name}, के म ₹{amount} फिर्ता गर्न {new_date} सम्मको म्याद थप गर्न अनुरोध गर्न सक्छु? बुझिदिनुभएकोमा धन्यवाद। - {my_name}</string>
+    <string name="reminder_draft_level_1">नमस्ते {name}, आशा छ सन्चै हुनुहुन्छ। मैले तपाईंलाई दिएको ₹{amount} को मिति {due_date} हो, सम्झनाका लागि मात्र लेख्दैछु। सहज भएमा {upi_id} मा पठाइदिनुहोला। धन्यवाद! – {my_name}</string>
+    <string name="reminder_draft_level_1_hidden">नमस्ते {name}, आशा छ सन्चै हुनुहुन्छ। हाम्रो बाँकी हिसाबको मिति {due_date} हो, सम्झनाका लागि मात्र लेख्दैछु। सहज भएमा {upi_id} मा पठाइदिनुहोला। धन्यवाद! – {my_name}</string>
+    <string name="reminder_draft_level_2">नमस्ते {name}, तपाईंलाई दिएको ₹{remaining} को मिति {due_date} थियो। अहिले अप्ठ्यारो भए कहिलेसम्म तिर्न सक्नुहुन्छ बताउनुहोला, हामी सँगै मिलाउनेछौं। UPI: {upi_id}। धन्यवाद! – {my_name}</string>
+    <string name="reminder_draft_level_2_hidden">नमस्ते {name}, हाम्रो बाँकी हिसाबको मिति {due_date} थियो। अहिले अप्ठ्यारो भए कहिलेसम्म तिर्न सक्नुहुन्छ बताउनुहोला, हामी सँगै मिलाउनेछौं। UPI: {upi_id}। धन्यवाद! – {my_name}</string>
+    <string name="reminder_draft_level_3">{name} जी, यो मेरो दोस्रो सन्देश हो। ₹{remaining} बाँकी भएको {days_overdue} दिन भइसक्यो। कृपया आज भुक्तानी गर्नुहोस् वा कुनै मिति बताउनुहोस्। हामी आपसमै यो सल्टाउनु राम्रो हुनेछ। – {my_name}</string>
+    <string name="reminder_draft_level_3_hidden">{name} जी, यो मेरो दोस्रो सन्देश हो। हाम्रो बाँकी हिसाब {days_overdue} दिनदेखि बाँकी छ। कृपया आज भुक्तानी गर्नुहोस् वा कुनै मिति बताउनुहोस्। हामी आपसमै यो सल्टाउनु राम्रो हुनेछ। – {my_name}</string>
+    <string name="reminder_draft_level_4">{name} जी, ₹{remaining} बाँकी भएको {days_overdue} दिनभन्दा बढी भइसक्यो। कृपया भुक्तानी गर्नुहोस् वा मितिसहित स्पष्ट योजना बताउनुहोस्। म Udhaar मा हाम्रो हिसाब अपडेट राख्नेछु। – {my_name}</string>
+    <string name="reminder_draft_level_4_hidden">{name} जी, हाम्रो बाँकी हिसाब {days_overdue} दिनभन्दा बढी भइसक्यो। कृपया भुक्तानी गर्नुहोस् वा मितिसहित स्पष्ट योजना बताउनुहोस्। म Udhaar मा हाम्रो हिसाब अपडेट राख्नेछु। – {my_name}</string>
+    <string name="borrower_msg_i_paid">नमस्ते {name}, मैले आज UPI मार्फत ₹{amount} पठाइसकेको छु। कृपया Udhaar मा हेरेर पुष्टि गरिदिनुहोला। सहयोगका लागि धन्यवाद।</string>
+    <string name="borrower_msg_need_more_time">नमस्ते {name}, मलाई अझै केही समय आवश्यक छ। के म ₹{remaining} {new_date} सम्म तिर्न सक्छु? बुझिदिनुभएकोमा धन्यवाद।</string>
     <string name="borrower_msg_ask_details">नमस्ते {name}, के तपाईं हाम्रो बाँकी ₹{amount} को विवरण पठाउन सक्नुहुन्छ? धन्यवाद, {my_name}।</string>
+    <string name="borrower_self_reminder_template">सम्झना: तपाईंले {due_date} सम्ममा {name} लाई ₹{remaining} फिर्ता गर्नुपर्नेछ।</string>
     <string name="borrower_self_reminder_fmt">तपाईंले %3$s सम्ममा %2$s लाई %1$s फिर्ता गर्नुपर्नेछ</string>
     <string name="borrower_self_reminder_overdue_fmt">म्याद नाघेको: तपाईंले %2$s लाई %1$s फिर्ता गर्नुपर्नेछ (%3$d दिन ढिलो)</string>
     <string name="borrower_btn_i_paid">मैले भुक्तानी गरेँ</string>
@@ -715,6 +716,7 @@
     <string name="reminder_editor_title_fmt">%1$s लाई सम्झना पठाउनुहोस्</string>
     <string name="reminder_editor_level_label">सम्झनाको तह</string>
     <string name="reminder_editor_preview_label">सन्देश पूर्वावलोकन र सम्पादन</string>
+    <string name="cd_more_options">थप विकल्पहरू</string>
 </resources>
 
 

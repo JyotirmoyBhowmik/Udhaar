@@ -21,3 +21,6 @@ debug.keystore
 /public/
 .build-outputs/
 firebase-applet-config.json
+.antigravity/
+.vscode/
+app/google-services.json

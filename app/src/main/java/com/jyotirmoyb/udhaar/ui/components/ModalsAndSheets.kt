@@ -1590,6 +1590,7 @@ fun ProfileSettingsModal(
     onExportLocalUdhaarSaf: (passphrase: String) -> Unit = {},
     onRetryCloudBackup: () -> Unit = {},
     onOpenContactPicker: () -> Unit = {},
+    onSaveReminderSettings: ((Boolean, Int, Int, Int, Int, Int) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     // Ensure FLAG_SECURE is cleared on the Settings screen so it renders visibly on all displays & screenshots
@@ -1651,6 +1652,24 @@ fun ProfileSettingsModal(
     var restorePassphraseVisible by rememberSaveable { mutableStateOf(false) }
     var showDeleteAllBackupsDialog by rememberSaveable { mutableStateOf(false) }
     var showTechnicalDetails by rememberSaveable { mutableStateOf(false) }
+
+    var quietHoursEnabled by rememberSaveable(currentSettings.quietHoursEnabled) { mutableStateOf(currentSettings.quietHoursEnabled) }
+    var quietHoursStartHour by rememberSaveable(currentSettings.quietHoursStartHour) { mutableStateOf(currentSettings.quietHoursStartHour) }
+    var quietHoursEndHour by rememberSaveable(currentSettings.quietHoursEndHour) { mutableStateOf(currentSettings.quietHoursEndHour) }
+    var reminderL1Days by rememberSaveable(currentSettings.reminderLevel1DaysBefore) { mutableStateOf(currentSettings.reminderLevel1DaysBefore) }
+    var reminderL2Days by rememberSaveable(currentSettings.reminderLevel2MaxOverdueDays) { mutableStateOf(currentSettings.reminderLevel2MaxOverdueDays) }
+    var reminderL3Days by rememberSaveable(currentSettings.reminderLevel3MaxOverdueDays) { mutableStateOf(currentSettings.reminderLevel3MaxOverdueDays) }
+
+    fun persistReminderSettings() {
+        onSaveReminderSettings?.invoke(
+            quietHoursEnabled,
+            quietHoursStartHour,
+            quietHoursEndHour,
+            reminderL1Days,
+            reminderL2Days,
+            reminderL3Days
+        )
+    }
 
     val validateAndSave: (Boolean) -> Unit = { closeAfterSave ->
         val trimmedPin = securityPin.trim()
@@ -2557,12 +2576,143 @@ fun ProfileSettingsModal(
                 }
 
                 // =========================================================================
+                // 4. REMINDERS AND QUIET HOURS
                 // =========================================================================
-                // 4. BACKUP AND SYNC
+                item(key = "section_reminders_and_quiet_hours") {
+                    SettingsSectionCard(
+                        sectionNumber = "4",
+                        title = stringResource(R.string.quiet_hours_settings_title),
+                        subtitle = stringResource(R.string.quiet_hours_settings_subtitle),
+                        testTag = "section_reminders_and_quiet_hours"
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.quiet_hours_settings_title),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = stringResource(R.string.quiet_hours_settings_subtitle),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            UdhaarAnimatedSwitch(
+                                checked = quietHoursEnabled,
+                                onCheckedChange = { checked ->
+                                    quietHoursEnabled = checked
+                                    persistReminderSettings()
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary
+                                ),
+                                modifier = Modifier.testTag("quiet_hours_toggle_switch")
+                            )
+                        }
+
+                        if (quietHoursEnabled) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = quietHoursStartHour.toString(),
+                                    onValueChange = { str ->
+                                        str.filter { it.isDigit() }.toIntOrNull()?.let {
+                                            quietHoursStartHour = it.coerceIn(0, 23)
+                                            persistReminderSettings()
+                                        }
+                                    },
+                                    label = { Text(stringResource(R.string.quiet_hours_start_label)) },
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f).testTag("quiet_hours_start_input")
+                                )
+                                OutlinedTextField(
+                                    value = quietHoursEndHour.toString(),
+                                    onValueChange = { str ->
+                                        str.filter { it.isDigit() }.toIntOrNull()?.let {
+                                            quietHoursEndHour = it.coerceIn(0, 23)
+                                            persistReminderSettings()
+                                        }
+                                    },
+                                    label = { Text(stringResource(R.string.quiet_hours_end_label)) },
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f).testTag("quiet_hours_end_input")
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
+
+                        Text(
+                            text = stringResource(R.string.escalation_ranges_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = stringResource(R.string.escalation_ranges_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        OutlinedTextField(
+                            value = reminderL1Days.toString(),
+                            onValueChange = { str ->
+                                str.filter { it.isDigit() }.toIntOrNull()?.let {
+                                    reminderL1Days = it.coerceIn(1, 30)
+                                    persistReminderSettings()
+                                }
+                            },
+                            label = { Text(stringResource(R.string.escalation_l1_days)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("escalation_l1_input")
+                        )
+
+                        OutlinedTextField(
+                            value = reminderL2Days.toString(),
+                            onValueChange = { str ->
+                                str.filter { it.isDigit() }.toIntOrNull()?.let {
+                                    reminderL2Days = it.coerceIn(1, 60)
+                                    persistReminderSettings()
+                                }
+                            },
+                            label = { Text(stringResource(R.string.escalation_l2_days)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("escalation_l2_input")
+                        )
+
+                        OutlinedTextField(
+                            value = reminderL3Days.toString(),
+                            onValueChange = { str ->
+                                str.filter { it.isDigit() }.toIntOrNull()?.let {
+                                    reminderL3Days = it.coerceIn(1, 180)
+                                    persistReminderSettings()
+                                }
+                            },
+                            label = { Text(stringResource(R.string.escalation_l3_days)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("escalation_l3_input")
+                        )
+                    }
+                }
+
+                // =========================================================================
+                // =========================================================================
+                // 5. BACKUP AND SYNC
                 // =========================================================================
                 item(key = "section_backup_and_sync") {
                     SettingsSectionCard(
-                        sectionNumber = "4",
+                        sectionNumber = "5",
                         title = "BACKUP AND SYNC",
                         subtitle = "Google Drive AppData cloud backup, encrypted restore & offline JSON export",
                         testTag = "section_backup_and_sync"

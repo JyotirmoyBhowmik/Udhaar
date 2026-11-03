@@ -91,7 +91,7 @@ import com.jyotirmoyb.udhaar.ui.components.ThermalReceiptModal
 import com.jyotirmoyb.udhaar.ui.components.TransactionDetailModal
 import com.jyotirmoyb.udhaar.ui.components.UpiQrCodeModal
 import com.jyotirmoyb.udhaar.ui.components.VerificationShareSheet
-import com.jyotirmoyb.udhaar.ui.components.WhatsAppReminderModal
+import com.jyotirmoyb.udhaar.ui.sheets.WhatsAppReminderModal
 import com.jyotirmoyb.udhaar.ui.theme.AppThemeMode
 import com.jyotirmoyb.udhaar.ui.theme.UdhaarTheme
 import com.jyotirmoyb.udhaar.util.AttachmentManager
@@ -964,6 +964,9 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                                         }
                                     },
                                     onOpenContactPicker = requestContactsFlow,
+                                    onSaveReminderSettings = { qh, startH, endH, l1, l2, l3 ->
+                                        viewModel.updateReminderSettings(qh, startH, endH, l1, l2, l3)
+                                    },
                                     onDismiss = viewModel::closeSettingsModal
                                 )
                             }

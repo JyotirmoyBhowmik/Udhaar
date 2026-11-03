@@ -33,11 +33,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Sms
+import androidx.compose.material.icons.filled.Message
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -348,7 +348,7 @@ fun WhatsAppReminderModal(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = userSettings.upiId.ifBlank { stringResource(R.string.cd_profile_settings) },
+                                text = userSettings.upiId.ifBlank { stringResource(R.string.ui_str_upi_id_not_set_in_c3a0bf) },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -473,7 +473,7 @@ fun WhatsAppReminderModal(
                                 .testTag("send_sms_button"),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Icon(Icons.Default.Sms, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Message, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(stringResource(R.string.reminder_channel_sms), style = MaterialTheme.typography.labelMedium)
                         }
@@ -504,7 +504,7 @@ fun WhatsAppReminderModal(
                             onClick = {
                                 onRecordReminderEvent?.invoke(selectedLevel.levelNumber, ReminderChannel.IN_APP_CHAT)
                                 onSendInAppChat?.invoke(editableMessage)
-                                Toast.makeText(context, "Sent in Udhaar Chat", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.reminder_channel_chat), Toast.LENGTH_SHORT).show()
                                 onDismiss()
                             },
                             modifier = Modifier
@@ -518,7 +518,7 @@ fun WhatsAppReminderModal(
                                 contentColor = MaterialTheme.colorScheme.onTertiary
                             )
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(stringResource(R.string.reminder_channel_chat), style = MaterialTheme.typography.labelLarge)
                         }

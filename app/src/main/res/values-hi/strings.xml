@@ -665,17 +665,18 @@
     <string name="reminder_level_2_title">स्तर 2: मित्रवत स्मरण</string>
     <string name="reminder_level_3_title">स्तर 3: स्पष्ट स्मरण</string>
     <string name="reminder_level_4_title">स्तर 4: अंतिम सूचना</string>
-    <string name="reminder_draft_level_1">नमस्ते {name}, आपको याद दिलाना था कि ₹{amount} की देय तिथि {due_date} है। सुविधा अनुसार UPI {upi_id} पर भेज सकते हैं। धन्यवाद! - {my_name}</string>
-    <string name="reminder_draft_level_1_hidden">नमस्ते {name}, हमारे बकाया हिसाब की देय तिथि {due_date} है। सुविधा अनुसार UPI {upi_id} पर भुगतान कर सकते हैं। धन्यवाद! - {my_name}</string>
-    <string name="reminder_draft_level_2">नमस्ते {name}, आशा है आप सकुशल हैं। ₹{amount} का भुगतान {due_date} को देय था ({days_overdue} दिन पहले)। कृपया बताएं कि आप इसे कब तक पूरा कर सकेंगे? धन्यवाद! - {my_name}</string>
-    <string name="reminder_draft_level_2_hidden">नमस्ते {name}, आशा है आप सकुशल हैं। बकाया भुगतान {due_date} को देय था ({days_overdue} दिन पहले)। कृपया बताएं कि आप इसे कब तक पूरा कर सकेंगे? धन्यवाद! - {my_name}</string>
-    <string name="reminder_draft_level_3">नमस्ते {name}, बकाया ₹{remaining} (कुल ₹{amount} में से, अब तक प्राप्त: ₹{paid_so_far}) के संबंध में, जो अब {days_overdue} दिनों से लंबित है। कृपया इसे यथाशीघ्र पूरा करें या एक निश्चित तिथि बताएं। UPI: {upi_id}। धन्यवाद, {my_name}।</string>
-    <string name="reminder_draft_level_3_hidden">नमस्ते {name}, बकाया राशि के संबंध में जो अब {days_overdue} दिनों से लंबित है। कृपया इसे यथाशीघ्र पूरा करें या एक निश्चित तिथि बताएं। UPI: {upi_id}। धन्यवाद, {my_name}।</string>
-    <string name="reminder_draft_level_4">नमस्ते {name}, ₹{remaining} का भुगतान {days_overdue} दिनों से लंबित है (देय तिथि {due_date})। कृपया आज ही इसका भुगतान करें या एक स्पष्ट योजना साझा करें ताकि हम इस खाते को बंद कर सकें। UPI: {upi_id}। सादर, {my_name}।</string>
-    <string name="reminder_draft_level_4_hidden">नमस्ते {name}, हमारा बकाया हिसाब {days_overdue} दिनों से लंबित है (देय तिथि {due_date})। कृपया आज ही इसका भुगतान करें या एक स्पष्ट योजना साझा करें ताकि हम इस खाते को बंद कर सकें। UPI: {upi_id}। सादर, {my_name}।</string>
-    <string name="borrower_msg_i_paid">नमस्ते {name}, मैंने ₹{amount} का भुगतान कर दिया है। कृपया जांच कर पुष्टि करें। धन्यवाद, {my_name}।</string>
-    <string name="borrower_msg_need_more_time">नमस्ते {name}, क्या मुझे ₹{amount} वापस करने के लिए {new_date} तक का अतिरिक्त समय मिल सकता है? समझने के लिए धन्यवाद। - {my_name}</string>
+    <string name="reminder_draft_level_1">नमस्ते {name}, उम्मीद है आप ठीक होंगे। मैंने आपको जो ₹{amount} दिए थे, उनकी तारीख {due_date} है, बस याद दिलाने के लिए लिख रहा हूँ। जब सुविधा हो, {upi_id} पर भेज दीजिए। धन्यवाद! – {my_name}</string>
+    <string name="reminder_draft_level_1_hidden">नमस्ते {name}, उम्मीद है आप ठीक होंगे। हमारे बकाया हिसाब की तारीख {due_date} है, बस याद दिलाने के लिए लिख रहा हूँ। जब सुविधा हो, {upi_id} पर भेज दीजिए। धन्यवाद! – {my_name}</string>
+    <string name="reminder_draft_level_2">नमस्ते {name}, आपको दिए ₹{remaining} की तारीख {due_date} थी। अगर अभी मुश्किल है तो बता दीजिए कि कब तक दे पाएँगे, ताकि हम साथ में तय कर सकें। UPI: {upi_id}। धन्यवाद! – {my_name}</string>
+    <string name="reminder_draft_level_2_hidden">नमस्ते {name}, हमारे बकाया हिसाब की तारीख {due_date} थी। अगर अभी मुश्किल है तो बता दीजिए कि कब तक दे पाएँगे, ताकि हम साथ में तय कर सकें। UPI: {upi_id}। धन्यवाद! – {my_name}</string>
+    <string name="reminder_draft_level_3">{name} जी, यह मेरा दूसरा संदेश है। ₹{remaining} को {days_overdue} दिन हो गए हैं। कृपया आज भुगतान करें या कोई तारीख बताएँ। हम आपस में ही इसे सुलझा लें, यही ठीक रहेगा। – {my_name}</string>
+    <string name="reminder_draft_level_3_hidden">{name} जी, यह मेरा दूसरा संदेश है। हमारे बकाया हिसाब को {days_overdue} दिन हो गए हैं। कृपया आज भुगतान करें या कोई तारीख बताएँ। हम आपस में ही इसे सुलझा लें, यही ठीक रहेगा। – {my_name}</string>
+    <string name="reminder_draft_level_4">{name} जी, ₹{remaining} को {days_overdue} दिन से ज्यादा हो गए हैं। कृपया भुगतान करें या तारीखों के साथ साफ योजना बताएँ। मैं Udhaar में हमारा रिकॉर्ड अपडेट रखूँगा। – {my_name}</string>
+    <string name="reminder_draft_level_4_hidden">{name} जी, हमारे बकाया हिसाब को {days_overdue} दिन से ज्यादा हो गए हैं। कृपया भुगतान करें या तारीखों के साथ साफ योजना बताएँ। मैं Udhaar में हमारा रिकॉर्ड अपडेट रखूँगा। – {my_name}</string>
+    <string name="borrower_msg_i_paid">नमस्ते {name}, मैंने आज UPI से ₹{amount} भेज दिए हैं। कृपया Udhaar में देखकर पक्का कर दीजिए। मदद के लिए शुक्रिया।</string>
+    <string name="borrower_msg_need_more_time">नमस्ते {name}, मुझे थोड़ा और समय चाहिए। क्या मैं ₹{remaining} {new_date} तक दे सकता हूँ? समझने के लिए धन्यवाद।</string>
     <string name="borrower_msg_ask_details">नमस्ते {name}, क्या आप हमारे बकाया ₹{amount} के विवरण साझा कर सकते हैं? धन्यवाद, {my_name}।</string>
+    <string name="borrower_self_reminder_template">सम्झना: आपको {due_date} तक {name} को ₹{remaining} वापस करने हैं।</string>
     <string name="borrower_self_reminder_fmt">आपको %3$s तक %2$s को %1$s वापस करने हैं</string>
     <string name="borrower_self_reminder_overdue_fmt">अतिदेय: आपको %2$s को %1$s वापस करने हैं (%3$d दिन लंबित)</string>
     <string name="borrower_btn_i_paid">मैंने भुगतान कर दिया</string>
@@ -715,6 +716,7 @@
     <string name="reminder_editor_title_fmt">%1$s को रिमाइंडर भेजें</string>
     <string name="reminder_editor_level_label">रिमाइंडर का स्तर</string>
     <string name="reminder_editor_preview_label">संदेश पूर्वावलोकन एवं संपादन</string>
+    <string name="cd_more_options">अधिक विकल्प</string>
 </resources>
 
 

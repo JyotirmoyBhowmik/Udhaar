@@ -573,7 +573,7 @@ class ExampleRobolectricTest {
         }
 
     @Test
-    fun `room migrations 1 to 7 apply cleanly without schema violation`() {
+    fun `room migrations 1 to 8 apply cleanly without schema violation`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val dbFile = context.getDatabasePath("migration_test.db")
         dbFile.delete()
@@ -625,23 +625,31 @@ class ExampleRobolectricTest {
         val v1Db = helper.writableDatabase
         v1Db.execSQL("INSERT INTO `udhaar_transactions` (`id`, `transactionType`, `partyName`, `phoneNumber`, `currency`, `principalAmount`, `amountPaid`, `paymentMode`, `isInterestEnabled`, `interestType`, `interestRate`, `interestRatePeriod`, `compoundFrequency`, `startDateMillis`, `gracePeriodDays`, `notes`, `isSettled`, `createdAtMillis`, `updatedAtMillis`) VALUES (1, 'GIVEN', 'Aarav', '9876543210', 'INR', 5000.0, 0.0, 'CASH', 0, 'SIMPLE', 0.0, 'PER_ANNUM', 'YEARLY', 1700000000, 0, '', 0, 1700000000, 1700000000)")
 
-        // Apply migrations 1->2, 2->3, 3->4, 4->5, 5->6, 6->7
+        // Apply migrations 1->2, 2->3, 3->4, 4->5, 5->6, 6->7, 7->8
         com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_1_2.migrate(v1Db)
         com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_2_3.migrate(v1Db)
         com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_3_4.migrate(v1Db)
         com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_4_5.migrate(v1Db)
         com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_5_6.migrate(v1Db)
         com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_6_7.migrate(v1Db)
+        com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_7_8.migrate(v1Db)
 
-        val cursor = v1Db.query("SELECT partyId, remoteId, verificationStatus, contentHash FROM udhaar_transactions WHERE id = 1")
+        val cursor = v1Db.query("SELECT partyId, remoteId, verificationStatus, contentHash, remindersDisabled, snoozedUntilMillis, lastReminderSentMillis, lastReminderLevel FROM udhaar_transactions WHERE id = 1")
         assertTrue(cursor.moveToFirst())
         assertEquals("LOCAL_ONLY", cursor.getString(cursor.getColumnIndexOrThrow("verificationStatus")))
+        assertEquals(0, cursor.getInt(cursor.getColumnIndexOrThrow("remindersDisabled")))
+        assertTrue(cursor.isNull(cursor.getColumnIndexOrThrow("snoozedUntilMillis")))
+        assertTrue(cursor.isNull(cursor.getColumnIndexOrThrow("lastReminderSentMillis")))
+        assertEquals(0, cursor.getInt(cursor.getColumnIndexOrThrow("lastReminderLevel")))
         cursor.close()
 
-        // Check that new tables exist
-        val partyCursor = v1Db.query("SELECT count(*) FROM parties")
-        assertTrue(partyCursor.moveToFirst())
+        // Check that new tables and columns exist
+        val partyCursor = v1Db.query("SELECT language, quietHoursOverride FROM parties")
         partyCursor.close()
+
+        val reminderEventsCursor = v1Db.query("SELECT count(*) FROM reminder_events")
+        assertTrue(reminderEventsCursor.moveToFirst())
+        reminderEventsCursor.close()
 
         val attachmentCursor = v1Db.query("SELECT count(*) FROM attachments")
         assertTrue(attachmentCursor.moveToFirst())
@@ -780,7 +788,7 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun `plain database with sample data migrates correctly and pre-migration backup restores into encrypted database`() =
+    fun `plain database migrates and restores cleanly`() =
         kotlinx.coroutines.test.runTest {
             val context = ApplicationProvider.getApplicationContext<Context>()
             com.jyotirmoyb.udhaar.security.EncryptedStorageManager.TestHooks.reset()
@@ -904,7 +912,7 @@ class ExampleRobolectricTest {
         }
 
     @Test
-    fun `interrupted migration with state MIGRATING resumes safely from staged plain copy`() {
+    fun `interrupted migration resumes safely`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         com.jyotirmoyb.udhaar.security.EncryptedStorageManager.TestHooks.reset()
         val dbName = "test_interrupted_migration.db"
@@ -946,7 +954,7 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun `corrupted migration keeps original plain database untouched and records FAILED state for retry`() {
+    fun `corrupted migration fails and retries safely`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         com.jyotirmoyb.udhaar.security.EncryptedStorageManager.TestHooks.reset()
         val dbName = "test_corrupt_migration.db"

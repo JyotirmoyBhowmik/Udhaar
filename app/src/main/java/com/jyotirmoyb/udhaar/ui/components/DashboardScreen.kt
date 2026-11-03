@@ -53,6 +53,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PersonAdd
@@ -99,6 +100,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
@@ -200,8 +202,13 @@ fun DashboardScreen(
     onDismissNeedsAttention: () -> Unit = {},
     onDismissCoachMarks: () -> Unit = {},
     onUndoAction: () -> Unit = {},
-    onDismissUndo: () -> Unit = {}
+    onDismissUndo: () -> Unit = {},
+    onSnoozeTransaction: (recordId: Long, days: Int) -> Unit = { _, _ -> },
+    onStopTransactionReminders: (recordId: Long) -> Unit = {},
+    onEnableTransactionReminders: (recordId: Long) -> Unit = {}
 ) {
+    val context = LocalContext.current
+    var pendingExtensionSummary by remember { mutableStateOf<CalculatedUdhaarSummary?>(null) }
     val isPeopleTab = uiState.activeScreen == ActiveScreen.PEOPLE_DIRECTORY
     val enabledCurrencies = uiState.userSettings.enabledCurrencies
     var isHistoryMode by rememberSaveable { mutableStateOf(false) }
@@ -335,6 +342,100 @@ fun DashboardScreen(
             previousScrollOffset = currentOffset
             isScrollingUp = scrollingUp
             atTop || scrollingUp
+        }
+    }
+
+    val handleBorrowerAction: (CalculatedUdhaarSummary, String) -> Unit = { summary, actionType ->
+        val netDue = InterestCalculator.formatCurrency(summary.netBalanceDue, summary.transaction.currency).removePrefix("₹").removePrefix("रू")
+        when (actionType) {
+            "i_paid" -> {
+                val msg = com.jyotirmoyb.udhaar.reminder.ReminderEngine.renderDraftMessage(
+                    template = context.getString(R.string.borrower_msg_i_paid),
+                    name = summary.transaction.partyName,
+                    myName = uiState.userSettings.payeeName.ifBlank { "Me" },
+                    amount = netDue,
+                    remaining = netDue,
+                    paidSoFar = "",
+                    dueDate = "",
+                    daysOverdue = 0,
+                    upiId = uiState.userSettings.upiId
+                )
+                com.jyotirmoyb.udhaar.util.WhatsAppReminderLauncher.launchReminder(
+                    context = context,
+                    rawPhoneNumber = summary.transaction.phoneNumber,
+                    currency = summary.transaction.currency,
+                    message = msg
+                )
+            }
+            "need_more_time" -> {
+                pendingExtensionSummary = summary
+            }
+            "ask_details" -> {
+                val msg = com.jyotirmoyb.udhaar.reminder.ReminderEngine.renderDraftMessage(
+                    template = context.getString(R.string.borrower_msg_ask_details),
+                    name = summary.transaction.partyName,
+                    myName = uiState.userSettings.payeeName.ifBlank { "Me" },
+                    amount = netDue,
+                    remaining = netDue,
+                    paidSoFar = "",
+                    dueDate = "",
+                    daysOverdue = 0,
+                    upiId = uiState.userSettings.upiId
+                )
+                com.jyotirmoyb.udhaar.util.WhatsAppReminderLauncher.launchReminder(
+                    context = context,
+                    rawPhoneNumber = summary.transaction.phoneNumber,
+                    currency = summary.transaction.currency,
+                    message = msg
+                )
+            }
+        }
+    }
+
+    if (pendingExtensionSummary != null) {
+        val datePickerState = androidx.compose.material3.rememberDatePickerState(
+            initialSelectedDateMillis = System.currentTimeMillis() + 7L * 86_400_000L
+        )
+        androidx.compose.material3.DatePickerDialog(
+            onDismissRequest = { pendingExtensionSummary = null },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val selectedMillis = datePickerState.selectedDateMillis ?: (System.currentTimeMillis() + 7L * 86_400_000L)
+                        val dateFormatted = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault()).format(java.util.Date(selectedMillis))
+                        val s = pendingExtensionSummary!!
+                        val netDue = InterestCalculator.formatCurrency(s.netBalanceDue, s.transaction.currency).removePrefix("₹").removePrefix("रू")
+                        val msg = com.jyotirmoyb.udhaar.reminder.ReminderEngine.renderDraftMessage(
+                            template = context.getString(R.string.borrower_msg_need_more_time),
+                            name = s.transaction.partyName,
+                            myName = uiState.userSettings.payeeName.ifBlank { "Me" },
+                            amount = netDue,
+                            remaining = netDue,
+                            paidSoFar = "",
+                            dueDate = "",
+                            daysOverdue = 0,
+                            upiId = uiState.userSettings.upiId,
+                            newDate = dateFormatted
+                        )
+                        com.jyotirmoyb.udhaar.util.WhatsAppReminderLauncher.launchReminder(
+                            context = context,
+                            rawPhoneNumber = s.transaction.phoneNumber,
+                            currency = s.transaction.currency,
+                            message = msg
+                        )
+                        pendingExtensionSummary = null
+                    }
+                ) {
+                    Text(stringResource(R.string.ui_str_confirm_f6fda1))
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { pendingExtensionSummary = null }) {
+                    Text(stringResource(R.string.ui_str_cancel_1507c4))
+                }
+            }
+        ) {
+            androidx.compose.material3.DatePicker(state = datePickerState)
         }
     }
 
@@ -749,7 +850,11 @@ fun DashboardScreen(
                                             } else {
                                                 onTransactionClick(summary)
                                             }
-                                        }
+                                        },
+                                        onSnoozeClick = onSnoozeTransaction,
+                                        onStopRemindersClick = onStopTransactionReminders,
+                                        onEnableRemindersClick = onEnableTransactionReminders,
+                                        onBorrowerAction = handleBorrowerAction
                                     )
                                 }
                             }
@@ -1483,7 +1588,11 @@ private fun SwipeableTransactionCardItem(
     onCardClick: () -> Unit,
     onChatClick: () -> Unit = {},
     onWhatsAppClick: () -> Unit,
-    onQrClick: () -> Unit
+    onQrClick: () -> Unit,
+    onSnoozeClick: (recordId: Long, days: Int) -> Unit = { _, _ -> },
+    onStopRemindersClick: (recordId: Long) -> Unit = {},
+    onEnableRemindersClick: (recordId: Long) -> Unit = {},
+    onBorrowerAction: ((summary: CalculatedUdhaarSummary, actionType: String) -> Unit)? = null
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
@@ -1572,7 +1681,11 @@ private fun SwipeableTransactionCardItem(
             onCardClick = onCardClick,
             onChatClick = onChatClick,
             onWhatsAppClick = onWhatsAppClick,
-            onQrClick = onQrClick
+            onQrClick = onQrClick,
+            onSnoozeClick = onSnoozeClick,
+            onStopRemindersClick = onStopRemindersClick,
+            onEnableRemindersClick = onEnableRemindersClick,
+            onBorrowerAction = onBorrowerAction
         )
     }
 }
@@ -1587,7 +1700,11 @@ internal fun TransactionCardItem(
     onCardClick: () -> Unit,
     onChatClick: () -> Unit = {},
     onWhatsAppClick: () -> Unit,
-    onQrClick: () -> Unit
+    onQrClick: () -> Unit,
+    onSnoozeClick: (recordId: Long, days: Int) -> Unit = { _, _ -> },
+    onStopRemindersClick: (recordId: Long) -> Unit = {},
+    onEnableRemindersClick: (recordId: Long) -> Unit = {},
+    onBorrowerAction: ((summary: CalculatedUdhaarSummary, actionType: String) -> Unit)? = null
 ) {
     val tx = summary.transaction
     val isGiven = tx.transactionType == TransactionType.GIVEN
@@ -1716,19 +1833,118 @@ internal fun TransactionCardItem(
                             )
                         }
                     }
+
+                    val now = System.currentTimeMillis()
+                    val isSnoozed = tx.snoozedUntilMillis != null && tx.snoozedUntilMillis!! > now
+                    if (isSnoozed) {
+                        Box(
+                            modifier = Modifier
+                                .background(MaterialTheme.colorScheme.tertiaryContainer, UdhaarShapeTokens.Corner8)
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .testTag("tx_snoozed_badge_${tx.id}")
+                        ) {
+                            Text(
+                                text = stringResource(R.string.snoozed_until_fmt, com.jyotirmoyb.udhaar.reminder.ReminderEngine.formatSnoozedUntil(tx.snoozedUntilMillis!!)),
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                maxLines = 1
+                            )
+                        }
+                    } else if (tx.remindersDisabled) {
+                        Box(
+                            modifier = Modifier
+                                .background(SubtleSurfaceGrey, UdhaarShapeTokens.Corner8)
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .testTag("tx_reminders_paused_badge_${tx.id}")
+                        ) {
+                            Text(
+                                text = stringResource(R.string.reminders_stopped_badge),
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                fontWeight = FontWeight.SemiBold,
+                                color = SecondaryInkGrey,
+                                maxLines = 1
+                            )
+                        }
+                    }
                 }
 
-                // Due date on the right in IBM Plex Mono
-                Text(
-                    text = summary.dueStatusText,
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontFamily = IbmPlexMonoFamily,
-                        fontSize = 11.sp,
-                        fontWeight = if (summary.isOverdue || tx.isSettled) FontWeight.SemiBold else FontWeight.Normal
-                    ),
-                    color = if (summary.isOverdue) PayableCardInk else SecondaryInkGrey,
-                    maxLines = 1
-                )
+                // Due date on the right in IBM Plex Mono + Reminder Snooze Menu
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = summary.dueStatusText,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontFamily = IbmPlexMonoFamily,
+                            fontSize = 11.sp,
+                            fontWeight = if (summary.isOverdue || tx.isSettled) FontWeight.SemiBold else FontWeight.Normal
+                        ),
+                        color = if (summary.isOverdue) PayableCardInk else SecondaryInkGrey,
+                        maxLines = 1
+                    )
+
+                    var showReminderMenu by remember { mutableStateOf(false) }
+                    Box {
+                        IconButton(
+                            onClick = { showReminderMenu = true },
+                            modifier = Modifier
+                                .size(24.dp)
+                                .testTag("card_reminder_menu_button_${tx.id}")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = stringResource(R.string.cd_more_options),
+                                tint = SecondaryInkGrey,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showReminderMenu,
+                            onDismissRequest = { showReminderMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.snooze_1_day)) },
+                                onClick = {
+                                    showReminderMenu = false
+                                    onSnoozeClick(tx.id, 1)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.snooze_3_days)) },
+                                onClick = {
+                                    showReminderMenu = false
+                                    onSnoozeClick(tx.id, 3)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.snooze_1_week)) },
+                                onClick = {
+                                    showReminderMenu = false
+                                    onSnoozeClick(tx.id, 7)
+                                }
+                            )
+                            if (tx.remindersDisabled) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.resume_reminders_for_record)) },
+                                    onClick = {
+                                        showReminderMenu = false
+                                        onEnableRemindersClick(tx.id)
+                                    }
+                                )
+                            } else {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.stop_reminders_for_record)) },
+                                    onClick = {
+                                        showReminderMenu = false
+                                        onStopRemindersClick(tx.id)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             // Person's avatar + name with the amount on the right in large type, and the masked phone number below
@@ -1866,6 +2082,86 @@ internal fun TransactionCardItem(
                             fontWeight = FontWeight.SemiBold,
                             color = PureBlack
                         )
+                    }
+                }
+            }
+
+            // Borrower Self-Reminder & Quick Message Actions
+            if (!isGiven && !tx.isSettled) {
+                val now = System.currentTimeMillis()
+                val overdueDays = com.jyotirmoyb.udhaar.reminder.ReminderEngine.calculateOverdueDays(tx.expiryDateMillis, now)
+                val dueDateFormatted = tx.expiryDateMillis?.let {
+                    java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault()).format(java.util.Date(it))
+                }.orEmpty()
+                val selfReminderText = if (overdueDays != null && overdueDays > 0) {
+                    stringResource(
+                        R.string.borrower_self_reminder_overdue_fmt,
+                        InterestCalculator.formatCurrencyPrivacy(summary.netBalanceDue, tx.currency, isAmountsHidden),
+                        tx.partyName,
+                        overdueDays
+                    )
+                } else if (overdueDays != null && overdueDays >= -3) {
+                    stringResource(
+                        R.string.borrower_self_reminder_fmt,
+                        InterestCalculator.formatCurrencyPrivacy(summary.netBalanceDue, tx.currency, isAmountsHidden),
+                        tx.partyName,
+                        dueDateFormatted
+                    )
+                } else null
+
+                if (selfReminderText != null) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = UdhaarShapeTokens.Corner8,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("borrower_self_reminder_${tx.id}")
+                    ) {
+                        Text(
+                            text = selfReminderText,
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { onBorrowerAction?.invoke(summary, "i_paid") },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(36.dp)
+                            .testTag("borrower_btn_paid_${tx.id}"),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                        shape = UdhaarShapeTokens.Corner8
+                    ) {
+                        Text(stringResource(R.string.borrower_btn_i_paid), style = MaterialTheme.typography.labelSmall)
+                    }
+                    OutlinedButton(
+                        onClick = { onBorrowerAction?.invoke(summary, "need_more_time") },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(36.dp)
+                            .testTag("borrower_btn_need_time_${tx.id}"),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                        shape = UdhaarShapeTokens.Corner8
+                    ) {
+                        Text(stringResource(R.string.borrower_btn_need_more_time), style = MaterialTheme.typography.labelSmall)
+                    }
+                    OutlinedButton(
+                        onClick = { onBorrowerAction?.invoke(summary, "ask_details") },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(36.dp)
+                            .testTag("borrower_btn_details_${tx.id}"),
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                        shape = UdhaarShapeTokens.Corner8
+                    ) {
+                        Text(stringResource(R.string.borrower_btn_ask_details), style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }

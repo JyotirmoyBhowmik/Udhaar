@@ -666,17 +666,18 @@
     <string name="reminder_level_2_title">Level 2: Friendly Follow-up</string>
     <string name="reminder_level_3_title">Level 3: Firm</string>
     <string name="reminder_level_4_title">Level 4: Final Notice</string>
-    <string name="reminder_draft_level_1">Hi {name}, just a friendly reminder that ₹{amount} is due on {due_date}. You can pay via UPI to {upi_id} when convenient. Thank you! - {my_name}</string>
-    <string name="reminder_draft_level_1_hidden">Hi {name}, just a friendly reminder about our pending settlement due on {due_date}. You can pay via UPI to {upi_id} when convenient. Thank you! - {my_name}</string>
-    <string name="reminder_draft_level_2">Hi {name}, hope you are well. The payment of ₹{amount} was due on {due_date} ({days_overdue} days ago). Could you please let me know when you will be able to clear this? Thank you! - {my_name}</string>
-    <string name="reminder_draft_level_2_hidden">Hi {name}, hope you are well. The pending payment was due on {due_date} ({days_overdue} days ago). Could you please let me know when you will be able to clear this? Thank you! - {my_name}</string>
-    <string name="reminder_draft_level_3">Hi {name}, following up regarding the balance of ₹{remaining} (out of ₹{amount}, paid so far: ₹{paid_so_far}), which is now {days_overdue} days overdue. Please clear this at your earliest convenience or let me know a firm date. UPI: {upi_id}. Thank you, {my_name}.</string>
-    <string name="reminder_draft_level_3_hidden">Hi {name}, following up regarding the pending balance which is now {days_overdue} days overdue. Please clear this at your earliest convenience or let me know a firm date. UPI: {upi_id}. Thank you, {my_name}.</string>
-    <string name="reminder_draft_level_4">Hi {name}, the payment of ₹{remaining} has been overdue for {days_overdue} days (due {due_date}). Please settle this balance or share a clear repayment plan today so we can close this record. UPI: {upi_id}. Regards, {my_name}.</string>
-    <string name="reminder_draft_level_4_hidden">Hi {name}, our pending settlement has been overdue for {days_overdue} days (due {due_date}). Please settle this balance or share a clear repayment plan today so we can close this record. UPI: {upi_id}. Regards, {my_name}.</string>
-    <string name="borrower_msg_i_paid">Hi {name}, I have completed the payment of ₹{amount}. Please verify and acknowledge. Thanks, {my_name}.</string>
-    <string name="borrower_msg_need_more_time">Hi {name}, could I please request an extension until {new_date} to return the ₹{amount}? Thank you for understanding. - {my_name}</string>
+    <string name="reminder_draft_level_1">Hi {name}, hope you are well. A small reminder about the ₹{amount} I gave you. It is due on {due_date}. Whenever you are ready, you can send it to {upi_id}. Thank you! – {my_name}</string>
+    <string name="reminder_draft_level_1_hidden">Hi {name}, hope you are well. A small reminder about our pending settlement due on {due_date}. Whenever you are ready, you can send it to {upi_id}. Thank you! – {my_name}</string>
+    <string name="reminder_draft_level_2">Hi {name}, the ₹{remaining} I lent you was due on {due_date}. If it is difficult right now, please tell me when you can pay, so we can plan together. UPI: {upi_id}. Thanks! – {my_name}</string>
+    <string name="reminder_draft_level_2_hidden">Hi {name}, our pending settlement was due on {due_date}. If it is difficult right now, please tell me when you can pay, so we can plan together. UPI: {upi_id}. Thanks! – {my_name}</string>
+    <string name="reminder_draft_level_3">Hi {name}, this is my second reminder. ₹{remaining} has been pending for {days_overdue} days. Please pay today or tell me a date. I would like to settle this between us. – {my_name}</string>
+    <string name="reminder_draft_level_3_hidden">Hi {name}, this is my second reminder. Our pending settlement has been pending for {days_overdue} days. Please pay today or tell me a date. I would like to settle this between us. – {my_name}</string>
+    <string name="reminder_draft_level_4">Hi {name}, ₹{remaining} is now {days_overdue} days overdue. Please pay it or share a clear plan with dates. I will keep our record updated in Udhaar. – {my_name}</string>
+    <string name="reminder_draft_level_4_hidden">Hi {name}, our pending settlement is now {days_overdue} days overdue. Please pay it or share a clear plan with dates. I will keep our record updated in Udhaar. – {my_name}</string>
+    <string name="borrower_msg_i_paid">Hi {name}, I have paid ₹{amount} by UPI today. Please check and confirm in Udhaar. Thank you for your help.</string>
+    <string name="borrower_msg_need_more_time">Hi {name}, I need a little more time. Can I pay ₹{remaining} by {new_date}? Thank you for understanding.</string>
     <string name="borrower_msg_ask_details">Hi {name}, could you please share the details and statement for our pending ₹{amount} record? Thanks, {my_name}.</string>
+    <string name="borrower_self_reminder_template">Reminder: you need to return ₹{remaining} to {name} by {due_date}.</string>
     <string name="borrower_self_reminder_fmt">You need to return %1$s to %2$s by %3$s</string>
     <string name="borrower_self_reminder_overdue_fmt">Overdue: You need to return %1$s to %2$s (%3$d days overdue)</string>
     <string name="borrower_btn_i_paid">I paid</string>
@@ -716,6 +717,7 @@
     <string name="reminder_editor_title_fmt">Send Reminder to %1$s</string>
     <string name="reminder_editor_level_label">Escalation Tone</string>
     <string name="reminder_editor_preview_label">Message Preview &amp; Editor</string>
+    <string name="cd_more_options">More options</string>
 </resources>
 
 

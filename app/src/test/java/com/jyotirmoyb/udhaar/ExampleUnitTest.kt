@@ -818,7 +818,322 @@ class ExampleUnitTest {
         )
         assertTrue(diagNetwork.plainLanguageFix.contains("Unable to connect to Google servers"))
     }
+
+    @Test
+    fun reminderEscalationLevels_matchAllDueAndOverdueRanges() {
+        val nowCal = java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.NOVEMBER, 10, 12, 0, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        val nowMillis = nowCal.timeInMillis
+        val dayMillis = 86_400_000L
+
+        fun makeTx(dueOffsetDays: Int, isSettled: Boolean = false, remindersDisabled: Boolean = false): UdhaarTransaction {
+            return UdhaarTransaction(
+                id = 101L,
+                transactionType = TransactionType.GIVEN,
+                partyName = "Ravi",
+                principalAmount = 5_000.0,
+                expiryDateMillis = nowMillis + (dueOffsetDays * dayMillis),
+                isSettled = isSettled,
+                remindersDisabled = remindersDisabled
+            )
+        }
+
+        val defaultPolicy = com.jyotirmoyb.udhaar.reminder.ReminderPolicy()
+
+        // 4 days before due date -> too early, returns null
+        val txBeforeWindow = makeTx(dueOffsetDays = 4)
+        val levelTooEarly = com.jyotirmoyb.udhaar.reminder.ReminderEngine.computeEscalationLevel(txBeforeWindow, defaultPolicy, nowMillis)
+        org.junit.Assert.assertNull("4 days before due date should have no reminder", levelTooEarly)
+
+        // 3 days before due date -> Level 1 (Gentle)
+        val tx3DaysBefore = makeTx(dueOffsetDays = 3)
+        assertEquals(
+            com.jyotirmoyb.udhaar.reminder.ReminderLevel.LEVEL_1_GENTLE,
+            com.jyotirmoyb.udhaar.reminder.ReminderEngine.computeEscalationLevel(tx3DaysBefore, defaultPolicy, nowMillis)
+        )
+
+        // 1 day before due date -> Level 1 (Gentle)
+        val tx1DayBefore = makeTx(dueOffsetDays = 1)
+        assertEquals(
+            com.jyotirmoyb.udhaar.reminder.ReminderLevel.LEVEL_1_GENTLE,
+            com.jyotirmoyb.udhaar.reminder.ReminderEngine.computeEscalationLevel(tx1DayBefore, defaultPolicy, nowMillis)
+        )
+
+        // Due today (0 days offset) -> Level 1 (Gentle)
+        val txDueToday = makeTx(dueOffsetDays = 0)
+        assertEquals(
+            com.jyotirmoyb.udhaar.reminder.ReminderLevel.LEVEL_1_GENTLE,
+            com.jyotirmoyb.udhaar.reminder.ReminderEngine.computeEscalationLevel(txDueToday, defaultPolicy, nowMillis)
+        )
+
+        // 1 day overdue -> Level 2 (Friendly follow-up)
+        val tx1DayOverdue = makeTx(dueOffsetDays = -1)
+        assertEquals(
+            com.jyotirmoyb.udhaar.reminder.ReminderLevel.LEVEL_2_FRIENDLY,
+            com.jyotirmoyb.udhaar.reminder.ReminderEngine.computeEscalationLevel(tx1DayOverdue, defaultPolicy, nowMillis)
+        )
+
+        // 7 days overdue -> Level 2 (Friendly follow-up boundary)
+        val tx7DaysOverdue = makeTx(dueOffsetDays = -7)
+        assertEquals(
+            com.jyotirmoyb.udhaar.reminder.ReminderLevel.LEVEL_2_FRIENDLY,
+            com.jyotirmoyb.udhaar.reminder.ReminderEngine.computeEscalationLevel(tx7DaysOverdue, defaultPolicy, nowMillis)
+        )
+
+        // 8 days overdue -> Level 3 (Firm)
+        val tx8DaysOverdue = makeTx(dueOffsetDays = -8)
+        assertEquals(
+            com.jyotirmoyb.udhaar.reminder.ReminderLevel.LEVEL_3_FIRM,
+            com.jyotirmoyb.udhaar.reminder.ReminderEngine.computeEscalationLevel(tx8DaysOverdue, defaultPolicy, nowMillis)
+        )
+
+        // 30 days overdue -> Level 3 (Firm boundary)
+        val tx30DaysOverdue = makeTx(dueOffsetDays = -30)
+        assertEquals(
+            com.jyotirmoyb.udhaar.reminder.ReminderLevel.LEVEL_3_FIRM,
+            com.jyotirmoyb.udhaar.reminder.ReminderEngine.computeEscalationLevel(tx30DaysOverdue, defaultPolicy, nowMillis)
+        )
+
+        // 31 days overdue -> Level 4 (Final notice)
+        val tx31DaysOverdue = makeTx(dueOffsetDays = -31)
+        assertEquals(
+            com.jyotirmoyb.udhaar.reminder.ReminderLevel.LEVEL_4_FINAL,
+            com.jyotirmoyb.udhaar.reminder.ReminderEngine.computeEscalationLevel(tx31DaysOverdue, defaultPolicy, nowMillis)
+        )
+
+        // 100 days overdue -> Level 4 (Final notice)
+        val tx100DaysOverdue = makeTx(dueOffsetDays = -100)
+        assertEquals(
+            com.jyotirmoyb.udhaar.reminder.ReminderLevel.LEVEL_4_FINAL,
+            com.jyotirmoyb.udhaar.reminder.ReminderEngine.computeEscalationLevel(tx100DaysOverdue, defaultPolicy, nowMillis)
+        )
+
+        // Custom policy day ranges (editable in Settings)
+        val customPolicy = com.jyotirmoyb.udhaar.reminder.ReminderPolicy(
+            level1DaysBefore = 5,
+            level2MaxOverdueDays = 14,
+            level3MaxOverdueDays = 60
+        )
+        // 5 days before due date -> Level 1 with custom policy
+        val tx5DaysBefore = makeTx(dueOffsetDays = 5)
+        assertEquals(
+            com.jyotirmoyb.udhaar.reminder.ReminderLevel.LEVEL_1_GENTLE,
+            com.jyotirmoyb.udhaar.reminder.ReminderEngine.computeEscalationLevel(tx5DaysBefore, customPolicy, nowMillis)
+        )
+        // 6 days before -> null with custom policy
+        val tx6DaysBefore = makeTx(dueOffsetDays = 6)
+        org.junit.Assert.assertNull(
+            com.jyotirmoyb.udhaar.reminder.ReminderEngine.computeEscalationLevel(tx6DaysBefore, customPolicy, nowMillis)
+        )
+        // 14 days overdue -> Level 2 with custom policy
+        val tx14DaysOverdue = makeTx(dueOffsetDays = -14)
+        assertEquals(
+            com.jyotirmoyb.udhaar.reminder.ReminderLevel.LEVEL_2_FRIENDLY,
+            com.jyotirmoyb.udhaar.reminder.ReminderEngine.computeEscalationLevel(tx14DaysOverdue, customPolicy, nowMillis)
+        )
+        // 15 days overdue -> Level 3 with custom policy
+        val tx15DaysOverdue = makeTx(dueOffsetDays = -15)
+        assertEquals(
+            com.jyotirmoyb.udhaar.reminder.ReminderLevel.LEVEL_3_FIRM,
+            com.jyotirmoyb.udhaar.reminder.ReminderEngine.computeEscalationLevel(tx15DaysOverdue, customPolicy, nowMillis)
+        )
+    }
+
+    @Test
+    fun reminderQuietHours_crossMidnightAndRespectPerPersonOverride() {
+        val baseCal = java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.NOVEMBER, 10, 0, 0, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+
+        fun timeAtHour(hour: Int, minute: Int = 0): Long {
+            return (baseCal.clone() as java.util.Calendar).apply {
+                set(java.util.Calendar.HOUR_OF_DAY, hour)
+                set(java.util.Calendar.MINUTE, minute)
+            }.timeInMillis
+        }
+
+        // Default quiet hours: 21:00 (9 PM) to 08:00 (8 AM)
+        val defaultStart = 21
+        val defaultEnd = 8
+
+        // Evening quiet hours (e.g. 21:00, 22:30, 23:59) -> true
+        assertTrue(com.jyotirmoyb.udhaar.reminder.ReminderEngine.isInQuietHours(timeAtHour(21, 0), defaultStart, defaultEnd))
+        assertTrue(com.jyotirmoyb.udhaar.reminder.ReminderEngine.isInQuietHours(timeAtHour(22, 30), defaultStart, defaultEnd))
+        assertTrue(com.jyotirmoyb.udhaar.reminder.ReminderEngine.isInQuietHours(timeAtHour(23, 59), defaultStart, defaultEnd))
+
+        // Midnight and early morning (e.g. 00:00, 04:15, 07:59) -> true
+        assertTrue(com.jyotirmoyb.udhaar.reminder.ReminderEngine.isInQuietHours(timeAtHour(0, 0), defaultStart, defaultEnd))
+        assertTrue(com.jyotirmoyb.udhaar.reminder.ReminderEngine.isInQuietHours(timeAtHour(4, 15), defaultStart, defaultEnd))
+        assertTrue(com.jyotirmoyb.udhaar.reminder.ReminderEngine.isInQuietHours(timeAtHour(7, 59), defaultStart, defaultEnd))
+
+        // Daytime (e.g. 08:00, 12:00, 20:59) -> false
+        assertFalse(com.jyotirmoyb.udhaar.reminder.ReminderEngine.isInQuietHours(timeAtHour(8, 0), defaultStart, defaultEnd))
+        assertFalse(com.jyotirmoyb.udhaar.reminder.ReminderEngine.isInQuietHours(timeAtHour(12, 0), defaultStart, defaultEnd))
+        assertFalse(com.jyotirmoyb.udhaar.reminder.ReminderEngine.isInQuietHours(timeAtHour(20, 59), defaultStart, defaultEnd))
+
+        // Per-person quiet hours override -> allows sending even during quiet hours
+        assertFalse(
+            "Per-person override must bypass quiet hours at 23:00",
+            com.jyotirmoyb.udhaar.reminder.ReminderEngine.isInQuietHours(timeAtHour(23, 0), defaultStart, defaultEnd, partyOverride = true)
+        )
+        assertFalse(
+            "Per-person override must bypass quiet hours at 03:00",
+            com.jyotirmoyb.udhaar.reminder.ReminderEngine.isInQuietHours(timeAtHour(3, 0), defaultStart, defaultEnd, partyOverride = true)
+        )
+
+        // calculateQuietHoursEnd correctly sets next 8 AM
+        val nightTime = timeAtHour(22, 0)
+        val morningEnd = com.jyotirmoyb.udhaar.reminder.ReminderEngine.calculateQuietHoursEnd(nightTime, endHour = 8)
+        val endCal = java.util.Calendar.getInstance().apply { timeInMillis = morningEnd }
+        assertEquals(8, endCal.get(java.util.Calendar.HOUR_OF_DAY))
+        assertEquals(0, endCal.get(java.util.Calendar.MINUTE))
+        assertEquals(11, endCal.get(java.util.Calendar.DAY_OF_MONTH)) // Next day Nov 11
+    }
+
+    @Test
+    fun reminderSnoozeCalculation_andBadges() {
+        val baseCal = java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.NOVEMBER, 3, 15, 30, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        val nowMillis = baseCal.timeInMillis
+
+        // Snooze 1 day -> sets to tomorrow at 9 AM
+        val snooze1D = com.jyotirmoyb.udhaar.reminder.ReminderEngine.calculateSnoozeDate(1, nowMillis)
+        val cal1D = java.util.Calendar.getInstance().apply { timeInMillis = snooze1D }
+        assertEquals(4, cal1D.get(java.util.Calendar.DAY_OF_MONTH))
+        assertEquals(9, cal1D.get(java.util.Calendar.HOUR_OF_DAY))
+
+        // Snooze 3 days -> sets to Nov 6 at 9 AM
+        val snooze3D = com.jyotirmoyb.udhaar.reminder.ReminderEngine.calculateSnoozeDate(3, nowMillis)
+        val cal3D = java.util.Calendar.getInstance().apply { timeInMillis = snooze3D }
+        assertEquals(6, cal3D.get(java.util.Calendar.DAY_OF_MONTH))
+        assertEquals(9, cal3D.get(java.util.Calendar.HOUR_OF_DAY))
+
+        // Snooze 1 week (7 days) -> sets to Nov 10 at 9 AM
+        val snooze7D = com.jyotirmoyb.udhaar.reminder.ReminderEngine.calculateSnoozeDate(7, nowMillis)
+        val cal7D = java.util.Calendar.getInstance().apply { timeInMillis = snooze7D }
+        assertEquals(10, cal7D.get(java.util.Calendar.DAY_OF_MONTH))
+        assertEquals(9, cal7D.get(java.util.Calendar.HOUR_OF_DAY))
+
+        // formatSnoozedUntil produces "10 Nov" format
+        val formatted = com.jyotirmoyb.udhaar.reminder.ReminderEngine.formatSnoozedUntil(snooze7D)
+        assertTrue("Expected '10 Nov' or localized date, got: $formatted", formatted.contains("10") && (formatted.contains("Nov") || formatted.contains("11")))
+
+        // Snoozing a transaction does NOT delete the transaction or change its due date
+        val originalTx = UdhaarTransaction(
+            id = 42L,
+            transactionType = TransactionType.GIVEN,
+            partyName = "Suresh",
+            principalAmount = 8_000.0,
+            expiryDateMillis = nowMillis + 5 * 86_400_000L
+        )
+        val snoozedTx = originalTx.copy(snoozedUntilMillis = snooze7D)
+        assertEquals(originalTx.id, snoozedTx.id)
+        assertEquals(originalTx.principalAmount, snoozedTx.principalAmount, 0.001)
+        assertEquals(originalTx.expiryDateMillis, snoozedTx.expiryDateMillis)
+        assertEquals(snooze7D, snoozedTx.snoozedUntilMillis)
+    }
+
+    @Test
+    fun reminderStopRules_automaticCancellationConditions() {
+        val now = 1_760_000_000_000L
+
+        val activeTx = UdhaarTransaction(
+            id = 1L,
+            transactionType = TransactionType.GIVEN,
+            partyName = "Anita",
+            principalAmount = 10_000.0,
+            expiryDateMillis = now - 86_400_000L,
+            isSettled = false,
+            remindersDisabled = false,
+            snoozedUntilMillis = null,
+            needsMyConfirmation = false
+        )
+        // Active transaction should NOT stop reminders
+        assertFalse(com.jyotirmoyb.udhaar.reminder.ReminderEngine.shouldStopReminders(activeTx, now))
+
+        // 1. Settled transaction -> must stop reminders
+        val settledTx = activeTx.copy(isSettled = true)
+        assertTrue(com.jyotirmoyb.udhaar.reminder.ReminderEngine.shouldStopReminders(settledTx, now))
+
+        // 2. Explicitly disabled reminders -> must stop reminders
+        val disabledTx = activeTx.copy(remindersDisabled = true)
+        assertTrue(com.jyotirmoyb.udhaar.reminder.ReminderEngine.shouldStopReminders(disabledTx, now))
+
+        // 3. Snoozed until future date -> must stop reminders
+        val activeSnoozedTx = activeTx.copy(snoozedUntilMillis = now + 86_400_000L)
+        assertTrue(com.jyotirmoyb.udhaar.reminder.ReminderEngine.shouldStopReminders(activeSnoozedTx, now))
+
+        // 4. Snooze expired -> should resume reminders (shouldStopReminders returns false)
+        val expiredSnoozedTx = activeTx.copy(snoozedUntilMillis = now - 1_000L)
+        assertFalse(com.jyotirmoyb.udhaar.reminder.ReminderEngine.shouldStopReminders(expiredSnoozedTx, now))
+
+        // 5. Waiting for payment proof confirmation from borrower -> must stop reminders
+        val pendingProofTx = activeTx.copy(needsMyConfirmation = true)
+        assertTrue(com.jyotirmoyb.udhaar.reminder.ReminderEngine.shouldStopReminders(pendingProofTx, now))
+    }
+
+    @Test
+    fun reminderFrequencyLimit_maxOneReminderPerRecordPerDay() {
+        val baseCal = java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.NOVEMBER, 10, 14, 0, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        val nowMillis = baseCal.timeInMillis
+
+        // Case 1: No previous reminder sent -> can send today
+        val txNeverSent = UdhaarTransaction(id = 1L, partyName = "Priya", principalAmount = 1_000.0, lastReminderSentMillis = null)
+        assertTrue(com.jyotirmoyb.udhaar.reminder.ReminderEngine.canSendReminderToday(txNeverSent, nowMillis))
+
+        // Case 2: Reminder already sent today (e.g. 2 hours ago) -> CANNOT send again
+        val twoHoursAgo = nowMillis - (2 * 3600_000L)
+        val txSentToday = txNeverSent.copy(lastReminderSentMillis = twoHoursAgo)
+        assertFalse(
+            "Maximum one reminder per record per day must prevent duplicate sends on same day",
+            com.jyotirmoyb.udhaar.reminder.ReminderEngine.canSendReminderToday(txSentToday, nowMillis)
+        )
+
+        // Case 3: Reminder sent yesterday (calendar day difference) -> CAN send today
+        val yesterdayCal = (baseCal.clone() as java.util.Calendar).apply {
+            add(java.util.Calendar.DAY_OF_YEAR, -1)
+            set(java.util.Calendar.HOUR_OF_DAY, 20)
+        }
+        val txSentYesterday = txNeverSent.copy(lastReminderSentMillis = yesterdayCal.timeInMillis)
+        assertTrue(
+            "New day must allow sending reminder",
+            com.jyotirmoyb.udhaar.reminder.ReminderEngine.canSendReminderToday(txSentYesterday, nowMillis)
+        )
+    }
+
+    @Test
+    fun reminderDrafts_renderAllPlaceholdersCorrectly() {
+        val template = "Hi {name}, reminder from {my_name} for ₹{amount} (remaining ₹{remaining}, paid ₹{paid_so_far}) due {due_date}. Overdue {days_overdue} days. UPI: {upi_id}. New date: {new_date}."
+
+        val rendered = com.jyotirmoyb.udhaar.reminder.ReminderEngine.renderDraftMessage(
+            template = template,
+            name = "Ravi",
+            myName = "Jyotirmoy",
+            amount = "5,000",
+            remaining = "3,000",
+            paidSoFar = "2,000",
+            dueDate = "10 Nov 2026",
+            daysOverdue = 4,
+            upiId = "jyotus@upi",
+            newDate = "25 Nov 2026"
+        )
+
+        assertEquals(
+            "Hi Ravi, reminder from Jyotirmoy for ₹5,000 (remaining ₹3,000, paid ₹2,000) due 10 Nov 2026. Overdue 4 days. UPI: jyotus@upi. New date: 25 Nov 2026.",
+            rendered
+        )
+        assertFalse("Rendered message should have no unresolved placeholders", rendered.contains("{"))
+    }
 }
+
 
 
 

@@ -63,6 +63,7 @@ fun ProfileSettingsSheet(
     onExportLocalUdhaarSaf: (passphrase: String) -> Unit = {},
     onRetryCloudBackup: () -> Unit = {},
     onOpenContactPicker: () -> Unit = {},
+    onSaveReminderSettings: ((Boolean, Int, Int, Int, Int, Int) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     ProfileSettingsModal(
@@ -101,6 +102,7 @@ fun ProfileSettingsSheet(
         onExportLocalUdhaarSaf = onExportLocalUdhaarSaf,
         onRetryCloudBackup = onRetryCloudBackup,
         onOpenContactPicker = onOpenContactPicker,
+        onSaveReminderSettings = onSaveReminderSettings,
         onDismiss = onDismiss
     )
 }

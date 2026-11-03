@@ -16,6 +16,7 @@ import com.jyotirmoyb.udhaar.data.ReminderChannel
 import com.jyotirmoyb.udhaar.data.ReminderEvent
 import com.jyotirmoyb.udhaar.data.UdhaarDatabase
 import com.jyotirmoyb.udhaar.reminder.ReminderEngine
+import com.jyotirmoyb.udhaar.reminder.ReminderLevel
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 import com.jyotirmoyb.udhaar.util.SafeLogger
 import kotlinx.coroutines.CoroutineScope
@@ -296,7 +297,7 @@ class ReminderReceiver : BroadcastReceiver() {
                 body = "$txTypeLabel of $formattedAmount. Tap to review message or send polite reminder."
             }
 
-            val reminderLvl = ReminderEngine.ReminderLevel.fromLevelNumber(level)
+            val reminderLvl = ReminderLevel.fromLevelNumber(level)
             val template = ReminderEngine.getLocalizedTemplate(context, reminderLvl, "")
             val preparedMsg = ReminderEngine.renderDraftMessage(
                 template = template,

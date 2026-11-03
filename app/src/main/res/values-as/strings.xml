@@ -665,17 +665,18 @@
     <string name="reminder_level_2_title">স্তৰ ২: বন্ধুত্বপূৰ্ণ অনুসৰণ</string>
     <string name="reminder_level_3_title">স্তৰ ৩: স্পষ্ট সোঁৱৰণি</string>
     <string name="reminder_level_4_title">স্তৰ ৪: চূড়ান্ত জাননী</string>
-    <string name="reminder_draft_level_1">নমস্কাৰ {name}, সোঁৱৰাই দিছোঁ যে ₹{amount}-ৰ পৰিশোধৰ তাৰিখ {due_date}। সুবিধা অনুসৰি UPI {upi_id}-ত দিব পাৰে। ধন্যবাদ! - {my_name}</string>
-    <string name="reminder_draft_level_1_hidden">নমস্কাৰ {name}, আমাৰ বাকী থকা হিচাপৰ তাৰিখ {due_date}। সুবিধা অনুসৰি UPI {upi_id}-ত পৰিশোধ কৰিব পাৰে। ধন্যবাদ! - {my_name}</string>
-    <string name="reminder_draft_level_2">নমস্কাৰ {name}, আশা কৰোঁ ভালে আছে। ₹{amount}-ৰ পৰিশোধ {due_date}-ত আছিল ({days_overdue} দিন পূৰ্বে)। অনুগ্ৰহ কৰি জনাব কেতিয়ালৈকে দিব পাৰিব? ধন্যবাদ! - {my_name}</string>
-    <string name="reminder_draft_level_2_hidden">নমস্কাৰ {name}, আশা কৰোঁ ভালে আছে। বাকী ধন {due_date}-ত দিব লাগিছিল ({days_overdue} দিন আগত)। অনুগ্ৰহ কৰি জনাব কেতিয়া দিব পাৰিব? ধন্যবাদ! - {my_name}</string>
-    <string name="reminder_draft_level_3">নমস্কাৰ {name}, বাকী থকা ₹{remaining} (মুঠ ₹{amount}-ৰ ভিতৰত, এতিয়ালৈকে পোৱা: ₹{paid_so_far}) সন্দৰ্ভত, যি এতিয়া {days_overdue} দিন বাকী আছে। অনুগ্ৰহ কৰি সোনকালে নিষ্পত্তি কৰক বা এটা নিশ্চিত তাৰিখ কওক। UPI: {upi_id}। ধন্যবাদ, {my_name}।</string>
-    <string name="reminder_draft_level_3_hidden">নমস্কাৰ {name}, বাকী ধন এতিয়া {days_overdue} দিন ধৰি বাকী আছে। অনুগ্ৰহ কৰি সোনকালে নিষ্পত্তি কৰক বা এটা তাৰিখ জনাওক। UPI: {upi_id}। ধন্যবাদ, {my_name}।</string>
-    <string name="reminder_draft_level_4">নমস্কাৰ {name}, ₹{remaining}-ৰ পৰিশোধ {days_overdue} দিন ধৰি বাকী আছে (তাৰিখ আছিল {due_date})। অনুগ্ৰহ কৰি আজি পৰিশোধ কৰক বা এটা স্পষ্ট পৰিকল্পনা জনাওক যাতে আমি এই হিচাপ শেষ কৰিব পাৰোঁ। UPI: {upi_id}। শ্ৰদ্ধাৰে, {my_name}।</string>
-    <string name="reminder_draft_level_4_hidden">নমস্কাৰ {name}, আমাৰ বাকী হিচাপ {days_overdue} দিন ধৰি বাকী আছে (তাৰিখ আছিল {due_date})। অনুগ্ৰহ কৰি আজি পৰিশোধ কৰক বা এটা স্পষ্ট পৰিকল্পনা জনাওক যাতে আমি এই হিচাপ শেষ কৰিব পাৰোঁ। UPI: {upi_id}। শ্ৰদ্ধাৰে, {my_name}।</string>
-    <string name="borrower_msg_i_paid">নমস্কাৰ {name}, মই ₹{amount} পৰিশোধ কৰিছোঁ। অনুগ্ৰহ কৰি পৰীক্ষা কৰি নিশ্চিত কৰক। ধন্যবাদ, {my_name}।</string>
-    <string name="borrower_msg_need_more_time">নমস্কাৰ {name}, মই ₹{amount} ওভতাই দিবলৈ {new_date} লৈকে কিছু সময় অনুৰোধ কৰিব পাৰোঁ নেকি? বুজি পোৱাৰ বাবে ধন্যবাদ। - {my_name}</string>
-    <string name="borrower_msg_ask_details">নমস্কাৰ {name}, আমাৰ বাকী থকা ₹{amount}-ৰ বিতং তথ্য অনুগ্ৰহ কৰি জনাবনে? ধন্যবাদ, {my_name}।</string>
+    <string name="reminder_draft_level_1">নমস্কাৰ {name}, আশা কৰোঁ ভালে আছে। আপোনাক দিয়া ₹{amount}-ৰ তাৰিখ {due_date}, মাত্ৰ সোঁৱৰাই দিছোঁ। সুবিধা হ’লে {upi_id}-ত পঠিয়াই দিব। ধন্যবাদ! – {my_name}</string>
+    <string name="reminder_draft_level_1_hidden">নমস্কাৰ {name}, আশা কৰোঁ ভালে আছে। আমাৰ বাকী থকা হিচাপৰ তাৰিখ {due_date}, মাত্ৰ সোঁৱৰাই দিছোঁ। সুবিধা হ’লে {upi_id}-ত পঠিয়াই দিব। ধন্যবাদ! – {my_name}</string>
+    <string name="reminder_draft_level_2">নমস্কাৰ {name}, আপোনাক ধাৰে দিয়া ₹{remaining}-ৰ তাৰিখ আছিল {due_date}। এতিয়া অসুবিধা হ’লে কেতিয়ালৈকে দিব পাৰিব জনাব, আমি একেলগে ঠিক কৰি ল’ম। UPI: {upi_id}। ধন্যবাদ! – {my_name}</string>
+    <string name="reminder_draft_level_2_hidden">নমস্কাৰ {name}, আমাৰ বাকী থকা হিচাপৰ তাৰিখ আছিল {due_date}। এতিয়া অসুবিধা হ’লে কেতিয়ালৈকে দিব পাৰিব জনাব, আমি একেলগে ঠিক কৰি ল’ম। UPI: {upi_id}। ধন্যবাদ! – {my_name}</string>
+    <string name="reminder_draft_level_3">{name}, এইটো মোৰ দ্বিতীয় বাৰ্তা। ₹{remaining} {days_overdue} দিন ধৰি বাকী আছে। অনুগ্ৰহ কৰি আজি পঠিয়াওক বা এটা তাৰিখ জনাওক। আমাৰ মাজতেই নিষ্পত্তি কৰাটোৱেই ভাল। – {my_name}</string>
+    <string name="reminder_draft_level_3_hidden">{name}, এইটো মোৰ দ্বিতীয় বাৰ্তা। আমাৰ বাকী হিচাপ {days_overdue} দিন ধৰি বাকী আছে। অনুগ্ৰহ কৰি আজি পঠিয়াওক বা এটা তাৰিখ জনাওক। আমাৰ মাজতেই নিষ্পত্তি কৰাটোৱেই ভাল। – {my_name}</string>
+    <string name="reminder_draft_level_4">{name}, ₹{remaining} {days_overdue} দিনৰো অধিক সময় বাকী আছে। অনুগ্ৰহ কৰি পঠিয়াওক বা তাৰিখসহ স্পষ্ট পৰিকল্পনা জনাওক। মই Udhaar-ত আমাৰ হিচাপ আপডেট ৰাখিম। – {my_name}</string>
+    <string name="reminder_draft_level_4_hidden">{name}, আমাৰ বাকী হিচাপ {days_overdue} দিনৰো অধিক সময় বাকী আছে। অনুগ্ৰহ কৰি পঠিয়াওক বা তাৰিখসহ স্পষ্ট পৰিকল্পনা জনাওক। মই Udhaar-ত আমাৰ হিচাপ আপডেট ৰাখিম। – {my_name}</string>
+    <string name="borrower_msg_i_paid">নমস্কাৰ {name}, মই আজি UPI-ত ₹{amount} পঠিয়াইছোঁ। অনুগ্ৰহ কৰি Udhaar-ত চাই নিশ্চিত কৰক। সহায়ৰ বাবে ধন্যবাদ।</string>
+    <string name="borrower_msg_need_more_time">নমস্কাৰ {name}, মোক আৰু কিছু সময় প্ৰয়োজন। ₹{remaining} কি {new_date}-ৰ ভিতৰত দিব পাৰিমনে? বুজি পোৱাৰ বাবে ধন্যবাদ।</string>
+    <string name="borrower_msg_ask_details">নমস্কাৰ {name}, আমাৰ বাকী থকা ₹{amount}-ৰ বিৱৰণ অনুগ্ৰহ কৰি জনাবনে? ধন্যবাদ, {my_name}।</string>
+    <string name="borrower_self_reminder_template">সোঁৱৰণি: আপুনি {due_date}-ৰ ভিতৰত {name}-ক ₹{remaining} ওভতাই দিব লাগিব।</string>
     <string name="borrower_self_reminder_fmt">আপুনি %3$s-ৰ ভিতৰত %2$s-ক %1$s ওভতাই দিব লাগিব</string>
     <string name="borrower_self_reminder_overdue_fmt">অভাৰডিউ: আপুনি %2$s-ক %1$s ওভতাই দিব লাগিব (%3$d দিন অতিবাহিত)</string>
     <string name="borrower_btn_i_paid">মই পৰিশোধ কৰিলোঁ</string>
@@ -715,6 +716,7 @@
     <string name="reminder_editor_title_fmt">%1$s-ক সোঁৱৰণি পঠিয়াওক</string>
     <string name="reminder_editor_level_label">সোঁৱৰণিৰ স্তৰ</string>
     <string name="reminder_editor_preview_label">বাৰ্তা পূৰ্বৰূপ আৰু সম্পাদনা</string>
+    <string name="cd_more_options">অধিক বিকল্প</string>
 </resources>
 
 

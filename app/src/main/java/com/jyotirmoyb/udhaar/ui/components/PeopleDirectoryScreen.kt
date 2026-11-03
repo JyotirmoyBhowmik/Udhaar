@@ -16,7 +16,10 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -1589,6 +1592,8 @@ fun AddEditPartyModal(
                 ?: defaultCurrency
         )
     }
+    var language by rememberSaveable { mutableStateOf(initialParty?.language ?: "en") }
+    var quietHoursOverride by rememberSaveable { mutableStateOf(initialParty?.quietHoursOverride ?: false) }
     var errorText by rememberSaveable { mutableStateOf<String?>(null) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -1968,6 +1973,66 @@ fun AddEditPartyModal(
                     }
                 }
 
+                // Preferred Reminder Language
+                Text(
+                    text = stringResource(R.string.preferred_language_label),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SecondaryInkGrey
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val languages = listOf(
+                        "en" to "English",
+                        "hi" to "हिन्दी",
+                        "bn" to "বাংলা",
+                        "as" to "অসমীয়া",
+                        "ne" to "नेपाली"
+                    )
+                    languages.forEach { (code, label) ->
+                        MonochromeTogglePill(
+                            text = label,
+                            selected = language == code,
+                            onClick = { language = code }
+                        )
+                    }
+                }
+
+                // Allow reminders during quiet hours override toggle
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
+                        .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.quiet_hours_override_label),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = PureBlack
+                        )
+                        Text(
+                            text = stringResource(R.string.quiet_hours_override_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SecondaryInkGrey
+                        )
+                    }
+                    UdhaarAnimatedSwitch(
+                        checked = quietHoursOverride,
+                        onCheckedChange = { quietHoursOverride = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = PureWhite,
+                            checkedTrackColor = PureBlack
+                        )
+                    )
+                }
+
                 Button(
                     onClick = {
                         if (name.trim().isEmpty()) {
@@ -1984,7 +2049,9 @@ fun AddEditPartyModal(
                             tagOrNotes = tagOrNotes.trim(),
                             notes = notes.trim(),
                             photoUri = photoUri.trim(),
-                            preferredCurrency = preferredCurrency
+                            preferredCurrency = preferredCurrency,
+                            language = language,
+                            quietHoursOverride = quietHoursOverride
                         )
                         onSave(entity)
                     },
