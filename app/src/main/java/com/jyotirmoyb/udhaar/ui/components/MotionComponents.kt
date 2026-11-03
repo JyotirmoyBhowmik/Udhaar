@@ -131,7 +131,7 @@ fun Modifier.udhaarSharedElement(key: String): Modifier = composed {
     if (sharedScope != null && visScope != null && !reducedMotion) {
         with(sharedScope) {
             this@composed.sharedElement(
-                state = rememberSharedContentState(key = key),
+                sharedContentState = rememberSharedContentState(key = key),
                 animatedVisibilityScope = visScope,
                 boundsTransform = { _, _ ->
                     tween(durationMillis = 250, easing = FastOutSlowInEasing)

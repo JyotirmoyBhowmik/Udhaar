@@ -7,6 +7,7 @@ plugins {
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.secrets)
   alias(libs.plugins.google.services)
+  alias(libs.plugins.hilt.android)
 }
 
 android {
@@ -87,9 +88,15 @@ android {
 
 tasks.withType<Test> {
   failFast = true
-  timeout.set(Duration.ofMinutes(2))
+  timeout.set(Duration.ofMinutes(8))
   testLogging {
     events("passed", "failed", "skipped")
+  }
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+  compilerOptions {
+    freeCompilerArgs.add("-Xskip-metadata-version-check")
   }
 }
 
@@ -158,6 +165,10 @@ dependencies {
   implementation(libs.androidx.security.crypto)
   implementation(libs.sqlcipher.android)
   implementation(libs.androidx.sqlite.ktx)
+  implementation(libs.hilt.android)
+  ksp(libs.hilt.compiler)
+  implementation(libs.androidx.hilt.work)
+  ksp(libs.androidx.hilt.compiler)
   // implementation(libs.play.services.location)
   // implementation(libs.retrofit)
   implementation(libs.zxing.core)

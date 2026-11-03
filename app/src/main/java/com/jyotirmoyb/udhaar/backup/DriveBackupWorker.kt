@@ -17,6 +17,9 @@ import androidx.work.workDataOf
 import com.jyotirmoyb.udhaar.BuildConfig
 import com.jyotirmoyb.udhaar.MainActivity
 import com.jyotirmoyb.udhaar.R
+import androidx.hilt.work.HiltWorker
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
 import com.jyotirmoyb.udhaar.data.UdhaarDatabase
 import com.jyotirmoyb.udhaar.data.UdhaarRepository
 import com.jyotirmoyb.udhaar.util.LedgerBackupManager
@@ -26,21 +29,28 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class DriveBackupWorker(
-    appContext: Context,
-    workerParams: WorkerParameters
+@HiltWorker
+class DriveBackupWorker @AssistedInject constructor(
+    @Assisted appContext: Context,
+    @Assisted workerParams: WorkerParameters,
+    private val injectedRepository: UdhaarRepository,
+    private val injectedDriveHelper: DriveServiceHelper
 ) : CoroutineWorker(appContext, workerParams) {
+
+    constructor(appContext: Context, workerParams: WorkerParameters) : this(
+        appContext,
+        workerParams,
+        UdhaarRepository(UdhaarDatabase.getInstance(appContext).udhaarDao(), appContext),
+        DriveServiceHelper(appContext)
+    )
 
     internal var repositoryOverride: UdhaarRepository? = null
     internal var driveHelperOverride: DriveServiceHelper? = null
     internal var notificationCallbackOverride: ((DriveBackupErrorCode, Int) -> Unit)? = null
 
     override suspend fun doWork(): Result {
-        val repo = repositoryOverride ?: run {
-            val db = UdhaarDatabase.getInstance(applicationContext)
-            UdhaarRepository(db.udhaarDao(), applicationContext)
-        }
-        val helper = driveHelperOverride ?: DriveServiceHelper(applicationContext)
+        val repo = repositoryOverride ?: injectedRepository
+        val helper = driveHelperOverride ?: injectedDriveHelper
         val notifyCallback = notificationCallbackOverride ?: { errorCode, count ->
             sendAutoBackupFailureNotification(applicationContext, errorCode, count)
         }

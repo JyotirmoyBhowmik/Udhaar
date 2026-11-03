@@ -1,6 +1,7 @@
 package com.jyotirmoyb.udhaar.notification
 
 import android.content.Context
+import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.jyotirmoyb.udhaar.data.ReminderChannel
@@ -12,24 +13,36 @@ import com.jyotirmoyb.udhaar.reminder.ReminderEngine
 import com.jyotirmoyb.udhaar.reminder.ReminderPolicy
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 import com.jyotirmoyb.udhaar.util.SafeLogger
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class ReminderWorker(
-    appContext: Context,
-    workerParams: WorkerParameters
+@HiltWorker
+class ReminderWorker @AssistedInject constructor(
+    @Assisted appContext: Context,
+    @Assisted workerParams: WorkerParameters,
+    private val injectedRepository: UdhaarRepository,
+    private val injectedDatabase: UdhaarDatabase
 ) : CoroutineWorker(appContext, workerParams) {
+
+    constructor(appContext: Context, workerParams: WorkerParameters) : this(
+        appContext,
+        workerParams,
+        UdhaarRepository(UdhaarDatabase.getInstance(appContext).udhaarDao(), appContext),
+        UdhaarDatabase.getInstance(appContext)
+    )
 
     override suspend fun doWork(): Result {
         return try {
-            val db = UdhaarDatabase.getInstance(applicationContext)
+            val db = injectedDatabase
             val dao = db.udhaarDao()
             val transactions = dao.getAllTransactions().first()
             val parties = dao.getAllParties().first().associateBy { it.partyId }
 
-            val repo = UdhaarRepository(dao, applicationContext)
+            val repo = injectedRepository
             val settings = repo.userSettings.first()
 
             val now = System.currentTimeMillis()

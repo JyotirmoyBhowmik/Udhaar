@@ -102,7 +102,14 @@ import com.jyotirmoyb.udhaar.util.ThermalReceiptGenerator
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
+
+@AndroidEntryPoint
 open class MainActivity : FragmentActivity() {
+
+    @Inject
+    lateinit var injectedRepository: UdhaarRepository
 
     private var pendingReminderTransactionId by mutableStateOf<Long?>(null)
     private var pendingDeepLinkUrl by mutableStateOf<String?>(null)
@@ -118,12 +125,12 @@ open class MainActivity : FragmentActivity() {
         ChatNotificationHelper.ensureNotificationChannel(this)
         extractIntentPayloads(intent)
 
-        val database = UdhaarDatabase.getInstance(applicationContext)
-        val repository = UdhaarRepository(database.udhaarDao(), applicationContext)
+        val repo = if (::injectedRepository.isInitialized) injectedRepository else UdhaarRepository(UdhaarDatabase.getInstance(applicationContext).udhaarDao(), applicationContext)
+
 
         setContent {
             val viewModel: UdhaarViewModel = viewModel(
-                factory = UdhaarViewModel.Factory(repository, applicationContext)
+                factory = UdhaarViewModel.Factory(repo, applicationContext)
             )
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
