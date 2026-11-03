@@ -393,7 +393,7 @@ open class DriveServiceHelper(
         encryptedBytes: ByteArray,
         preview: BackupPreviewSummary
     ): DriveResult<DriveRemoteBackup> = withContext(Dispatchers.IO) {
-        val boundary = "==UdhaarDriveBoundary${System.currentTimeMillis()}=="
+        val boundary = "UdhaarDriveBoundary${System.currentTimeMillis()}"
         val descriptionJson = JSONObject().apply {
             put("partiesCount", preview.partiesCount)
             put("transactionsCount", preview.transactionsCount)
