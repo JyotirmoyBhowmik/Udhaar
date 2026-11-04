@@ -22,7 +22,7 @@ import com.jyotirmoyb.udhaar.ui.theme.AppFontScale
 import com.jyotirmoyb.udhaar.ui.theme.AppThemeMode
 import com.jyotirmoyb.udhaar.util.AppSigningCertificateHelper
 import com.jyotirmoyb.udhaar.util.AppSigningInfo
-import com.jyotirmoyb.udhaar.util.FullLedgerSnapshot
+import com.jyotirmoyb.udhaar.data.FullLedgerSnapshot
 import com.jyotirmoyb.udhaar.util.LedgerBackupManager
 import com.jyotirmoyb.udhaar.util.ParsedLedgerBackup
 import com.jyotirmoyb.udhaar.util.SafeLogger

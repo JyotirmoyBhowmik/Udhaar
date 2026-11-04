@@ -1,18 +1,18 @@
 package com.jyotirmoyb.udhaar.ui.sheets
 
 import androidx.compose.runtime.Composable
+import com.jyotirmoyb.udhaar.backup.DriveConnectionTestReport
 import com.jyotirmoyb.udhaar.backup.DriveRemoteBackup
 import com.jyotirmoyb.udhaar.data.AutoBackupFrequency
 import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.UserSettings
 import com.jyotirmoyb.udhaar.security.EncryptedStorageManager
-import com.jyotirmoyb.udhaar.ui.components.ProfileSettingsModal
 import com.jyotirmoyb.udhaar.ui.theme.AppFontScale
 import com.jyotirmoyb.udhaar.ui.theme.AppThemeMode
+import com.jyotirmoyb.udhaar.util.AppSigningInfo
 
 /**
- * Modular sheet entrypoint for the 5-section Profile & Settings screen
- * (Profile & UPI, Security, Currency & Theme, Backup & Sync, and About / Privacy Policy / Check Update).
+ * Modular sheet entrypoint for the Profile & Settings screen.
  */
 @Composable
 fun ProfileSettingsSheet(
@@ -45,7 +45,8 @@ fun ProfileSettingsSheet(
     driveOperationStatusMessage: String? = null,
     driveOperationError: String? = null,
     hasPendingDriveResolution: Boolean = false,
-    driveConnectionTestReport: com.jyotirmoyb.udhaar.backup.DriveConnectionTestReport? = null,
+    driveConnectionTestReport: DriveConnectionTestReport? = null,
+    appSigningInfo: AppSigningInfo? = null,
     onSignInWithGoogleForDrive: () -> Unit = {},
     onReconnectGoogleDrive: () -> Unit = onSignInWithGoogleForDrive,
     onRunDriveConnectionTest: () -> Unit = {},
@@ -54,6 +55,7 @@ fun ProfileSettingsSheet(
     onBackupNowToDrive: (passphrase: String, savePassphraseForAuto: Boolean) -> Unit = { _, _ -> },
     onRestoreDriveBackup: (DriveRemoteBackup, passphrase: String) -> Unit = { _, _ -> },
     onDeleteDriveBackup: (DriveRemoteBackup) -> Unit = {},
+    onDeleteAllDriveBackups: () -> Unit = {},
     onUpdateAutoBackupSettings: (AutoBackupFrequency, Boolean, String?) -> Unit = { _, _, _ -> },
     onRefreshDriveBackups: () -> Unit = {},
     onClearDriveOperationError: () -> Unit = {},
@@ -66,7 +68,7 @@ fun ProfileSettingsSheet(
     onSaveReminderSettings: ((Boolean, Int, Int, Int, Int, Int) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
-    ProfileSettingsModal(
+    SettingsScreen(
         currentSettings = currentSettings,
         onSave = onSave,
         onSaveExtendedProfile = onSaveExtendedProfile,
@@ -86,6 +88,7 @@ fun ProfileSettingsSheet(
         driveOperationError = driveOperationError,
         hasPendingDriveResolution = hasPendingDriveResolution,
         driveConnectionTestReport = driveConnectionTestReport,
+        appSigningInfo = appSigningInfo,
         onSignInWithGoogleForDrive = onSignInWithGoogleForDrive,
         onReconnectGoogleDrive = onReconnectGoogleDrive,
         onRunDriveConnectionTest = onRunDriveConnectionTest,
@@ -94,6 +97,7 @@ fun ProfileSettingsSheet(
         onBackupNowToDrive = onBackupNowToDrive,
         onRestoreDriveBackup = onRestoreDriveBackup,
         onDeleteDriveBackup = onDeleteDriveBackup,
+        onDeleteAllDriveBackups = onDeleteAllDriveBackups,
         onUpdateAutoBackupSettings = onUpdateAutoBackupSettings,
         onRefreshDriveBackups = onRefreshDriveBackups,
         onClearDriveOperationError = onClearDriveOperationError,

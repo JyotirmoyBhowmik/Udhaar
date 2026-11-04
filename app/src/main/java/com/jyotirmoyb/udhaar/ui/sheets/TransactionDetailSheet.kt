@@ -6,7 +6,6 @@ import com.jyotirmoyb.udhaar.data.AuditTrailEntry
 import com.jyotirmoyb.udhaar.data.PartialPayment
 import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.PaymentMode
-import com.jyotirmoyb.udhaar.ui.components.TransactionDetailModal
 import com.jyotirmoyb.udhaar.util.CalculatedUdhaarSummary
 
 /**
@@ -42,7 +41,7 @@ fun TransactionDetailSheet(
     unreadChatCount: Int = 0,
     onOpenTransactionChat: () -> Unit = {}
 ) {
-    TransactionDetailModal(
+    RecordDetailSheet(
         summary = summary,
         partialPayments = partialPayments,
         auditTrail = auditTrail,
