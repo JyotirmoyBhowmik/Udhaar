@@ -26,6 +26,12 @@ object RepositoryModule {
 
     @Provides
     @Singleton
+    fun provideAppStateHolder(): com.jyotirmoyb.udhaar.ui.state.AppStateHolder {
+        return com.jyotirmoyb.udhaar.ui.state.AppStateHolder()
+    }
+
+    @Provides
+    @Singleton
     fun provideDriveServiceHelper(@ApplicationContext context: Context): DriveServiceHelper {
         return DriveServiceHelper(context)
     }

@@ -37,11 +37,12 @@ import javax.inject.Singleton
 
 open class BackupRepository(
     private val dao: UdhaarDao,
-    private val settingsRepository: SettingsRepository,
-    private val attachmentRepository: AttachmentRepository,
-    private val driveServiceHelper: DriveServiceHelper,
+    val settingsRepository: SettingsRepository,
+    val attachmentRepository: AttachmentRepository,
+    val driveServiceHelper: DriveServiceHelper,
     @ApplicationContext private val context: Context? = null
 ) {
+    val userSettings get() = settingsRepository.userSettings
     private var inMemoryAutoBackupPassphrase: String? = null
 
     suspend fun getFullLedgerSnapshot(): Triple<List<PartyEntity>, List<UdhaarTransaction>, List<PartialPayment>> {

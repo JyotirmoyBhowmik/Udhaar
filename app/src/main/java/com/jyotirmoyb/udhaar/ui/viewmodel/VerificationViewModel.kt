@@ -1,110 +1,253 @@
 package com.jyotirmoyb.udhaar.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.jyotirmoyb.udhaar.data.PartialPayment
+import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
+import com.jyotirmoyb.udhaar.data.repository.PaymentRepository
+import com.jyotirmoyb.udhaar.data.repository.SettingsRepository
 import com.jyotirmoyb.udhaar.data.repository.VerificationRepository
-import com.jyotirmoyb.udhaar.util.UdhaarAppError
+import com.jyotirmoyb.udhaar.ui.ActiveScreen
+import com.jyotirmoyb.udhaar.ui.components.SuccessAnimationEvent
+import com.jyotirmoyb.udhaar.ui.state.AppStateHolder
 import com.jyotirmoyb.udhaar.util.VerificationCryptoHelper
+import com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.SharedPaymentProfilePayload
+import com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.SharedVerificationPayload
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-data class VerificationDomainUiState(
-    val isProcessing: Boolean = false,
-    val activeShareTransactionId: Long? = null,
-    val activeShareUrl: String? = null,
-    val incomingPayload: VerificationCryptoHelper.SharedVerificationPayload? = null,
-    val incomingProfilePayload: VerificationCryptoHelper.SharedPaymentProfilePayload? = null,
-    val lastError: UdhaarAppError? = null
+data class VerificationUiState(
+    val verificationShareTransactionId: Long? = null,
+    val verificationShareLink: String? = null,
+    val incomingVerificationPayload: SharedVerificationPayload? = null,
+    val incomingPaymentProfilePayload: SharedPaymentProfilePayload? = null,
+    val incomingPaymentProfileTargetPartyId: Long? = null,
+    val showShareMyPaymentDetailsModal: Boolean = false,
+    val shareMyPaymentDetailsTargetParty: PartyEntity? = null,
+    val requestPaymentDetailsParty: PartyEntity? = null
 )
 
-/**
- * Domain ViewModel for Two-Party Verification, content hash calculation, and cryptographic token verification.
- */
-class VerificationViewModel(
-    private val verificationRepository: VerificationRepository
+@HiltViewModel
+class VerificationViewModel @Inject constructor(
+    private val verificationRepository: VerificationRepository,
+    private val paymentRepository: PaymentRepository,
+    private val settingsRepository: SettingsRepository,
+    private val appStateHolder: AppStateHolder
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(VerificationDomainUiState())
-    val state: StateFlow<VerificationDomainUiState> = _state.asStateFlow()
+    private val _verificationShareTransactionId = MutableStateFlow<Long?>(null)
+    val verificationShareTransactionId: StateFlow<Long?> = _verificationShareTransactionId.asStateFlow()
 
-    fun generateShareLink(transaction: UdhaarTransaction, onReady: (String) -> Unit = {}) {
+    private val _verificationShareLink = MutableStateFlow<String?>(null)
+    val verificationShareLink: StateFlow<String?> = _verificationShareLink.asStateFlow()
+
+    private val _incomingVerificationPayload = MutableStateFlow<SharedVerificationPayload?>(null)
+    val incomingVerificationPayload: StateFlow<SharedVerificationPayload?> = _incomingVerificationPayload.asStateFlow()
+
+    private val _incomingPaymentProfilePayload = MutableStateFlow<SharedPaymentProfilePayload?>(null)
+    val incomingPaymentProfilePayload: StateFlow<SharedPaymentProfilePayload?> = _incomingPaymentProfilePayload.asStateFlow()
+
+    private val _incomingPaymentProfileTargetPartyId = MutableStateFlow<Long?>(null)
+    val incomingPaymentProfileTargetPartyId: StateFlow<Long?> = _incomingPaymentProfileTargetPartyId.asStateFlow()
+
+    private val _showShareMyPaymentDetailsModal = MutableStateFlow(false)
+    val showShareMyPaymentDetailsModal: StateFlow<Boolean> = _showShareMyPaymentDetailsModal.asStateFlow()
+
+    private val _shareMyPaymentDetailsTargetParty = MutableStateFlow<PartyEntity?>(null)
+    val shareMyPaymentDetailsTargetParty: StateFlow<PartyEntity?> = _shareMyPaymentDetailsTargetParty.asStateFlow()
+
+    private val _requestPaymentDetailsParty = MutableStateFlow<PartyEntity?>(null)
+    val requestPaymentDetailsParty: StateFlow<PartyEntity?> = _requestPaymentDetailsParty.asStateFlow()
+
+    val uiState: StateFlow<VerificationUiState> = combine(
+        combine(
+            _verificationShareTransactionId,
+            _verificationShareLink,
+            _incomingVerificationPayload,
+            _incomingPaymentProfilePayload,
+            _incomingPaymentProfileTargetPartyId
+        ) { shareTxId, shareLink, incomingVer, incomingProf, targetPartyId ->
+            FirstHalf(shareTxId, shareLink, incomingVer, incomingProf, targetPartyId)
+        },
+        combine(
+            _showShareMyPaymentDetailsModal,
+            _shareMyPaymentDetailsTargetParty,
+            _requestPaymentDetailsParty
+        ) { showShare, shareTarget, reqParty ->
+            SecondHalf(showShare, shareTarget, reqParty)
+        }
+    ) { first, second ->
+        VerificationUiState(
+            verificationShareTransactionId = first.shareTxId,
+            verificationShareLink = first.shareLink,
+            incomingVerificationPayload = first.incomingVer,
+            incomingPaymentProfilePayload = first.incomingProf,
+            incomingPaymentProfileTargetPartyId = first.targetPartyId,
+            showShareMyPaymentDetailsModal = second.showShare,
+            shareMyPaymentDetailsTargetParty = second.shareTarget,
+            requestPaymentDetailsParty = second.reqParty
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = VerificationUiState()
+    )
+
+    private data class FirstHalf(
+        val shareTxId: Long?,
+        val shareLink: String?,
+        val incomingVer: SharedVerificationPayload?,
+        val incomingProf: SharedPaymentProfilePayload?,
+        val targetPartyId: Long?
+    )
+
+    private data class SecondHalf(
+        val showShare: Boolean,
+        val shareTarget: PartyEntity?,
+        val reqParty: PartyEntity?
+    )
+
+    fun requestVerificationForTransaction(transaction: UdhaarTransaction) {
         viewModelScope.launch {
-            _state.update { it.copy(isProcessing = true, lastError = null) }
-            try {
-                val (updatedTx, url) = verificationRepository.prepareVerificationShare(transaction)
-                _state.update {
-                    it.copy(
-                        isProcessing = false,
-                        activeShareTransactionId = updatedTx.id,
-                        activeShareUrl = url
-                    )
-                }
-                onReady(url)
-            } catch (t: Throwable) {
-                _state.update { it.copy(isProcessing = false, lastError = UdhaarAppError.fromThrowable(t)) }
-            }
+            val (updatedTx, link) = verificationRepository.prepareVerificationShare(transaction)
+            _verificationShareTransactionId.value = updatedTx.id
+            _verificationShareLink.value = link
         }
     }
 
-    fun parseIncomingUrlOrToken(urlOrToken: String): Boolean {
-        val profile = VerificationCryptoHelper.parsePaymentProfileLink(urlOrToken)
-        if (profile != null) {
-            _state.update { it.copy(incomingProfilePayload = profile, lastError = null) }
+    fun closeVerificationShareModal() {
+        _verificationShareTransactionId.value = null
+        _verificationShareLink.value = null
+    }
+
+    fun handleIncomingDeepLinkOrToken(
+        urlOrToken: String,
+        targetPartyId: Long? = null
+    ): Boolean {
+        val profilePayload = VerificationCryptoHelper.parsePaymentProfileLink(urlOrToken)
+        if (profilePayload != null) {
+            _incomingPaymentProfilePayload.value = profilePayload
+            _incomingPaymentProfileTargetPartyId.value = targetPartyId
             return true
         }
-        val payload = VerificationCryptoHelper.parseVerificationLink(urlOrToken)
-        return if (payload != null) {
-            _state.update { it.copy(incomingPayload = payload, lastError = null) }
-            true
-        } else {
-            _state.update { it.copy(lastError = UdhaarAppError.CorruptedFile) }
-            false
+
+        val verificationPayload = VerificationCryptoHelper.parseVerificationLink(urlOrToken)
+        if (verificationPayload != null) {
+            _incomingVerificationPayload.value = verificationPayload
+            return true
         }
+        return false
     }
 
-    fun confirmIncoming(onConfirmed: (Long) -> Unit = {}) {
-        val payload = _state.value.incomingPayload ?: return
+    fun confirmOrDisputeIncomingVerification(
+        confirm: Boolean,
+        disputeReason: String = ""
+    ) {
+        val payload = _incomingVerificationPayload.value ?: return
         viewModelScope.launch {
-            _state.update { it.copy(isProcessing = true, lastError = null) }
-            try {
-                val tx = verificationRepository.processIncomingVerificationResponse(payload, confirm = true, disputeReason = "")
-                _state.update { it.copy(isProcessing = false, incomingPayload = null) }
-                onConfirmed(tx.id)
-            } catch (t: Throwable) {
-                _state.update { it.copy(isProcessing = false, lastError = UdhaarAppError.fromThrowable(t)) }
+            val savedTx = verificationRepository.processIncomingVerificationResponse(
+                payload = payload,
+                confirm = confirm,
+                disputeReason = disputeReason
+            )
+            _incomingVerificationPayload.value = null
+            appStateHolder.openTransactionDetail(savedTx.id)
+            appStateHolder.setSummaryCurrency(savedTx.currency)
+            if (confirm) {
+                appStateHolder.setSuccessAnimation(SuccessAnimationEvent(message = "Record verified"))
             }
         }
     }
 
-    fun disputeIncoming(disputeReason: String, onDisputed: (Long) -> Unit = {}) {
-        val payload = _state.value.incomingPayload ?: return
+    fun dismissIncomingVerification() {
+        _incomingVerificationPayload.value = null
+    }
+
+    fun confirmOrDisputeExistingRecord(
+        transaction: UdhaarTransaction,
+        confirm: Boolean,
+        disputeReason: String = ""
+    ) {
         viewModelScope.launch {
-            _state.update { it.copy(isProcessing = true, lastError = null) }
-            try {
-                val tx = verificationRepository.processIncomingVerificationResponse(payload, confirm = false, disputeReason = disputeReason)
-                _state.update { it.copy(isProcessing = false, incomingPayload = null) }
-                onDisputed(tx.id)
-            } catch (t: Throwable) {
-                _state.update { it.copy(isProcessing = false, lastError = UdhaarAppError.fromThrowable(t)) }
+            verificationRepository.confirmOrDisputeExistingTransaction(
+                transaction = transaction,
+                confirm = confirm,
+                disputeReason = disputeReason
+            )
+            if (confirm) {
+                appStateHolder.setSuccessAnimation(SuccessAnimationEvent(message = "Record verified"))
             }
         }
     }
 
-    fun clearError() {
-        _state.update { it.copy(lastError = null) }
+    fun acknowledgePartialPayment(
+        transaction: UdhaarTransaction,
+        payment: PartialPayment,
+        actorName: String = "You"
+    ) {
+        viewModelScope.launch {
+            paymentRepository.acknowledgePartialPayment(
+                transaction = transaction,
+                payment = payment,
+                actorName = actorName
+            )
+            appStateHolder.setSuccessAnimation(SuccessAnimationEvent(message = "Payment verified"))
+        }
     }
 
-    class Factory(
-        private val verificationRepository: VerificationRepository
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return VerificationViewModel(verificationRepository) as T
+    fun openShareMyPaymentDetailsModal(targetParty: PartyEntity? = null) {
+        _shareMyPaymentDetailsTargetParty.value = targetParty
+        _showShareMyPaymentDetailsModal.value = true
+    }
+
+    fun closeShareMyPaymentDetailsModal() {
+        _shareMyPaymentDetailsTargetParty.value = null
+        _showShareMyPaymentDetailsModal.value = false
+    }
+
+    fun openRequestPartyPaymentDetailsModal(party: PartyEntity) {
+        _requestPaymentDetailsParty.value = party
+    }
+
+    fun closeRequestPartyPaymentDetailsModal() {
+        _requestPaymentDetailsParty.value = null
+    }
+
+    fun acceptIncomingPaymentProfile() {
+        val payload = _incomingPaymentProfilePayload.value ?: return
+        val targetPartyId = _incomingPaymentProfileTargetPartyId.value
+        viewModelScope.launch {
+            val updatedParty = verificationRepository.acceptSharedPaymentProfile(payload, targetPartyId)
+            _incomingPaymentProfilePayload.value = null
+            _incomingPaymentProfileTargetPartyId.value = null
+            _requestPaymentDetailsParty.value = null
+            if (appStateHolder.activeScreen.value == ActiveScreen.PARTY_DETAIL) {
+                appStateHolder.openPartyLedgerScreen(updatedParty.partyId)
+            }
+        }
+    }
+
+    fun dismissIncomingPaymentProfile() {
+        _incomingPaymentProfilePayload.value = null
+        _incomingPaymentProfileTargetPartyId.value = null
+    }
+
+    fun setCloudAccountState(
+        consentGranted: Boolean,
+        userId: String,
+        email: String
+    ) {
+        viewModelScope.launch {
+            settingsRepository.setCloudAccountState(consentGranted, userId, email)
         }
     }
 }
