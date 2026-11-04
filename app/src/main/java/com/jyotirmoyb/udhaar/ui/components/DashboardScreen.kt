@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -220,7 +221,6 @@ fun DashboardScreen(
     val context = LocalContext.current
     var pendingExtensionSummary by remember { mutableStateOf<CalculatedUdhaarSummary?>(null) }
     var showGroupSplitSheet by rememberSaveable { mutableStateOf(false) }
-    var defaultCardsExpanded by rememberSaveable { mutableStateOf(false) }
     val isPeopleTab = uiState.activeScreen == ActiveScreen.PEOPLE_DIRECTORY
     val enabledCurrencies = uiState.userSettings.enabledCurrencies
     var isHistoryMode by rememberSaveable { mutableStateOf(false) }
@@ -742,6 +742,23 @@ fun DashboardScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    item(key = "search_filter_bar_item") {
+                        Box(modifier = udhaarAnimateItem(reducedMotion)) {
+                            SearchAndFilterBar(
+                                searchQuery = uiState.searchQuery,
+                                selectedFilter = uiState.selectedFilter,
+                                enabledCurrencies = enabledCurrencies,
+                                allCalculatedItems = uiState.allCalculatedItems,
+                                partialPaymentsByTx = uiState.partialPaymentsByTx,
+                                onSearchQueryChange = onSearchQueryChange,
+                                onSelectFilter = { filter ->
+                                    isHistoryMode = (filter == LedgerFilter.SETTLED)
+                                    onSelectFilter(filter)
+                                }
+                            )
+                        }
+                    }
+
                     item(key = "top_summary_card_item") {
                         Box(modifier = udhaarAnimateItem(reducedMotion)) {
                             TopLedgerSummaryCard(
@@ -764,23 +781,6 @@ fun DashboardScreen(
                                     onSkipOrFinish = onDismissCoachMarks
                                 )
                             }
-                        }
-                    }
-
-                    item(key = "search_filter_bar_item") {
-                        Box(modifier = udhaarAnimateItem(reducedMotion)) {
-                            SearchAndFilterBar(
-                                searchQuery = uiState.searchQuery,
-                                selectedFilter = uiState.selectedFilter,
-                                enabledCurrencies = enabledCurrencies,
-                                allCalculatedItems = uiState.allCalculatedItems,
-                                partialPaymentsByTx = uiState.partialPaymentsByTx,
-                                onSearchQueryChange = onSearchQueryChange,
-                                onSelectFilter = { filter ->
-                                    isHistoryMode = (filter == LedgerFilter.SETTLED)
-                                    onSelectFilter(filter)
-                                }
-                            )
                         }
                     }
 
@@ -809,8 +809,6 @@ fun DashboardScreen(
                                 recordCount = uiState.filteredItems.size,
                                 transactionSortOption = uiState.transactionSortOption,
                                 dateRangeFilter = uiState.dateRangeFilter,
-                                defaultCardsExpanded = defaultCardsExpanded,
-                                onToggleDefaultCardsExpanded = { defaultCardsExpanded = !defaultCardsExpanded },
                                 onOpenGroupSplit = { showGroupSplitSheet = true },
                                 onTransactionSortOptionChange = onTransactionSortOptionChange,
                                 onDateRangeFilterChange = onDateRangeFilterChange
@@ -883,7 +881,7 @@ fun DashboardScreen(
                                         unreadCount = uiState.unreadCountByTx[summary.transaction.id] ?: 0,
                                         attachmentsCount = uiState.attachmentsByTx[summary.transaction.id]?.size ?: 0,
                                         installments = uiState.installmentPlansByTx[summary.transaction.id]?.let { uiState.installmentsByPlan[it.id] }.orEmpty(),
-                                        defaultExpanded = defaultCardsExpanded,
+                                        defaultExpanded = false,
                                         onCardClick = { onTransactionClick(summary) },
                                         onChatClick = { onOpenTransactionChat(summary) },
                                         onWhatsAppClick = { onWhatsAppClick(summary) },
@@ -1591,8 +1589,6 @@ private fun LedgerSectionHeaderRow(
     recordCount: Int,
     transactionSortOption: TransactionSortOption,
     dateRangeFilter: DateRangeFilter,
-    defaultCardsExpanded: Boolean = false,
-    onToggleDefaultCardsExpanded: () -> Unit = {},
     onOpenGroupSplit: () -> Unit = {},
     onTransactionSortOptionChange: (TransactionSortOption) -> Unit,
     onDateRangeFilterChange: (DateRangeFilter) -> Unit
@@ -1644,38 +1640,9 @@ private fun LedgerSectionHeaderRow(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold
                     ),
-                    color = PureBlack
-                )
-            }
-
-            Row(
-                modifier = Modifier
-                    .pressScaleFeedback()
-                    .clip(UdhaarShapeTokens.Corner8)
-                    .clickable { onToggleDefaultCardsExpanded() }
-                    .padding(horizontal = 6.dp, vertical = 4.dp)
-                    .testTag("toggle_all_cards_expanded_button"),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(3.dp)
-            ) {
-                Icon(
-                    imageVector = if (defaultCardsExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = if (defaultCardsExpanded) {
-                        stringResource(R.string.card_compact_mode_toggle)
-                    } else {
-                        stringResource(R.string.card_expanded_mode_toggle)
-                    },
-                    tint = SecondaryInkGrey,
-                    modifier = Modifier.size(15.dp)
-                )
-                Text(
-                    text = if (defaultCardsExpanded) {
-                        stringResource(R.string.card_compact_mode_toggle)
-                    } else {
-                        stringResource(R.string.card_expanded_mode_toggle)
-                    },
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                    color = SecondaryInkGrey
+                    color = PureBlack,
+                    maxLines = 1,
+                    softWrap = false
                 )
             }
 
@@ -1684,8 +1651,10 @@ private fun LedgerSectionHeaderRow(
                     modifier = Modifier
                         .pressScaleFeedback()
                         .clip(UdhaarShapeTokens.Corner8)
+                        .background(CardSurfaceWhite, UdhaarShapeTokens.Corner8)
+                        .border(1.dp, BorderGrey, UdhaarShapeTokens.Corner8)
                         .clickable { sortMenuExpanded = true }
-                        .padding(horizontal = 6.dp, vertical = 4.dp)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
                         .testTag("sort_transactions_button"),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -1693,8 +1662,8 @@ private fun LedgerSectionHeaderRow(
                     Icon(
                         imageVector = Icons.Default.Sort,
                         contentDescription = stringResource(R.string.cd_sort_and_filter_date_range),
-                        tint = SecondaryInkGrey,
-                        modifier = Modifier.size(15.dp)
+                        tint = PureBlack,
+                        modifier = Modifier.size(14.dp)
                     )
                     Text(
                         text = if (dateRangeFilter == DateRangeFilter.ALL_TIME) {
@@ -1702,8 +1671,14 @@ private fun LedgerSectionHeaderRow(
                         } else {
                             stringResource(R.string.ui_fmt_symbol_7ff20b, dateRangeFilter.label, transactionSortOption.label)
                         },
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                        color = SecondaryInkGrey
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = PureBlack,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
@@ -2096,194 +2071,208 @@ internal fun TransactionCardItem(
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.Top
                 ) {
-                    Row(
+                    FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                         modifier = Modifier
                             .weight(1f)
-                            .padding(end = 8.dp)
+                            .padding(end = 6.dp)
                     ) {
-                    // GIVEN / TAKEN chip
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                color = if (isGiven) PureBlack else PayableCardBg,
-                                shape = UdhaarShapeTokens.Corner8
-                            )
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
-                    ) {
-                        Text(
-                            text = if (isGiven) stringResource(R.string.ui_str_given_567b49) else stringResource(R.string.ui_str_taken_7abbf5),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 10.5.sp,
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = if (isGiven) CardSurfaceWhite else PayableCardInk
-                        )
-                    }
-
-                    // Payment Mode chip (e.g. UPI)
-                    Box(
-                        modifier = Modifier
-                            .background(MutedChipGrey, UdhaarShapeTokens.Corner8)
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
-                    ) {
-                        Text(
-                            text = tx.paymentMode.shortBadge,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 10.5.sp,
-                                fontWeight = FontWeight.Medium
-                            ),
-                            color = PureBlack
-                        )
-                    }
-
-                    // Currency chip (e.g. INR)
-                    Box(
-                        modifier = Modifier
-                            .background(MutedChipGrey, UdhaarShapeTokens.Corner8)
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
-                    ) {
-                        Text(
-                            text = tx.currency.code,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 10.5.sp,
-                                fontWeight = FontWeight.Medium
-                            ),
-                            color = SecondaryInkGrey
-                        )
-                    }
-
-                    // Status at a glance badge: coloured icon + plain-language word (never colour alone)
-                    StatusAtAGlanceBadge(
-                        summary = summary,
-                        modifier = Modifier.testTag("tx_verification_badge_${tx.id}")
-                    )
-
-                    if (tx.trustLevel.isNotBlank()) {
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = Color(0xFFE0F2FE),
-                            modifier = Modifier.testTag("tx_trust_badge_${tx.id}")
-                        ) {
-                            Text(
-                                text = when (tx.trustLevel) {
-                                    "WHATSAPP_OTP", "PHONE_VERIFIED" -> "WhatsApp Verified ✓"
-                                    "LINK_ONLY" -> "Link Only"
-                                    "APP_VERIFIED" -> "App Verified ✓"
-                                    else -> tx.trustLevel
-                                },
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0369A1),
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-
-                    if (unreadCount > 0) {
+                        // GIVEN / TAKEN chip
                         Box(
                             modifier = Modifier
-                                .background(PureBlack, UdhaarShapeTokens.Corner8)
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                .testTag("tx_unread_badge_${tx.id}")
+                                .background(
+                                    color = if (isGiven) PureBlack else PayableCardBg,
+                                    shape = UdhaarShapeTokens.Corner8
+                                )
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
                         ) {
                             Text(
-                                text = stringResource(R.string.ui_fmt_symbol_301919, unreadCount),
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                fontWeight = FontWeight.Bold,
-                                color = CardSurfaceWhite,
-                                maxLines = 1
+                                text = if (isGiven) stringResource(R.string.ui_str_given_567b49) else stringResource(R.string.ui_str_taken_7abbf5),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = if (isGiven) CardSurfaceWhite else PayableCardInk,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
-                    }
 
-                    if (attachmentsCount > 0) {
+                        // Payment Mode chip (e.g. UPI)
                         Box(
                             modifier = Modifier
-                                .background(SubtleSurfaceGrey, UdhaarShapeTokens.Corner8)
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                .testTag("tx_attachments_badge_${tx.id}")
+                                .background(MutedChipGrey, UdhaarShapeTokens.Corner8)
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
                         ) {
                             Text(
-                                text = stringResource(R.string.ui_fmt_symbol_e20cea, attachmentsCount),
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                fontWeight = FontWeight.SemiBold,
+                                text = tx.paymentMode.shortBadge,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.Medium
+                                ),
                                 color = PureBlack,
-                                maxLines = 1
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
-                    }
 
-                    val now = System.currentTimeMillis()
-                    if (installmentProgress?.hasOverdue == true) {
+                        // Currency chip (e.g. INR)
                         Box(
                             modifier = Modifier
-                                .background(MaterialTheme.colorScheme.errorContainer, UdhaarShapeTokens.Corner8)
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                .testTag("tx_installment_late_badge_${tx.id}")
+                                .background(MutedChipGrey, UdhaarShapeTokens.Corner8)
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
                         ) {
                             Text(
-                                text = stringResource(R.string.badge_late),
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                maxLines = 1
-                            )
-                        }
-                    }
-
-                    val isSnoozed = tx.snoozedUntilMillis != null && tx.snoozedUntilMillis!! > now
-                    if (isSnoozed) {
-                        Box(
-                            modifier = Modifier
-                                .background(MaterialTheme.colorScheme.tertiaryContainer, UdhaarShapeTokens.Corner8)
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                .testTag("tx_snoozed_badge_${tx.id}")
-                        ) {
-                            Text(
-                                text = stringResource(R.string.snoozed_until_fmt, com.jyotirmoyb.udhaar.reminder.ReminderEngine.formatSnoozedUntil(tx.snoozedUntilMillis!!)),
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                maxLines = 1
-                            )
-                        }
-                    } else if (tx.remindersDisabled) {
-                        Box(
-                            modifier = Modifier
-                                .background(SubtleSurfaceGrey, UdhaarShapeTokens.Corner8)
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                .testTag("tx_reminders_paused_badge_${tx.id}")
-                        ) {
-                            Text(
-                                text = stringResource(R.string.reminders_stopped_badge),
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                fontWeight = FontWeight.SemiBold,
+                                text = tx.currency.code,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.Medium
+                                ),
                                 color = SecondaryInkGrey,
-                                maxLines = 1
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
-                    }
-                }
 
-                // Due date on the right in IBM Plex Mono + Reminder Snooze Menu
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = summary.dueStatusText,
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontFamily = IbmPlexMonoFamily,
-                            fontSize = 11.sp,
-                            fontWeight = if (summary.isOverdue || tx.isSettled) FontWeight.SemiBold else FontWeight.Normal
-                        ),
-                        color = if (summary.isOverdue) PayableCardInk else SecondaryInkGrey,
-                        maxLines = 1
-                    )
+                        // Status at a glance badge: coloured icon + plain-language word (never colour alone)
+                        StatusAtAGlanceBadge(
+                            summary = summary,
+                            modifier = Modifier.testTag("tx_verification_badge_${tx.id}")
+                        )
+
+                        if (tx.trustLevel.isNotBlank()) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = Color(0xFFE0F2FE),
+                                modifier = Modifier.testTag("tx_trust_badge_${tx.id}")
+                            ) {
+                                Text(
+                                    text = when (tx.trustLevel) {
+                                        "WHATSAPP_OTP", "PHONE_VERIFIED" -> "WhatsApp Verified ✓"
+                                        "LINK_ONLY" -> "Link Only"
+                                        "APP_VERIFIED" -> "App Verified ✓"
+                                        else -> tx.trustLevel
+                                    },
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF0369A1),
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+
+                        if (unreadCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .background(PureBlack, UdhaarShapeTokens.Corner8)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    .testTag("tx_unread_badge_${tx.id}")
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.ui_fmt_symbol_301919, unreadCount),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    fontWeight = FontWeight.Bold,
+                                    color = CardSurfaceWhite,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
+
+                        if (attachmentsCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .background(SubtleSurfaceGrey, UdhaarShapeTokens.Corner8)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    .testTag("tx_attachments_badge_${tx.id}")
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.ui_fmt_symbol_e20cea, attachmentsCount),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = PureBlack,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
+
+                        val now = System.currentTimeMillis()
+                        if (installmentProgress?.hasOverdue == true) {
+                            Box(
+                                modifier = Modifier
+                                    .background(MaterialTheme.colorScheme.errorContainer, UdhaarShapeTokens.Corner8)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    .testTag("tx_installment_late_badge_${tx.id}")
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.badge_late),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
+
+                        val isSnoozed = tx.snoozedUntilMillis != null && tx.snoozedUntilMillis!! > now
+                        if (isSnoozed) {
+                            Box(
+                                modifier = Modifier
+                                    .background(MaterialTheme.colorScheme.tertiaryContainer, UdhaarShapeTokens.Corner8)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    .testTag("tx_snoozed_badge_${tx.id}")
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.snoozed_until_fmt, com.jyotirmoyb.udhaar.reminder.ReminderEngine.formatSnoozedUntil(tx.snoozedUntilMillis!!)),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        } else if (tx.remindersDisabled) {
+                            Box(
+                                modifier = Modifier
+                                    .background(SubtleSurfaceGrey, UdhaarShapeTokens.Corner8)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    .testTag("tx_reminders_paused_badge_${tx.id}")
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.reminders_stopped_badge),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = SecondaryInkGrey,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
+                    }
+
+                    // Due date on the right in IBM Plex Mono + Reminder Snooze Menu
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = summary.dueStatusText,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontFamily = IbmPlexMonoFamily,
+                                fontSize = 11.sp,
+                                fontWeight = if (summary.isOverdue || tx.isSettled) FontWeight.SemiBold else FontWeight.Normal
+                            ),
+                            color = if (summary.isOverdue) PayableCardInk else SecondaryInkGrey,
+                            maxLines = 1,
+                            softWrap = false
+                        )
 
                     var showReminderMenu by remember { mutableStateOf(false) }
                     Box {

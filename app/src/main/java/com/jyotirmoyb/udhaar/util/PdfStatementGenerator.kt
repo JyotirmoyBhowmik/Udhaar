@@ -189,7 +189,7 @@ object PdfStatementGenerator {
             val tx = item.transaction
             val dateStr = itemDateSdf.format(Date(tx.createdAtMillis))
             val typeStr = if (tx.transactionType == TransactionType.GIVEN) "Given" else "Taken"
-            val descStr = tx.notes.ifBlank { "Udhaar entry" }.take(28)
+            val descStr = tx.notes.ifBlank { "Udhaar entry" }.take(22)
             val exp = tx.expiryDateMillis
             val dueStr = if (exp != null && exp > 0) itemDateSdf.format(Date(exp)) else "None"
             val netStr = InterestCalculator.formatCurrency(item.netBalanceDue, tx.currency)
@@ -202,11 +202,10 @@ object PdfStatementGenerator {
             y += 14f
 
             if (tx.contentHash.isNotBlank()) {
-                val shortHash = tx.contentHash.take(16) + "…"
-                val trustStr = if (tx.trustLevel.isNotBlank()) " • ${tx.trustLevel}" else ""
-                val webStr = if (tx.webLinkStatus.isNotBlank()) " • Web: ${tx.webLinkStatus}" else ""
-                val verifyStr = "Status: ${tx.verificationStatus.label}$trustStr$webStr • Record fingerprint: $shortHash"
-                canvas.drawText(verifyStr, MARGIN + 130f, y, subtextPaint)
+                val shortHash = tx.contentHash.take(10) + "…"
+                val trustStr = if (tx.trustLevel.isNotBlank()) " • ${tx.trustLevel.take(10)}" else ""
+                val verifyStr = "Status: ${tx.verificationStatus.label}$trustStr • SHA: $shortHash"
+                canvas.drawText(verifyStr.take(55), MARGIN + 130f, y, subtextPaint)
                 y += 12f
             }
 
@@ -468,16 +467,22 @@ object PdfStatementGenerator {
         if (CurrencyType.INR in enabledCurrencies) {
             val netInr = grandGivenInr - grandTakenInr
             val dir = if (netInr >= 0) "To receive" else "To pay"
-            val inrStr = "INR: Given: ${InterestCalculator.formatCurrency(grandGivenInr, CurrencyType.INR)} | Taken: ${InterestCalculator.formatCurrency(grandTakenInr, CurrencyType.INR)} | Net: ${InterestCalculator.formatCurrency(netInr, CurrencyType.INR)} ($dir)"
-            canvas.drawText(inrStr, MARGIN, y, boldPaint)
+            val inrGivenStr = "INR (₹) Given: ${InterestCalculator.formatCurrency(grandGivenInr, CurrencyType.INR)} | Taken: ${InterestCalculator.formatCurrency(grandTakenInr, CurrencyType.INR)}"
+            val inrNetStr = "INR (₹) Net Position: ${InterestCalculator.formatCurrency(netInr, CurrencyType.INR)} ($dir)"
+            canvas.drawText(inrGivenStr, MARGIN, y, boldPaint)
+            y += 12f
+            canvas.drawText(inrNetStr, MARGIN, y, boldPaint)
             y += 12f
         }
 
         if (CurrencyType.NPR in enabledCurrencies) {
             val netNpr = grandGivenNpr - grandTakenNpr
             val dir = if (netNpr >= 0) "To receive" else "To pay"
-            val nprStr = "NPR: Given: ${InterestCalculator.formatCurrency(grandGivenNpr, CurrencyType.NPR)} | Taken: ${InterestCalculator.formatCurrency(grandTakenNpr, CurrencyType.NPR)} | Net: ${InterestCalculator.formatCurrency(netNpr, CurrencyType.NPR)} ($dir)"
-            canvas.drawText(nprStr, MARGIN, y, boldPaint)
+            val nprGivenStr = "NPR (रू) Given: ${InterestCalculator.formatCurrency(grandGivenNpr, CurrencyType.NPR)} | Taken: ${InterestCalculator.formatCurrency(grandTakenNpr, CurrencyType.NPR)}"
+            val nprNetStr = "NPR (रू) Net Position: ${InterestCalculator.formatCurrency(netNpr, CurrencyType.NPR)} ($dir)"
+            canvas.drawText(nprGivenStr, MARGIN, y, boldPaint)
+            y += 12f
+            canvas.drawText(nprNetStr, MARGIN, y, boldPaint)
             y += 12f
         }
         y += 8f
@@ -493,10 +498,10 @@ object PdfStatementGenerator {
         val colNetNpr = context?.getString(R.string.pdf_col_net_npr) ?: "NPR balance"
 
         canvas.drawText(colPartyName, MARGIN, y, headerPaint)
-        canvas.drawText(colPhone, MARGIN + 150f, y, headerPaint)
-        canvas.drawText(colRecords, MARGIN + 270f, y, headerPaint)
-        canvas.drawText(colNetInr, MARGIN + 340f, y, headerPaint)
-        canvas.drawText(colNetNpr, MARGIN + 430f, y, headerPaint)
+        canvas.drawText(colPhone, MARGIN + 120f, y, headerPaint)
+        canvas.drawText(colRecords, MARGIN + 215f, y, headerPaint)
+        canvas.drawText(colNetInr, MARGIN + 285f, y, headerPaint)
+        canvas.drawText(colNetNpr, MARGIN + 405f, y, headerPaint)
         y += 6f
         canvas.drawLine(MARGIN, y, PAGE_WIDTH - MARGIN, y, lightLinePaint)
         y += 14f
@@ -504,17 +509,17 @@ object PdfStatementGenerator {
         // Party Rows
         for (khata in khataList.take(25)) {
             val party = khata.party
-            val nameStr = party.name.take(20)
-            val phoneStr = party.phoneNumber.takeIf { it.isNotBlank() }?.let { InterestCalculator.maskPhoneNumber(it) }?.take(14) ?: "—"
+            val nameStr = party.name.take(16)
+            val phoneStr = party.phoneNumber.takeIf { it.isNotBlank() }?.let { InterestCalculator.maskPhoneNumber(it) }?.take(11) ?: "—"
             val countStr = "${khata.transactions.size}"
             val netInrStr = if (CurrencyType.INR in enabledCurrencies) InterestCalculator.formatCurrency(khata.inrNet, CurrencyType.INR) else "—"
             val netNprStr = if (CurrencyType.NPR in enabledCurrencies) InterestCalculator.formatCurrency(khata.nprNet, CurrencyType.NPR) else "—"
 
             canvas.drawText(nameStr, MARGIN, y, boldPaint)
-            canvas.drawText(phoneStr, MARGIN + 150f, y, textPaint)
-            canvas.drawText(countStr, MARGIN + 270f, y, textPaint)
-            canvas.drawText(netInrStr, MARGIN + 340f, y, boldPaint)
-            canvas.drawText(netNprStr, MARGIN + 430f, y, boldPaint)
+            canvas.drawText(phoneStr, MARGIN + 120f, y, textPaint)
+            canvas.drawText(countStr, MARGIN + 215f, y, textPaint)
+            canvas.drawText(netInrStr, MARGIN + 285f, y, boldPaint)
+            canvas.drawText(netNprStr, MARGIN + 405f, y, boldPaint)
             y += 14f
 
             canvas.drawLine(MARGIN, y - 2f, PAGE_WIDTH - MARGIN, y - 2f, lightLinePaint)

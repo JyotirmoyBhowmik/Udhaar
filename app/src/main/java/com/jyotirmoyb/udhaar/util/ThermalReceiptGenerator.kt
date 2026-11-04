@@ -16,6 +16,7 @@ import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.PartialPayment
 import com.jyotirmoyb.udhaar.data.TransactionType
 import com.jyotirmoyb.udhaar.data.UserSettings
+import com.jyotirmoyb.udhaar.data.VerificationStatus
 import com.jyotirmoyb.udhaar.ui.PartyKhataSummary
 import java.io.File
 import java.io.FileOutputStream
@@ -239,7 +240,16 @@ object ThermalReceiptGenerator {
                 if (boldLabel) Typeface.BOLD else Typeface.NORMAL
             )
             labelPaint.color = if (boldLabel) Color.BLACK else Color.DKGRAY
-            canvas.drawText(label, leftX, y, labelPaint)
+
+            val valueWidth = valuePaint.measureText(value)
+            val maxLabelWidth = (rightX - leftX) - valueWidth - 20f
+            val safeLabel = if (maxLabelWidth > 40f) {
+                ellipsizeReceiptText(label, labelPaint, maxLabelWidth)
+            } else {
+                label
+            }
+
+            canvas.drawText(safeLabel, leftX, y, labelPaint)
             canvas.drawText(value, rightX, y, valuePaint)
             y += 46f
         }
@@ -532,7 +542,14 @@ object ThermalReceiptGenerator {
         val rightX = width - 56f
 
         fun drawRow(label: String, value: String) {
-            canvas.drawText(label, leftX, y, labelPaint)
+            val valueWidth = valuePaint.measureText(value)
+            val maxLabelWidth = (rightX - leftX) - valueWidth - 20f
+            val safeLabel = if (maxLabelWidth > 40f) {
+                ellipsizeReceiptText(label, labelPaint, maxLabelWidth)
+            } else {
+                label
+            }
+            canvas.drawText(safeLabel, leftX, y, labelPaint)
             canvas.drawText(value, rightX, y, valuePaint)
             y += 45f
         }
@@ -598,7 +615,11 @@ object ThermalReceiptGenerator {
             itemsToRender.forEachIndexed { index, item ->
                 val t = item.transaction
                 val badge = if (t.transactionType == TransactionType.GIVEN) "Given" else "Taken"
-                val verBadge = t.verificationStatus.shortBadge
+                val verBadge = when (t.verificationStatus) {
+                    VerificationStatus.CONFIRMED -> "Verified"
+                    VerificationStatus.DISPUTED -> "Disputed"
+                    else -> "Pending"
+                }
                 val dateStr = InterestCalculator.formatDate(t.startDateMillis)
                 val statusAmt = if (t.isSettled) {
                     "Paid back (${InterestCalculator.formatCurrencyPrivacy(item.grossTotal, t.currency, hideAmounts)})"
@@ -706,5 +727,23 @@ object ThermalReceiptGenerator {
             }
             context.startActivity(chooser)
         }
+    }
+
+    private fun ellipsizeReceiptText(text: String, paint: Paint, maxWidth: Float): String {
+        if (paint.measureText(text) <= maxWidth) return text
+        var low = 0
+        var high = text.length
+        var best = ""
+        while (low <= high) {
+            val mid = (low + high) / 2
+            val candidate = text.take(mid) + "…"
+            if (paint.measureText(candidate) <= maxWidth) {
+                best = candidate
+                low = mid + 1
+            } else {
+                high = mid - 1
+            }
+        }
+        return best.ifBlank { text.take(3) + "…" }
     }
 }

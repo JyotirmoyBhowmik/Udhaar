@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -237,7 +238,9 @@ fun StatusAtAGlanceBadge(
 
     if (visual != null) {
         Surface(
-            modifier = modifier.testTag("${visual.tag}_${tx.id}"),
+            modifier = modifier
+                .wrapContentWidth()
+                .testTag("${visual.tag}_${tx.id}"),
             color = visual.containerColor,
             contentColor = visual.contentColor,
             shape = UdhaarShapeTokens.ShapeSmall,
@@ -258,7 +261,10 @@ fun StatusAtAGlanceBadge(
                     text = visual.label,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = visual.contentColor
+                    color = visual.contentColor,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

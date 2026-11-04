@@ -92,8 +92,8 @@ enum class ExtensionRequestStatus(val label: String, val shortBadge: String) {
 
 enum class LedgerFilter(val label: String) {
     ALL("All"),
-    GIVEN("Given"),
-    TAKEN("Taken"),
+    GIVEN("Owed"),
+    TAKEN("Borrowed"),
     OVERDUE("Overdue"),
     SETTLED("Settled"),
     NEEDS_CONFIRMATION("Needs Confirmation"),

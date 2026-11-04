@@ -1,9 +1,12 @@
 package com.jyotirmoyb.udhaar.ui.sheets.detail
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -91,6 +94,34 @@ fun PartialPaymentSection(
             if (processed != null) {
                 pendingProofAttachment = processed
             }
+        }
+    }
+
+    val launchCameraSafely = {
+        try {
+            val (uri, _) = AttachmentManager.createCameraTempFileUri(context)
+            cameraTempUri = uri
+            cameraLauncher.launch(uri)
+        } catch (_: Exception) {}
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            launchCameraSafely()
+        }
+    }
+
+    val onCameraClick = {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+        if (hasPermission) {
+            launchCameraSafely()
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
 
@@ -236,11 +267,7 @@ fun PartialPaymentSection(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 OutlinedButton(
-                    onClick = {
-                        val (uri, _) = AttachmentManager.createCameraTempFileUri(context)
-                        cameraTempUri = uri
-                        cameraLauncher.launch(uri)
-                    },
+                    onClick = onCameraClick,
                     modifier = Modifier
                         .weight(1f)
                         .height(32.dp)

@@ -170,6 +170,34 @@ fun AddEditUdhaarScreen(
             }
         }
     }
+
+    val launchCameraSafely = {
+        try {
+            val (uri, _) = AttachmentManager.createCameraTempFileUri(context)
+            cameraTempUri = uri
+            cameraLauncher.launch(uri)
+        } catch (_: Exception) {}
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            launchCameraSafely()
+        }
+    }
+
+    val onCameraClick = {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+        if (hasPermission) {
+            launchCameraSafely()
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
@@ -1239,11 +1267,7 @@ fun AddEditUdhaarScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             OutlinedButton(
-                                onClick = {
-                                    val (uri, _) = AttachmentManager.createCameraTempFileUri(context)
-                                    cameraTempUri = uri
-                                    cameraLauncher.launch(uri)
-                                },
+                                onClick = onCameraClick,
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(48.dp)
