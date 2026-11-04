@@ -143,7 +143,7 @@ fun AboutSection(
                     runCatching {
                         context.startActivity(emailIntent)
                     }.onFailure {
-                        Toast.makeText(context, "Admin Email: admin@jyotirmoyb.com", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, context.getString(R.string.toast_admin_email), Toast.LENGTH_LONG).show()
                     }
                 },
                 modifier = Modifier

@@ -1,1390 +1,425 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="system">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Udhaar — Smart Personal &amp; Business Khata with Cryptographic Proof</title>
-  <meta name="description" content="Track money lent (Given) and borrowed (Taken) across INR (₹) and NPR (रू) with hardware-backed SQLCipher encryption, instant WhatsApp &amp; QR two-party verification, UPI payment slips, and encrypted Drive backups." />
-  <meta name="theme-color" content="#2E0854" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <title>Udhaar — Keep clear records of money you lend and borrow</title>
+  <meta name="description" content="No more forgetting. No more arguments. Private offline lending and borrowing records with zero-cost WhatsApp confirmation." />
+  <meta name="theme-color" content="#064E3B" />
+  <meta name="color-scheme" content="light dark" />
+
+  <!-- Canonical and Multilingual Alternates -->
+  <link rel="canonical" href="https://udhaar.jyotirmoyb.com/" />
+  <link rel="alternate" hreflang="en" href="https://udhaar.jyotirmoyb.com/?lang=en" />
+  <link rel="alternate" hreflang="hi" href="https://udhaar.jyotirmoyb.com/?lang=hi" />
+  <link rel="alternate" hreflang="bn" href="https://udhaar.jyotirmoyb.com/?lang=bn" />
+  <link rel="alternate" hreflang="as" href="https://udhaar.jyotirmoyb.com/?lang=as" />
+  <link rel="alternate" hreflang="ne" href="https://udhaar.jyotirmoyb.com/?lang=ne" />
+  <link rel="alternate" hreflang="x-default" href="https://udhaar.jyotirmoyb.com/" />
 
   <!-- OpenGraph Metadata -->
-  <meta property="og:title" content="Udhaar — Cryptographic Ledger &amp; Trust Khata" />
-  <meta property="og:description" content="Track personal &amp; business credit with 256-bit SQLCipher encryption, two-party cryptographic verification, offline UPI QR, and Google Drive backups." />
-  <meta property="og:image" content="/assets/hero-banner.jpg" />
+  <meta property="og:title" content="Udhaar — Keep clear records of money you lend and borrow" />
+  <meta property="og:description" content="No more forgetting. No more arguments. Private offline lending and borrowing records with zero-cost WhatsApp confirmation." />
+  <meta property="og:image" content="https://udhaar.jyotirmoyb.com/assets/og-image.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
   <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://udhaar.jyotirmoyb.com/" />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://udhaar.jyotirmoyb.com/assets/og-image.jpg" />
 
-  <!-- Google Fonts: Plus Jakarta Sans, Inter, JetBrains Mono -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
-
-  <script>
-    // Forward any legacy verification hashes or parameters directly to /u/
-    if (window.location.search && (window.location.search.includes('d=') || window.location.search.includes('token='))) {
-      window.location.replace("/u/" + window.location.search + window.location.hash);
-    }
+  <!-- SoftwareApplication JSON-LD Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Udhaar",
+    "operatingSystem": "Android",
+    "applicationCategory": "FinanceApplication",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "INR"
+    },
+    "description": "Keep clear records of money you lend and borrow. Works offline, private, zero-cost WhatsApp confirmation.",
+    "url": "https://udhaar.jyotirmoyb.com",
+    "downloadUrl": "https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar"
+  }
   </script>
 
-  <style>
-    :root {
-      --brand-purple-deep: #2E0854;
-      --brand-purple-hero: #5F259F;
-      --brand-purple-card: #4A154B;
-      --primary: #300033;
-      --emerald-accent: #00C853;
-      --emerald-primary: #10B981;
-      --emerald-dark: #065F46;
-      --emerald-surface: #D1FAE5;
-      --coral-accent: #FF5252;
-      --coral-surface: #FEE2E2;
-      --coral-text: #991B1B;
-      --gold-badge: #F59E0B;
-      --gold-surface: #FEF3C7;
-      --gold-border: #B45309;
-      --slate-bg: #F8FAFC;
-      --card-surface: #FFFFFF;
-      --navy-header: #162238;
-      --navy-dark: #0B1220;
-      --text-main: #151B2A;
-      --text-muted: #64748B;
-      --muted-border: #E2E8F0;
-      --font-display: 'Plus Jakarta Sans', -apple-system, sans-serif;
-      --font-body: 'Inter', -apple-system, sans-serif;
-      --font-mono: 'JetBrains Mono', monospace;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
-    body {
-      font-family: var(--font-body);
-      background-color: var(--slate-bg);
-      color: var(--text-main);
-      line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
-      overflow-x: hidden;
-    }
-
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
-
-    .container {
-      width: 100%;
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 0 24px;
-    }
-
-    /* =========================================================
-       NAVIGATION BAR
-       ========================================================= */
-    header.site-header {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      backdrop-filter: blur(20px);
-      background: rgba(255, 255, 255, 0.92);
-      border-bottom: 1px solid rgba(226, 232, 240, 0.8);
-      transition: all 0.25s ease;
-    }
-
-    .nav-wrapper {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      height: 74px;
-    }
-
-    .brand-logo {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-family: var(--font-display);
-      font-weight: 800;
-      font-size: 24px;
-      letter-spacing: -0.02em;
-      color: var(--brand-purple-deep);
-    }
-
-    .brand-icon {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, var(--brand-purple-deep) 0%, var(--brand-purple-hero) 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #FFFFFF;
-      font-weight: 900;
-      font-size: 22px;
-      box-shadow: 0 8px 18px rgba(46, 8, 84, 0.25);
-    }
-
-    .nav-links {
-      display: flex;
-      align-items: center;
-      gap: 28px;
-    }
-
-    .nav-links a {
-      font-family: var(--font-display);
-      font-size: 14px;
-      font-weight: 600;
-      color: #475569;
-      transition: color 0.15s ease;
-    }
-
-    .nav-links a:hover {
-      color: var(--brand-purple-hero);
-    }
-
-    .btn-header-play {
-      background: linear-gradient(135deg, #7C3AED 0%, #5F259F 100%);
-      color: #FFFFFF;
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 14px;
-      padding: 10px 22px;
-      border-radius: 9999px;
-      box-shadow: 0 4px 14px rgba(95, 37, 159, 0.35);
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .btn-header-play:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(95, 37, 159, 0.45);
-    }
-
-    /* =========================================================
-       HERO SECTION (Matching screenshot_1_bd501c5e & Image_3)
-       ========================================================= */
-    .hero-section {
-      position: relative;
-      background: radial-gradient(circle at 80% 20%, #4A154B 0%, var(--brand-purple-deep) 55%, #18032E 100%);
-      color: #FFFFFF;
-      padding: 64px 0 80px;
-      overflow: hidden;
-    }
-
-    /* Organic fluid curved backdrop overlay */
-    .hero-section::before {
-      content: "";
-      position: absolute;
-      top: -10%;
-      left: -10%;
-      width: 60%;
-      height: 90%;
-      background: radial-gradient(circle, rgba(95, 37, 159, 0.35) 0%, transparent 70%);
-      pointer-events: none;
-    }
-
-    .hero-grid {
-      display: grid;
-      grid-template-columns: 1.15fr 0.85fr;
-      gap: 48px;
-      align-items: center;
-      position: relative;
-      z-index: 2;
-    }
-
-    .hero-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(245, 158, 11, 0.18);
-      border: 1px solid rgba(245, 158, 11, 0.6);
-      color: #FDE68A;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      padding: 6px 14px;
-      border-radius: 9999px;
-      margin-bottom: 22px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    }
-
-    .hero-title {
-      font-family: var(--font-display);
-      font-size: clamp(34px, 4.4vw, 54px);
-      font-weight: 800;
-      line-height: 1.15;
-      letter-spacing: -0.03em;
-      margin-bottom: 22px;
-    }
-
-    .hero-title .highlight-yellow {
-      color: #FCD34D;
-    }
-
-    .hero-title .highlight-emerald {
-      color: #34D399;
-    }
-
-    .hero-lead {
-      font-size: 17px;
-      line-height: 1.65;
-      color: #E2E8F0;
-      margin-bottom: 32px;
-      max-width: 600px;
-    }
-
-    .hero-lead strong {
-      color: #FFFFFF;
-    }
-
-    .hero-cta-group {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 34px;
-    }
-
-    .btn-play-hero {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-      color: #022C22;
-      font-family: var(--font-display);
-      font-weight: 800;
-      font-size: 16px;
-      padding: 14px 28px;
-      border-radius: 9999px;
-      box-shadow: 0 12px 28px -6px rgba(16, 185, 129, 0.55);
-      transition: all 0.2s ease;
-    }
-
-    .btn-play-hero:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 16px 32px -4px rgba(16, 185, 129, 0.65);
-      color: #022C22;
-    }
-
-    .btn-verify-hero {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1.5px solid rgba(255, 255, 255, 0.4);
-      backdrop-filter: blur(12px);
-      color: #FFFFFF;
-      font-family: var(--font-display);
-      font-weight: 700;
-      font-size: 15px;
-      padding: 14px 24px;
-      border-radius: 9999px;
-      transition: all 0.2s ease;
-    }
-
-    .btn-verify-hero:hover {
-      background: rgba(255, 255, 255, 0.2);
-      border-color: #FFFFFF;
-      transform: translateY(-2px);
-    }
-
-    /* Verification Quick Inspection Box */
-    .verify-inspect-card {
-      background: #FFFFFF;
-      color: var(--text-main);
-      border-radius: 18px;
-      padding: 20px 24px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
-      max-width: 540px;
-    }
-
-    .verify-inspect-label {
-      font-family: var(--font-display);
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      color: #475569;
-      text-transform: uppercase;
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .verify-inspect-form {
-      display: flex;
-      gap: 8px;
-    }
-
-    .verify-input {
-      flex: 1;
-      background: #F1F5F9;
-      border: 1.5px solid #CBD5E1;
-      border-radius: 12px;
-      padding: 12px 16px;
-      font-family: var(--font-mono);
-      font-size: 13px;
-      color: #0F172A;
-      outline: none;
-      transition: border-color 0.2s ease;
-    }
-
-    .verify-input:focus {
-      border-color: var(--emerald-primary);
-      background: #FFFFFF;
-    }
-
-    .verify-submit-btn {
-      background: var(--emerald-accent);
-      color: #064E3B;
-      font-family: var(--font-display);
-      font-weight: 800;
-      font-size: 14px;
-      border: none;
-      border-radius: 12px;
-      padding: 0 24px;
-      cursor: pointer;
-      transition: background 0.15s ease, transform 0.15s ease;
-    }
-
-    .verify-submit-btn:hover {
-      background: #00E676;
-      transform: scale(1.02);
-    }
-
-    /* Right Phone Showcase in Hero */
-    .hero-phone-wrap {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      position: relative;
-    }
-
-    .hero-banner-image {
-      width: 100%;
-      max-width: 540px;
-      height: auto;
-      border-radius: 24px;
-      box-shadow: 0 25px 60px -10px rgba(15, 23, 42, 0.45);
-      filter: drop-shadow(0 20px 30px rgba(0, 0, 0, 0.35));
-      transition: transform 0.3s ease;
-    }
-
-    .hero-banner-image:hover {
-      transform: translateY(-6px) scale(1.02);
-    }
-
-    /* =========================================================
-       TRUST & SECURITY PILLARS BAR
-       ========================================================= */
-    .trust-strip {
-      background: #FFFFFF;
-      border-bottom: 1px solid var(--muted-border);
-      padding: 30px 0;
-    }
-
-    .trust-strip-title {
-      text-align: center;
-      font-family: var(--font-display);
-      font-size: 22px;
-      font-weight: 800;
-      color: var(--navy-header);
-      margin-bottom: 24px;
-    }
-
-    .trust-badges-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 20px;
-    }
-
-    .trust-pill-card {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      background: var(--slate-bg);
-      border: 1px solid var(--muted-border);
-      border-radius: 16px;
-      padding: 16px 20px;
-      transition: transform 0.2s ease, border-color 0.2s ease;
-    }
-
-    .trust-pill-card:hover {
-      transform: translateY(-2px);
-      border-color: #CBD5E1;
-    }
-
-    .trust-icon-box {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      background: var(--emerald-surface);
-      color: var(--emerald-dark);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
-      flex-shrink: 0;
-    }
-
-    .trust-icon-box.purple {
-      background: #F3E8FF;
-      color: #6B21A8;
-    }
-
-    .trust-icon-box.gold {
-      background: var(--gold-surface);
-      color: var(--gold-border);
-    }
-
-    .trust-pill-text h4 {
-      font-family: var(--font-display);
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--text-main);
-      margin-bottom: 2px;
-    }
-
-    .trust-pill-text p {
-      font-size: 12px;
-      color: var(--text-muted);
-      line-height: 1.4;
-    }
-
-    /* =========================================================
-       APP SCREEN SHOWCASE (Live Screenshots & Interactive Phone)
-       ========================================================= */
-    .showcase-section {
-      padding: 84px 0;
-      background: linear-gradient(180deg, #F8FAFC 0%, #EEF2F6 100%);
-    }
-
-    .section-header {
-      text-align: center;
-      max-width: 720px;
-      margin: 0 auto 48px;
-    }
-
-    .section-eyebrow {
-      display: inline-block;
-      font-family: var(--font-mono);
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--brand-purple-hero);
-      background: #F3E8FF;
-      padding: 5px 14px;
-      border-radius: 9999px;
-      margin-bottom: 12px;
-    }
-
-    .section-heading {
-      font-family: var(--font-display);
-      font-size: clamp(28px, 3.5vw, 40px);
-      font-weight: 800;
-      color: var(--navy-header);
-      line-height: 1.2;
-      letter-spacing: -0.02em;
-      margin-bottom: 14px;
-    }
-
-    .section-subheading {
-      font-size: 16px;
-      color: var(--text-muted);
-      line-height: 1.6;
-    }
-
-    /* Showcase Category Pills */
-    .screen-nav-pills {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-      margin-bottom: 40px;
-    }
-
-    .screen-pill-btn {
-      background: #FFFFFF;
-      border: 1.5px solid #CBD5E1;
-      color: #334155;
-      font-family: var(--font-display);
-      font-size: 13px;
-      font-weight: 700;
-      padding: 9px 18px;
-      border-radius: 9999px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .screen-pill-btn:hover {
-      border-color: var(--brand-purple-hero);
-      color: var(--brand-purple-hero);
-    }
-
-    .screen-pill-btn.active {
-      background: var(--brand-purple-deep);
-      border-color: var(--brand-purple-deep);
-      color: #FFFFFF;
-      box-shadow: 0 4px 14px rgba(46, 8, 84, 0.3);
-    }
-
-    /* Phone + Feature Description Dual Layout */
-    .showcase-stage {
-      display: grid;
-      grid-template-columns: 0.95fr 1.05fr;
-      gap: 50px;
-      align-items: center;
-      background: #FFFFFF;
-      border: 1px solid var(--muted-border);
-      border-radius: 32px;
-      padding: 44px;
-      box-shadow: 0 24px 60px -15px rgba(15, 23, 42, 0.08);
-    }
-
-    /* Device Mockup Frame */
-    .device-mockup-frame {
-      position: relative;
-      margin: 0 auto;
-      max-width: 320px;
-      border-radius: 46px;
-      padding: 12px;
-      background: #0B1220;
-      box-shadow: 0 30px 70px -10px rgba(15, 23, 42, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
-    }
-
-    .device-notch {
-      width: 90px;
-      height: 18px;
-      background: #000000;
-      border-radius: 20px;
-      margin: 4px auto 8px;
-    }
-
-    .device-screen-img {
-      width: 100%;
-      height: auto;
-      display: block;
-      border-radius: 34px;
-      background: #F8FAFC;
-    }
-
-    /* Companion Details Pane */
-    .showcase-details {
-      padding: 10px;
-    }
-
-    .showcase-screen-tag {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--emerald-dark);
-      background: var(--emerald-surface);
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 6px;
-      margin-bottom: 14px;
-      text-transform: uppercase;
-    }
-
-    .showcase-title {
-      font-family: var(--font-display);
-      font-size: 28px;
-      font-weight: 800;
-      color: var(--navy-header);
-      line-height: 1.25;
-      margin-bottom: 14px;
-    }
-
-    .showcase-desc {
-      font-size: 16px;
-      color: var(--text-muted);
-      line-height: 1.7;
-      margin-bottom: 24px;
-    }
-
-    .showcase-bullets {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      margin-bottom: 28px;
-    }
-
-    .showcase-bullets li {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      font-size: 14px;
-      color: var(--text-main);
-    }
-
-    .bullet-check {
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      background: var(--emerald-surface);
-      color: var(--emerald-dark);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      font-weight: 800;
-      flex-shrink: 0;
-      margin-top: 2px;
-    }
-
-    /* Screen Gallery Quick Thumbnails */
-    .screen-thumbnails-grid {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 12px;
-      margin-top: 36px;
-    }
-
-    .screen-thumb-item {
-      background: #FFFFFF;
-      border: 2px solid transparent;
-      border-radius: 16px;
-      overflow: hidden;
-      cursor: pointer;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-      transition: all 0.2s ease;
-      text-align: center;
-      padding: 8px;
-    }
-
-    .screen-thumb-item:hover, .screen-thumb-item.active {
-      border-color: var(--brand-purple-hero);
-      transform: translateY(-4px);
-      box-shadow: 0 8px 20px rgba(95, 37, 159, 0.18);
-    }
-
-    .screen-thumb-item img {
-      width: 100%;
-      height: 140px;
-      object-fit: cover;
-      object-position: top;
-      border-radius: 10px;
-      margin-bottom: 6px;
-    }
-
-    .screen-thumb-label {
-      font-family: var(--font-display);
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--text-main);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* =========================================================
-       FEATURE GRID & ARCHITECTURE PILLARS
-       ========================================================= */
-    .features-section {
-      padding: 84px 0;
-      background: #FFFFFF;
-    }
-
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-      gap: 28px;
-    }
-
-    .feature-card {
-      background: var(--slate-bg);
-      border: 1px solid var(--muted-border);
-      border-radius: 24px;
-      padding: 32px;
-      transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .feature-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.08);
-      border-color: #CBD5E1;
-    }
-
-    .feature-badge-top {
-      display: inline-block;
-      font-family: var(--font-mono);
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      padding: 4px 10px;
-      border-radius: 6px;
-      margin-bottom: 16px;
-    }
-
-    .feature-badge-top.green {
-      background: var(--emerald-surface);
-      color: var(--emerald-dark);
-    }
-
-    .feature-badge-top.purple {
-      background: #F3E8FF;
-      color: #6B21A8;
-    }
-
-    .feature-badge-top.gold {
-      background: var(--gold-surface);
-      color: var(--gold-border);
-    }
-
-    .feature-card-icon {
-      width: 52px;
-      height: 52px;
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      margin-bottom: 20px;
-      background: #FFFFFF;
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
-    }
-
-    .feature-card h3 {
-      font-family: var(--font-display);
-      font-size: 20px;
-      font-weight: 800;
-      color: var(--navy-header);
-      margin-bottom: 10px;
-    }
-
-    .feature-card p {
-      font-size: 14px;
-      color: var(--text-muted);
-      line-height: 1.65;
-    }
-
-    /* =========================================================
-       INTERACTIVE TWO-PARTY VERIFICATION & HASH LAB
-       ========================================================= */
-    .lab-section {
-      padding: 84px 0;
-      background: radial-gradient(circle at 10% 20%, #162238 0%, #0B1220 100%);
-      color: #FFFFFF;
-      position: relative;
-    }
-
-    .lab-container {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 44px;
-      align-items: center;
-    }
-
-    .lab-info h2 {
-      font-family: var(--font-display);
-      font-size: clamp(28px, 3.2vw, 38px);
-      font-weight: 800;
-      line-height: 1.25;
-      margin-bottom: 16px;
-    }
-
-    .lab-info p {
-      color: #94A3B8;
-      font-size: 15px;
-      line-height: 1.7;
-      margin-bottom: 24px;
-    }
-
-    .lab-card {
-      background: rgba(30, 41, 59, 0.7);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      backdrop-filter: blur(16px);
-      border-radius: 24px;
-      padding: 30px;
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
-    }
-
-    .lab-card-title {
-      font-family: var(--font-display);
-      font-size: 16px;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 18px;
-    }
-
-    .live-indicator {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      font-weight: 700;
-      color: #34D399;
-      background: rgba(16, 185, 129, 0.18);
-      padding: 4px 8px;
-      border-radius: 9999px;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .live-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #34D399;
-      box-shadow: 0 0 8px #34D399;
-    }
-
-    .lab-input-group {
-      margin-bottom: 14px;
-    }
-
-    .lab-input-group label {
-      display: block;
-      font-size: 11px;
-      font-weight: 600;
-      color: #94A3B8;
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .lab-input-group input, .lab-input-group select {
-      width: 100%;
-      background: #0B1220;
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      border-radius: 10px;
-      padding: 10px 14px;
-      color: #FFFFFF;
-      font-size: 13px;
-      outline: none;
-      font-family: var(--font-body);
-    }
-
-    .lab-input-group input:focus {
-      border-color: var(--emerald-primary);
-    }
-
-    .lab-hash-output {
-      background: #0B1220;
-      border: 1px dashed rgba(245, 158, 11, 0.4);
-      border-radius: 12px;
-      padding: 14px;
-      margin-top: 18px;
-    }
-
-    .lab-hash-label {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: #FCD34D;
-      font-weight: 700;
-      margin-bottom: 4px;
-    }
-
-    .lab-hash-val {
-      font-family: var(--font-mono);
-      font-size: 12px;
-      color: #E2E8F0;
-      word-break: break-all;
-      line-height: 1.4;
-    }
-
-    /* =========================================================
-       FOOTER & DOWNLOAD CTA
-       ========================================================= */
-    .download-cta-section {
-      background: linear-gradient(135deg, var(--brand-purple-deep) 0%, #4A154B 100%);
-      color: #FFFFFF;
-      padding: 70px 0;
-      text-align: center;
-      position: relative;
-    }
-
-    .download-cta-section h2 {
-      font-family: var(--font-display);
-      font-size: clamp(28px, 4vw, 42px);
-      font-weight: 800;
-      margin-bottom: 16px;
-      letter-spacing: -0.02em;
-    }
-
-    .download-cta-section p {
-      font-size: 16px;
-      color: #E2E8F0;
-      max-width: 620px;
-      margin: 0 auto 32px;
-    }
-
-    footer.site-footer {
-      background: #0B1220;
-      color: #94A3B8;
-      padding: 48px 0 32px;
-      font-size: 13px;
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    .footer-grid {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: center;
-      gap: 20px;
-      padding-bottom: 24px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      margin-bottom: 24px;
-    }
-
-    .footer-links {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 24px;
-    }
-
-    .footer-links a:hover {
-      color: #FFFFFF;
-    }
-
-    /* =========================================================
-       RESPONSIVE BREAKPOINTS
-       ========================================================= */
-    @media (max-width: 1024px) {
-      .hero-grid {
-        grid-template-columns: 1fr;
-        gap: 40px;
-        text-align: center;
-      }
-      .hero-lead {
-        margin: 0 auto 30px;
-      }
-      .hero-cta-group {
-        justify-content: center;
-      }
-      .verify-inspect-card {
-        margin: 0 auto;
-      }
-      .showcase-stage {
-        grid-template-columns: 1fr;
-        gap: 36px;
-      }
-      .lab-container {
-        grid-template-columns: 1fr;
-      }
-      .screen-thumbnails-grid {
-        grid-template-columns: repeat(3, 1fr);
-      }
-    }
-
-    @media (max-width: 768px) {
-      .nav-links {
-        display: none;
-      }
-      .showcase-stage {
-        padding: 24px;
-        border-radius: 20px;
-      }
-      .screen-thumbnails-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-      .verify-inspect-form {
-        flex-direction: column;
-      }
-      .verify-submit-btn {
-        padding: 12px;
-      }
-    }
-  </style>
+  <!-- External Styles and Scripts -->
+  <link rel="icon" type="image/png" href="/assets/hero-3d-phone.png" />
+  <link rel="stylesheet" href="landing.css" />
+  <script src="landing.js" defer></script>
 </head>
 <body>
 
   <!-- =========================================================
-       STICKY HEADER
+       NAVIGATION BAR
        ========================================================= -->
   <header class="site-header">
     <div class="container nav-wrapper">
       <a href="/" class="brand-logo">
-        <div class="brand-icon">U</div>
-        <span>Udhaar</span>
+        <div class="brand-icon" aria-hidden="true">U</div>
+        <span data-i18n="brand_name">UDHAAR</span>
       </a>
-      <nav class="nav-links">
-        <a href="#showcase">App Screens</a>
-        <a href="#features">Features</a>
-        <a href="#security">Security Vault</a>
-        <a href="#lab">Verification Lab</a>
-        <a href="/.well-known/assetlinks.json" target="_blank">App Links JSON</a>
-        <a href="/privacy.html">Privacy</a>
+
+      <nav class="nav-links" aria-label="Primary Navigation">
+        <a href="#how-it-works" data-i18n="nav_how_it_works">How it works</a>
+        <a href="#benefits" data-i18n="nav_benefits">Benefits</a>
+        <a href="#trust" data-i18n="nav_trust">Trust & Privacy</a>
+        <a href="#faq" data-i18n="nav_faq">FAQ</a>
+        <a href="/privacy.html" data-i18n="nav_privacy">Privacy Policy</a>
       </nav>
-      <a class="btn-header-play" href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M3.609 1.814L13.792 12 3.61 22.186a1.996 1.996 0 0 1-.61-1.428V3.242c0-.53.21-1.04.61-1.428zM15.207 13.414l2.58 2.58-12.78 7.368 10.2-9.948zm0-2.828l-10.2-9.948 12.78 7.368-2.58 2.58zm1.414 1.414l3.774 2.18c.95.55.95 1.45 0 2l-3.774 2.18-2.12-2.18 2.12-2.18z"/>
-        </svg>
-        <span>Get on Google Play</span>
-      </a>
+
+      <div class="nav-right">
+        <!-- Language Switcher -->
+        <select id="lang-select" class="lang-select" aria-label="Select Language">
+          <option value="en">English</option>
+          <option value="hi">हिंदी (Hindi)</option>
+          <option value="bn">বাংলা (Bengali)</option>
+          <option value="as">অসমীয়া (Assamese)</option>
+          <option value="ne">नेपाली (Nepali)</option>
+        </select>
+
+        <!-- Theme Switcher -->
+        <button id="theme-btn" class="theme-toggle-btn" aria-label="Toggle dark/light mode" title="Toggle theme">🌙</button>
+
+        <!-- Play Store Button -->
+        <a class="btn-header-play" href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar" target="_blank" rel="noopener">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M3.609 1.814L13.792 12 3.61 22.186a1.996 1.996 0 0 1-.61-1.428V3.242c0-.53.21-1.04.61-1.428zM15.207 13.414l2.58 2.58-12.78 7.368 10.2-9.948zm0-2.828l-10.2-9.948 12.78 7.368-2.58 2.58zm1.414 1.414l3.774 2.18c.95.55.95 1.45 0 2l-3.774 2.18-2.12-2.18 2.12-2.18z"/>
+          </svg>
+          <span data-i18n="btn_get_play">Get on Google Play</span>
+        </a>
+      </div>
     </div>
   </header>
 
   <!-- =========================================================
-       HERO BANNER (MATCHING screenshot_1_bd501c5e)
+       HERO SECTION
        ========================================================= -->
   <section class="hero-section">
     <div class="container hero-grid">
-      <!-- Left Editorial Block -->
-      <div class="hero-left">
-        <div class="hero-badge">
-          <span>🔒</span>
-          <span>256-BIT SQLCIPHER ENCRYPTED • TWO-PARTY VERIFIED</span>
+      <div class="hero-content">
+        <div class="hero-pill">
+          <span>✨</span>
+          <span data-i18n="hero_pill">Free • Private • Works Offline</span>
         </div>
-        <h1 class="hero-title">
-          Smart Personal &amp; Business <span class="highlight-yellow">Udhaar Khata</span> with <span class="highlight-emerald">Cryptographic Proof.</span>
-        </h1>
-        <p class="hero-lead">
-          Track money lent (<strong>Given</strong>) and borrowed (<strong>Taken</strong>) across <strong>INR (₹)</strong> and <strong>NPR (रू)</strong> with hardware-backed SQLCipher encryption, instant WhatsApp &amp; QR two-party verification, UPI payment slips, and encrypted Drive backups.
+        <h1 class="hero-title" data-i18n="hero_title">Keep clear records of money you lend and borrow</h1>
+        <p class="hero-promise" data-i18n="hero_promise">No more forgetting. No more arguments.</p>
+        <p class="hero-desc" data-i18n="hero_desc">
+          Record personal lending and borrowing in seconds. Send a private link on WhatsApp so both people agree on the amount and date. Works 100% offline and stays locked on your phone.
         </p>
 
-        <div class="hero-cta-group">
-          <a class="btn-play-hero" href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <div class="hero-actions">
+          <a class="btn-primary" href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar" target="_blank" rel="noopener">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M3.609 1.814L13.792 12 3.61 22.186a1.996 1.996 0 0 1-.61-1.428V3.242c0-.53.21-1.04.61-1.428zM15.207 13.414l2.58 2.58-12.78 7.368 10.2-9.948zm0-2.828l-10.2-9.948 12.78 7.368-2.58 2.58zm1.414 1.414l3.774 2.18c.95.55.95 1.45 0 2l-3.774 2.18-2.12-2.18 2.12-2.18z"/>
             </svg>
-            <span>Download on Google Play</span>
+            <span data-i18n="btn_get_play">Get on Google Play</span>
           </a>
-          <a class="btn-verify-hero" href="#lab">
-            <span>Verify a Shared Link</span>
-          </a>
-        </div>
 
-        <!-- Quick Verification Box (Matching Hero mockup) -->
-        <div class="verify-inspect-card">
-          <div class="verify-inspect-label">
-            <span>HAVE AN UDHAAR VERIFICATION OR PAYMENT LINK?</span>
-            <span style="color:#10B981;font-weight:700;">E2EE Validated</span>
-          </div>
-          <form class="verify-inspect-form" onsubmit="return handleInspectSubmit(event)">
-            <input class="verify-input" id="heroInspectInput" type="text" placeholder="Paste link or code (e.g. https://udhaar.jyotirmoyb.com/u/...)" />
-            <button class="verify-submit-btn" type="submit">Inspect</button>
-          </form>
+          <a id="btn-try-demo-hero" class="btn-secondary" href="/u/?demo=true">
+            <span>👁️</span>
+            <span data-i18n="btn_try_demo">See how the confirmation page looks</span>
+          </a>
         </div>
       </div>
 
-      <!-- Right 3D Visual Hero Phone Mockup -->
       <div class="hero-phone-wrap">
-        <img class="hero-banner-image" src="/assets/hero-3d-phone.png" alt="Udhaar App 3D Mockup with Emerald Slate Khata, Shield &amp; Coins" />
-      </div>
-    </div>
-  </section>
-
-  <!-- =========================================================
-       TRUST & SECURITY BADGES STRIP
-       ========================================================= */
-  -->
-  <section class="trust-strip">
-    <div class="container">
-      <h3 class="trust-strip-title">Built for Real Trust &amp; Financial Privacy</h3>
-      <div class="trust-badges-grid">
-        <div class="trust-pill-card">
-          <div class="trust-icon-box">🔐</div>
-          <div class="trust-pill-text">
-            <h4>256-Bit SQLCipher Encryption</h4>
-            <p>Local SQLite database encrypted at rest with Android Keystore hardware keys.</p>
-          </div>
-        </div>
-        <div class="trust-pill-card">
-          <div class="trust-icon-box purple">🤝</div>
-          <div class="trust-pill-text">
-            <h4>Two-Party Role Canonical Hash</h4>
-            <p>Both lender and borrower compute identical SHA-256 cryptographic proofs.</p>
-          </div>
-        </div>
-        <div class="trust-pill-card">
-          <div class="trust-icon-box gold">📱</div>
-          <div class="trust-pill-text">
-            <h4>Zero-Permission Privacy</h4>
-            <p>No storage permissions needed. Uses native Android Photo Picker.</p>
-          </div>
-        </div>
-        <div class="trust-pill-card">
-          <div class="trust-icon-box">☁️</div>
-          <div class="trust-pill-text">
-            <h4>Client-Encrypted Drive Sync</h4>
-            <p>AES-256-GCM backups saved strictly in your hidden Google Drive AppData folder.</p>
-          </div>
+        <div class="hero-phone-card">
+          <picture>
+            <source type="image/webp" srcset="/assets/hero-3d-phone.webp" />
+            <img src="/assets/hero-3d-phone.png" alt="Udhaar App on phone" width="350" height="420" loading="eager" fetchpriority="high" />
+          </picture>
         </div>
       </div>
     </div>
   </section>
 
   <!-- =========================================================
-       INTERACTIVE APP SCREEN SHOWCASE (Real App Screenshots)
+       HOW IT WORKS (3 STEPS)
        ========================================================= -->
-  <section class="showcase-section" id="showcase">
+  <section id="how-it-works" class="section">
     <div class="container">
       <div class="section-header">
-        <span class="section-eyebrow">Interactive Showcase</span>
-        <h2 class="section-heading">Designed for Speed, Trust &amp; Clarity</h2>
-        <p class="section-subheading">
-          Explore the exact screens of Udhaar running in real-world scenarios. Every interaction is designed with high-contrast clarity and single-tap actions.
-        </p>
+        <span class="section-badge" data-i18n="steps_badge">Simple 3-Step Flow</span>
+        <h2 class="section-title" data-i18n="steps_title">How it works in 3 steps</h2>
+        <p class="section-subtitle" data-i18n="steps_subtitle">Zero confusion. Both people stay on the exact same page.</p>
       </div>
 
-      <!-- Category Filter Pills -->
-      <div class="screen-nav-pills">
-        <button class="screen-pill-btn active" onclick="switchScreen(0, this)">1. Dashboard</button>
-        <button class="screen-pill-btn" onclick="switchScreen(1, this)">2. People Directory</button>
-        <button class="screen-pill-btn" onclick="switchScreen(2, this)">3. New Udhaar Record</button>
-        <button class="screen-pill-btn" onclick="switchScreen(3, this)">4. Loan Details &amp; Installments</button>
-        <button class="screen-pill-btn" onclick="switchScreen(4, this)">5. WhatsApp Reminder</button>
-        <button class="screen-pill-btn" onclick="switchScreen(5, this)">6. Swipe Gestures</button>
-        <button class="screen-pill-btn" onclick="switchScreen(6, this)">7. Security &amp; PIN Vault</button>
-        <button class="screen-pill-btn" onclick="switchScreen(7, this)">8. Currency &amp; 5 Themes</button>
-        <button class="screen-pill-btn" onclick="switchScreen(8, this)">9. Google Drive Backup</button>
-      </div>
-
-      <!-- Main Stage: Phone Frame + Explanatory Details -->
-      <div class="showcase-stage">
-        <div class="device-mockup-frame">
-          <div class="device-notch"></div>
-          <img class="device-screen-img" id="stageImage" src="/assets/screen-dashboard.png" alt="Udhaar Screen Preview" />
-        </div>
-
-        <div class="showcase-details">
-          <span class="showcase-screen-tag" id="stageTag">EMERALD SLATE DASHBOARD</span>
-          <h3 class="showcase-title" id="stageTitle">High-Contrast Financial Khata with Net INR &amp; NPR Position</h3>
-          <p class="showcase-desc" id="stageDesc">
-            Instant macro-visibility into your net financial stance. Compare Total Receivable (credit lent out in emerald green) against Total Payable (borrowed debt in coral red) side-by-side without endless scrolling.
+      <div class="steps-grid">
+        <!-- Step 1 -->
+        <div class="step-card">
+          <div class="step-num-badge" data-i18n="step1_num">1</div>
+          <h3 class="step-title" data-i18n="step1_title">Add the record</h3>
+          <p class="step-desc" data-i18n="step1_desc">
+            Enter the amount, due date, and the other person's name. It takes less than 10 seconds.
           </p>
+        </div>
 
-          <ul class="showcase-bullets" id="stageBullets">
-            <li>
-              <span class="bullet-check">✓</span>
-              <span><strong>Eye privacy toggle</strong> instantly masks sensitive balances with single tap (<code>₹ •••••</code>) when opening in public.</span>
-            </li>
-            <li>
-              <span class="bullet-check">✓</span>
-              <span><strong>Filter pill bar</strong> provides 1-touch filtering across All, Given, Taken, and Overdue debt records.</span>
-            </li>
-            <li>
-              <span class="bullet-check">✓</span>
-              <span><strong>Prominent "+ NEW UDHAAR"</strong> thumb-friendly floating action dock at screen bottom.</span>
-            </li>
-          </ul>
+        <!-- Step 2 -->
+        <div class="step-card">
+          <div class="step-num-badge" data-i18n="step2_num">2</div>
+          <h3 class="step-title" data-i18n="step2_title">Send the link on WhatsApp</h3>
+          <p class="step-desc" data-i18n="step2_desc">
+            Udhaar prepares a polite message with a private confirmation link and 6-digit code for you to send.
+          </p>
+        </div>
 
-          <div style="display:flex;gap:12px;margin-top:20px;">
-            <a class="btn-play-hero" style="padding:10px 22px;font-size:14px;" href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar">Get this on Google Play</a>
-          </div>
-        </div>
-      </div>
-
-      <!-- Quick Screen Thumbnails Gallery -->
-      <div class="screen-thumbnails-grid">
-        <div class="screen-thumb-item active" onclick="switchScreen(0)">
-          <img src="/assets/screen-dashboard.png" alt="Dashboard Screen" />
-          <div class="screen-thumb-label">Dashboard</div>
-        </div>
-        <div class="screen-thumb-item" onclick="switchScreen(1)">
-          <img src="/assets/screen-people.png" alt="People Directory Screen" />
-          <div class="screen-thumb-label">People Directory</div>
-        </div>
-        <div class="screen-thumb-item" onclick="switchScreen(2)">
-          <img src="/assets/screen-record-filled.png" alt="New Loan Record" />
-          <div class="screen-thumb-label">New Record</div>
-        </div>
-        <div class="screen-thumb-item" onclick="switchScreen(3)">
-          <img src="/assets/screen-details.png" alt="Transaction Details" />
-          <div class="screen-thumb-label">Loan Details</div>
-        </div>
-        <div class="screen-thumb-item" onclick="switchScreen(4)">
-          <img src="/assets/screen-whatsapp.png" alt="WhatsApp Reminder" />
-          <div class="screen-thumb-label">WhatsApp Slip</div>
-        </div>
-        <div class="screen-thumb-item" onclick="switchScreen(5)">
-          <img src="/assets/screen-swipe.png" alt="Swipe Gestures" />
-          <div class="screen-thumb-label">Swipe Actions</div>
-        </div>
-        <div class="screen-thumb-item" onclick="switchScreen(6)">
-          <img src="/assets/screen-security.png" alt="Security Vault" />
-          <div class="screen-thumb-label">SQLCipher Vault</div>
-        </div>
-        <div class="screen-thumb-item" onclick="switchScreen(7)">
-          <img src="/assets/screen-themes.png" alt="Themes &amp; Currency" />
-          <div class="screen-thumb-label">5 Themes &amp; NPR</div>
-        </div>
-        <div class="screen-thumb-item" onclick="switchScreen(8)">
-          <img src="/assets/screen-backup.png" alt="Google Drive Backup" />
-          <div class="screen-thumb-label">Drive Backup</div>
+        <!-- Step 3 -->
+        <div class="step-card">
+          <div class="step-num-badge" data-i18n="step3_num">3</div>
+          <h3 class="step-title" data-i18n="step3_title">The other person confirms</h3>
+          <p class="step-desc" data-i18n="step3_desc">
+            They open the link in any mobile browser, check the details, and confirm. They do not need to install the app.
+          </p>
         </div>
       </div>
     </div>
   </section>
 
   <!-- =========================================================
-       CORE FEATURES DEEP DIVE
+       BENEFITS IN PLAIN WORDS
        ========================================================= -->
-  <section class="features-section" id="features">
+  <section id="benefits" class="section" style="background: var(--bg-subtle);">
     <div class="container">
       <div class="section-header">
-        <span class="section-eyebrow">Engineered for Indian &amp; South Asian Trade</span>
-        <h2 class="section-heading">Everything You Need for Seamless Credit</h2>
-        <p class="section-subheading">
-          Built to solve the real friction of informal loans, shopkeeper khata books, and peer-to-peer trust.
-        </p>
+        <span class="section-badge" data-i18n="benefits_badge">Built for Real Life</span>
+        <h2 class="section-title" data-i18n="benefits_title">Benefits in plain words</h2>
+        <p class="section-subtitle" data-i18n="benefits_subtitle">Everything you need to keep personal credit friendly and clear.</p>
       </div>
 
-      <div class="features-grid">
-        <!-- Feature 1 -->
-        <div class="feature-card">
-          <span class="feature-badge-top purple">CRYPTOGRAPHIC INTEGRITY</span>
-          <div class="feature-card-icon">🤝</div>
-          <h3>Two-Party SHA-256 Proof</h3>
-          <p>
-            When you create an Udhaar record, both lender and borrower share a canonical role-agnostic SHA-256 hash. Even if one side edits the amount later, the discrepancy is immediately highlighted.
-          </p>
+      <div class="benefits-grid">
+        <div class="benefit-card">
+          <div class="benefit-icon">🔒</div>
+          <h3 class="benefit-title" data-i18n="benefit1_title">Locked on your phone</h3>
+          <p class="benefit-desc" data-i18n="benefit1_desc">Your records are encrypted and stored only on your own phone. Nobody else can access or view them.</p>
         </div>
 
-        <!-- Feature 2 -->
-        <div class="feature-card">
-          <span class="feature-badge-top green">INSTANT REPAYMENT</span>
-          <div class="feature-card-icon">⚡</div>
-          <h3>Offline UPI QR &amp; Thermal Receipts</h3>
-          <p>
-            Generates compliant <code>upi://pay</code> QR codes dynamically on-device. Counterparties can scan directly from your phone screen. Generate 58mm/80mm thermal receipt bitmaps for shop printing.
-          </p>
+        <div class="benefit-card">
+          <div class="benefit-icon">⚡</div>
+          <h3 class="benefit-title" data-i18n="benefit2_title">Works without internet</h3>
+          <p class="benefit-desc" data-i18n="benefit2_desc">Add records, check balances, and browse transaction history anywhere, even without cellular connectivity.</p>
         </div>
 
-        <!-- Feature 3 -->
-        <div class="feature-card">
-          <span class="feature-badge-top gold">ACCURATE MATH</span>
-          <div class="feature-card-icon">📊</div>
-          <h3>Simple &amp; Compound Interest Engine</h3>
-          <p>
-            Choose between Simple Interest and Compound Interest (Annual, Quarterly, or Monthly compounding). Accrued interest freezes automatically the exact day a transaction is marked settled.
-          </p>
+        <div class="benefit-card">
+          <div class="benefit-icon">🤝</div>
+          <h3 class="benefit-title" data-i18n="benefit3_title">Polite reminders</h3>
+          <p class="benefit-desc" data-i18n="benefit3_desc">Send gentle, friendly payment reminder drafts that protect your personal relationships and friendships.</p>
         </div>
 
-        <!-- Feature 4 -->
-        <div class="feature-card">
-          <span class="feature-badge-top green">WHATSAPP AUTOMATION</span>
-          <div class="feature-card-icon">💬</div>
-          <h3>Courteous WhatsApp Slips with Privacy</h3>
-          <p>
-            Send polite payment reminders with one tap. Includes a "Hide Exact Amount" toggle so sensitive financial figures aren't exposed in notification popups on the recipient's lock screen.
-          </p>
+        <div class="benefit-card">
+          <div class="benefit-icon">💳</div>
+          <h3 class="benefit-title" data-i18n="benefit4_title">Pay easily by UPI</h3>
+          <p class="benefit-desc" data-i18n="benefit4_desc">Generate custom UPI QR codes with the exact installment amount or pay instantly via GPay, PhonePe, or Paytm.</p>
         </div>
 
-        <!-- Feature 5 -->
-        <div class="feature-card">
-          <span class="feature-badge-top purple">5 REGIONAL LANGUAGES</span>
-          <div class="feature-card-icon">🌏</div>
-          <h3>Hindi, Bengali, Assamese, Nepali &amp; English</h3>
-          <p>
-            Fully localized across 5 languages with zero hardcoded text strings. Supports Indian Rupee (₹) and Nepalese Rupee (रू) with regional E.164 phone normalization (+91 and +977).
-          </p>
+        <div class="benefit-card">
+          <div class="benefit-icon">☁️</div>
+          <h3 class="benefit-title" data-i18n="benefit5_title">Backup to your Google Drive</h3>
+          <p class="benefit-desc" data-i18n="benefit5_desc">Securely backup your database to your personal Google Drive with a backup password only you know.</p>
         </div>
 
-        <!-- Feature 6 -->
-        <div class="feature-card">
-          <span class="feature-badge-top gold">DRIVE CLOUD SYNC</span>
-          <div class="feature-card-icon">☁️</div>
-          <h3>Hidden AppData Google Drive Backup</h3>
-          <p>
-            Automated background backups encrypted with AES-256-GCM. Saved strictly inside your private Google Drive AppData folder so no external app can access your financial data.
-          </p>
+        <div class="benefit-card">
+          <div class="benefit-icon">🗣️</div>
+          <h3 class="benefit-title" data-i18n="benefit6_title">Works in 5 languages</h3>
+          <p class="benefit-desc" data-i18n="benefit6_desc">Available in English, Hindi, Bengali, Assamese, and Nepali with plain, everyday words.</p>
         </div>
       </div>
     </div>
   </section>
 
   <!-- =========================================================
-       LIVE VERIFICATION & HASH LAB
+       TRUST & PRIVACY SECTION (WHAT WE STORE & WHAT WE DO NOT)
        ========================================================= -->
-  <section class="lab-section" id="lab">
-    <div class="container lab-container">
-      <div class="lab-info">
-        <div class="live-indicator">
-          <div class="live-dot"></div>
-          <span>LIVE WEB VERIFIER</span>
-        </div>
-        <h2>Inspect &amp; Verify Any Udhaar Link in Real-Time</h2>
-        <p>
-          Udhaar verification URLs encode an end-to-end encrypted payload containing the agreed transaction terms, dates, and principal. Paste your link below to inspect its cryptographic fingerprint.
-        </p>
-        <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:16px;">
-          <h4 style="font-family:var(--font-display);font-size:14px;margin-bottom:6px;color:#38BDF8;">Direct URL Structure</h4>
-          <code style="font-family:var(--font-mono);font-size:12px;color:#A5B4FC;word-break:break-all;">
-            https://udhaar.jyotirmoyb.com/u/&lt;base64-payload&gt;
-          </code>
-        </div>
+  <section id="trust" class="section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge" data-i18n="trust_badge">Your Data Belongs to You</span>
+        <h2 class="section-title" data-i18n="trust_title">What we store and what we do not</h2>
+        <p class="section-subtitle" data-i18n="trust_subtitle">Honest privacy. No trackers, no data sales, no surprises.</p>
       </div>
 
-      <div class="lab-card">
-        <div class="lab-card-title">
-          <span>Cryptographic Hash Generator</span>
-          <span style="font-size:12px;color:#94A3B8;">SHA-256</span>
-        </div>
+      <div class="trust-table-wrap">
+        <table class="trust-table">
+          <thead>
+            <tr>
+              <th data-i18n="th_data">Information</th>
+              <th data-i18n="th_where">Where it lives</th>
+              <th data-i18n="th_status">Privacy Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-i18n="row1_data">Your contact book & phone contacts</td>
+              <td data-i18n="row1_where">Never touched or read</td>
+              <td><span class="tag-danger" data-i18n="row1_status">Zero access</span></td>
+            </tr>
+            <tr>
+              <td data-i18n="row2_data">Bank accounts & UPI PINs</td>
+              <td data-i18n="row2_where">Never requested or collected</td>
+              <td><span class="tag-danger" data-i18n="row2_status">Zero access</span></td>
+            </tr>
+            <tr>
+              <td data-i18n="row3_data">All loan records, notes & photos</td>
+              <td data-i18n="row3_where">Stored only on your phone</td>
+              <td><span class="tag-safe" data-i18n="row3_status">Locked & Private</span></td>
+            </tr>
+            <tr>
+              <td data-i18n="row4_data">Shared confirmation link</td>
+              <td data-i18n="row4_where">Temporary link (expires in 15 mins / 7 days)</td>
+              <td><span class="tag-safe" data-i18n="row4_status">Encrypted in transit</span></td>
+            </tr>
+            <tr>
+              <td data-i18n="row5_data">Backup files</td>
+              <td data-i18n="row5_where">Your personal Google Drive</td>
+              <td><span class="tag-safe" data-i18n="row5_status">Password encrypted</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-        <div class="lab-input-group">
-          <label>Lender Name</label>
-          <input type="text" id="calcLender" value="Jyotirmoy Bhowmik" oninput="recomputeHash()" />
-        </div>
-
-        <div class="lab-input-group">
-          <label>Borrower Name</label>
-          <input type="text" id="calcBorrower" value="Bapon Saha" oninput="recomputeHash()" />
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-          <div class="lab-input-group">
-            <label>Amount (₹)</label>
-            <input type="number" id="calcAmount" value="15000" oninput="recomputeHash()" />
+      <!-- Honest Disclaimers -->
+      <div class="honest-notes-grid">
+        <div class="honest-note-card">
+          <div class="note-icon">⚠️</div>
+          <div>
+            <h4 data-i18n="honest_money_title">Udhaar does not move or hold money</h4>
+            <p data-i18n="honest_money_desc">We are a record-keeping notebook, not a wallet or bank. All payments are completed through your UPI app or bank.</p>
           </div>
-          <div class="lab-input-group">
-            <label>Currency</label>
-            <select id="calcCurrency" onchange="recomputeHash()">
-              <option value="INR">INR (₹)</option>
-              <option value="NPR">NPR (रू)</option>
-            </select>
+        </div>
+
+        <div class="honest-note-card">
+          <div class="note-icon">📋</div>
+          <div>
+            <h4 data-i18n="honest_legal_title">Udhaar is not a legal contract</h4>
+            <p data-i18n="honest_legal_desc">Records and confirmation links provide mutual clarity between friends and family, but do not replace legal loan contracts.</p>
           </div>
         </div>
+      </div>
+    </div>
+  </section>
 
-        <div class="lab-hash-output">
-          <div class="lab-hash-label">CANONICAL SHA-256 FINGERPRINT:</div>
-          <div class="lab-hash-val" id="hashResult">Computing cryptographic hash...</div>
-        </div>
+  <!-- =========================================================
+       FREQUENTLY ASKED QUESTIONS
+       ========================================================= -->
+  <section id="faq" class="section" style="background: var(--bg-subtle);">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-badge" data-i18n="faq_badge">Got questions?</span>
+        <h2 class="section-title" data-i18n="faq_title">Frequently asked questions</h2>
+      </div>
 
-        <div style="margin-top:16px;text-align:right;">
-          <button onclick="testVerifyDirectly()" class="verify-submit-btn" style="padding:10px 18px;font-size:12px;">
-            Test Verification Screen ↗
+      <div class="faq-wrap">
+        <div class="faq-item">
+          <button class="faq-question">
+            <span data-i18n="faq1_q">Is Udhaar completely free?</span>
+            <span class="faq-toggle-icon">+</span>
           </button>
+          <div class="faq-answer">
+            <p data-i18n="faq1_a">Yes. Udhaar is 100% free with no advertisements, no monthly subscriptions, and no hidden payment fees.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span data-i18n="faq2_q">Do I need to give my phone number to use the app?</span>
+            <span class="faq-toggle-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            <p data-i18n="faq2_a">No. You can download and use the app completely anonymously without registering a phone number or creating an account.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span data-i18n="faq3_q">What happens if I lose or change my phone?</span>
+            <span class="faq-toggle-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            <p data-i18n="faq3_a">If you enabled backups, you can restore all your records onto your new phone from your own Google Drive using your backup password.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span data-i18n="faq4_q">Can the other person see all my other records?</span>
+            <span class="faq-toggle-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            <p data-i18n="faq4_a">No. When you share a confirmation link, the other person can only see that one specific record you chose to share.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span data-i18n="faq5_q">How do I delete my data?</span>
+            <span class="faq-toggle-icon">+</span>
+          </button>
+          <div class="faq-answer">
+            <p data-i18n="faq5_a">You can delete any record in the app anytime. Deleting the app removes all local records. To remove a shared web link, use our instant deletion form.</p>
+          </div>
         </div>
       </div>
     </div>
   </section>
 
   <!-- =========================================================
-       DOWNLOAD CTA BANNER
+       APP SCREENSHOTS SHOWCASE
        ========================================================= -->
-  <section class="download-cta-section">
+  <section class="section">
     <div class="container">
-      <h2>Start Your Cryptographic Udhaar Khata Today</h2>
-      <p>
-        Free, secure, and offline-ready. Keep track of money lent or borrowed with friends, family, and customers with complete peace of mind.
-      </p>
-      <div style="display:flex;justify-content:center;gap:14px;flex-wrap:wrap;">
-        <a class="btn-play-hero" href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M3.609 1.814L13.792 12 3.61 22.186a1.996 1.996 0 0 1-.61-1.428V3.242c0-.53.21-1.04.61-1.428zM15.207 13.414l2.58 2.58-12.78 7.368 10.2-9.948zm0-2.828l-10.2-9.948 12.78 7.368-2.58 2.58zm1.414 1.414l3.774 2.18c.95.55.95 1.45 0 2l-3.774 2.18-2.12-2.18 2.12-2.18z"/>
-          </svg>
-          <span>Download on Google Play</span>
+      <div class="section-header">
+        <span class="section-badge">Simple & Clean</span>
+        <h2 class="section-title">Designed for easy daily use</h2>
+        <p class="section-subtitle">Clear numbers, large fonts, and straightforward buttons.</p>
+      </div>
+
+      <div class="screens-grid">
+        <div class="screen-card">
+          <picture>
+            <source type="image/webp" srcset="/assets/screen-dashboard.webp" />
+            <img src="/assets/screen-dashboard.png" alt="Udhaar Dashboard" width="270" height="600" loading="lazy" />
+          </picture>
+          <div class="screen-card-caption">All your records in one place</div>
+        </div>
+
+        <div class="screen-card">
+          <picture>
+            <source type="image/webp" srcset="/assets/screen-new-record.webp" />
+            <img src="/assets/screen-new-record.png" alt="Add Record" width="270" height="600" loading="lazy" />
+          </picture>
+          <div class="screen-card-caption">Add in under 10 seconds</div>
+        </div>
+
+        <div class="screen-card">
+          <picture>
+            <source type="image/webp" srcset="/assets/screen-details.webp" />
+            <img src="/assets/screen-details.png" alt="Installments and Timeline" width="270" height="600" loading="lazy" />
+          </picture>
+          <div class="screen-card-caption">Installment schedules & timeline</div>
+        </div>
+
+        <div class="screen-card">
+          <picture>
+            <source type="image/webp" srcset="/assets/screen-whatsapp.webp" />
+            <img src="/assets/screen-whatsapp.png" alt="WhatsApp Confirmation" width="270" height="600" loading="lazy" />
+          </picture>
+          <div class="screen-card-caption">WhatsApp confirmation & code</div>
+        </div>
+      </div>
+
+      <!-- Try Demo Banner -->
+      <div class="demo-cta-box">
+        <h3 data-i18n="demo_box_title">Experience the guest flow without installing</h3>
+        <p data-i18n="demo_box_desc">
+          See exactly what the other person experiences when they tap your WhatsApp link. Test confirming, installments, and payment proof.
+        </p>
+        <a id="btn-try-demo" class="btn-primary" href="/u/?demo=true">
+          <span>🚀</span>
+          <span data-i18n="btn_launch_demo">Try Interactive Demo</span>
         </a>
       </div>
     </div>
@@ -1396,211 +431,41 @@
   <footer class="site-footer">
     <div class="container">
       <div class="footer-grid">
-        <div>
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-            <div class="brand-icon" style="width:32px;height:32px;font-size:16px;">U</div>
-            <strong style="color:#FFFFFF;font-size:16px;">Udhaar Khata</strong>
-          </div>
-          <p>Package ID: <code>com.jyotirmoyb.udhaar</code> • Android 12+ / 14+ Ready</p>
+        <div class="footer-brand">
+          <a href="/" class="brand-logo">
+            <div class="brand-icon" aria-hidden="true">U</div>
+            <span data-i18n="brand_name">UDHAAR</span>
+          </a>
+          <p data-i18n="footer_desc">
+            Simple, honest, and private records of money you lend and borrow. Designed for everyday users in India and Nepal.
+          </p>
         </div>
-        <div class="footer-links">
-          <a href="#showcase">Screenshots</a>
-          <a href="#features">Features</a>
-          <a href="#security">Security</a>
-          <a href="/privacy.html">Privacy Policy</a>
-          <a href="/.well-known/assetlinks.json">AssetLinks JSON</a>
-          <a href="https://github.com/jyotirmoyb/udhaar" target="_blank">GitHub</a>
+
+        <div class="footer-col">
+          <h4 data-i18n="footer_product">Product</h4>
+          <ul>
+            <li><a href="#how-it-works" data-i18n="nav_how_it_works">How it works</a></li>
+            <li><a href="#benefits" data-i18n="nav_benefits">Benefits</a></li>
+            <li><a href="/u/?demo=true" data-i18n="btn_try_demo">Interactive Demo</a></li>
+            <li><a href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar" target="_blank" rel="noopener">Google Play Store</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4 data-i18n="footer_legal">Legal</h4>
+          <ul>
+            <li><a href="/privacy.html" data-i18n="nav_privacy">Privacy Policy & Data Deletion</a></li>
+            <li><a href="/.well-known/assetlinks.json" target="_blank">AssetLinks Verification</a></li>
+          </ul>
         </div>
       </div>
-      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:12px;">
-        <div>© 2026 Jyotirmoy Bhowmik. All rights reserved.</div>
-        <div>Hosted securely via Firebase &amp; Cloudflare DNS on <code>udhaar.jyotirmoyb.com</code></div>
+
+      <div class="footer-bottom">
+        <span data-i18n="footer_rights">© 2026 Udhaar. All rights reserved. Open-source and privacy-first.</span>
+        <span>Version 17.0</span>
       </div>
     </div>
   </footer>
 
-  <!-- =========================================================
-       SHOWCASE DATA & INTERACTION SCRIPT
-       ========================================================= -->
-  <script>
-    const screensData = [
-      {
-        tag: "EMERALD SLATE DASHBOARD",
-        title: "High-Contrast Financial Khata with Net INR & NPR Position",
-        desc: "Instant macro-visibility into your net financial stance. Compare Total Receivable (credit lent out in emerald green) against Total Payable (borrowed debt in coral red) side-by-side without endless scrolling.",
-        img: "/assets/screen-dashboard.png",
-        bullets: [
-          "Eye privacy toggle instantly masks sensitive balances with single tap (₹ •••••) when opening in public.",
-          "Filter pill bar provides 1-touch filtering across All, Given, Taken, and Overdue debt records.",
-          "Prominent '+ NEW UDHAAR' thumb-friendly floating action dock at screen bottom."
-        ]
-      },
-      {
-        tag: "PEOPLE & PARTIES DIRECTORY",
-        title: "Trust Scores, Direct Contact Ledgers & Instant Chat",
-        desc: "Manage all contacts, suppliers, friends, and customers in one unified address book. View individual net balances, 95% Good trust rating stars, and start WhatsApp reminders or new loans directly.",
-        img: "/assets/screen-people.png",
-        bullets: [
-          "Sort contacts by Name (A-Z), Highest Net Balance, Most Overdue, or Recently Active.",
-          "Import contacts directly from device address book with zero crash guarantee.",
-          "Direct access to loan history, chat records, and PDF party khata exports."
-        ]
-      },
-      {
-        tag: "3-STEP QUICK ENTRY",
-        title: "Frictionless Loan Creation with Quick-Chips & Contacts Picker",
-        desc: "Add new debt records in under 10 seconds. The 3-step wizard walks you through Who, How Much, and When with pre-computed currency chips (₹500, ₹1000, ₹5000) and contacts integration.",
-        img: "/assets/screen-record-filled.png",
-        bullets: [
-          "Step 1: Contact name auto-complete or phone picker with masked phone storage.",
-          "Step 2: Instant toggle between Given (Lent) and Taken (Borrowed) with quick amounts.",
-          "Step 3: Optional due date (1 week, 1 month, or open-ended) plus interest & notes accordion."
-        ]
-      },
-      {
-        tag: "TRANSACTION DETAILS SHEET",
-        title: "Net Balance, Proof Documents & Installment Payments",
-        desc: "Deep transaction breakdown displaying net remaining due, dynamic interest accrued, document attachments (promissory notes, bills, or photo receipts), and installment logs.",
-        img: "/assets/screen-details.png",
-        bullets: [
-          "Quick-percentage installment buttons (25%, 50%, 75%, 100% Full) for fast bookkeeping.",
-          "Payment mode tags for Cash, Online, UPI, and Party Account balances.",
-          "Camera & Gallery attachment support via zero-permission Android Photo Picker."
-        ]
-      },
-      {
-        tag: "WHATSAPP REMINDERS",
-        title: "Courteous Reminders with Cryptographic Verification Link",
-        desc: "Pre-filled polite messages ready to send over WhatsApp with a single tap. Each reminder embeds a tamper-evident SHA-256 verification link so counterparties can review terms.",
-        img: "/assets/screen-whatsapp.png",
-        bullets: [
-          "Hide Exact Amount toggle prevents sensitive rupee numbers from appearing on lock screen alerts.",
-          "Embeds exact canonical hash for transparent, dispute-free mutual confirmation.",
-          "Directly launches WhatsApp or WhatsApp Business without third-party cloud intermediaries."
-        ]
-      },
-      {
-        tag: "INTERACTIVE SWIPE GESTURES",
-        title: "Swipe Right to Pay, Swipe Left to Remind",
-        desc: "Effortless one-handed ergonomics. Swiping right on any transaction card instantly opens the payment installment recorder, while swiping left launches the WhatsApp reminder.",
-        img: "/assets/screen-swipe.png",
-        bullets: [
-          "Smooth physics-based swipe resistance with emerald & teal visual feedback.",
-          "No deep nested menus required for everyday shopkeeper actions.",
-          "Audio and haptic click confirmation on completion."
-        ]
-      },
-      {
-        tag: "SECURITY & SQLCIPHER VAULT",
-        title: "256-Bit Hardware AES Database Encryption & PIN Protection",
-        desc: "Bank-grade privacy right on your device. Your Room database is encrypted with SQLCipher using a 256-bit AES key protected inside the Android Keystore hardware module.",
-        img: "/assets/screen-security.png",
-        bullets: [
-          "Biometric fingerprint, device credentials, and salted PBKDF2-HMAC-SHA256 PIN app lock.",
-          "5-attempt brute-force delay prevents unauthorized device access.",
-          "FLAG_SECURE screenshot protection stops spyware from capturing your balances."
-        ]
-      },
-      {
-        tag: "DUAL CURRENCY & 5 THEMES",
-        title: "INR (₹) & NPR (रू) with 5 Handcrafted Design Themes",
-        desc: "Full support for South Asian cross-border commerce. Enable Indian Rupee, Nepalese Rupee, or both simultaneously. Choose between 5 bespoke Material Design 3 themes.",
-        img: "/assets/screen-themes.png",
-        bullets: [
-          "5 bespoke color themes: Emerald Slate, Follow Phone, Monochrome, Obsidian Dark, and Warm Paper Khata.",
-          "Text & UI size scaling (Compact, Standard, Comfortable) for senior shopkeepers.",
-          "E.164 phone normalization for +91 (India) and +977 (Nepal)."
-        ]
-      },
-      {
-        tag: "GOOGLE DRIVE APPDATA SYNC",
-        title: "Automated Encrypted Cloud Backups & Health Diagnostics",
-        desc: "Scheduled background backups encrypted client-side with AES-256-GCM. Stored in your personal Google Drive hidden AppData folder with a 1-click diagnostic connection tester.",
-        img: "/assets/screen-backup.png",
-        bullets: [
-          "One-touch 'Run Connection Test' checks OAuth credentials and Drive v3 AppData read/write permissions.",
-          "Automatic token refresh on HTTP 401 and exponential backoff retry on network drops.",
-          "Local offline JSON backup export and encrypted .udhaar file import."
-        ]
-      }
-    ];
-
-    function switchScreen(index, btn) {
-      const data = screensData[index];
-      if (!data) return;
-
-      document.getElementById('stageImage').src = data.img;
-      document.getElementById('stageTag').textContent = data.tag;
-      document.getElementById('stageTitle').textContent = data.title;
-      document.getElementById('stageDesc').textContent = data.desc;
-
-      const bulletsContainer = document.getElementById('stageBullets');
-      bulletsContainer.innerHTML = '';
-      data.bullets.forEach(b => {
-        const li = document.createElement('li');
-        li.innerHTML = `<span class="bullet-check">✓</span><span>${b}</span>`;
-        bulletsContainer.appendChild(li);
-      });
-
-      // Update active state on nav pills
-      const pillButtons = document.querySelectorAll('.screen-pill-btn');
-      pillButtons.forEach((b, i) => {
-        b.classList.toggle('active', i === index);
-      });
-
-      // Update active state on gallery thumbnails
-      const thumbItems = document.querySelectorAll('.screen-thumb-item');
-      thumbItems.forEach((t, i) => {
-        t.classList.toggle('active', i === index);
-      });
-    }
-
-    // Hero Inspection Form Handler
-    function handleInspectSubmit(e) {
-      e.preventDefault();
-      const val = (document.getElementById('heroInspectInput').value || '').trim();
-      if (!val) {
-        alert("Please paste an Udhaar verification link or hash code to inspect.");
-        return false;
-      }
-      const idx = val.indexOf('/u/');
-      if (idx !== -1) {
-        window.location.href = val.substring(idx);
-      } else {
-        window.location.href = '/u/?d=' + encodeURIComponent(val);
-      }
-      return false;
-    }
-
-    // Interactive Hash Generator Demo
-    async function sha256(message) {
-      const msgBuffer = new TextEncoder().encode(message);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
-    async function recomputeHash() {
-      const lender = (document.getElementById('calcLender').value || '').trim();
-      const borrower = (document.getElementById('calcBorrower').value || '').trim();
-      const amount = parseFloat(document.getElementById('calcAmount').value || '0').toFixed(2);
-      const currency = document.getElementById('calcCurrency').value;
-
-      // Canonical string representation matching Udhaar VerificationCryptoHelper
-      const canonicalString = `LENDER:${lender}|BORROWER:${borrower}|AMOUNT:${amount}|CURRENCY:${currency}`;
-      const hash = await sha256(canonicalString);
-      document.getElementById('hashResult').textContent = hash;
-    }
-
-    function testVerifyDirectly() {
-      const lender = encodeURIComponent(document.getElementById('calcLender').value || 'Lender');
-      const borrower = encodeURIComponent(document.getElementById('calcBorrower').value || 'Borrower');
-      const amount = document.getElementById('calcAmount').value || '1000';
-      window.location.href = `/u/?lender=${lender}&borrower=${borrower}&amount=${amount}&currency=INR`;
-    }
-
-    // Initial run
-    recomputeHash();
-  </script>
 </body>
 </html>

@@ -29,42 +29,42 @@ import java.io.FileOutputStream
 object ThermalReceiptGenerator {
 
     data class ThermalReceiptStrings(
-        val txHeaderTitle: String = "UDHAAR • THERMAL STATEMENT",
-        val partyHeaderTitle: String = "UDHAAR • PARTY KHATA RECEIPT",
-        val receiptNumberPrefix: String = "RECEIPT #",
-        val generatedPrefix: String = "GENERATED:",
-        val partyNameLabel: String = "PARTY NAME",
-        val partyAccountLabel: String = "PARTY / ACCOUNT",
-        val contactPhoneLabel: String = "CONTACT PHONE",
-        val partyUpiVpaLabel: String = "PARTY UPI VPA",
-        val totalRecordsLabel: String = "TOTAL RECORDS",
-        val activeSuffix: String = "ACTIVE",
-        val recordTypeLabel: String = "RECORD TYPE",
-        val givenToReceiveValue: String = "GIVEN (TO RECEIVE)",
-        val takenToPayValue: String = "TAKEN (TO PAY)",
-        val verificationLabel: String = "VERIFICATION",
-        val contentShaLabel: String = "CONTENT SHA-256",
-        val currencyModeLabel: String = "CURRENCY & MODE",
-        val startDateLabel: String = "START DATE",
-        val dueStatusLabel: String = "DUE / STATUS",
-        val financialBreakdownTitle: String = "FINANCIAL BREAKDOWN",
-        val principalAmountLabel: String = "PRINCIPAL AMOUNT",
-        val interestZeroLabel: String = "INTEREST (0% • INTEREST FREE)",
-        val interestPrefix: String = "INTEREST",
-        val grossTotalLabel: String = "GROSS TOTAL",
-        val repaidSoFarLabel: String = "REPAID SO FAR",
-        val partialRepaymentsTitle: String = "PARTIAL REPAYMENTS AUDIT",
-        val noPartialInstallmentsText: String = "No partial installments recorded yet.",
-        val immutableAuditTimelineTitle: String = "IMMUTABLE AUDIT TIMELINE",
-        val recordCreatedText: String = "RECORD CREATED",
-        val finalStatusSettledText: String = "FINAL STATUS: SETTLED",
-        val netBalanceDuePrefix: String = "NET BALANCE DUE",
-        val scanToSettleUpiPrefix: String = "SCAN TO SETTLE VIA UPI:",
-        val netLedgerPositionTitle: String = "NET LEDGER POSITION",
-        val itemizedLoanRecordsTitle: String = "ITEMIZED LOAN RECORDS",
-        val noActiveOrSettledRecordsText: String = "No active or settled records.",
-        val scanToSettleNetInrPrefix: String = "SCAN TO SETTLE NET INR BALANCE",
-        val generatedOfflineFooterPrefix: String = "GENERATED OFFLINE BY UDHAAR"
+        val txHeaderTitle: String = "Udhaar • Receipt statement",
+        val partyHeaderTitle: String = "Udhaar • Party account receipt",
+        val receiptNumberPrefix: String = "Receipt #",
+        val generatedPrefix: String = "Created:",
+        val partyNameLabel: String = "Name",
+        val partyAccountLabel: String = "Person / Account",
+        val contactPhoneLabel: String = "Phone",
+        val partyUpiVpaLabel: String = "Party UPI ID",
+        val totalRecordsLabel: String = "Total records",
+        val activeSuffix: String = "Active",
+        val recordTypeLabel: String = "Type",
+        val givenToReceiveValue: String = "Lent (to receive)",
+        val takenToPayValue: String = "Borrowed (to pay)",
+        val verificationLabel: String = "Confirmation",
+        val contentShaLabel: String = "Record fingerprint",
+        val currencyModeLabel: String = "Currency",
+        val startDateLabel: String = "Date",
+        val dueStatusLabel: String = "Due / Status",
+        val financialBreakdownTitle: String = "Amount breakdown",
+        val principalAmountLabel: String = "Amount",
+        val interestZeroLabel: String = "Interest (0% • No interest)",
+        val interestPrefix: String = "Interest",
+        val grossTotalLabel: String = "Total",
+        val repaidSoFarLabel: String = "Paid back so far",
+        val partialRepaymentsTitle: String = "Payments history",
+        val noPartialInstallmentsText: String = "No partial payments recorded yet.",
+        val immutableAuditTimelineTitle: String = "History of changes",
+        val recordCreatedText: String = "Record added",
+        val finalStatusSettledText: String = "Status: Paid back",
+        val netBalanceDuePrefix: String = "Amount due",
+        val scanToSettleUpiPrefix: String = "Scan to pay via UPI:",
+        val netLedgerPositionTitle: String = "Total balance",
+        val itemizedLoanRecordsTitle: String = "Records list",
+        val noActiveOrSettledRecordsText: String = "No records found.",
+        val scanToSettleNetInrPrefix: String = "Scan to pay INR balance",
+        val generatedOfflineFooterPrefix: String = "Created offline by Udhaar"
     ) {
         companion object {
             fun fromContext(context: Context): ThermalReceiptStrings {
@@ -532,11 +532,11 @@ object ThermalReceiptGenerator {
             )
             val inrStatus = when {
                 hideAmounts -> InterestCalculator.formatCurrencyPrivacy(0.0, CurrencyType.INR, true)
-                khata.inrNet > 0.01 -> "RECEIVE ${InterestCalculator.formatCurrency(khata.inrNet, CurrencyType.INR)}"
-                khata.inrNet < -0.01 -> "PAY ${InterestCalculator.formatCurrency(-khata.inrNet, CurrencyType.INR)}"
-                else -> "₹0 (SETTLED)"
+                khata.inrNet > 0.01 -> "Receive ${InterestCalculator.formatCurrency(khata.inrNet, CurrencyType.INR)}"
+                khata.inrNet < -0.01 -> "Pay ${InterestCalculator.formatCurrency(-khata.inrNet, CurrencyType.INR)}"
+                else -> "₹0 (Paid back)"
             }
-            drawRow("INR (₹) NET BALANCE", inrStatus)
+            drawRow("INR (₹) Total balance", inrStatus)
         }
         if (nprEnabled) {
             drawRow(
@@ -549,11 +549,11 @@ object ThermalReceiptGenerator {
             )
             val nprStatus = when {
                 hideAmounts -> InterestCalculator.formatCurrencyPrivacy(0.0, CurrencyType.NPR, true)
-                khata.nprNet > 0.01 -> "RECEIVE ${InterestCalculator.formatCurrency(khata.nprNet, CurrencyType.NPR)}"
-                khata.nprNet < -0.01 -> "PAY ${InterestCalculator.formatCurrency(-khata.nprNet, CurrencyType.NPR)}"
-                else -> "रू0 (SETTLED)"
+                khata.nprNet > 0.01 -> "Receive ${InterestCalculator.formatCurrency(khata.nprNet, CurrencyType.NPR)}"
+                khata.nprNet < -0.01 -> "Pay ${InterestCalculator.formatCurrency(-khata.nprNet, CurrencyType.NPR)}"
+                else -> "रू0 (Paid back)"
             }
-            drawRow("NPR (रू) NET BALANCE", nprStatus)
+            drawRow("NPR (रू) Total balance", nprStatus)
         }
 
         drawDashedDivider()
@@ -566,11 +566,11 @@ object ThermalReceiptGenerator {
         } else {
             itemsToRender.forEachIndexed { index, item ->
                 val t = item.transaction
-                val badge = if (t.transactionType == TransactionType.GIVEN) "GIVEN" else "TAKEN"
+                val badge = if (t.transactionType == TransactionType.GIVEN) "Given" else "Taken"
                 val verBadge = t.verificationStatus.shortBadge
                 val dateStr = InterestCalculator.formatDate(t.startDateMillis)
                 val statusAmt = if (t.isSettled) {
-                    "SETTLED (${InterestCalculator.formatCurrencyPrivacy(item.grossTotal, t.currency, hideAmounts)})"
+                    "Paid back (${InterestCalculator.formatCurrencyPrivacy(item.grossTotal, t.currency, hideAmounts)})"
                 } else {
                     InterestCalculator.formatCurrencyPrivacy(item.netBalanceDue, t.currency, hideAmounts)
                 }

@@ -307,8 +307,8 @@ fun UpiQrCodeModal(
                             OutlinedButton(
                                 onClick = {
                                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    clipboard.setPrimaryClip(ClipData.newPlainText("UPI Link", upiUri))
-                                    Toast.makeText(context, "UPI Payment Link copied", Toast.LENGTH_SHORT).show()
+                                    clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.share_clip_upi_link), upiUri))
+                                    Toast.makeText(context, context.getString(R.string.toast_upi_link_copied), Toast.LENGTH_SHORT).show()
                                 },
                                 modifier = Modifier
                                     .weight(1f)
@@ -329,7 +329,7 @@ fun UpiQrCodeModal(
                                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(upiUri))
                                         context.startActivity(intent)
                                     }.onFailure {
-                                        Toast.makeText(context, "No UPI app installed on this device.", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.toast_no_upi_app), Toast.LENGTH_SHORT).show()
                                     }
                                 },
                                 modifier = Modifier

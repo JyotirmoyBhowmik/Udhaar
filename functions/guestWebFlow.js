@@ -29,6 +29,14 @@ try {
 }
 
 const ANDROID_CHANNEL_ID = "udhaar_chat_messages_channel";
+const SERVER_SECRET = process.env.UDHAAR_SERVER_SECRET || "udhaar-hmac-salt-secret-key-2026";
+
+/**
+ * Computes SHA-256 HMAC of a 6-digit code using the server secret.
+ */
+function computeCodeHmac(code) {
+  return crypto.createHmac("sha256", SERVER_SECRET).update(String(code).trim()).digest("hex");
+}
 
 /**
  * Constant-time comparison of a guest secret against the stored SHA-256 hex hash.
@@ -310,8 +318,34 @@ async function verifyGuestPhoneOtp(db, linkRef, link, guestTokenOrWhatsappOtp, n
   const tokenStr = guestTokenOrWhatsappOtp.trim();
 
   // 1. Zero-Cost WhatsApp Verification Code (6-digit numeric OTP)
-  if (link.whatsappOtpHash && /^\d{6}$/.test(tokenStr)) {
-    const isMatch = safeSecretEqual(tokenStr, link.whatsappOtpHash);
+  if ((link.whatsappOtpHmac || link.whatsappOtpHash) && /^\d{6}$/.test(tokenStr)) {
+    // Check 15-minute expiration
+    if (typeof link.whatsappOtpExpiresAtMillis === "number" && now > link.whatsappOtpExpiresAtMillis) {
+      return {
+        verified: false,
+        status: 403,
+        error: "This 6-digit code has expired. Please ask the sender to generate or share a fresh code.",
+      };
+    }
+
+    // Check single-use
+    if (link.whatsappOtpUsed === true) {
+      return {
+        verified: false,
+        status: 403,
+        error: "This 6-digit code has already been used. Please ask the sender for a new code.",
+      };
+    }
+
+    let isMatch = false;
+    if (link.whatsappOtpHmac) {
+      const computedHmac = computeCodeHmac(tokenStr);
+      isMatch = computedHmac.length === link.whatsappOtpHmac.length &&
+        crypto.timingSafeEqual(Buffer.from(computedHmac, "hex"), Buffer.from(link.whatsappOtpHmac, "hex"));
+    } else if (link.whatsappOtpHash) {
+      isMatch = safeSecretEqual(tokenStr, link.whatsappOtpHash);
+    }
+
     if (!isMatch) {
       const counters = link.attemptCounters || {};
       const newWrongCount = (counters.wrongOtpCount || 0) + 1;
@@ -323,20 +357,21 @@ async function verifyGuestPhoneOtp(db, linkRef, link, guestTokenOrWhatsappOtp, n
       return {
         verified: false,
         status: 403,
-        error: "Incorrect WhatsApp verification code. Please check the 6-digit code sent on WhatsApp.",
+        error: "Incorrect 6-digit code. Please check the code sent to you.",
       };
     }
 
-    // Reset wrong OTP count on success
+    // Reset wrong OTP count on success and mark code as used
     await linkRef.update({
       "attemptCounters.wrongOtpCount": 0,
+      whatsappOtpUsed: true,
       whatsappVerified: true,
       updatedAt: FieldValue.serverTimestamp(),
     });
 
     return {
       verified: true,
-      maskedPhone: link.counterpartyPhoneMasked || "WhatsApp Verified",
+      maskedPhone: link.counterpartyPhoneMasked || "Code checked",
       whatsappVerified: true,
     };
   }
@@ -453,6 +488,7 @@ async function purgeExpiredGuestData(db, storageBucket, now = Date.now()) {
 
 module.exports = {
   safeSecretEqual,
+  computeCodeHmac,
   maskPhoneNumber,
   maskUpiId,
   getCoarseDeviceType,

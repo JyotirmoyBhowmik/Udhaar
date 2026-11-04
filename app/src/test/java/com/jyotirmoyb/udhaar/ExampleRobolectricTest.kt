@@ -47,7 +47,7 @@ class ExampleRobolectricTest {
     @Test
     fun `mainActivity launches and renders dashboard UI without crashing`() {
         composeRule.waitForIdle()
-        composeRule.onNode(androidx.compose.ui.test.hasText("UDHAAR")).assertExists()
+        composeRule.onNode(androidx.compose.ui.test.hasText("Udhaar", ignoreCase = true)).assertExists()
     }
 
     @Test
@@ -202,7 +202,7 @@ class ExampleRobolectricTest {
         assertEquals(5, com.jyotirmoyb.udhaar.ui.theme.AppThemeMode.entries.size)
 
         // Header shows UDHAAR, theme subtitle "Emerald Slate", and single Settings gear icon on right
-        composeRule.onNode(androidx.compose.ui.test.hasText("UDHAAR")).assertExists()
+        composeRule.onNode(androidx.compose.ui.test.hasText("Udhaar", ignoreCase = true)).assertExists()
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("header_theme_subtitle")).assertExists()
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("open_settings_button")).assertExists()
 
@@ -1154,7 +1154,7 @@ class ExampleRobolectricTest {
             BuildConfig.VERSION_NAME,
             BuildConfig.VERSION_CODE
         )
-        assertEquals("UDHAAR LEDGER v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})", aboutVersionText)
+        assertEquals("Udhaar records v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE})", aboutVersionText)
 
         // 2. Room exported schema file 7.json exists
         val schemaCandidates = listOf(

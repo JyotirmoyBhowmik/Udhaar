@@ -392,8 +392,8 @@ fun VerificationShareSheet(
                     OutlinedButton(
                         onClick = {
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText("Udhaar Verification Link", shareLink))
-                            Toast.makeText(context, "Verification link copied!", Toast.LENGTH_SHORT).show()
+                            clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.share_clip_verification_link), shareLink))
+                            Toast.makeText(context, context.getString(R.string.toast_verification_link_copied), Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier
                             .weight(1f)
@@ -970,8 +970,8 @@ fun ShareMyPaymentDetailsSheet(
                     OutlinedButton(
                         onClick = {
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText("Udhaar Payment Profile", profileLink))
-                            Toast.makeText(context, "Payment profile link copied!", Toast.LENGTH_SHORT).show()
+                            clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.share_clip_payment_profile), profileLink))
+                            Toast.makeText(context, context.getString(R.string.toast_payment_profile_copied), Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.weight(1f).height(48.dp),
                         shape = RoundedCornerShape(8.dp),

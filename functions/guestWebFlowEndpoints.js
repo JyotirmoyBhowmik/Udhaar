@@ -5,6 +5,7 @@ const { defineString } = require("firebase-functions/params");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getStorage } = require("firebase-admin/storage");
 const {
+  computeCodeHmac,
   maskPhoneNumber,
   maskUpiId,
   getCoarseDeviceType,
@@ -78,14 +79,19 @@ exports.createGuestWebLink = onCall({ region: "asia-south1" }, async (request) =
     : ["view", "confirm", "dispute", "pay_claim", "propose_date", "show_pay_qr"];
 
   const whatsappOtp = Math.floor(100000 + Math.random() * 900000).toString();
+  const whatsappOtpHmac = computeCodeHmac(whatsappOtp);
   const whatsappOtpHash = crypto.createHash("sha256").update(whatsappOtp).digest("hex");
+  const otpExpiresAtMillis = now + 15 * 60 * 1000; // 15-minute validity
 
   const linkData = {
     recordId,
     creatorUid: request.auth.uid,
     counterpartyRole: counterpartyRole === "LENDER" ? "LENDER" : "BORROWER",
     secretHash: secretHash.trim(),
+    whatsappOtpHmac,
     whatsappOtpHash,
+    whatsappOtpExpiresAtMillis: otpExpiresAtMillis,
+    whatsappOtpUsed: false,
     phoneSalt: (phoneSalt || "").trim(),
     phoneHash: (phoneHash || "").trim(),
     createdAt: FieldValue.serverTimestamp(),
@@ -122,8 +128,65 @@ exports.createGuestWebLink = onCall({ region: "asia-south1" }, async (request) =
     success: true,
     recordId,
     whatsappOtp,
+    whatsappOtpExpiresAtMillis: otpExpiresAtMillis,
     expiresAtMillis,
     trustLevelRequired: trustLevel,
+  };
+});
+
+/**
+ * Callable: Creator renews the 6-digit WhatsApp verification code for a record.
+ * Generates a fresh 15-minute HMAC code and resets failed attempts.
+ */
+exports.renewGuestCode = onCall({ region: "asia-south1" }, async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError("unauthenticated", "User must be authenticated to renew code.");
+  }
+  const { recordId } = request.data || {};
+  if (!recordId || typeof recordId !== "string") {
+    throw new HttpsError("invalid-argument", "Missing recordId.");
+  }
+  const db = getFirestore(DATABASE_ID.value());
+  const linkRef = db.collection("webLinks").doc(recordId);
+  const linkSnap = await linkRef.get();
+  if (!linkSnap.exists) {
+    throw new HttpsError("not-found", "Web link not found.");
+  }
+  const linkData = linkSnap.data();
+  if (linkData.creatorUid !== request.auth.uid) {
+    throw new HttpsError("permission-denied", "Only the record creator can renew the code.");
+  }
+  if (linkData.revoked) {
+    throw new HttpsError("failed-precondition", "Cannot renew code for a revoked link.");
+  }
+
+  const newCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const now = Date.now();
+  const otpExpiresAtMillis = now + 15 * 60 * 1000;
+  const whatsappOtpHmac = computeCodeHmac(newCode);
+  const whatsappOtpHash = crypto.createHash("sha256").update(newCode).digest("hex");
+
+  await linkRef.update({
+    whatsappOtpHmac,
+    whatsappOtpHash,
+    whatsappOtpExpiresAtMillis: otpExpiresAtMillis,
+    whatsappOtpUsed: false,
+    "attemptCounters.wrongOtpCount": 0,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  await writeAuditEntry(db, recordId, {
+    actorType: "creator",
+    eventType: "CODE_RENEWED",
+    summaryText: "Creator renewed 6-digit verification code (valid for 15 minutes)",
+    now,
+  });
+
+  return {
+    success: true,
+    recordId,
+    whatsappOtp: newCode,
+    whatsappOtpExpiresAtMillis: otpExpiresAtMillis,
   };
 });
 

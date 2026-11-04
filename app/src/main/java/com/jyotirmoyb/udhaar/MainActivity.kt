@@ -637,7 +637,7 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                                     onDateRangeFilterChange = viewModel::setDateRangeFilter,
                                     onExportFullLedgerPdf = {
                                         viewModel.generateFullLedgerPdf { file ->
-                                            PdfStatementGenerator.sharePdfFile(context, file, "Udhaar Full Ledger Statement")
+                                            PdfStatementGenerator.sharePdfFile(context, file, context.getString(R.string.pdf_full_ledger_title))
                                         }
                                     },
                                     onToggleHideAmounts = viewModel::toggleHideAmounts,
@@ -726,7 +726,7 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                                                 PdfStatementGenerator.sharePdfFile(
                                                     context = context,
                                                     file = file,
-                                                    subject = "Udhaar Statement - ${selectedKhata.party.name}"
+                                                    subject = "${context.getString(R.string.pdf_party_statement_title)} — ${selectedKhata.party.name}"
                                                 )
                                             }
                                         }

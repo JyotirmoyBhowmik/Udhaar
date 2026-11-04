@@ -10,6 +10,7 @@ import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import androidx.core.content.FileProvider
+import com.jyotirmoyb.udhaar.R
 import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.TransactionType
@@ -23,8 +24,8 @@ import java.util.Locale
 
 /**
  * Generates clean, crisp monochrome PDF statements for:
- * 1. Single Party Khata Statement (with audit trail, verification status, and partial payments).
- * 2. Full Ledger Financial Statement (all parties, totals, and balances).
+ * 1. Single Party Account Statement (with change history, verification status, and partial payments).
+ * 2. Full Records Financial Statement (all parties, totals, and balances).
  */
 object PdfStatementGenerator {
 
@@ -36,7 +37,8 @@ object PdfStatementGenerator {
         canvas: Canvas,
         khata: PartyKhataSummary,
         userSettings: UserSettings,
-        enabledCurrencies: List<CurrencyType>
+        enabledCurrencies: List<CurrencyType>,
+        context: Context? = null
     ) {
         val titlePaint = Paint().apply {
             color = Color.BLACK
@@ -88,12 +90,15 @@ object PdfStatementGenerator {
         var y = MARGIN + 16f
 
         // Header
-        canvas.drawText("UDHAAR — OFFICIAL PARTY LEDGER STATEMENT", MARGIN, y, titlePaint)
+        val titleText = context?.getString(R.string.pdf_party_statement_title) ?: "Udhaar — Account statement"
+        canvas.drawText(titleText, MARGIN, y, titlePaint)
         y += 16f
 
         val sdf = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
         val generatedDateStr = sdf.format(Date())
-        canvas.drawText("Generated on: $generatedDateStr • Cryptographic Audit Trail Included", MARGIN, y, subtextPaint)
+        val subtitleText = context?.getString(R.string.pdf_generated_subtitle, generatedDateStr)
+            ?: "Created on: $generatedDateStr • Includes change history"
+        canvas.drawText(subtitleText, MARGIN, y, subtextPaint)
         y += 12f
 
         canvas.drawLine(MARGIN, y, PAGE_WIDTH - MARGIN, y, linePaint)
@@ -101,45 +106,58 @@ object PdfStatementGenerator {
 
         // Owner & Party Information Box
         val colWidth = (PAGE_WIDTH - 2 * MARGIN) / 2f
-        canvas.drawText("LEDGER OWNER:", MARGIN, y, headerPaint)
-        canvas.drawText("COUNTERPARTY:", MARGIN + colWidth, y, headerPaint)
+        val ownerHeaderText = context?.getString(R.string.pdf_owner_header) ?: "Your details:"
+        val partyHeaderText = context?.getString(R.string.pdf_counterparty_header) ?: "The other person:"
+        canvas.drawText(ownerHeaderText, MARGIN, y, headerPaint)
+        canvas.drawText(partyHeaderText, MARGIN + colWidth, y, headerPaint)
         y += 14f
 
-        val ownerName = userSettings.payeeName.ifBlank { "Ledger Owner" }
-        canvas.drawText("Name:  $ownerName", MARGIN, y, textPaint)
-        canvas.drawText("Name:  ${khata.party.name}", MARGIN + colWidth, y, boldPaint)
+        val ownerName = userSettings.payeeName.ifBlank { "You" }
+        val ownerNameStr = context?.getString(R.string.pdf_name_prefix, ownerName) ?: "Name: $ownerName"
+        val partyNameStr = context?.getString(R.string.pdf_name_prefix, khata.party.name) ?: "Name: ${khata.party.name}"
+        canvas.drawText(ownerNameStr, MARGIN, y, textPaint)
+        canvas.drawText(partyNameStr, MARGIN + colWidth, y, boldPaint)
         y += 12f
 
-        val ownerUpi = userSettings.upiId.takeIf { it.isNotBlank() }?.let { InterestCalculator.maskUpiId(it) } ?: "Not configured"
+        val ownerUpi = userSettings.upiId.takeIf { it.isNotBlank() }?.let { InterestCalculator.maskUpiId(it) } ?: "Not set"
         val partyPhone = khata.party.phoneNumber.takeIf { it.isNotBlank() }?.let { InterestCalculator.maskPhoneNumber(it) } ?: "Not set"
-        canvas.drawText("UPI:   $ownerUpi", MARGIN, y, textPaint)
-        canvas.drawText("Phone: $partyPhone", MARGIN + colWidth, y, textPaint)
+        val ownerUpiStr = context?.getString(R.string.pdf_upi_prefix, ownerUpi) ?: "UPI ID: $ownerUpi"
+        val partyPhoneStr = context?.getString(R.string.pdf_phone_prefix, partyPhone) ?: "Phone: $partyPhone"
+        canvas.drawText(ownerUpiStr, MARGIN, y, textPaint)
+        canvas.drawText(partyPhoneStr, MARGIN + colWidth, y, textPaint)
         y += 12f
 
         val partyUpi = khata.party.upiId.takeIf { it.isNotBlank() }?.let { InterestCalculator.maskUpiId(it) } ?: "Not set"
-        val verifiedStatus = if (khata.party.linkedUserId.isNotBlank()) "VERIFIED ON UDHAAR" else "LOCAL ONLY"
-        val ownerPhone = userSettings.phoneNumber.takeIf { it.isNotBlank() }?.let { InterestCalculator.maskPhoneNumber(it) } ?: "N/A"
-        canvas.drawText("Phone: $ownerPhone", MARGIN, y, textPaint)
-        canvas.drawText("UPI:   $partyUpi ($verifiedStatus)", MARGIN + colWidth, y, textPaint)
+        val verifiedStatus = if (khata.party.linkedUserId.isNotBlank()) "Verified" else "Local only"
+        val ownerPhone = userSettings.phoneNumber.takeIf { it.isNotBlank() }?.let { InterestCalculator.maskPhoneNumber(it) } ?: "Not set"
+        val ownerPhoneStr = context?.getString(R.string.pdf_phone_prefix, ownerPhone) ?: "Phone: $ownerPhone"
+        val partyUpiStr = context?.getString(R.string.pdf_upi_prefix, "$partyUpi ($verifiedStatus)") ?: "UPI ID: $partyUpi ($verifiedStatus)"
+        canvas.drawText(ownerPhoneStr, MARGIN, y, textPaint)
+        canvas.drawText(partyUpiStr, MARGIN + colWidth, y, textPaint)
         y += 16f
 
         canvas.drawLine(MARGIN, y, PAGE_WIDTH - MARGIN, y, lightLinePaint)
         y += 16f
 
         // Net Balances Summary
-        canvas.drawText("NET BALANCE SUMMARY:", MARGIN, y, headerPaint)
+        val balanceSummaryHeader = context?.getString(R.string.pdf_balance_summary) ?: "Total balance:"
+        canvas.drawText(balanceSummaryHeader, MARGIN, y, headerPaint)
         y += 14f
 
         if (CurrencyType.INR in enabledCurrencies) {
             val formatted = InterestCalculator.formatCurrency(khata.inrNet, CurrencyType.INR)
-            val direction = if (khata.inrNet >= 0) "TO RECEIVE" else "TO PAY"
-            canvas.drawText("INR Balance: $formatted ($direction)", MARGIN, y, boldPaint)
+            val direction = if (khata.inrNet >= 0) "To receive" else "To pay"
+            val inrBalText = context?.getString(R.string.pdf_inr_balance, formatted, direction)
+                ?: "INR balance: $formatted ($direction)"
+            canvas.drawText(inrBalText, MARGIN, y, boldPaint)
             y += 12f
         }
         if (CurrencyType.NPR in enabledCurrencies) {
             val formatted = InterestCalculator.formatCurrency(khata.nprNet, CurrencyType.NPR)
-            val direction = if (khata.nprNet >= 0) "TO RECEIVE" else "TO PAY"
-            canvas.drawText("NPR Balance: $formatted ($direction)", MARGIN, y, boldPaint)
+            val direction = if (khata.nprNet >= 0) "To receive" else "To pay"
+            val nprBalText = context?.getString(R.string.pdf_npr_balance, formatted, direction)
+                ?: "NPR balance: $formatted ($direction)"
+            canvas.drawText(nprBalText, MARGIN, y, boldPaint)
             y += 12f
         }
         y += 8f
@@ -148,11 +166,17 @@ object PdfStatementGenerator {
         y += 14f
 
         // Table Header
-        canvas.drawText("DATE", MARGIN, y, headerPaint)
-        canvas.drawText("TYPE", MARGIN + 70f, y, headerPaint)
-        canvas.drawText("DESCRIPTION / REASON", MARGIN + 130f, y, headerPaint)
-        canvas.drawText("DUE DATE", MARGIN + 330f, y, headerPaint)
-        canvas.drawText("NET DUE", MARGIN + 430f, y, headerPaint)
+        val colDate = context?.getString(R.string.pdf_col_date) ?: "Date"
+        val colType = context?.getString(R.string.pdf_col_type) ?: "Type"
+        val colDesc = context?.getString(R.string.pdf_col_description) ?: "Description"
+        val colDueDate = context?.getString(R.string.pdf_col_due_date) ?: "Due date"
+        val colNetDue = context?.getString(R.string.pdf_col_net_due) ?: "Amount due"
+
+        canvas.drawText(colDate, MARGIN, y, headerPaint)
+        canvas.drawText(colType, MARGIN + 70f, y, headerPaint)
+        canvas.drawText(colDesc, MARGIN + 130f, y, headerPaint)
+        canvas.drawText(colDueDate, MARGIN + 330f, y, headerPaint)
+        canvas.drawText(colNetDue, MARGIN + 430f, y, headerPaint)
         y += 6f
         canvas.drawLine(MARGIN, y, PAGE_WIDTH - MARGIN, y, lightLinePaint)
         y += 14f
@@ -162,7 +186,7 @@ object PdfStatementGenerator {
         for (item in khata.transactions.take(18)) {
             val tx = item.transaction
             val dateStr = itemDateSdf.format(Date(tx.createdAtMillis))
-            val typeStr = if (tx.transactionType == TransactionType.GIVEN) "GIVEN" else "TAKEN"
+            val typeStr = if (tx.transactionType == TransactionType.GIVEN) "Given" else "Taken"
             val descStr = tx.notes.ifBlank { "Udhaar entry" }.take(28)
             val exp = tx.expiryDateMillis
             val dueStr = if (exp != null && exp > 0) itemDateSdf.format(Date(exp)) else "None"
@@ -179,7 +203,7 @@ object PdfStatementGenerator {
                 val shortHash = tx.contentHash.take(16) + "…"
                 val trustStr = if (tx.trustLevel.isNotBlank()) " • ${tx.trustLevel}" else ""
                 val webStr = if (tx.webLinkStatus.isNotBlank()) " • Web: ${tx.webLinkStatus}" else ""
-                val verifyStr = "Status: ${tx.verificationStatus.label.uppercase()}$trustStr$webStr • SHA-256: $shortHash"
+                val verifyStr = "Status: ${tx.verificationStatus.label}$trustStr$webStr • Record fingerprint: $shortHash"
                 canvas.drawText(verifyStr, MARGIN + 130f, y, subtextPaint)
                 y += 12f
             }
@@ -192,9 +216,13 @@ object PdfStatementGenerator {
         y = PAGE_HEIGHT - MARGIN - 20f
         canvas.drawLine(MARGIN, y, PAGE_WIDTH - MARGIN, y, linePaint)
         y += 12f
-        canvas.drawText("This statement is generated by Udhaar. Cryptographic records ensure dispute-free ledger reconciliation.", MARGIN, y, subtextPaint)
+        val footerNoteText = context?.getString(R.string.pdf_footer_note)
+            ?: "This statement is created by Udhaar. Clear records help prevent misunderstandings."
+        canvas.drawText(footerNoteText, MARGIN, y, subtextPaint)
         y += 10f
-        canvas.drawText("Verify online or link records via https://udhaar.jyotirmoyb.com/u/ • Page 1 of 1", MARGIN, y, subtextPaint)
+        val footerLinkText = context?.getString(R.string.pdf_footer_link)
+            ?: "Check online or link records at https://udhaar.jyotirmoyb.com/u/ • Page 1 of 1"
+        canvas.drawText(footerLinkText, MARGIN, y, subtextPaint)
     }
 
     private fun drawInstallmentStatementOnCanvas(
@@ -202,7 +230,8 @@ object PdfStatementGenerator {
         tx: com.jyotirmoyb.udhaar.data.UdhaarTransaction,
         plan: com.jyotirmoyb.udhaar.data.InstallmentPlan,
         installments: List<com.jyotirmoyb.udhaar.data.Installment>,
-        userSettings: UserSettings
+        userSettings: UserSettings,
+        context: Context? = null
     ) {
         val titlePaint = Paint().apply {
             color = Color.BLACK
@@ -252,37 +281,54 @@ object PdfStatementGenerator {
         canvas.drawColor(Color.WHITE)
         var y = MARGIN + 16f
 
-        canvas.drawText("UDHAAR — INSTALLMENT REPAYMENT SCHEDULE", MARGIN, y, titlePaint)
+        val schedTitle = context?.getString(R.string.pdf_installment_schedule_title) ?: "Udhaar — Payment schedule"
+        canvas.drawText(schedTitle, MARGIN, y, titlePaint)
         y += 14f
 
         val sdf = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
         val generatedDateStr = sdf.format(Date())
-        canvas.drawText("Generated on: $generatedDateStr • Frequency: ${plan.frequency.label} • ${plan.installmentCount} Parts", MARGIN, y, subtextPaint)
+        val schedSubtitle = context?.getString(
+            R.string.pdf_installment_subtitle,
+            generatedDateStr,
+            plan.frequency.label,
+            plan.installmentCount.toString()
+        ) ?: "Created on: $generatedDateStr • ${plan.frequency.label} • ${plan.installmentCount} parts"
+        canvas.drawText(schedSubtitle, MARGIN, y, subtextPaint)
         y += 14f
 
         canvas.drawLine(MARGIN, y, PAGE_WIDTH - MARGIN, y, linePaint)
         y += 14f
 
         val colWidth = (PAGE_WIDTH - 2 * MARGIN) / 2f
-        canvas.drawText("PARTY: ${tx.partyName}", MARGIN, y, headerPaint)
-        val roleStr = if (tx.transactionType == TransactionType.GIVEN) "LENDER (TO RECEIVE)" else "BORROWER (TO PAY)"
-        canvas.drawText("ROLE: $roleStr", MARGIN + colWidth, y, headerPaint)
+        val partyLabel = context?.getString(R.string.pdf_party_label, tx.partyName) ?: "Person: ${tx.partyName}"
+        canvas.drawText(partyLabel, MARGIN, y, headerPaint)
+        val roleStr = if (tx.transactionType == TransactionType.GIVEN) "Lender (to receive)" else "Borrower (to pay)"
+        val roleLabel = context?.getString(R.string.pdf_role_label, roleStr) ?: "Type: $roleStr"
+        canvas.drawText(roleLabel, MARGIN + colWidth, y, headerPaint)
         y += 12f
 
         val totalAmt = tx.currency.symbol + InterestCalculator.formatAmount(InstallmentCalculator.paiseToDouble(plan.totalAmountDue))
-        canvas.drawText("TOTAL SCHEDULED: $totalAmt", MARGIN, y, boldPaint)
-        canvas.drawText("INTEREST MODE: ${plan.interestMode.label}", MARGIN + colWidth, y, textPaint)
+        val totalSched = context?.getString(R.string.pdf_total_scheduled, totalAmt) ?: "Total: $totalAmt"
+        val interestMode = context?.getString(R.string.pdf_interest_mode_label, plan.interestMode.label) ?: "Type of interest: ${plan.interestMode.label}"
+        canvas.drawText(totalSched, MARGIN, y, boldPaint)
+        canvas.drawText(interestMode, MARGIN + colWidth, y, textPaint)
         y += 14f
 
         canvas.drawLine(MARGIN, y, PAGE_WIDTH - MARGIN, y, linePaint)
         y += 14f
 
         // Table Header
-        canvas.drawText("SEQ", MARGIN, y, headerPaint)
-        canvas.drawText("DUE DATE", MARGIN + 40f, y, headerPaint)
-        canvas.drawText("AMOUNT DUE", MARGIN + 140f, y, headerPaint)
-        canvas.drawText("AMOUNT PAID", MARGIN + 260f, y, headerPaint)
-        canvas.drawText("STATUS", MARGIN + 380f, y, headerPaint)
+        val colSeq = context?.getString(R.string.pdf_col_seq) ?: "No."
+        val colDueDate = context?.getString(R.string.pdf_col_due_date) ?: "Due date"
+        val colAmountDue = context?.getString(R.string.pdf_col_amount_due) ?: "Amount due"
+        val colAmountPaid = context?.getString(R.string.pdf_col_amount_paid) ?: "Amount paid"
+        val colStatus = context?.getString(R.string.pdf_col_status) ?: "Status"
+
+        canvas.drawText(colSeq, MARGIN, y, headerPaint)
+        canvas.drawText(colDueDate, MARGIN + 40f, y, headerPaint)
+        canvas.drawText(colAmountDue, MARGIN + 140f, y, headerPaint)
+        canvas.drawText(colAmountPaid, MARGIN + 260f, y, headerPaint)
+        canvas.drawText(colStatus, MARGIN + 380f, y, headerPaint)
         y += 6f
         canvas.drawLine(MARGIN, y, PAGE_WIDTH - MARGIN, y, lightLinePaint)
         y += 14f
@@ -307,7 +353,9 @@ object PdfStatementGenerator {
         canvas.drawLine(MARGIN, y, PAGE_WIDTH - MARGIN, y, linePaint)
         y += 12f
         val hashStr = tx.contentHash.take(16).ifBlank { "verified" }
-        canvas.drawText("Udhaar Installment Plan • Content Hash: $hashStr • Page 1 of 1", MARGIN, y, subtextPaint)
+        val footer = context?.getString(R.string.pdf_installment_footer, hashStr)
+            ?: "Udhaar payment plan • Record fingerprint: $hashStr • Page 1 of 1"
+        canvas.drawText(footer, MARGIN, y, subtextPaint)
     }
 
     private fun drawFullLedgerOnCanvas(
@@ -315,7 +363,8 @@ object PdfStatementGenerator {
         parties: List<PartyEntity>,
         khataList: List<PartyKhataSummary>,
         userSettings: UserSettings,
-        enabledCurrencies: List<CurrencyType>
+        enabledCurrencies: List<CurrencyType>,
+        context: Context? = null
     ) {
         val titlePaint = Paint().apply {
             color = Color.BLACK
@@ -366,13 +415,16 @@ object PdfStatementGenerator {
 
         var y = MARGIN + 16f
 
-        canvas.drawText("UDHAAR — COMPLETE LEDGER FINANCIAL STATEMENT", MARGIN, y, titlePaint)
+        val fullTitle = context?.getString(R.string.pdf_full_ledger_title) ?: "Udhaar — All records summary"
+        canvas.drawText(fullTitle, MARGIN, y, titlePaint)
         y += 15f
 
         val sdf = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault())
         val generatedDateStr = sdf.format(Date())
-        val ownerName = userSettings.payeeName.ifBlank { "Ledger Owner" }
-        canvas.drawText("Owner: $ownerName • Generated: $generatedDateStr • ${parties.size} Parties", MARGIN, y, subtextPaint)
+        val ownerName = userSettings.payeeName.ifBlank { "You" }
+        val fullSubtitle = context?.getString(R.string.pdf_full_ledger_subtitle, ownerName, generatedDateStr, parties.size.toString())
+            ?: "Your name: $ownerName • Created: $generatedDateStr • ${parties.size} people"
+        canvas.drawText(fullSubtitle, MARGIN, y, subtextPaint)
         y += 12f
 
         canvas.drawLine(MARGIN, y, PAGE_WIDTH - MARGIN, y, linePaint)
@@ -391,12 +443,13 @@ object PdfStatementGenerator {
             grandTakenNpr += k.nprToPay
         }
 
-        canvas.drawText("OVERALL LEDGER POSITION:", MARGIN, y, headerPaint)
+        val overallPosHeader = context?.getString(R.string.pdf_overall_position) ?: "Total balance summary:"
+        canvas.drawText(overallPosHeader, MARGIN, y, headerPaint)
         y += 13f
 
         if (CurrencyType.INR in enabledCurrencies) {
             val netInr = grandGivenInr - grandTakenInr
-            val dir = if (netInr >= 0) "TO RECEIVE" else "TO PAY"
+            val dir = if (netInr >= 0) "To receive" else "To pay"
             val inrStr = "INR: Given: ${InterestCalculator.formatCurrency(grandGivenInr, CurrencyType.INR)} | Taken: ${InterestCalculator.formatCurrency(grandTakenInr, CurrencyType.INR)} | Net: ${InterestCalculator.formatCurrency(netInr, CurrencyType.INR)} ($dir)"
             canvas.drawText(inrStr, MARGIN, y, boldPaint)
             y += 12f
@@ -404,7 +457,7 @@ object PdfStatementGenerator {
 
         if (CurrencyType.NPR in enabledCurrencies) {
             val netNpr = grandGivenNpr - grandTakenNpr
-            val dir = if (netNpr >= 0) "TO RECEIVE" else "TO PAY"
+            val dir = if (netNpr >= 0) "To receive" else "To pay"
             val nprStr = "NPR: Given: ${InterestCalculator.formatCurrency(grandGivenNpr, CurrencyType.NPR)} | Taken: ${InterestCalculator.formatCurrency(grandTakenNpr, CurrencyType.NPR)} | Net: ${InterestCalculator.formatCurrency(netNpr, CurrencyType.NPR)} ($dir)"
             canvas.drawText(nprStr, MARGIN, y, boldPaint)
             y += 12f
@@ -415,11 +468,17 @@ object PdfStatementGenerator {
         y += 14f
 
         // Table Header
-        canvas.drawText("PARTY NAME", MARGIN, y, headerPaint)
-        canvas.drawText("PHONE", MARGIN + 150f, y, headerPaint)
-        canvas.drawText("RECORDS", MARGIN + 270f, y, headerPaint)
-        canvas.drawText("NET INR", MARGIN + 340f, y, headerPaint)
-        canvas.drawText("NET NPR", MARGIN + 430f, y, headerPaint)
+        val colPartyName = context?.getString(R.string.pdf_col_party_name) ?: "Name"
+        val colPhone = context?.getString(R.string.receipt_contact_phone_label) ?: "Phone"
+        val colRecords = context?.getString(R.string.pdf_col_records_count) ?: "Records"
+        val colNetInr = context?.getString(R.string.pdf_col_net_inr) ?: "INR balance"
+        val colNetNpr = context?.getString(R.string.pdf_col_net_npr) ?: "NPR balance"
+
+        canvas.drawText(colPartyName, MARGIN, y, headerPaint)
+        canvas.drawText(colPhone, MARGIN + 150f, y, headerPaint)
+        canvas.drawText(colRecords, MARGIN + 270f, y, headerPaint)
+        canvas.drawText(colNetInr, MARGIN + 340f, y, headerPaint)
+        canvas.drawText(colNetNpr, MARGIN + 430f, y, headerPaint)
         y += 6f
         canvas.drawLine(MARGIN, y, PAGE_WIDTH - MARGIN, y, lightLinePaint)
         y += 14f
@@ -448,9 +507,13 @@ object PdfStatementGenerator {
         y = PAGE_HEIGHT - MARGIN - 20f
         canvas.drawLine(MARGIN, y, PAGE_WIDTH - MARGIN, y, linePaint)
         y += 12f
-        canvas.drawText("Udhaar Complete Ledger Export • Exported from Android Device Storage", MARGIN, y, subtextPaint)
+        val footer1 = context?.getString(R.string.pdf_full_ledger_footer_1)
+            ?: "Udhaar full records export • Saved from your phone"
+        canvas.drawText(footer1, MARGIN, y, subtextPaint)
         y += 10f
-        canvas.drawText("Page 1 of 1 • All transactions encrypted & backed up under Google Drive appdata", MARGIN, y, subtextPaint)
+        val footer2 = context?.getString(R.string.pdf_full_ledger_footer_2)
+            ?: "Page 1 of 1 • All records locked on your phone and backed up to your Google Drive"
+        canvas.drawText(footer2, MARGIN, y, subtextPaint)
     }
 
     fun generatePartyStatementPdf(
@@ -467,7 +530,7 @@ object PdfStatementGenerator {
             val document = PdfDocument()
             val pageInfo = PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, 1).create()
             val page = document.startPage(pageInfo)
-            drawPartyStatementOnCanvas(page.canvas, khata, userSettings, enabledCurrencies)
+            drawPartyStatementOnCanvas(page.canvas, khata, userSettings, enabledCurrencies, context)
             document.finishPage(page)
             FileOutputStream(file).use { out ->
                 document.writeTo(out)
@@ -477,7 +540,7 @@ object PdfStatementGenerator {
             // Fallback for headless JVM / Robolectric where native PdfDocument Ptr is 0
             val bmp = Bitmap.createBitmap(PAGE_WIDTH, PAGE_HEIGHT, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bmp)
-            drawPartyStatementOnCanvas(canvas, khata, userSettings, enabledCurrencies)
+            drawPartyStatementOnCanvas(canvas, khata, userSettings, enabledCurrencies, context)
             FileOutputStream(file).use { out ->
                 out.write("%PDF-1.4\n%Udhaar Statement Fallback PDF\n".toByteArray(Charsets.UTF_8))
                 bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
@@ -500,7 +563,7 @@ object PdfStatementGenerator {
             val document = PdfDocument()
             val pageInfo = PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, 1).create()
             val page = document.startPage(pageInfo)
-            drawFullLedgerOnCanvas(page.canvas, parties, khataList, userSettings, enabledCurrencies)
+            drawFullLedgerOnCanvas(page.canvas, parties, khataList, userSettings, enabledCurrencies, context)
             document.finishPage(page)
             FileOutputStream(file).use { out ->
                 document.writeTo(out)
@@ -509,7 +572,7 @@ object PdfStatementGenerator {
         } catch (_: Throwable) {
             val bmp = Bitmap.createBitmap(PAGE_WIDTH, PAGE_HEIGHT, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bmp)
-            drawFullLedgerOnCanvas(canvas, parties, khataList, userSettings, enabledCurrencies)
+            drawFullLedgerOnCanvas(canvas, parties, khataList, userSettings, enabledCurrencies, context)
             FileOutputStream(file).use { out ->
                 out.write("%PDF-1.4\n%Udhaar Full Ledger Statement Fallback PDF\n".toByteArray(Charsets.UTF_8))
                 bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
@@ -533,7 +596,7 @@ object PdfStatementGenerator {
             val document = PdfDocument()
             val pageInfo = PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, 1).create()
             val page = document.startPage(pageInfo)
-            drawInstallmentStatementOnCanvas(page.canvas, tx, plan, installments, userSettings)
+            drawInstallmentStatementOnCanvas(page.canvas, tx, plan, installments, userSettings, context)
             document.finishPage(page)
             FileOutputStream(file).use { out ->
                 document.writeTo(out)
@@ -542,7 +605,7 @@ object PdfStatementGenerator {
         } catch (_: Throwable) {
             val bmp = Bitmap.createBitmap(PAGE_WIDTH, PAGE_HEIGHT, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bmp)
-            drawInstallmentStatementOnCanvas(canvas, tx, plan, installments, userSettings)
+            drawInstallmentStatementOnCanvas(canvas, tx, plan, installments, userSettings, context)
             FileOutputStream(file).use { out ->
                 out.write("%PDF-1.4\n%Udhaar Installment Statement Fallback PDF\n".toByteArray(Charsets.UTF_8))
                 bmp.compress(Bitmap.CompressFormat.PNG, 100, out)

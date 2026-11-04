@@ -157,17 +157,27 @@ Once running:
 - **Emulator UI:** `http://localhost:4000`
 
 ### Running the Automated Test Suites
-Run the Node.js test runner for security rules, crypto, state machine, and client UI:
-```bash
-npm test --prefix functions
-```
-Expected output: **33 passing tests (0 failures)**.
 
-Run the Android test suite:
-```powershell
-.\gradlew testDebugUnitTest
-```
-Expected output: **All tests passing (0 failures)**.
+1. **Internationalization & Plain-Language Linter:**
+   Validates that all Android string files (`values`, `values-hi`, `values-bn`, `values-as`, `values-ne`) and web dictionaries (`web/landing.js`, `web/u/guest.js`) have 100% complete coverage, zero untranslated English strings, zero banned technical jargon words, and zero disallowed ALL CAPS:
+   ```bash
+   npm run check:i18n --prefix functions
+   ```
+   Expected output: **🎉 SUCCESS: All 5 languages verified! Zero missing keys, zero untranslated text, zero jargon!**
+
+2. **Backend, Security Rules, Web Flow & Playwright E2E Suite:**
+   Runs unit tests, security rules validation, and full browser automated tests across all 5 languages at 360px mobile and desktop viewports, axe-core accessibility audits, and Lighthouse checks:
+   ```bash
+   npm test --prefix functions
+   ```
+   Expected output: **62 passing tests (0 failures)**.
+
+3. **Android Unit & Robolectric Suite:**
+   Validates database migrations, crypto operations, view models, and UI contracts:
+   ```powershell
+   .\gradlew testDebugUnitTest
+   ```
+   Expected output: **BUILD SUCCESSFUL (all unit and Robolectric tests passing, 0 failures)**.
 
 ---
 

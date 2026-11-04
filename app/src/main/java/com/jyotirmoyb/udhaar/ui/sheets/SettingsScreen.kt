@@ -209,7 +209,7 @@ fun SettingsScreen(
                 closeAfterSave
             )
             if (closeAfterSave) {
-                Toast.makeText(context, "Settings saved", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.toast_settings_saved), Toast.LENGTH_SHORT).show()
             }
         }
     }

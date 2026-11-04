@@ -463,7 +463,7 @@ fun WhatsAppReminderModal(
                                     }
                                     context.startActivity(smsIntent)
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, "Could not open SMS", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.toast_could_not_open_sms), Toast.LENGTH_SHORT).show()
                                 }
                                 onDismiss()
                             },
@@ -482,7 +482,7 @@ fun WhatsAppReminderModal(
                             onClick = {
                                 onRecordReminderEvent?.invoke(selectedLevel.levelNumber, ReminderChannel.CLIPBOARD)
                                 val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                cm.setPrimaryClip(ClipData.newPlainText("Udhaar Reminder", editableMessage))
+                                cm.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.share_clip_reminder), editableMessage))
                                 Toast.makeText(context, context.getString(R.string.copied_to_clipboard), Toast.LENGTH_SHORT).show()
                                 onDismiss()
                             },

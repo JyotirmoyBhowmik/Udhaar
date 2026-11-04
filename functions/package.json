@@ -7,11 +7,17 @@
   },
   "main": "index.js",
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "test:playwright": "node test/playwright_e2e.test.js",
+    "check:i18n": "node check_i18n.js"
   },
   "dependencies": {
     "firebase-admin": "^12.6.0",
     "firebase-functions": "^6.1.0",
     "qrcode-generator": "^2.0.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "axe-core": "^4.14.0"
   }
 }

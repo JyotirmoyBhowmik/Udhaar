@@ -1132,8 +1132,132 @@ class ExampleUnitTest {
         )
         assertFalse("Rendered message should have no unresolved placeholders", rendered.contains("{"))
     }
+
+    @Test
+    fun plainLanguageStyleGuide_andNoBannedWordsOrAllCapsRemain() {
+        val resDir = listOf(
+            java.io.File("src/main/res"),
+            java.io.File("app/src/main/res"),
+            java.io.File("../app/src/main/res")
+        ).firstOrNull { it.exists() && it.isDirectory }
+            ?: error("Could not locate res directory")
+
+        val allowList = setOf("UPI", "INR", "NPR", "OTP", "PDF", "QR", "OK", "SMS", "ID", "JSON", "CSV", "PIN", "APP")
+        val bannedWords = listOf(
+            "hash", "sha-256", "e.164", "keystore", "sqlcipher", "payload",
+            "token", "counterparty", "audit", "vpa", "principal", "amend",
+            "ledger", "immutable", "cryptographic"
+        )
+
+        val stringXmlRegex = Regex("""<string\s+name="([^"]+)"(?:\s+translatable="([^"]+)")?[^>]*>(.*?)</string>""", RegexOption.DOT_MATCHES_ALL)
+
+        val enFile = java.io.File(resDir, "values/strings.xml")
+        assertTrue("values/strings.xml must exist", enFile.exists())
+        val enContent = enFile.readText()
+
+        data class StringEntry(val key: String, val text: String, val translatable: Boolean)
+        val enStrings = mutableMapOf<String, StringEntry>()
+        stringXmlRegex.findAll(enContent).forEach { match ->
+            val key = match.groupValues[1]
+            val translatable = match.groupValues[2] != "false"
+            val text = match.groupValues[3]
+            enStrings[key] = StringEntry(key, text, translatable)
+        }
+
+        // 1. No user-visible strings are ALL CAPS outside allow-list
+        val allCapsFailures = mutableListOf<String>()
+        enStrings.values.filter { it.translatable }.forEach { entry ->
+            val clean = entry.text.replace(Regex("""%[0-9]*\$?[a-zA-Z]"""), "")
+                .replace(Regex("""&[a-z]+;"""), "")
+                .replace(Regex("""\\['"]"""), "")
+            val letters = clean.filter { it.isLetter() }
+            if (letters.length >= 3 && letters == letters.uppercase()) {
+                val words = clean.split(Regex("""[^a-zA-Z0-9]+""")).filter { it.any { c -> c.isLetter() } }
+                val allAllowed = words.all { it.uppercase() in allowList }
+                if (!allAllowed) {
+                    allCapsFailures.add("${entry.key}: \"${entry.text}\"")
+                }
+            }
+        }
+        assertTrue("No user-visible strings should be ALL CAPS (found: $allCapsFailures)", allCapsFailures.isEmpty())
+
+        // 2. No banned words in visible strings across all locales
+        val bannedFailures = mutableListOf<String>()
+        val locales = listOf("values", "values-hi", "values-bn", "values-as", "values-ne")
+        locales.forEach { loc ->
+            val file = java.io.File(resDir, "$loc/strings.xml")
+            if (file.exists()) {
+                stringXmlRegex.findAll(file.readText()).forEach { match ->
+                    val key = match.groupValues[1]
+                    val translatable = match.groupValues[2] != "false"
+                    val text = match.groupValues[3]
+                    if (translatable) {
+                        bannedWords.forEach { bw ->
+                            val r = Regex("""\b$bw\b""", RegexOption.IGNORE_CASE)
+                            if (r.containsMatchIn(text)) {
+                                bannedFailures.add("$loc / $key: contains '$bw' in \"$text\"")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assertTrue("No banned words should appear in visible strings (found: $bannedFailures)", bannedFailures.isEmpty())
+
+        // 3. No untranslated keys in values-hi, values-bn, values-as, values-ne
+        val untranslatedFailures = mutableListOf<String>()
+        listOf("values-hi", "values-bn", "values-as", "values-ne").forEach { loc ->
+            val file = java.io.File(resDir, "$loc/strings.xml")
+            assertTrue("$loc/strings.xml must exist", file.exists())
+            val locMap = stringXmlRegex.findAll(file.readText()).associate {
+                it.groupValues[1] to StringEntry(it.groupValues[1], it.groupValues[3], it.groupValues[2] != "false")
+            }
+
+            enStrings.values.filter { it.translatable }.forEach { enEntry ->
+                val locEntry = locMap[enEntry.key]
+                if (locEntry == null) {
+                    untranslatedFailures.add("$loc missing key: ${enEntry.key}")
+                } else if (locEntry.text.isBlank()) {
+                    untranslatedFailures.add("$loc blank key: ${enEntry.key}")
+                } else if (locEntry.text.trim() == enEntry.text.trim()) {
+                    val cleanLetters = locEntry.text.replace(Regex("""%[0-9]*\$?[a-zA-Z]"""), "").filter { it.isLetter() }
+                    if (cleanLetters.isNotEmpty() && cleanLetters.uppercase() !in allowList) {
+                        untranslatedFailures.add("$loc identical to English: ${enEntry.key} => \"${locEntry.text}\"")
+                    }
+                }
+            }
+        }
+        assertTrue("No untranslated strings outside allow-list (found: $untranslatedFailures)", untranslatedFailures.isEmpty())
+
+        // 4. Zero hardcoded UI literals in Kotlin UI files
+        val uiDir = listOf(
+            java.io.File("src/main/java/com/jyotirmoyb/udhaar/ui"),
+            java.io.File("app/src/main/java/com/jyotirmoyb/udhaar/ui"),
+            java.io.File("../app/src/main/java/com/jyotirmoyb/udhaar/ui")
+        ).firstOrNull { it.exists() && it.isDirectory }
+            ?: error("Could not locate ui directory")
+
+        val uiLiterals = mutableListOf<String>()
+        val textRegex = Regex("""\bText\(\s*(?:text\s*=\s*)?"([^"$]+)"""")
+        val toastRegex = Regex("""Toast\.makeText\([^,]+,\s*"([^"$]+)"""")
+        val clipRegex = Regex("""ClipData\.newPlainText\(\s*"([^"$]+)"""")
+
+        uiDir.walkTopDown().filter { it.extension == "kt" }.forEach { ktFile ->
+            ktFile.readLines().forEachIndexed { lineNum, line ->
+                textRegex.find(line)?.let { m ->
+                    val text = m.groupValues[1].trim()
+                    if (text.isNotEmpty() && !text.startsWith("test_") && !text.all { it in "• -/\\,.:|0123456789" }) {
+                        uiLiterals.add("${ktFile.name}:${lineNum + 1} Text: $text")
+                    }
+                }
+                toastRegex.find(line)?.let { m ->
+                    uiLiterals.add("${ktFile.name}:${lineNum + 1} Toast: ${m.groupValues[1]}")
+                }
+                clipRegex.find(line)?.let { m ->
+                    uiLiterals.add("${ktFile.name}:${lineNum + 1} ClipData: ${m.groupValues[1]}")
+                }
+            }
+        }
+        assertTrue("No hardcoded UI literals in Kotlin UI files (found: $uiLiterals)", uiLiterals.isEmpty())
+    }
 }
-
-
-
-

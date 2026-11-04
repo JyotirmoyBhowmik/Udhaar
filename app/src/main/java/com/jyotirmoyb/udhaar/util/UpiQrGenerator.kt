@@ -19,12 +19,12 @@ import java.io.FileOutputStream
 object UpiQrGenerator {
 
     data class UpiQrCardStrings(
-        val headerTitle: String = "UDHAAR • UPI SETTLEMENT",
+        val headerTitle: String = "Udhaar • UPI payment",
         val defaultPayeeName: String = "Udhaar Account",
-        val vpaPrefix: String = "VPA:",
-        val amountDuePrefix: String = "AMOUNT DUE:",
-        val scanWithUpiApps: String = "SCAN WITH GPAY / PHONEPE / PAYTM",
-        val forPartyPrefix: String = "FOR:",
+        val vpaPrefix: String = "UPI ID:",
+        val amountDuePrefix: String = "Amount due:",
+        val scanWithUpiApps: String = "Scan with any UPI app",
+        val forPartyPrefix: String = "For:",
         val supportedAppsFooter: String = "GPay • PhonePe • Paytm • BHIM UPI",
         val shareChooserTitle: String = "Share UPI QR Code"
     ) {

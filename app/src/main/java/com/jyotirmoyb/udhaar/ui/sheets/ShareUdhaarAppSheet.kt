@@ -189,8 +189,8 @@ fun ShareUdhaarAppModal(
                 OutlinedButton(
                     onClick = {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("Udhaar App Link", shareMessage))
-                        Toast.makeText(context, "App invite message copied!", Toast.LENGTH_SHORT).show()
+                        clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.share_clip_app_link), shareMessage))
+                        Toast.makeText(context, context.getString(R.string.toast_app_invite_copied), Toast.LENGTH_SHORT).show()
                     },
                     modifier = Modifier
                         .fillMaxWidth()

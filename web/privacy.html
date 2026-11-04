@@ -1,252 +1,465 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="system">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Privacy Policy &amp; Data Deletion — Udhaar (com.jyotirmoyb.udhaar)</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <title>Privacy Policy &amp; Data Deletion — Udhaar</title>
+  <meta name="description" content="Plain-language privacy policy, data storage details, and instant deletion request form for Udhaar." />
+  <meta name="theme-color" content="#064E3B" />
+  <meta name="color-scheme" content="light dark" />
+
+  <link rel="canonical" href="https://udhaar.jyotirmoyb.com/privacy.html" />
+  <link rel="icon" type="image/png" href="/assets/hero-3d-phone.png" />
+  <link rel="stylesheet" href="landing.css" />
+
   <style>
-    :root {
-      --bg: #ffffff;
-      --fg: #000000;
-      --muted: #525252;
-      --border: #000000;
-      --hairline: #e5e5e5;
-      --surface: #f7f7f7;
+    .privacy-container {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 20px 80px;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background: var(--bg);
-      color: var(--fg);
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      line-height: 1.65;
-      padding: 32px 20px 80px;
+
+    .in-short-box {
+      background: var(--primary-surface);
+      border: 2px solid var(--primary-accent);
+      border-radius: var(--radius-lg);
+      padding: 24px 28px;
+      margin-bottom: 36px;
+      box-shadow: var(--shadow-sm);
     }
-    .container {
-      max-width: 820px;
-      margin: 0 auto;
-      border: 2px solid var(--border);
-      padding: 32px 28px;
-      background: var(--bg);
-    }
-    .badge {
-      display: inline-block;
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      padding: 4px 10px;
-      background: var(--fg);
-      color: var(--bg);
-      margin-bottom: 14px;
-    }
-    h1 {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 28px;
-      line-height: 1.2;
-      letter-spacing: -0.02em;
+
+    .in-short-title {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--primary);
       margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
-    .meta {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 12px;
-      color: var(--muted);
-      padding-bottom: 20px;
-      border-bottom: 1px solid var(--hairline);
-      margin-bottom: 24px;
+
+    .in-short-text {
+      font-size: 1.05rem;
+      line-height: 1.6;
+      color: var(--text-main);
     }
-    h2 {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 17px;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      margin: 28px 0 10px;
-      padding-top: 16px;
-      border-top: 1px solid var(--hairline);
+
+    .section-card {
+      background: var(--bg-card);
+      border: 1.5px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      margin-bottom: 36px;
+      box-shadow: var(--shadow-sm);
     }
-    h3 {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 14px;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-      margin: 14px 0 6px;
-      color: #262626;
+
+    .section-card h2 {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 16px;
     }
-    p, li {
-      font-size: 14px;
-      color: #171717;
+
+    /* Delete Data Form */
+    .delete-form-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    @media (min-width: 600px) {
+      .delete-form-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .grid-span-2 {
+        grid-column: span 2;
+      }
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group label {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .form-input, .form-select {
+      min-height: var(--touch-target);
+      padding: 10px 14px;
+      border: 1.5px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      background: var(--bg-card);
+      color: var(--text-main);
+      font-size: 0.95rem;
+    }
+
+    .form-input:focus, .form-select:focus {
+      border-color: var(--primary-accent);
+    }
+
+    .legal-content {
+      border-top: 2px solid var(--border-subtle);
+      padding-top: 36px;
+      margin-top: 48px;
+    }
+
+    .legal-content h2 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin: 28px 0 12px;
+      color: var(--text-main);
+    }
+
+    .legal-content h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin: 20px 0 8px;
+      color: var(--text-main);
+    }
+
+    .legal-content p, .legal-content li {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.65;
       margin-bottom: 10px;
     }
-    ul, ol {
-      padding-left: 20px;
-      margin-bottom: 12px;
+
+    .legal-content ul, .legal-content ol {
+      padding-left: 24px;
+      margin-bottom: 14px;
     }
-    code {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 12px;
-      background: var(--surface);
+
+    .legal-content code {
+      font-family: var(--font-mono);
+      font-size: 0.85em;
+      background: var(--bg-subtle);
       padding: 2px 6px;
-      border: 1px solid var(--hairline);
+      border-radius: 4px;
     }
-    .callout {
-      border: 1.5px solid var(--border);
-      background: var(--surface);
-      padding: 16px 18px;
-      margin: 18px 0;
+
+    .status-alert {
+      padding: 14px 18px;
+      border-radius: var(--radius-md);
+      font-size: 0.95rem;
+      display: none;
+      margin-top: 16px;
     }
-    .callout-title {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 6px;
+
+    .status-alert-success {
+      background: #D1FAE5;
+      border: 1.5px solid #10B981;
+      color: #065F46;
     }
-    .footer {
-      margin-top: 32px;
-      padding-top: 18px;
-      border-top: 2px solid var(--border);
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 12px;
-      display: flex;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-    a { color: var(--fg); font-weight: 600; text-decoration: underline; }
   </style>
 </head>
 <body>
-  <main class="container">
-    <span class="badge">UDHAAR • PRIVACY &amp; DATA SAFETY</span>
-    <h1>Privacy Policy &amp; Cloud Data Deletion</h1>
-    <div class="meta">
-      Application: Udhaar (<code>com.jyotirmoyb.udhaar</code>) • Effective &amp; Updated: November 4, 2026 (v16.0) • Developer: Jyotirmoy Bhowmik
+
+  <!-- =========================================================
+       HEADER
+       ========================================================= -->
+  <header class="site-header">
+    <div class="container nav-wrapper">
+      <a href="/" class="brand-logo" aria-label="Udhaar Home">
+        <div class="brand-icon">U</div>
+        <span>UDHAAR</span>
+      </a>
+
+      <div class="nav-right">
+        <!-- Language Switcher -->
+        <select id="privacy-lang-select" class="lang-select" aria-label="Select Language">
+          <option value="en">English</option>
+          <option value="hi">हिंदी (Hindi)</option>
+          <option value="bn">বাংলা (Bengali)</option>
+          <option value="as">অসমীয়া (Assamese)</option>
+          <option value="ne">नेपाली (Nepali)</option>
+        </select>
+
+        <button id="theme-btn" class="theme-toggle-btn" aria-label="Toggle theme">🌙</button>
+        <a class="btn-secondary" href="/">← <span id="txt-back-home">Back to Home</span></a>
+      </div>
+    </div>
+  </header>
+
+  <!-- =========================================================
+       MAIN PRIVACY CONTENT
+       ========================================================= -->
+  <main class="privacy-container">
+    <div style="margin-bottom: 24px;">
+      <span class="section-badge" id="privacy-badge">Privacy &amp; Data Safety</span>
+      <h1 class="section-title" id="privacy-title" style="margin-top: 8px;">Privacy Policy &amp; Data Deletion</h1>
+      <p class="section-subtitle" style="font-size: 0.9rem;">Effective date: November 4, 2026 • Version 17.0</p>
     </div>
 
-    <p>
-      <strong>Udhaar</strong> is an offline-first personal and party loan/ledger application. By default, 100% of your financial records, party profiles, and attachments remain strictly on your device inside an encrypted SQLCipher database. Cloud features (Encrypted Google Drive Backup, Counterparty Mutual Verification, and Guest Web Flow) are strictly opt-in.
-    </p>
-
-    <h2>1. On-Device Data &amp; Hardware Encryption</h2>
-    <ul>
-      <li><strong>Encrypted Local Database:</strong> All ledger records, repayments, audit logs, and party details are stored locally in <code>udhaar_ledger.db</code> encrypted with 256-bit AES via SQLCipher and Android Keystore (<code>MasterKey.KeyScheme.AES256_GCM</code>).</li>
-      <li><strong>Biometric &amp; PIN Gate:</strong> Biometric authentication uses Android’s system <code>BiometricPrompt</code> API. Your fallback PIN is salted and hashed using <code>PBKDF2-HMAC-SHA256</code> (60,000 iterations) and never leaves your device.</li>
-    </ul>
-
-    <h2>2. Android Permissions &amp; How They Are Used</h2>
-    <ul>
-      <li><strong>Contacts (<code>android.permission.READ_CONTACTS</code> — Optional):</strong> Requested only when you tap <em>"Browse &amp; Import Multiple Contacts"</em> or <em>"Import from Contacts"</em> to quickly populate a counterparty’s name and phone number in your local People Directory. You may also use the single-contact system picker or import a <code>.vcf</code> file without granting this permission. Your address book is never bulk-uploaded to any server.</li>
-      <li><strong>Camera (<code>android.permission.CAMERA</code> — Optional):</strong> Requested only when you choose to take a photo of a physical receipt, invoice, or UPI proof to attach to a transaction.</li>
-      <li><strong>Notifications (<code>android.permission.POST_NOTIFICATIONS</code> — Optional):</strong> Used to display scheduled local repayment reminders and real-time counterparty verification/chat alerts.</li>
-    </ul>
-
-    <h2>3. Optional Cloud Features (Google Drive Backup &amp; Mutual Verification)</h2>
-    <ul>
-      <li><strong>Encrypted Google Drive Backup (<code>drive.appdata</code>):</strong> When you enable Google Drive backup, Udhaar stores only your client-side encrypted backup file inside your private Google Drive Application Data folder (<code>appDataFolder</code>).
-        <ul style="margin-top:6px; margin-bottom:6px;">
-          <li><strong>Client-Side AES-256-GCM Encryption:</strong> Your backup is encrypted on your local Android device before upload using <code>AES-256-GCM</code> with a key derived from your secret passphrase via <code>PBKDF2WithHmacSHA256</code> (120,000 iterations and random 128-bit salt).</li>
-          <li><strong>Zero Data Sent to Developer:</strong> Backups are transferred directly between your Android device and Google's Drive servers. Absolutely zero backup data, metadata, or passphrases are ever sent to, accessed by, or stored by the app developer or any intermediary server.</li>
-          <li><strong>Hidden App Data Isolation:</strong> Files in <code>appDataFolder</code> are strictly isolated to the Udhaar application and cannot be accessed by other Google Drive apps.</li>
-        </ul>
-      </li>
-      <li><strong>Mutual Record Verification &amp; Party Chat (Firebase Firestore &amp; FCM):</strong> When you sign in with Google and explicitly share a verification link or message a counterparty, the shared transaction snapshot, verification status, chat messages, and Firebase Cloud Messaging (FCM) registration token are stored in Google Cloud Firestore with TLS encryption in transit and strict participant-only security rules.</li>
-    </ul>
-
-    <h2>4. Guest Web Verification Portal (<code>/u/</code> &amp; Zero-Cost Verification)</h2>
-    <p>
-      Udhaar provides an accessible web portal at <code>https://udhaar.jyotirmoyb.com/u/</code> where counterparties can view and verify transaction records in a mobile-first browser interface without needing to install the Udhaar app or create an account.
-    </p>
-
-    <h3>What Web Guests See</h3>
-    <ul>
-      <li><strong>Transaction Core:</strong> Counterparty name, loan type (Given / Taken), principal amount in INR, transaction start date, and due date.</li>
-      <li><strong>Installments:</strong> If the transaction is split into scheduled installments, guests see paid vs. remaining progress and due dates.</li>
-      <li><strong>Private Note Controls:</strong> The creator’s private transaction note is <strong>hidden by default</strong> and is only displayed if the creator explicitly toggled <em>"Allow guest to view note"</em> when generating the link.</li>
-      <li><strong>PII Masking:</strong> Sensitive identifiers are strictly masked on the web page: phone numbers appear as <code>+91 98*** ***10</code> and UPI VPAs appear as <code>ra*** ***ar@okaxis</code>. The guest never has access to the creator’s full address book or other ledger records.</li>
-    </ul>
-
-    <h3>Zero-Cost WhatsApp Verification Code (No SMS Gateways)</h3>
-    <ul>
-      <li><strong>Cost-Free Authentication:</strong> Udhaar does not use costly third-party SMS gateways, carrier text fees, or Meta WhatsApp Cloud API charges.</li>
-      <li><strong>Cryptographic Fragment Secret:</strong> When a link is generated, the app produces a 24-byte random URL fragment secret (e.g., <code>https://udhaar.jyotirmoyb.com/u/r/RECORD_ID#SECRET</code>) and a 6-digit WhatsApp OTP.</li>
-      <li><strong>Client-Side Anchor Isolation:</strong> URL fragment anchors (<code>#SECRET</code>) are never transmitted to cloud servers in HTTP request headers. The guest's browser extracts the secret locally.</li>
-      <li><strong>SHA-256 Hash Storage:</strong> The Cloud Firestore database stores only the one-way <code>SHA-256</code> hash of the secret and OTP. Plaintext verification tokens are never stored on any server.</li>
-      <li><strong>Brute-Force Immunity:</strong> Constant-time hash comparison (<code>crypto.timingSafeEqual</code>) and automatic rate-limiting lockouts (maximum 5 failed OTP attempts per hour) prevent timing attacks and automated brute-force attempts.</li>
-    </ul>
-
-    <h3>Guest Actions &amp; Immutable Audit Logging</h3>
-    <ul>
-      <li><strong>Permitted Actions:</strong> Depending on permissions granted by the creator, guests can confirm terms, dispute with structured reasons, propose an alternative return date, submit a payment claim (with optional proof screenshot), or provide their repayment UPI ID.</li>
-      <li><strong>State Machine Integrity:</strong> The record creator is strictly blocked by both Firestore Security Rules and Cloud Functions backend logic from confirming their own record. Only the designated counterparty can confirm.</li>
-      <li><strong>Tamper-Proof Audit Trail:</strong> Every action appends an immutable entry to <code>/shared_records/{id}/audit/{eventId}</code> containing the event type, actor role (<code>"guest"</code> or <code>"creator"</code>), timestamp, and a cryptographic content hash snapshot. Neither party can alter past audit logs.</li>
-    </ul>
-
-    <h3>Zero Cookies &amp; No Third-Party Trackers</h3>
-    <ul>
-      <li>The guest portal contains <strong>no tracking cookies</strong>, no advertising SDKs, no Google Analytics, and no marketing beacons.</li>
-      <li>Browser storage (<code>localStorage</code> and <code>sessionStorage</code>) is used exclusively on the guest's device to persist UI theme (dark/light), selected language (English, Hindi, Bengali, Assamese, Nepali), and the active OTP verification session.</li>
-    </ul>
-
-    <h2>5. Zero-PII Telemetry &amp; No Third-Party Ad Sharing</h2>
-    <p>
-      Udhaar contains <strong>no advertising SDKs</strong> and never sells or shares your personal or financial data with marketers. Internal error handling redacts phone numbers, UPI IDs, names, currency amounts, tokens, and PINs.
-    </p>
-
-    <h2 id="delete-data">6. How to Delete Your Cloud Data, Links &amp; Backups</h2>
-    <div class="callout">
-      <div class="callout-title">1. Delete Google Drive Backups</div>
-      <p style="margin-bottom:6px;">
-        You can permanently delete all encrypted ledger backups stored in your Google Drive at any time:
-      </p>
-      <ul style="padding-left:20px; font-size:14px; margin-bottom:8px;">
-        <li><strong>In-App Deletion (Instant):</strong> Open Udhaar &rarr; Tap <strong>Settings (Gear)</strong> &rarr; Scroll to <strong>Backup &amp; Sync</strong> &rarr; Tap <strong>Delete my Drive backups</strong> &rarr; Confirm <strong>Delete Permanently</strong>.</li>
-        <li><strong>Via Google Drive Web Interface:</strong> Visit <a href="https://drive.google.com" target="_blank" rel="noopener">drive.google.com</a> &rarr; <strong>Settings &rarr; Manage Apps &rarr; Udhaar &rarr; Delete hidden app data</strong>.</li>
-        <li><strong>Revoke Google Access:</strong> Visit <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account Permissions</a> and remove Udhaar.</li>
-      </ul>
-
-      <div class="callout-title" style="margin-top:14px;">2. Revoke Web Links &amp; Delete Guest Attachments</div>
-      <p style="margin-bottom:6px;">
-        You maintain complete control over guest verification links:
-      </p>
-      <ul style="padding-left:20px; font-size:14px; margin-bottom:8px;">
-        <li><strong>Immediate Link Revocation:</strong> In the transaction verification card, tap <strong>Revoke Link</strong>. The link is instantly marked invalid and further access is blocked.</li>
-        <li><strong>Revoke All Active Links:</strong> Open <strong>Settings &rarr; Web Verification Links &rarr; Revoke All Active Web Links</strong>. This invalidates every shared link across all your records.</li>
-        <li><strong>Automated Expiration:</strong> Web links automatically expire after your chosen duration (7, 30, or 90 days), after which the portal is completely inaccessible.</li>
-        <li><strong>Purge Guest Proof Images:</strong> Payment proof photos uploaded by guests to Cloud Storage can be purged directly by the creator tapping <strong>Delete guest data</strong>, or via automated daily retention cleanup.</li>
-      </ul>
-
-      <div class="callout-title" style="margin-top:14px;">3. Delete Counterparty Cloud Verification Records</div>
-      <p style="margin-bottom:6px;">
-        To completely delete your cloud verification profile, shared link records, and mutual chat messages:
-      </p>
-      <ol style="padding-left:20px; font-size:14px;">
-        <li>Open <strong>Udhaar</strong> &rarr; Tap <strong>Settings (Gear)</strong>.</li>
-        <li>Scroll to <strong>Cloud Verification &amp; Account</strong>.</li>
-        <li>Tap <strong>Delete My Cloud Data</strong> and confirm.</li>
-      </ol>
-      <p style="margin-top:8px; margin-bottom:0;">
-        This immediately purges your <code>/user_profiles/{uid}</code> profile, your authored <code>/shared_records</code>, your <code>/chat_threads</code> and messages in Cloud Firestore, revokes your device’s FCM push token, and signs you out.
+    <!-- 1. IN SHORT BOX (Plain Language) -->
+    <div class="in-short-box">
+      <div class="in-short-title">
+        <span>🛡️</span>
+        <span id="short-title">In short: Your records stay with you</span>
+      </div>
+      <p class="in-short-text" id="short-desc">
+        Udhaar is designed to keep your financial records locked on your own phone. We do not sell your personal data, track your location, or read your messages. Web confirmation links expire automatically and can be revoked or deleted at any time with a single tap.
       </p>
     </div>
-    <p>
-      If you have uninstalled the app and wish to request deletion of cloud verification records associated with your Google account email or phone number, email <a href="mailto:admin@jyotirmoyb.com?subject=Udhaar%20Cloud%20Data%20Deletion%20Request">admin@jyotirmoyb.com</a> from that email address and your cloud records will be purged within 48 hours.
-    </p>
 
-    <h2>7. Contact &amp; Data Controller</h2>
-    <p>
-      For privacy inquiries, security disclosures, or support, contact:<br />
-      <strong>Jyotirmoy Bhowmik</strong> — <a href="mailto:admin@jyotirmoyb.com">admin@jyotirmoyb.com</a>
-    </p>
+    <!-- 2. DATA RETENTION & STORAGE TABLE -->
+    <div class="section-card">
+      <h2 id="table-heading">What is stored, where, and how to delete it</h2>
+      <div class="trust-table-wrap" style="margin-bottom: 0;">
+        <table class="trust-table">
+          <thead>
+            <tr>
+              <th id="th-info">Data Type</th>
+              <th id="th-storage">Where it is stored</th>
+              <th id="th-duration">How long it is kept</th>
+              <th id="th-delete">How to delete it</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong id="r1-name">Lending &amp; borrowing records</strong></td>
+              <td id="r1-where">Stored only on your phone</td>
+              <td id="r1-time">Until you delete them or uninstall the app</td>
+              <td id="r1-action">In app: Settings &rarr; Wipe data, or delete individual records</td>
+            </tr>
+            <tr>
+              <td><strong id="r2-name">Private notes &amp; receipt photos</strong></td>
+              <td id="r2-where">On your phone (web proofs in secure cloud bucket)</td>
+              <td id="r2-time">On phone until deleted; web proofs auto-deleted after 30 days</td>
+              <td id="r2-action">In app: Tap "Delete guest data" or revoke web link</td>
+            </tr>
+            <tr>
+              <td><strong id="r3-name">Shared web links &amp; codes</strong></td>
+              <td id="r3-where">Google Cloud Firestore (Mumbai, India)</td>
+              <td id="r3-time">Code expires in 15 mins; links expire in 7 to 30 days</td>
+              <td id="r3-action">In app: Tap "Revoke Link" or use the deletion form below</td>
+            </tr>
+            <tr>
+              <td><strong id="r4-name">Encrypted backups</strong></td>
+              <td id="r4-where">Your private Google Drive (isolated app folder)</td>
+              <td id="r4-time">Until you remove backup files</td>
+              <td id="r4-action">In app: Settings &rarr; Delete my Drive backups</td>
+            </tr>
+            <tr>
+              <td><strong id="r5-name">Contact book &amp; phone contacts</strong></td>
+              <td id="r5-where">Never uploaded to any server</td>
+              <td id="r5-time">Zero retention</td>
+              <td id="r5-action">Not applicable (we never collect your contacts)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-    <footer class="footer">
-      <span><a href="/">← Back to Udhaar Home</a></span>
-      <span><a href="/u/">Open Verification Portal</a></span>
-      <span>© 2026 Jyotirmoy Bhowmik</span>
-    </footer>
+    <!-- 3. SIMPLE "DELETE MY DATA" REQUEST FORM -->
+    <div class="section-card" id="delete-form-card">
+      <h2 id="form-heading">Delete my data request</h2>
+      <p style="font-size: 0.95rem; color: var(--text-muted);" id="form-desc">
+        If you opened or confirmed a link on the web and want your confirmation, date proposal, or payment record removed from our cloud servers, submit your request here. Requests are processed by our administrator within 48 hours.
+      </p>
+
+      <form id="delete-request-form" class="delete-form-grid">
+        <div class="form-group">
+          <label for="del-name" id="lbl-name">Your Name or Masked Phone</label>
+          <input type="text" id="del-name" class="form-input" placeholder="e.g. Rahul (+91 ••••• •••10)" required />
+        </div>
+
+        <div class="form-group">
+          <label for="del-link" id="lbl-link">Record Link (or Record ID)</label>
+          <input type="text" id="del-link" class="form-input" placeholder="https://udhaar.jyotirmoyb.com/u/r/..." required />
+        </div>
+
+        <div class="form-group grid-span-2">
+          <label for="del-reason" id="lbl-reason">Reason for deletion</label>
+          <select id="del-reason" class="form-select">
+            <option value="Confirmed by mistake">I confirmed or submitted details by mistake</option>
+            <option value="Loan settled">The loan has already been settled</option>
+            <option value="Privacy preference">General privacy preference</option>
+            <option value="Other">Other reason</option>
+          </select>
+        </div>
+
+        <div class="grid-span-2" style="margin-top: 8px;">
+          <button type="submit" class="btn-primary" style="width: 100%;">
+            <span>✉️</span>
+            <span id="btn-submit-del">Send deletion request</span>
+          </button>
+        </div>
+      </form>
+
+      <div id="delete-success-alert" class="status-alert status-alert-success" role="alert">
+        <strong>✓ Request prepared:</strong> Your email client has been opened with your deletion request details. Please tap "Send" in your mail app to notify our data protection administrator (admin@jyotirmoyb.com).
+      </div>
+    </div>
+
+    <!-- 4. FULL LEGAL POLICY PRESERVED BELOW -->
+    <div class="legal-content">
+      <h2>1. On-Device Data &amp; Hardware Encryption</h2>
+      <p>
+        Udhaar is an offline-first personal and party loan and ledger application. By default, 100% of your financial records, party profiles, and attachments remain strictly on your device inside an encrypted local database using AES-256 with Android Keystore.
+      </p>
+
+      <h2>2. Android Permissions &amp; How They Are Used</h2>
+      <ul>
+        <li><strong>Contacts (Optional):</strong> Requested only when you tap "Import from Contacts" to populate a person's name and phone number. Your address book is never uploaded in bulk to any server.</li>
+        <li><strong>Camera (Optional):</strong> Requested only when you take a photo of a physical receipt or UPI payment slip to attach to a record.</li>
+        <li><strong>Notifications (Optional):</strong> Used to deliver scheduled repayment reminders and web link confirmation alerts.</li>
+      </ul>
+
+      <h2>3. Optional Cloud Features (Google Drive Backup &amp; Verification)</h2>
+      <p>
+        When you enable Google Drive backup, Udhaar stores only your client-side encrypted backup file inside your private Google Drive Application Data folder (<code>appDataFolder</code>). Backups are transferred directly between your Android device and Google's servers. Zero backup data or passwords are ever sent to the developer.
+      </p>
+
+      <h2>4. Guest Web Verification Portal (/u/ &amp; Zero-Cost Code)</h2>
+      <p>
+        Udhaar provides a mobile-first web portal at <code>https://udhaar.jyotirmoyb.com/u/</code> where the other person can view and verify transaction records without installing the app.
+      </p>
+      <ul>
+        <li><strong>Cost-Free Authentication:</strong> Uses a 6-digit WhatsApp code sent directly between parties, avoiding third-party SMS gateway fees.</li>
+        <li><strong>Cryptographic Fragment Secret:</strong> URL fragment anchors (<code>#SECRET</code>) are strictly processed by the client browser and never sent in HTTP request headers.</li>
+        <li><strong>Rate Limiting:</strong> Enforces a maximum limit of 5 failed attempts per hour to prevent brute-force attacks.</li>
+        <li><strong>Zero Trackers:</strong> The guest portal contains no advertising beacons, analytics trackers, or third-party cookies.</li>
+      </ul>
+
+      <h2>5. Data Controller &amp; Inquiries</h2>
+      <p>
+        For inquiries regarding privacy, data deletion, or security disclosures, please contact:
+        <br />
+        <strong>Jyotirmoy Bhowmik</strong> — <a href="mailto:admin@jyotirmoyb.com">admin@jyotirmoyb.com</a>
+      </p>
+    </div>
   </main>
+
+  <!-- =========================================================
+       FOOTER
+       ========================================================= -->
+  <footer class="site-footer">
+    <div class="container footer-bottom">
+      <span>© 2026 Udhaar. All rights reserved.</span>
+      <a href="/">← Return to Homepage</a>
+    </div>
+  </footer>
+
+  <script>
+    (function() {
+      const PRIVACY_I18N = {
+        en: {
+          badge: "Privacy & Data Safety",
+          title: "Privacy Policy & Data Deletion",
+          short_title: "In short: Your records stay with you",
+          short_desc: "Udhaar is designed to keep your financial records locked on your own phone. We do not sell your personal data, track your location, or read your messages. Web confirmation links expire automatically and can be revoked or deleted at any time with a single tap.",
+          table_heading: "What is stored, where, and how to delete it",
+          form_heading: "Delete my data request",
+          form_desc: "If you opened or confirmed a link on the web and want your confirmation, date proposal, or payment record removed from our cloud servers, submit your request here. Requests are processed within 48 hours.",
+          btn_submit: "Send deletion request",
+          back_home: "Back to Home"
+        },
+        hi: {
+          badge: "सुरक्षा और गोपनीयता",
+          title: "गोपनीयता नीति और डेटा हटाना",
+          short_title: "संक्षेप में: आपका हिसाब केवल आपके पास रहता है",
+          short_desc: "उधार ऐप आपके सभी लेन-देन का हिसाब केवल आपके फोन में सुरक्षित रखता है। हम आपका डेटा कभी किसी को नहीं बेचते, न ही आपकी लोकेशन या संदेश देखते हैं। साझा किए गए लिंक अपने आप समाप्त हो जाते हैं और कभी भी हटाए जा सकते हैं।",
+          table_heading: "हम क्या रखते हैं, कहाँ रहता है और इसे कैसे हटाएं",
+          form_heading: "डेटा हटाने का अनुरोध",
+          form_desc: "यदि आपने वेब लिंक पर पुष्टि की थी और क्लाउड सर्वर से अपना रिकॉर्ड हटाना चाहते हैं, तो यहाँ अनुरोध भेजें। 48 घंटों में कार्रवाई की जाती है।",
+          btn_submit: "हटाने का अनुरोध भेजें",
+          back_home: "मुख्य पृष्ठ पर जाएं"
+        },
+        bn: {
+          badge: "নিরাপত্তা ও গোপনীয়তা",
+          title: "গোপনীয়তা নীতি ও তথ্য মোছা",
+          short_title: "সংক্ষেপে: আপনার হিসেব শুধুই আপনার কাছে থাকে",
+          short_desc: "উধার আপনার সমস্ত আর্থিক তথ্য আপনার ফোনেই সুরক্ষিত রাখে। আমরা কোনো তথ্য বিক্রি করি না, লোকেশন ট্র্যাক করি না। ওয়েব লিংকগুলো নিজে থেকেই শেষ হয়ে যায় এবং যেকোনো সময় মুছে ফেলা যায়।",
+          table_heading: "কী রাখা হয়, কোথায় থাকে এবং কীভাবে মুছবেন",
+          form_heading: "তথ্য মুছে ফেলার অনুরোধ",
+          form_desc: "আপনি যদি ওয়েব লিংকে নিশ্চিত করে থাকেন এবং ক্লাউড সার্ভার থেকে তথ্য মুছতে চান, তবে এখান থেকে অনুরোধ পাঠান। ৪৮ ঘণ্টার মধ্যে মোছা হবে।",
+          btn_submit: "অনুরোধ পাঠান",
+          back_home: "হোম পেজে ফিরুন"
+        },
+        as: {
+          badge: "সুৰক্ষা আৰু গোপনীয়তা",
+          title: "গোপনীয়তা নীতি আৰু তথ্য মচা",
+          short_title: "চমুকৈ: আপোনাৰ তথ্য কেৱল আপোনাৰ ওচৰতেই থাকে",
+          short_desc: "উধাৰ এপে আপোনাৰ লেনদেনৰ তথ্য কেৱল আপোনাৰ ফোনতেই সুৰক্ষিত কৰি ৰাখে। আমি তথ্য বিক্ৰী নকৰোঁ, লোকেশ্বন ট্ৰেক নকৰোঁ। ৱেব লিংকসমূহ নিৰ্দিষ্ট সময়ত নিজে মচি যায়।",
+          table_heading: "কি ৰখা হয়, ক'ত থাকে আৰু কেনেদৰে মচিব",
+          form_heading: "তথ্য মচাৰ অনুৰোধ",
+          form_desc: "যদি আপুনি ৱেব লিংক নিশ্চিত কৰিছিল আৰু ক্লাউড চাৰ্ভাৰৰ পৰা তথ্য মচিব বিচাৰে, তেন্তে ইয়াত অনুৰোধ জনাওক। ৪৮ ঘণ্টাত মচি দিয়া হ'ব।",
+          btn_submit: "অনুৰোধ পঠিয়াওক",
+          back_home: "মূল পৃষ্ঠালৈ উভতি যাওক"
+        },
+        ne: {
+          badge: "सुरक्षा र गोपनीयता",
+          title: "गोपनीयता नीति र डाटा मेटाउने",
+          short_title: "संक्षेपमा: तपाईंको हिसाब तपाईंसँगै रहन्छ",
+          short_desc: "उधार एपले तपाईंको सबै हिसाब तपाईंको आफ्नै फोनमा सुरक्षित राख्छ। हामी डाटा बेच्दैनौं, लोकेशन ट्र्याक गर्दैनौं। वेब लिङ्कहरू निश्चित समयपछि आफैं मेटिन्छन्।",
+          table_heading: "के राखिन्छ, कहाँ रहन्छ र कसरी मेटाउने",
+          form_heading: "डाटा मेटाउने अनुरोध",
+          form_desc: "यदि तपाईंले वेब लिङ्कमा पुष्टि गर्नुभएको थियो र क्लाउड सर्भरबाट डाटा हटाउन चाहनुहुन्छ भने यहाँ अनुरोध पठाउनुहोस्। ४८ घण्टाभित्र हटाइनेछ।",
+          btn_submit: "अनुरोध पठाउनुहोस्",
+          back_home: "गृहपृष्ठमा फर्कनुहोस्"
+        }
+      };
+
+      const select = document.getElementById("privacy-lang-select");
+      let curLang = localStorage.getItem("udhaar_lang") || "en";
+      if (!PRIVACY_I18N[curLang]) curLang = "en";
+
+      function applyPrivacyLang(l) {
+        if (!PRIVACY_I18N[l]) l = "en";
+        curLang = l;
+        localStorage.setItem("udhaar_lang", l);
+        document.documentElement.lang = l;
+        select.value = l;
+
+        const d = PRIVACY_I18N[l];
+        document.getElementById("privacy-badge").textContent = d.badge;
+        document.getElementById("privacy-title").textContent = d.title;
+        document.getElementById("short-title").textContent = d.short_title;
+        document.getElementById("short-desc").textContent = d.short_desc;
+        document.getElementById("table-heading").textContent = d.table_heading;
+        document.getElementById("form-heading").textContent = d.form_heading;
+        document.getElementById("form-desc").textContent = d.form_desc;
+        document.getElementById("btn-submit-del").textContent = d.btn_submit;
+        document.getElementById("txt-back-home").textContent = d.back_home;
+      }
+
+      applyPrivacyLang(curLang);
+      select.addEventListener("change", (e) => applyPrivacyLang(e.target.value));
+
+      // Theme toggle
+      const themeBtn = document.getElementById("theme-btn");
+      const savedTheme = localStorage.getItem("udhaar_theme") || "system";
+      if (savedTheme !== "system") {
+        document.documentElement.setAttribute("data-theme", savedTheme);
+      }
+      themeBtn.addEventListener("click", () => {
+        const cur = document.documentElement.getAttribute("data-theme") || "light";
+        const next = cur === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem("udhaar_theme", next);
+        themeBtn.textContent = next === "dark" ? "☀️" : "🌙";
+      });
+
+      // Handle delete form submit
+      const form = document.getElementById("delete-request-form");
+      const alertBox = document.getElementById("delete-success-alert");
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const name = document.getElementById("del-name").value;
+        const link = document.getElementById("del-link").value;
+        const reason = document.getElementById("del-reason").value;
+
+        const mailtoUrl = `mailto:admin@jyotirmoyb.com?subject=Udhaar%20Cloud%20Data%20Deletion%20Request&body=Hello%20Admin,%0D%0A%0D%0APlease%20delete%20my%20cloud%20data%20from%20Udhaar.%0D%0A%0D%0AUser:%20${encodeURIComponent(name)}%0D%0ARecord%20Link:%20${encodeURIComponent(link)}%0D%0AReason:%20${encodeURIComponent(reason)}%0D%0A%0D%0AThank%20you.`;
+        window.location.href = mailtoUrl;
+        alertBox.style.display = "block";
+      });
+    })();
+  </script>
 </body>
 </html>

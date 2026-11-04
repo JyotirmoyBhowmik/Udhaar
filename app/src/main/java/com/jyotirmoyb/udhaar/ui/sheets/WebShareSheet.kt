@@ -414,6 +414,33 @@ fun WebShareSheet(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                val clipMsg = context.getString(R.string.share_code_separate_text, linkResult.whatsappOtp)
+                                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                                clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.share_clip_web_link), clipMsg))
+                                                Toast.makeText(context, context.getString(R.string.toast_code_copied), Toast.LENGTH_SHORT).show()
+                                            },
+                                            modifier = Modifier.weight(1f).height(38.dp),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text(stringResource(R.string.btn_share_code_separately), style = MaterialTheme.typography.labelSmall)
+                                        }
+                                        OutlinedButton(
+                                            onClick = {
+                                                Toast.makeText(context, context.getString(R.string.toast_read_code_in_person, linkResult.whatsappOtp), Toast.LENGTH_LONG).show()
+                                            },
+                                            modifier = Modifier.weight(1f).height(38.dp),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text(stringResource(R.string.btn_read_code_in_person), style = MaterialTheme.typography.labelSmall)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -461,9 +488,9 @@ fun WebShareSheet(
                         OutlinedButton(
                             onClick = {
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                val clip = ClipData.newPlainText("Udhaar Link", draftWhatsAppMessage)
+                                val clip = ClipData.newPlainText(context.getString(R.string.share_clip_web_link), draftWhatsAppMessage)
                                 clipboard.setPrimaryClip(clip)
-                                Toast.makeText(context, "Link and OTP copied to clipboard", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.toast_link_otp_copied), Toast.LENGTH_SHORT).show()
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
