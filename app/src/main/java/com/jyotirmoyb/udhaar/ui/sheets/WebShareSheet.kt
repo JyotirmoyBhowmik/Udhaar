@@ -423,7 +423,14 @@ fun WebShareSheet(
                                             onClick = {
                                                 val clipMsg = context.getString(R.string.share_code_separate_text, linkResult.whatsappOtp)
                                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                                clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.share_clip_web_link), clipMsg))
+                                                val clip = ClipData.newPlainText(context.getString(R.string.share_clip_web_link), clipMsg).apply {
+                                                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                                        description.extras = android.os.PersistableBundle().apply {
+                                                            putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE, true)
+                                                        }
+                                                    }
+                                                }
+                                                clipboard.setPrimaryClip(clip)
                                                 Toast.makeText(context, context.getString(R.string.toast_code_copied), Toast.LENGTH_SHORT).show()
                                             },
                                             modifier = Modifier.weight(1f).height(38.dp),
@@ -488,7 +495,13 @@ fun WebShareSheet(
                         OutlinedButton(
                             onClick = {
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                val clip = ClipData.newPlainText(context.getString(R.string.share_clip_web_link), draftWhatsAppMessage)
+                                val clip = ClipData.newPlainText(context.getString(R.string.share_clip_web_link), draftWhatsAppMessage).apply {
+                                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                        description.extras = android.os.PersistableBundle().apply {
+                                            putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE, true)
+                                        }
+                                    }
+                                }
                                 clipboard.setPrimaryClip(clip)
                                 Toast.makeText(context, context.getString(R.string.toast_link_otp_copied), Toast.LENGTH_SHORT).show()
                             },

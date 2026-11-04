@@ -307,7 +307,7 @@ class PinSecurityManager(context: Context) {
         private const val AES_GCM_TRANSFORMATION = "AES/GCM/NoPadding"
         private const val GCM_TAG_BITS = 128
 
-        private const val PBKDF2_ITERATIONS = 65_536
+        private const val PBKDF2_ITERATIONS = 600_000
         private const val SALT_LENGTH_BYTES = 16
         private const val HASH_BIT_LENGTH = 256
 

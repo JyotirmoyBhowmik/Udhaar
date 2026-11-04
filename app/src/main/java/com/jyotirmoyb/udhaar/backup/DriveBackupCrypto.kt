@@ -25,7 +25,8 @@ object DriveBackupCrypto {
     private const val MAGIC = "UDHAAR_ENC_V1"
     private const val KDF_ALGO = "PBKDF2WithHmacSHA256"
     private const val CIPHER_ALGO = "AES/GCM/NoPadding"
-    private const val ITERATIONS = 65536
+    private const val ITERATIONS = 600_000
+    private const val LEGACY_ITERATIONS = 65_536
     private const val KEY_LENGTH_BITS = 256
     private const val SALT_LENGTH_BYTES = 16
     private const val IV_LENGTH_BYTES = 12
@@ -91,7 +92,7 @@ object DriveBackupCrypto {
             throw InvalidPassphraseException("Unsupported or corrupt backup format: $magic")
         }
 
-        val iterations = json.optInt("iterations", ITERATIONS)
+        val iterations = json.optInt("iterations", LEGACY_ITERATIONS)
         val saltStr = json.optString("salt")
         val ivStr = json.optString("iv")
         val ciphertextStr = json.optString("ciphertext")

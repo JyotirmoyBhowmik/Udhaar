@@ -1,0 +1,22 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Default-deny safety net
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // Payment proof uploads for guest web flow and app receipts
+    match /payment_proofs/{recordId}/{fileName} {
+      // Allow read only to authenticated users
+      allow read: if request.auth != null;
+      // Allow create only if file is an image and strictly under 5MB
+      allow create: if request.resource.size < 5 * 1024 * 1024
+                    && request.resource.contentType.matches('image/(jpeg|jpg|png|webp)');
+      // Immutability: only authenticated users can delete their proofs
+      allow update: if false;
+      allow delete: if request.auth != null;
+    }
+  }
+}

@@ -3,11 +3,7 @@
 -keepattributes SourceFile,LineNumberTable
 -keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
 
-# Perform full R8 DEX obfuscation and tree-shaking while skipping slow multi-pass bytecode optimization to avoid cloud bundler 504 timeouts
--dontoptimize
-
 # Keep entry point Activities, BroadcastReceivers, and WidgetProviders
--keep class com.example.MainActivity { *; }
 -keep class com.jyotirmoyb.udhaar.MainActivity { *; }
 -keep class com.jyotirmoyb.udhaar.notification.ReminderReceiver { *; }
 -keep class com.jyotirmoyb.udhaar.notification.BootRescheduleReceiver { *; }

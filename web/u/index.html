@@ -35,13 +35,13 @@
     </header>
 
     <!-- Demo Mode Alert Banner -->
-    <div id="demo-banner" class="notice-box notice-blue" style="display: none;" role="alert">
+    <div id="demo-banner" class="notice-box notice-blue hidden" role="alert">
       <span>ℹ️</span>
       <span data-i18n="demo_banner">Demo preview — no real data is saved.</span>
     </div>
 
     <!-- Offline Alert Banner -->
-    <div id="offline-banner" class="notice-box notice-amber" style="display: none;" role="alert">
+    <div id="offline-banner" class="notice-box notice-amber hidden" role="alert">
       <span>⚠️</span>
       <span data-i18n="offline_banner">You are currently offline. Check your internet connection.</span>
     </div>
@@ -50,17 +50,17 @@
     <main id="main-content">
       <!-- Loading Skeleton State (Zero sample data leaks) -->
       <div id="loading-view" class="card" aria-label="Loading record details">
-        <div class="skeleton" style="height: 24px; width: 45%;"></div>
-        <div class="skeleton" style="height: 110px; width: 100%;"></div>
-        <div class="skeleton" style="height: 70px; width: 100%;"></div>
-        <div class="skeleton" style="height: 48px; width: 100%;"></div>
+        <div class="skeleton skeleton-title"></div>
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-row"></div>
+        <div class="skeleton skeleton-btn"></div>
       </div>
 
       <!-- SCREEN 1: Who and how much? -->
-      <div id="screen-step1" class="card" style="display: none;">
+      <div id="screen-step1" class="card hidden">
         <div class="badge-bar">
           <span id="trust-badge" class="badge badge-slate" data-i18n="badge_link_verified">✓ Private link</span>
-          <span id="due-status-badge" class="badge badge-amber" style="display: none;"></span>
+          <span id="due-status-badge" class="badge badge-amber hidden"></span>
         </div>
 
         <div class="amount-display">
@@ -70,13 +70,13 @@
         </div>
 
         <!-- Installment Progress Bar (Shown only if installments exist) -->
-        <div id="installment-progress-box" class="progress-box" style="display: none;">
+        <div id="installment-progress-box" class="progress-box hidden">
           <div class="progress-header">
             <span id="inst-progress-label">Installments: 0 of 0 paid</span>
             <span id="inst-next-due" class="badge badge-slate">Next: ₹0</span>
           </div>
           <div class="progress-bar-bg">
-            <div id="inst-progress-fill" class="progress-bar-fill" style="width: 0%;"></div>
+            <div id="inst-progress-fill" class="progress-bar-fill progress-fill-zero"></div>
           </div>
         </div>
 
@@ -100,12 +100,12 @@
           </div>
           <div class="data-row">
             <span class="data-label" data-i18n="label_fingerprint">Record fingerprint</span>
-            <span class="data-value" id="val-fingerprint" style="font-family: monospace; font-size: 12px;">—</span>
+            <span class="data-value font-mono-sm" id="val-fingerprint">—</span>
           </div>
         </div>
 
         <!-- Action Buttons (Screen 1) -->
-        <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div class="col-gap-12">
           <button id="btn-confirm-yes" class="btn btn-primary" data-i18n="btn_yes_correct">
             ✓ Yes, this is correct
           </button>
@@ -128,14 +128,14 @@
       </div>
 
       <!-- SCREEN 2: Honest Code Step (Enter 6-digit WhatsApp Code) -->
-      <div id="screen-step2" class="card" style="display: none;">
+      <div id="screen-step2" class="card hidden">
         <div class="badge-bar">
           <span class="badge badge-green">💬 WhatsApp Verification</span>
           <span id="code-timer-text" class="badge badge-slate" data-i18n="code_expires_in">Code valid for 15 minutes</span>
         </div>
 
-        <h2 id="step2-title" style="font-size: 20px; font-weight: 800;">Enter the code sent to you</h2>
-        <p id="step2-desc" style="font-size: 14px; color: var(--text-muted); line-height: 1.4;">
+        <h2 id="step2-title" class="step2-title-style">Enter the code sent to you</h2>
+        <p id="step2-desc" class="step2-desc-style">
           This 6-digit code was sent by the sender in your WhatsApp message. It proves you received the message and keeps this record secure.
         </p>
 
@@ -149,11 +149,11 @@
           <input type="text" maxlength="1" class="otp-box" inputmode="numeric" aria-label="Digit 6" />
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
-          <a id="btn-ask-wa" href="#" target="_blank" style="color: var(--emerald-800); font-weight: 700; text-decoration: underline;" data-i18n="btn_ask_whatsapp">
+        <div class="step2-row">
+          <a id="btn-ask-wa" href="#" target="_blank" class="link-ask-wa" data-i18n="btn_ask_whatsapp">
             Ask on WhatsApp 💬
           </a>
-          <button id="btn-report-not-me" class="btn-text" style="font-size: 13px; color: var(--red-700); min-height: 36px; padding: 0;" data-i18n="btn_not_me">
+          <button id="btn-report-not-me" class="btn-text btn-report-not-me" data-i18n="btn_not_me">
             This is not me
           </button>
         </div>
@@ -179,20 +179,20 @@
       </div>
 
       <!-- SCREEN 3: Next Steps (After Confirmation) -->
-      <div id="screen-step3" class="card" style="display: none;">
+      <div id="screen-step3" class="card hidden">
         <div class="notice-box notice-green">
           <span>✓</span>
           <div>
             <strong data-i18n="confirmed_title">Record confirmed</strong>
-            <p id="step3-subtitle" style="font-size: 13px; margin-top: 2px;" data-i18n="confirmed_subtitle">
+            <p id="step3-subtitle" class="step3-subtitle-style" data-i18n="confirmed_subtitle">
               What would you like to do next?
             </p>
           </div>
         </div>
 
-        <div style="text-align: center; padding: 6px 0;">
-          <div style="font-size: 13px; color: var(--text-muted);"><span id="step3-other-name">The other person</span></div>
-          <div id="step3-amount-number" style="font-size: 32px; font-weight: 800; color: var(--emerald-900);">₹0</div>
+        <div class="step3-center-box">
+          <div class="step3-other-label"><span id="step3-other-name">The other person</span></div>
+          <div id="step3-amount-number" class="step3-amount-text">₹0</div>
         </div>
 
         <!-- Action Cards Grid -->
@@ -213,7 +213,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
             <span data-i18n="act_i_paid">I have paid</span>
           </button>
-          <button id="btn-print-receipt" class="action-card-btn" style="grid-column: span 2;">
+          <button id="btn-print-receipt" class="action-card-btn btn-print-receipt-full">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
             <span data-i18n="act_download_receipt">Download receipt</span>
           </button>
@@ -233,15 +233,15 @@
       </div>
 
       <!-- FRIENDLY ERROR & STATE VIEW -->
-      <div id="error-view" class="card" style="display: none; text-align: center; padding: 36px 20px;">
-        <div style="font-size: 48px; margin-bottom: 12px;" aria-hidden="true">🔒</div>
-        <h2 id="error-title" style="font-size: 20px; font-weight: 800; margin-bottom: 8px;">Link Inactive</h2>
-        <p id="error-desc" style="color: var(--text-muted); font-size: 14px; margin-bottom: 14px; line-height: 1.4;">
+      <div id="error-view" class="card error-card-style hidden">
+        <div class="error-icon-style" aria-hidden="true">🔒</div>
+        <h2 id="error-title" class="error-title-style">Link Inactive</h2>
+        <p id="error-desc" class="error-desc-style">
           This verification link is no longer valid or has expired.
         </p>
-        <div class="notice-box notice-amber" style="text-align: left; margin-bottom: 20px;">
+        <div class="notice-box notice-amber error-action-box">
           <span>👉</span>
-          <span id="error-action" style="font-weight: 700;">Ask the sender to send a new link.</span>
+          <span id="error-action" class="error-action-text">Ask the sender to send a new link.</span>
         </div>
         <a href="https://udhaar.jyotirmoyb.com" class="btn btn-secondary" data-i18n="get_the_app">Get the app</a>
       </div>
@@ -296,7 +296,7 @@
           <label class="form-label" for="input-paid-ref" data-i18n="paid_ref_label">Reference number / note (optional)</label>
           <input type="text" id="input-paid-ref" class="form-input" maxlength="100" />
         </div>
-        <p style="font-size: 13px; color: var(--text-muted);" data-i18n="paid_notice">The lender will confirm your payment in their app.</p>
+        <p class="notice-text-sm" data-i18n="paid_notice">The lender will confirm your payment in their app.</p>
         <button id="btn-submit-paid" class="btn btn-primary" data-i18n="btn_submit_paid">Submit payment proof</button>
       </div>
     </div>
@@ -317,7 +317,7 @@
           <label class="form-label" for="input-return-note" data-i18n="date_note_label">Message (optional)</label>
           <input type="text" id="input-return-note" class="form-input" maxlength="160" data-i18n-placeholder="date_note_placeholder" placeholder="For example: I will return half this Friday..." />
         </div>
-        <p style="font-size: 13px; color: var(--text-muted);" data-i18n="date_notice">This is a proposal that the other person will accept or decline in the app.</p>
+        <p class="notice-text-sm" data-i18n="date_notice">This is a proposal that the other person will accept or decline in the app.</p>
         <button id="btn-submit-date" class="btn btn-primary" data-i18n="btn_submit_date">Send proposed date</button>
       </div>
     </div>
@@ -330,10 +330,10 @@
           <h3 id="title-reminder-sheet" class="sheet-title" data-i18n="reminder_sheet_title">Set reminder for myself</h3>
           <button class="close-btn" id="close-reminder-modal" data-close="reminder-modal" aria-label="Close">×</button>
         </div>
-        <p style="font-size: 14px; color: var(--text-muted);" data-i18n="reminder_desc">
+        <p class="notice-text-md" data-i18n="reminder_desc">
           Get an alert before the due date so you never forget.
         </p>
-        <a id="btn-google-cal" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" data-i18n="btn_google_cal" style="text-align: center; text-decoration: none;">
+        <a id="btn-google-cal" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-google-cal-style" data-i18n="btn_google_cal">
           Add to Google Calendar
         </a>
         <button id="btn-ics-cal" class="btn btn-secondary" data-i18n="btn_ics_cal">
@@ -342,8 +342,8 @@
         <button id="btn-browser-notify" class="btn btn-secondary" data-i18n="btn_browser_notify">
           Turn on browser notification
         </button>
-        <div id="notify-status" style="font-size: 13px; color: var(--emerald-600); font-weight: 700;"></div>
-        <p style="font-size: 12px; color: var(--text-muted);" data-i18n="notify_disclaimer">
+        <div id="notify-status" class="notify-status-style"></div>
+        <p class="notice-text-xs" data-i18n="notify_disclaimer">
           Udhaar cannot send you browser alerts unless you click allow.
         </p>
       </div>
@@ -359,22 +359,22 @@
         </div>
         <div class="qr-container">
           <div id="qrcode-canvas" aria-label="UPI Payment QR Code"></div>
-          <span style="font-size: 13px; font-weight: 600; color: var(--text-muted);" data-i18n="upi_scan_qr">
+          <span class="upi-scan-label" data-i18n="upi_scan_qr">
             Scan QR with GPay, PhonePe, Paytm, or BHIM
           </span>
         </div>
-        <div class="data-row" style="background: var(--slate-50); padding: 10px 14px; border-radius: var(--radius-sm);">
+        <div class="data-row upi-row-box">
           <span class="data-label" data-i18n="upi_id_label">UPI ID</span>
-          <span id="display-upi-id" class="data-value" style="font-family: monospace;">—</span>
+          <span id="display-upi-id" class="data-value upi-mono">—</span>
         </div>
-        <div style="display: flex; gap: 10px; flex-direction: column;">
-          <div style="display: flex; gap: 10px;">
-            <button id="btn-copy-upi" class="btn btn-secondary" style="flex: 1;" data-i18n="btn_copy_upi">Copy UPI ID</button>
-            <a id="btn-open-upi-app" href="#" class="btn btn-primary" style="flex: 1;" data-i18n="btn_pay_app">Pay now</a>
+        <div class="upi-actions-col">
+          <div class="upi-actions-row">
+            <button id="btn-copy-upi" class="btn btn-secondary flex-1" data-i18n="btn_copy_upi">Copy UPI ID</button>
+            <a id="btn-open-upi-app" href="#" class="btn btn-primary flex-1" data-i18n="btn_pay_app">Pay now</a>
           </div>
           <button id="btn-toggle-upi" class="btn-text" data-i18n="btn_toggle_upi">Show / Hide UPI ID</button>
         </div>
-        <p id="text-upi-warning" style="font-size: 12px; color: var(--amber-700); background: var(--amber-50); padding: 8px 12px; border-radius: var(--radius-sm);" data-i18n="upi_warning">
+        <p id="text-upi-warning" class="upi-warning-style" data-i18n="upi_warning">
           Always check the recipient name in your UPI app before completing payment.
         </p>
       </div>

@@ -29,13 +29,26 @@ try {
 }
 
 const ANDROID_CHANNEL_ID = "udhaar_chat_messages_channel";
-const SERVER_SECRET = process.env.UDHAAR_SERVER_SECRET || "udhaar-hmac-salt-secret-key-2026";
+
+/**
+ * Returns the HMAC server secret. Fails closed in production if not configured via environment/Secret Manager.
+ */
+function getServerSecret() {
+  const secret = process.env.UDHAAR_SERVER_SECRET;
+  if (secret && secret.trim().length > 0) {
+    return secret.trim();
+  }
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("CRITICAL SECURITY CONFIGURATION ERROR: UDHAAR_SERVER_SECRET is not configured. Server must fail closed.");
+  }
+  return "udhaar-test-hmac-salt-secret-key-2026";
+}
 
 /**
  * Computes SHA-256 HMAC of a 6-digit code using the server secret.
  */
 function computeCodeHmac(code) {
-  return crypto.createHmac("sha256", SERVER_SECRET).update(String(code).trim()).digest("hex");
+  return crypto.createHmac("sha256", getServerSecret()).update(String(code).trim()).digest("hex");
 }
 
 /**
