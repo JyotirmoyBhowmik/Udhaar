@@ -1,5 +1,8 @@
 package com.jyotirmoyb.udhaar.ui.sheets
 
+import com.jyotirmoyb.udhaar.ui.sheets.detail.TransactionVerificationCard
+import com.jyotirmoyb.udhaar.util.InterestCalculator
+
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -136,5 +139,31 @@ class GuestWebUiTest {
         composeRule.waitForIdle()
 
         assertEquals(202L, acceptedTxId)
+    }
+
+    @Test
+    fun transactionVerificationCard_triggersOnOpenWebShare_onSendWebLinkClick() {
+        val tx = UdhaarTransaction(
+            id = 88L,
+            partyName = "Priya",
+            principalAmount = 3000.0,
+            currency = CurrencyType.INR,
+            transactionType = TransactionType.GIVEN,
+            phoneNumber = "+91 9876543210"
+        )
+        val summary = InterestCalculator.calculate(tx)
+        var webShareClicked = false
+
+        composeRule.setContent {
+            TransactionVerificationCard(
+                summary = summary,
+                tx = tx,
+                onOpenWebShare = { webShareClicked = true }
+            )
+        }
+
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("send_web_link_button").performClick()
+        assertTrue("onOpenWebShare callback must be called when clicking Send Web Link", webShareClicked)
     }
 }

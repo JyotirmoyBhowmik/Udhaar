@@ -301,7 +301,7 @@ fun ChatThreadBottomSheet(
                                     text = stringResource(R.string.ui_str_muted_a0f807),
                                     modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = 8.sp,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Black
                                     ),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -548,7 +548,7 @@ fun ChatThreadBottomSheet(
                             text = stringResource(R.string.ui_str_propose_new_due_date_one_fbfc83),
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Black,
-                                letterSpacing = 0.8.sp
+                                letterSpacing = 0.sp
                             ),
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -875,7 +875,7 @@ fun ChatThreadBottomSheet(
                     } else {
                         stringResource(R.string.ui_fmt_sending_as_6853d3, mySenderDisplay)
                     },
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                     color = if (simulateCounterpartyMode) financeColors.receiveAccent else MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 FilterChip(
@@ -884,7 +884,7 @@ fun ChatThreadBottomSheet(
                     label = {
                         Text(
                             text = if (simulateCounterpartyMode) stringResource(R.string.ui_str_switch_to_you_3af7a0) else stringResource(R.string.ui_fmt_simulate_reply_4d6eab, effectivePartyName),
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         )
                     },
                     colors = FilterChipDefaults.filterChipColors(
@@ -1020,7 +1020,7 @@ private fun SystemAuditPillItem(entry: AuditTrailEntry) {
                 )
                 Text(
                     text = stringResource(R.string.ui_fmt_symbol_9c4f32, entry.eventType.label, entry.summaryText, timeFmt.format(Date(entry.eventTimeMillis))),
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -1083,7 +1083,7 @@ private fun ChatMessageBubbleItem(
                     Text(
                         text = if (isOutgoing) stringResource(R.string.ui_fmt_you_382cbf, message.senderName) else message.senderName,
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 10.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Black
                         ),
                         color = bubbleText.copy(alpha = 0.75f)
@@ -1092,7 +1092,7 @@ private fun ChatMessageBubbleItem(
                         Text(
                             text = stringResource(R.string.ui_str_quick_reply_ce8251),
                             style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 8.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             ),
                             color = bubbleText.copy(alpha = 0.6f)
@@ -1132,7 +1132,7 @@ private fun ChatMessageBubbleItem(
                                         stringResource(R.string.ui_str_payment_proof_image_receipt_5f4055)
                                     },
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = 9.sp,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Black
                                     ),
                                     color = financeColors.receiveAccent
@@ -1140,7 +1140,7 @@ private fun ChatMessageBubbleItem(
                                 Text(
                                     text = message.attachmentUri.takeLast(36).ifBlank { stringResource(R.string.ui_str_verified_local_attachment_57cd60) },
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = 9.sp,
+                                        fontSize = 12.sp,
                                         fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily
                                     ),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1195,7 +1195,7 @@ private fun ChatMessageBubbleItem(
                                         text = message.extensionStatus.name,
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                         style = MaterialTheme.typography.labelSmall.copy(
-                                            fontSize = 9.sp,
+                                            fontSize = 12.sp,
                                             fontWeight = FontWeight.Black
                                         ),
                                         color = when (message.extensionStatus) {
@@ -1258,7 +1258,7 @@ private fun ChatMessageBubbleItem(
                 ) {
                     Text(
                         text = timeFmt.format(Date(message.sentAtMillis)),
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp),
                         color = bubbleText.copy(alpha = 0.65f)
                     )
                     if (isOutgoing) {
@@ -1290,7 +1290,7 @@ private fun ChatMessageBubbleItem(
                                 MessageDeliveryStatus.READ -> stringResource(R.string.ui_str_read_852b43)
                             },
                             style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 9.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             ),
                             color = if (message.deliveryStatus == MessageDeliveryStatus.READ) {

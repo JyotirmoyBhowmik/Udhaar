@@ -206,9 +206,9 @@ open class MainActivity : FragmentActivity() {
         if (!chatKey.isNullOrBlank() || !remoteRecId.isNullOrBlank()) {
             pendingChatThreadKey = chatKey
             pendingRemoteRecordId = remoteRecId
-            val chatTxId = intent?.getLongExtra(ChatNotificationHelper.EXTRA_CHAT_TRANSACTION_ID, -1L) ?: -1L
+            val chatTxId = intent.getLongExtra(ChatNotificationHelper.EXTRA_CHAT_TRANSACTION_ID, -1L)
             pendingChatTransactionId = if (chatTxId > 0L) chatTxId else null
-            pendingChatPartyName = intent?.getStringExtra(ChatNotificationHelper.EXTRA_CHAT_PARTY_NAME)
+            pendingChatPartyName = intent.getStringExtra(ChatNotificationHelper.EXTRA_CHAT_PARTY_NAME)
         }
         val uri = intent?.data
         if (uri != null) {
@@ -832,6 +832,24 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                                         },
                                         onConfirmOrDisputeRecord = { confirm, reason ->
                                             viewModel.confirmOrDisputeExistingRecord(detailSummary.transaction, confirm, reason)
+                                        },
+                                        onOpenWebShare = {
+                                            viewModel.openWebShareModal(detailTxId)
+                                        },
+                                        onRevokeWebLink = {
+                                            viewModel.revokeWebLink(detailTxId)
+                                        },
+                                        onConfirmPaymentClaim = {
+                                            viewModel.confirmPaymentClaim(detailTxId)
+                                        },
+                                        onRejectPaymentClaim = {
+                                            viewModel.rejectPaymentClaim(detailTxId)
+                                        },
+                                        onAcceptDateProposal = {
+                                            viewModel.acceptDateProposal(detailTxId)
+                                        },
+                                        onDeclineDateProposal = {
+                                            viewModel.declineDateProposal(detailTxId)
                                         },
                                         onToggleSettled = {
                                             viewModel.toggleSettled(detailSummary)

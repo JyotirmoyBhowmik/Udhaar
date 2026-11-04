@@ -56,8 +56,8 @@ import com.jyotirmoyb.udhaar.util.InterestCalculator
 fun TransactionVerificationCard(
     summary: CalculatedUdhaarSummary,
     tx: UdhaarTransaction,
-    onRequestVerification: () -> Unit,
-    onConfirmOrDisputeRecord: (confirm: Boolean, disputeReason: String) -> Unit,
+    onRequestVerification: () -> Unit = {},
+    onConfirmOrDisputeRecord: (confirm: Boolean, disputeReason: String) -> Unit = { _, _ -> },
     onOpenWebShare: () -> Unit = {},
     onRevokeWebLink: () -> Unit = {},
     onConfirmPaymentClaim: () -> Unit = {},
@@ -79,7 +79,7 @@ fun TransactionVerificationCard(
             .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(10.dp))
             .padding(10.dp)
             .testTag("detail_verification_section"),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -92,7 +92,7 @@ fun TransactionVerificationCard(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(horizontalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small), verticalAlignment = Alignment.CenterVertically) {
                 if (tx.trustLevel.isNotBlank()) {
                     Surface(
                         shape = RoundedCornerShape(6.dp),
@@ -106,7 +106,7 @@ fun TransactionVerificationCard(
                                 "APP_VERIFIED" -> "App Verified ✓"
                                 else -> tx.trustLevel
                             },
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -160,19 +160,19 @@ fun TransactionVerificationCard(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)
                     ) {
                         if (tx.webLinkStatus == "ACTIVE") {
                             OutlinedButton(
                                 onClick = onOpenWebShare,
-                                modifier = Modifier.weight(1f).height(34.dp).testTag("btn_resend_web_link"),
+                                modifier = Modifier.weight(1f).height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight).testTag("btn_resend_web_link"),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
                                 Text(stringResource(R.string.btn_resend), style = MaterialTheme.typography.labelSmall)
                             }
                             OutlinedButton(
                                 onClick = onRevokeWebLink,
-                                modifier = Modifier.weight(1f).height(34.dp).testTag("btn_revoke_detail_link"),
+                                modifier = Modifier.weight(1f).height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight).testTag("btn_revoke_detail_link"),
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                             ) {
@@ -181,7 +181,7 @@ fun TransactionVerificationCard(
                         } else {
                             Button(
                                 onClick = onOpenWebShare,
-                                modifier = Modifier.fillMaxWidth().height(34.dp).testTag("btn_create_new_web_link"),
+                                modifier = Modifier.fillMaxWidth().height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight).testTag("btn_create_new_web_link"),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
                                 Text(stringResource(R.string.btn_create_new_web_link), style = MaterialTheme.typography.labelSmall)
@@ -216,17 +216,17 @@ fun TransactionVerificationCard(
                         text = modeSummary,
                         style = MaterialTheme.typography.labelSmall
                     )
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)) {
                         Button(
                             onClick = onConfirmPaymentClaim,
-                            modifier = Modifier.weight(1f).height(34.dp).testTag("btn_detail_confirm_claim"),
+                            modifier = Modifier.weight(1f).height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight).testTag("btn_detail_confirm_claim"),
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Text(stringResource(R.string.btn_confirm_payment), style = MaterialTheme.typography.labelSmall)
                         }
                         OutlinedButton(
                             onClick = onRejectPaymentClaim,
-                            modifier = Modifier.weight(1f).height(34.dp).testTag("btn_detail_reject_claim"),
+                            modifier = Modifier.weight(1f).height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight).testTag("btn_detail_reject_claim"),
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                         ) {
@@ -260,17 +260,17 @@ fun TransactionVerificationCard(
                         val quotedMsg = "“${dateProposal.message}”"
                         Text(text = quotedMsg, style = MaterialTheme.typography.labelSmall)
                     }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)) {
                         Button(
                             onClick = onAcceptDateProposal,
-                            modifier = Modifier.weight(1f).height(34.dp).testTag("btn_detail_accept_date"),
+                            modifier = Modifier.weight(1f).height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight).testTag("btn_detail_accept_date"),
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Text(stringResource(R.string.btn_accept_date), style = MaterialTheme.typography.labelSmall)
                         }
                         OutlinedButton(
                             onClick = onDeclineDateProposal,
-                            modifier = Modifier.weight(1f).height(34.dp).testTag("btn_detail_decline_date"),
+                            modifier = Modifier.weight(1f).height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight).testTag("btn_detail_decline_date"),
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Text(stringResource(R.string.btn_decline), style = MaterialTheme.typography.labelSmall)
@@ -299,14 +299,14 @@ fun TransactionVerificationCard(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)
         ) {
             // Send Web Link Button
             Button(
                 onClick = onOpenWebShare,
                 modifier = Modifier
                     .weight(1f)
-                    .height(36.dp)
+                    .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
                     .pressScaleFeedback()
                     .testTag("send_web_link_button"),
                 shape = RoundedCornerShape(10.dp),
@@ -328,7 +328,7 @@ fun TransactionVerificationCard(
                 onClick = onRequestVerification,
                 modifier = Modifier
                     .weight(1f)
-                    .height(36.dp)
+                    .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
                     .pressScaleFeedback()
                     .testTag("request_verification_button"),
                 shape = RoundedCornerShape(10.dp),
@@ -359,13 +359,13 @@ fun TransactionVerificationCard(
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)
                 ) {
                     OutlinedButton(
                         onClick = { showDisputeInput = false },
                         modifier = Modifier
                             .weight(1f)
-                            .height(36.dp)
+                            .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
                             .pressScaleFeedback(),
                         shape = RoundedCornerShape(10.dp)
                     ) {
@@ -381,7 +381,7 @@ fun TransactionVerificationCard(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(36.dp)
+                            .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
                             .pressScaleFeedback()
                             .testTag("detail_submit_dispute_button"),
                         shape = RoundedCornerShape(10.dp),
@@ -396,13 +396,13 @@ fun TransactionVerificationCard(
             } else {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)
                 ) {
                     Button(
                         onClick = { onConfirmOrDisputeRecord(true, "") },
                         modifier = Modifier
                             .weight(1f)
-                            .height(36.dp)
+                            .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
                             .pressScaleFeedback()
                             .testTag("detail_confirm_verification_button"),
                         shape = RoundedCornerShape(10.dp),
@@ -419,7 +419,7 @@ fun TransactionVerificationCard(
                         onClick = { showDisputeInput = true },
                         modifier = Modifier
                             .weight(1f)
-                            .height(36.dp)
+                            .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
                             .pressScaleFeedback()
                             .testTag("detail_dispute_verification_button"),
                         shape = RoundedCornerShape(10.dp),

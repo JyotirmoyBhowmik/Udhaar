@@ -438,7 +438,7 @@ fun InAppContactPickerModal(
                                     Text(
                                         text = letter,
                                         style = MaterialTheme.typography.labelSmall.copy(
-                                            fontSize = 9.sp,
+                                            fontSize = 12.sp,
                                             fontWeight = if (hasItems) FontWeight.Bold else FontWeight.Normal
                                         ),
                                         color = if (hasItems) PureBlack else BorderGrey
@@ -596,7 +596,7 @@ private fun ContactRowItem(
                         ) {
                             Text(
                                 text = stringResource(R.string.ui_str_in_ledger_dbe272),
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                style = MaterialTheme.typography.labelSmall,
                                 color = PureWhite,
                                 fontWeight = FontWeight.Bold
                             )
@@ -611,7 +611,7 @@ private fun ContactRowItem(
                         ) {
                             Text(
                                 text = stringResource(R.string.ui_str_on_udhaar_5fbe07),
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                style = MaterialTheme.typography.labelSmall,
                                 color = PureBlack,
                                 fontWeight = FontWeight.Bold
                             )

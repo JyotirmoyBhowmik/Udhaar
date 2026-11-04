@@ -41,6 +41,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -487,8 +488,8 @@ fun DashboardScreen(
                             style = MaterialTheme.typography.displayLarge.copy(
                                 fontFamily = SpaceGroteskFamily,
                                 fontWeight = FontWeight.Medium,
-                                fontSize = 23.sp,
-                                letterSpacing = 0.5.sp
+                                fontSize = 24.sp,
+                                letterSpacing = 0.sp
                             ),
                             color = PureBlack,
                             maxLines = 1,
@@ -497,7 +498,7 @@ fun DashboardScreen(
                         Text(
                             text = uiState.userSettings.themeMode.label,
                             style = MaterialTheme.typography.bodyLarge.copy(
-                                fontSize = 13.5.sp,
+                                fontSize = 14.sp,
                                 fontWeight = FontWeight.Normal
                             ),
                             color = SecondaryInkGrey,
@@ -511,7 +512,7 @@ fun DashboardScreen(
                         IconButton(
                             onClick = { showGroupSplitSheet = true },
                             modifier = Modifier
-                                .size(44.dp)
+                                .size(48.dp)
                                 .pressScaleFeedback()
                                 .testTag("header_group_split_button")
                         ) {
@@ -525,7 +526,7 @@ fun DashboardScreen(
                         IconButton(
                             onClick = onOpenUpdatesScreen,
                             modifier = Modifier
-                                .size(44.dp)
+                                .size(48.dp)
                                 .pressScaleFeedback()
                                 .testTag("open_inbox_updates_button")
                         ) {
@@ -539,7 +540,7 @@ fun DashboardScreen(
                         IconButton(
                             onClick = onSettingsClick,
                             modifier = Modifier
-                                .size(44.dp)
+                                .size(48.dp)
                                 .pressScaleFeedback()
                                 .testTag("open_settings_button")
                         ) {
@@ -564,9 +565,9 @@ fun DashboardScreen(
                 BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(34.dp)
+                        .height(40.dp)
                 ) {
-                    val spacing = 10.dp
+                    val spacing = com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small
                     val tabWidth = (maxWidth - spacing * 2) / 3
                     val indicatorOffset by animateDpAsState(
                         targetValue = (tabWidth + spacing) * selectedTabIndex,
@@ -582,7 +583,7 @@ fun DashboardScreen(
                         modifier = Modifier
                             .offset(x = indicatorOffset)
                             .width(tabWidth)
-                            .height(34.dp)
+                            .height(40.dp)
                             .clip(UdhaarShapeTokens.Pill)
                             .background(SelectedPillTint, UdhaarShapeTokens.Pill)
                             .border(width = 1.5.dp, color = PureBlack, shape = UdhaarShapeTokens.Pill)
@@ -700,12 +701,13 @@ fun DashboardScreen(
             )
         }
     ) { innerPadding ->
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
             contentAlignment = Alignment.TopCenter
         ) {
+            val isTabletWide = maxWidth >= 600.dp
             if (isPeopleTab) {
                 PeopleDirectoryContent(
                     partyKhataList = uiState.filteredPartyKhataList,
@@ -732,15 +734,15 @@ fun DashboardScreen(
                     state = ledgerListState,
                     modifier = Modifier
                         .fillMaxSize()
-                        .widthIn(max = 700.dp)
+                        .widthIn(max = if (isTabletWide) 840.dp else 700.dp)
                         .testTag("transactions_lazy_list"),
                     contentPadding = PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
+                        start = if (isTabletWide) 24.dp else 16.dp,
+                        end = if (isTabletWide) 24.dp else 16.dp,
                         top = 4.dp,
                         bottom = 120.dp
                     ),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(if (isTabletWide) com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Medium else com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)
                 ) {
                     item(key = "search_filter_bar_item") {
                         Box(modifier = udhaarAnimateItem(reducedMotion)) {
@@ -917,7 +919,7 @@ fun DashboardScreen(
                             text = stringResource(R.string.ui_fmt_vpa_560ef1, vpaDisplay),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontFamily = IbmPlexMonoFamily,
-                                fontSize = 12.5.sp
+                                fontSize = 14.sp
                             ),
                             color = SecondaryInkGrey,
                             maxLines = 1,
@@ -976,7 +978,7 @@ private fun PillTabItem(
 
     Box(
         modifier = modifier
-            .height(34.dp)
+            .height(40.dp)
             .pressScaleFeedback()
             .clip(UdhaarShapeTokens.Pill)
             .background(color = bgColor, shape = UdhaarShapeTokens.Pill)
@@ -988,7 +990,7 @@ private fun PillTabItem(
         Text(
             text = label,
             style = MaterialTheme.typography.titleMedium.copy(
-                fontSize = 12.5.sp,
+                fontSize = 14.sp,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
             ),
             color = PureBlack,
@@ -1048,7 +1050,7 @@ private fun TopLedgerSummaryCard(
                     ) {
                         Text(
                             text = stringResource(R.string.ui_fmt_symbol_c3451e, curr.displayName, count),
-                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.5.sp),
+                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
                             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
                             color = PureBlack,
                             maxLines = 1
@@ -1072,15 +1074,15 @@ private fun TopLedgerSummaryCard(
         )
 
         val receivableFontSize = when {
-            animatedReceivableText.length <= 8 -> 17.5.sp
+            animatedReceivableText.length <= 8 -> 18.sp
             animatedReceivableText.length <= 11 -> 15.sp
-            animatedReceivableText.length <= 14 -> 13.5.sp
+            animatedReceivableText.length <= 14 -> 14.sp
             else -> 12.sp
         }
         val payableFontSize = when {
-            animatedPayableText.length <= 8 -> 17.5.sp
+            animatedPayableText.length <= 8 -> 18.sp
             animatedPayableText.length <= 11 -> 15.sp
-            animatedPayableText.length <= 14 -> 13.5.sp
+            animatedPayableText.length <= 14 -> 14.sp
             else -> 12.sp
         }
 
@@ -1111,7 +1113,7 @@ private fun TopLedgerSummaryCard(
                     Text(
                         text = stringResource(R.string.ui_str_total_receivable_6cb1b1),
                         style = MaterialTheme.typography.titleMedium.copy(
-                            fontSize = 11.5.sp,
+                            fontSize = 12.sp,
                             lineHeight = 14.sp,
                             fontWeight = FontWeight.SemiBold
                         ),
@@ -1124,7 +1126,7 @@ private fun TopLedgerSummaryCard(
                     )
                     Box(
                         modifier = Modifier
-                            .size(22.dp)
+                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                             .clip(UdhaarShapeTokens.Corner8)
                             .pressScaleFeedback()
                             .clickable(onClick = onToggleHideAmounts)
@@ -1170,7 +1172,7 @@ private fun TopLedgerSummaryCard(
                 Text(
                     text = activeRecordLabel,
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = 11.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
                     ),
                     color = ReceivableCardInk,
@@ -1199,7 +1201,7 @@ private fun TopLedgerSummaryCard(
                     Text(
                         text = stringResource(R.string.ui_str_total_payable_65e9b2),
                         style = MaterialTheme.typography.titleMedium.copy(
-                            fontSize = 11.5.sp,
+                            fontSize = 12.sp,
                             lineHeight = 14.sp,
                             fontWeight = FontWeight.SemiBold
                         ),
@@ -1212,7 +1214,7 @@ private fun TopLedgerSummaryCard(
                     )
                     Box(
                         modifier = Modifier
-                            .size(22.dp)
+                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                             .clip(UdhaarShapeTokens.Corner8)
                             .pressScaleFeedback()
                             .clickable(onClick = onToggleHideAmounts)
@@ -1258,7 +1260,7 @@ private fun TopLedgerSummaryCard(
                 Text(
                     text = payableRecordLabel,
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = 11.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
                     ),
                     color = PayableCardInk,
@@ -1329,7 +1331,7 @@ private fun TopLedgerSummaryCard(
                 text = stringResource(R.string.ui_fmt_symbol_a68a33, prefix, animatedNetAbsText),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontFamily = IbmPlexMonoFamily,
-                    fontSize = 12.5.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
                 ),
                 color = netAmountColor,
@@ -1406,12 +1408,12 @@ private fun SearchAndFilterBar(
     val canScrollLeft = lazyRowState.canScrollBackward
     val canScrollRight = lazyRowState.canScrollForward
 
-    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)) {
         // Compact rounded search bar with search icon and placeholder
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(38.dp)
+                .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
                 .clip(UdhaarShapeTokens.Corner12)
                 .background(CardSurfaceWhite)
                 .border(1.dp, BorderGrey, UdhaarShapeTokens.Corner12)
@@ -1527,7 +1529,7 @@ private fun SearchAndFilterBar(
                 val reducedMotion = rememberReducedMotionEnabled()
                 Box(
                     modifier = udhaarAnimateItem(reducedMotion)
-                        .height(30.dp)
+                        .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.ChipHeight).defaultMinSize(minHeight = com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.MinTouchTarget)
                         .pressScaleFeedback()
                         .clip(UdhaarShapeTokens.Corner8)
                         .background(color = chipBg, shape = UdhaarShapeTokens.Corner8)
@@ -1543,7 +1545,7 @@ private fun SearchAndFilterBar(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        horizontalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)
                     ) {
                         Text(
                             text = filter.label,
@@ -1569,7 +1571,7 @@ private fun SearchAndFilterBar(
                                 text = count.toString(),
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontFamily = IbmPlexMonoFamily,
-                                    fontSize = 10.5.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold
                                 ),
                                 color = chipContentColor,
@@ -1637,7 +1639,7 @@ private fun LedgerSectionHeaderRow(
                 Text(
                     text = stringResource(R.string.group_split_button),
                     style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize = 11.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
                     ),
                     color = PureBlack,
@@ -1672,7 +1674,7 @@ private fun LedgerSectionHeaderRow(
                             stringResource(R.string.ui_fmt_symbol_7ff20b, dateRangeFilter.label, transactionSortOption.label)
                         },
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 11.5.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         ),
                         color = PureBlack,
@@ -1876,8 +1878,8 @@ internal fun TransactionCardItem(
     val formattedCardAmount = InterestCalculator.formatCurrencyPrivacy(displayAmount, tx.currency, isAmountsHidden)
     val cardAmountFontSize = when {
         formattedCardAmount.length <= 8 -> 19.sp
-        formattedCardAmount.length <= 11 -> 16.5.sp
-        else -> 14.5.sp
+        formattedCardAmount.length <= 11 -> 16.sp
+        else -> 14.sp
     }
 
     Surface(
@@ -1936,7 +1938,7 @@ internal fun TransactionCardItem(
                         Text(
                             text = tx.partyName,
                             style = MaterialTheme.typography.titleMedium.copy(
-                                fontSize = 15.5.sp,
+                                fontSize = 16.sp,
                                 fontWeight = FontWeight.SemiBold
                             ),
                             color = PureBlack,
@@ -1958,7 +1960,7 @@ internal fun TransactionCardItem(
                             Text(
                                 text = if (isGiven) stringResource(R.string.ui_str_given_567b49) else stringResource(R.string.ui_str_taken_7abbf5),
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 10.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 ),
                                 color = if (isGiven) CardSurfaceWhite else PayableCardInk
@@ -1972,7 +1974,7 @@ internal fun TransactionCardItem(
                             Text(
                                 text = tx.paymentMode.shortBadge,
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 10.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium
                                 ),
                                 color = PureBlack
@@ -1987,7 +1989,7 @@ internal fun TransactionCardItem(
                                 Text(
                                     text = groupTag,
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = 9.5.sp,
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.SemiBold
                                     ),
                                     color = PureBlack,
@@ -2042,7 +2044,7 @@ internal fun TransactionCardItem(
                         text = InterestCalculator.formatSubtitleBreakdownPrivacy(summary, isAmountsHidden),
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontFamily = IbmPlexMonoFamily,
-                            fontSize = 11.sp
+                            fontSize = 12.sp
                         ),
                         color = SecondaryInkGrey,
                         maxLines = 1,
@@ -2056,7 +2058,7 @@ internal fun TransactionCardItem(
                     Text(
                         text = stringResource(R.string.card_expand_details),
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 10.5.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold
                         ),
                         color = PureBlack,
@@ -2092,7 +2094,7 @@ internal fun TransactionCardItem(
                             Text(
                                 text = if (isGiven) stringResource(R.string.ui_str_given_567b49) else stringResource(R.string.ui_str_taken_7abbf5),
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 10.5.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 ),
                                 color = if (isGiven) CardSurfaceWhite else PayableCardInk,
@@ -2110,7 +2112,7 @@ internal fun TransactionCardItem(
                             Text(
                                 text = tx.paymentMode.shortBadge,
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 10.5.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium
                                 ),
                                 color = PureBlack,
@@ -2128,7 +2130,7 @@ internal fun TransactionCardItem(
                             Text(
                                 text = tx.currency.code,
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 10.5.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium
                                 ),
                                 color = SecondaryInkGrey,
@@ -2156,7 +2158,7 @@ internal fun TransactionCardItem(
                                         "APP_VERIFIED" -> "App Verified ✓"
                                         else -> tx.trustLevel
                                     },
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF0369A1),
                                     maxLines = 1,
@@ -2175,7 +2177,7 @@ internal fun TransactionCardItem(
                             ) {
                                 Text(
                                     text = stringResource(R.string.ui_fmt_symbol_301919, unreadCount),
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = CardSurfaceWhite,
                                     maxLines = 1,
@@ -2193,7 +2195,7 @@ internal fun TransactionCardItem(
                             ) {
                                 Text(
                                     text = stringResource(R.string.ui_fmt_symbol_e20cea, attachmentsCount),
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.SemiBold,
                                     color = PureBlack,
                                     maxLines = 1,
@@ -2212,7 +2214,7 @@ internal fun TransactionCardItem(
                             ) {
                                 Text(
                                     text = stringResource(R.string.badge_late),
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onErrorContainer,
                                     maxLines = 1,
@@ -2231,7 +2233,7 @@ internal fun TransactionCardItem(
                             ) {
                                 Text(
                                     text = stringResource(R.string.snoozed_until_fmt, com.jyotirmoyb.udhaar.reminder.ReminderEngine.formatSnoozedUntil(tx.snoozedUntilMillis!!)),
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onTertiaryContainer,
                                     maxLines = 1,
@@ -2247,7 +2249,7 @@ internal fun TransactionCardItem(
                             ) {
                                 Text(
                                     text = stringResource(R.string.reminders_stopped_badge),
-                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.SemiBold,
                                     color = SecondaryInkGrey,
                                     maxLines = 1,
@@ -2266,7 +2268,7 @@ internal fun TransactionCardItem(
                             text = summary.dueStatusText,
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontFamily = IbmPlexMonoFamily,
-                                fontSize = 11.sp,
+                                fontSize = 12.sp,
                                 fontWeight = if (summary.isOverdue || tx.isSettled) FontWeight.SemiBold else FontWeight.Normal
                             ),
                             color = if (summary.isOverdue) PayableCardInk else SecondaryInkGrey,
@@ -2279,7 +2281,7 @@ internal fun TransactionCardItem(
                         IconButton(
                             onClick = { showReminderMenu = true },
                             modifier = Modifier
-                                .size(24.dp)
+                                .size(48.dp)
                                 .testTag("card_reminder_menu_button_${tx.id}")
                         ) {
                             Icon(
@@ -2336,7 +2338,7 @@ internal fun TransactionCardItem(
                     IconButton(
                         onClick = { isCardExpanded = false },
                         modifier = Modifier
-                            .size(28.dp)
+                            .size(48.dp)
                             .testTag("tx_card_expand_toggle_${tx.id}")
                     ) {
                         Icon(
@@ -2374,7 +2376,7 @@ internal fun TransactionCardItem(
                         Text(
                             text = tx.partyName,
                             style = MaterialTheme.typography.headlineMedium.copy(
-                                fontSize = 16.5.sp,
+                                fontSize = 16.sp,
                                 lineHeight = 20.sp,
                                 fontWeight = FontWeight.SemiBold
                             ),
@@ -2420,7 +2422,7 @@ internal fun TransactionCardItem(
                 text = InterestCalculator.formatSubtitleBreakdownPrivacy(summary, isAmountsHidden),
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontFamily = IbmPlexMonoFamily,
-                    fontSize = 11.5.sp
+                    fontSize = 12.sp
                 ),
                 color = SecondaryInkGrey,
                 modifier = Modifier.testTag("tx_card_breakdown_${tx.id}")
@@ -2431,7 +2433,7 @@ internal fun TransactionCardItem(
                     text = stringResource(R.string.ui_fmt_symbol_c8354b, tx.notes),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontStyle = FontStyle.Italic,
-                        fontSize = 13.5.sp
+                        fontSize = 14.sp
                     ),
                     color = SecondaryInkGrey,
                     maxLines = 2,
@@ -2462,7 +2464,7 @@ internal fun TransactionCardItem(
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontFamily = IbmPlexMonoFamily,
                                 fontWeight = FontWeight.SemiBold,
-                                fontSize = 11.sp
+                                fontSize = 12.sp
                             ),
                             color = PureBlack
                         )
@@ -2477,7 +2479,7 @@ internal fun TransactionCardItem(
                                 ),
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontFamily = IbmPlexMonoFamily,
-                                    fontSize = 11.sp
+                                    fontSize = 12.sp
                                 ),
                                 color = if (nextDue.dueDate < System.currentTimeMillis() && nextDue.amountPaid < nextDue.amountDue)
                                     MaterialTheme.colorScheme.error
@@ -2509,7 +2511,7 @@ internal fun TransactionCardItem(
                 Text(
                     text = if (tx.isSettled) stringResource(R.string.ui_str_tap_for_receipt_693fae) else stringResource(R.string.ui_str_tap_for_repayment_receipt_bc12be),
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = 13.5.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
                     ),
                     color = PureBlack,
@@ -2595,7 +2597,7 @@ internal fun TransactionCardItem(
                         onClick = { onBorrowerAction?.invoke(summary, "i_paid") },
                         modifier = Modifier
                             .weight(1f)
-                            .height(36.dp)
+                            .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
                             .testTag("borrower_btn_paid_${tx.id}"),
                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
                         shape = UdhaarShapeTokens.Corner8
@@ -2606,7 +2608,7 @@ internal fun TransactionCardItem(
                         onClick = { onBorrowerAction?.invoke(summary, "need_more_time") },
                         modifier = Modifier
                             .weight(1f)
-                            .height(36.dp)
+                            .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
                             .testTag("borrower_btn_need_time_${tx.id}"),
                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
                         shape = UdhaarShapeTokens.Corner8
@@ -2617,7 +2619,7 @@ internal fun TransactionCardItem(
                         onClick = { onBorrowerAction?.invoke(summary, "ask_details") },
                         modifier = Modifier
                             .weight(1f)
-                            .height(36.dp)
+                            .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
                             .testTag("borrower_btn_details_${tx.id}"),
                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
                         shape = UdhaarShapeTokens.Corner8
@@ -2657,7 +2659,7 @@ internal fun TransactionCardItem(
                     Text(
                         text = stringResource(R.string.ui_str_get_qr_receipt_2aa81f),
                         style = MaterialTheme.typography.labelLarge.copy(
-                            fontSize = 12.5.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold
                         ),
                         maxLines = 1,
@@ -2689,7 +2691,7 @@ internal fun TransactionCardItem(
                     Text(
                         text = stringResource(R.string.ui_str_send_reminder_1e475a),
                         style = MaterialTheme.typography.labelLarge.copy(
-                            fontSize = 12.5.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold
                         ),
                         color = CardSurfaceWhite,

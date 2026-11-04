@@ -63,16 +63,16 @@ fun TransactionActionsSection(
         // Row 1: WhatsApp + Receipt + UPI QR / Pay Party UPI
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)
         ) {
             OutlinedButton(
                 onClick = onOpenWhatsApp,
                 modifier = Modifier
                     .weight(1f)
-                    .height(40.dp)
+                    .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
                     .pressScaleFeedback()
                     .testTag("detail_whatsapp_button"),
-                shape = RoundedCornerShape(10.dp),
+                shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
                 contentPadding = PaddingValues(horizontal = 8.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
             ) {
@@ -90,10 +90,10 @@ fun TransactionActionsSection(
                 onClick = onShareReceipt,
                 modifier = Modifier
                     .weight(1f)
-                    .height(40.dp)
+                    .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
                     .pressScaleFeedback()
                     .testTag("detail_thermal_receipt_button"),
-                shape = RoundedCornerShape(10.dp),
+                shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
                 contentPadding = PaddingValues(horizontal = 8.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
             ) {
@@ -113,10 +113,10 @@ fun TransactionActionsSection(
                         onClick = onOpenQr,
                         modifier = Modifier
                             .weight(1.1f)
-                            .height(40.dp)
+                            .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
                             .pressScaleFeedback()
                             .testTag("detail_upi_qr_button"),
-                        shape = RoundedCornerShape(10.dp),
+                        shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
                         contentPadding = PaddingValues(horizontal = 8.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                     ) {
@@ -141,10 +141,10 @@ fun TransactionActionsSection(
                         },
                         modifier = Modifier
                             .weight(1.1f)
-                            .height(40.dp)
+                            .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
                             .pressScaleFeedback()
                             .testTag("detail_pay_party_upi_button"),
-                        shape = RoundedCornerShape(10.dp),
+                        shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
                         contentPadding = PaddingValues(horizontal = 8.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                     ) {
@@ -168,16 +168,16 @@ fun TransactionActionsSection(
         // Row 2: In-App Transaction Chat & Mark Settled / Re-open
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)
         ) {
             Button(
                 onClick = onOpenTransactionChat,
                 modifier = Modifier
                     .weight(1f)
-                    .height(40.dp)
+                    .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
                     .pressScaleFeedback()
                     .testTag("detail_open_chat_button"),
-                shape = RoundedCornerShape(10.dp),
+                shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
                 contentPadding = PaddingValues(horizontal = 8.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -203,10 +203,10 @@ fun TransactionActionsSection(
                 onClick = onToggleSettled,
                 modifier = Modifier
                     .weight(1f)
-                    .height(40.dp)
+                    .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
                     .pressScaleFeedback()
                     .testTag("toggle_settled_button"),
-                shape = RoundedCornerShape(10.dp),
+                shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
                 contentPadding = PaddingValues(horizontal = 8.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (tx.isSettled) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.secondaryContainer,
@@ -233,16 +233,16 @@ fun TransactionActionsSection(
         // Row 3: Edit & Delete Row
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)
         ) {
             OutlinedButton(
                 onClick = onEdit,
                 modifier = Modifier
                     .weight(1f)
-                    .height(38.dp)
+                    .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
                     .pressScaleFeedback()
                     .testTag("edit_transaction_button"),
-                shape = RoundedCornerShape(10.dp),
+                shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
                 contentPadding = PaddingValues(horizontal = 8.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
@@ -254,10 +254,10 @@ fun TransactionActionsSection(
                 onClick = onDeleteClicked,
                 modifier = Modifier
                     .weight(1f)
-                    .height(38.dp)
+                    .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
                     .pressScaleFeedback()
                     .testTag("delete_transaction_button"),
-                shape = RoundedCornerShape(10.dp),
+                shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
                 contentPadding = PaddingValues(horizontal = 8.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
             ) {

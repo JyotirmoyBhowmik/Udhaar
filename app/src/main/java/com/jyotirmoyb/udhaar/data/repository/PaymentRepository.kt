@@ -97,6 +97,7 @@ open class PaymentRepository(
         val nowSettled = planSettled || (updatedPaid >= (totalAccruedAmount - 0.01))
         val updatedTx = transaction.copy(
             amountPaid = updatedPaid,
+            amountPaidPaise = Math.round(updatedPaid * 100.0),
             isSettled = nowSettled,
             settledAtMillis = if (nowSettled) nowMillis else transaction.settledAtMillis
         )
@@ -225,6 +226,7 @@ open class PaymentRepository(
         dao.updateTransaction(
             transaction.copy(
                 amountPaid = updatedPaid,
+                amountPaidPaise = Math.round(updatedPaid * 100.0),
                 isSettled = nowSettled,
                 settledAtMillis = if (nowSettled) transaction.settledAtMillis else null
             )

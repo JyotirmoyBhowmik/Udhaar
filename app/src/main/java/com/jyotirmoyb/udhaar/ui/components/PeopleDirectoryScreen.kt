@@ -458,7 +458,7 @@ private fun PartyDirectoryCard(
                 ) {
                     Text(
                         text = stringResource(R.string.ui_fmt_symbol_df7ffb, khata.trustScorePercent, khata.trustBadge),
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        style = MaterialTheme.typography.labelSmall,
                         color = PureBlack,
                         fontWeight = FontWeight.Bold
                     )
@@ -471,7 +471,7 @@ private fun PartyDirectoryCard(
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = party.tagOrNotes.uppercase(),
+                            text = party.tagOrNotes,
                             style = MaterialTheme.typography.labelSmall,
                             color = PureBlack,
                             maxLines = 1,
@@ -970,7 +970,7 @@ fun PartyDetailScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(stringResource(R.string.ui_str_oldest_overdue_14e0f2), style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = SecondaryInkGrey)
+                                    Text(stringResource(R.string.ui_str_oldest_overdue_14e0f2), style = MaterialTheme.typography.labelSmall, color = SecondaryInkGrey)
                                     Text(
                                         text = if (khata.oldestOverdueDays > 0) stringResource(R.string.ui_fmt_days_3773dd, khata.oldestOverdueDays) else stringResource(R.string.ui_str_none_on_time_b96c7f),
                                         style = MaterialTheme.typography.bodyMedium,
@@ -979,7 +979,7 @@ fun PartyDetailScreen(
                                     )
                                 }
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(stringResource(R.string.ui_str_avg_repayment_time_433a7d), style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = SecondaryInkGrey)
+                                    Text(stringResource(R.string.ui_str_avg_repayment_time_433a7d), style = MaterialTheme.typography.labelSmall, color = SecondaryInkGrey)
                                     Text(
                                         text = if (khata.averageRepaymentDays > 0) stringResource(R.string.ui_fmt_days_75db18, khata.averageRepaymentDays.toInt()) else stringResource(R.string.ui_str_no_settlements_0c38ad),
                                         style = MaterialTheme.typography.bodyMedium,
@@ -990,7 +990,7 @@ fun PartyDetailScreen(
                             }
                             Text(
                                 text = stringResource(R.string.ui_str_trust_rating_visible_only_to_32c545),
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                style = MaterialTheme.typography.labelSmall,
                                 color = SecondaryInkGrey
                             )
                         }

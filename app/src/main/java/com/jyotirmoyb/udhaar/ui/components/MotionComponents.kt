@@ -461,7 +461,7 @@ fun SuccessCheckmarkOverlay(
                     Text(
                         text = activeLabel,
                         style = MaterialTheme.typography.labelLarge.copy(
-                            fontSize = 13.5.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold
                         ),
                         color = CardSurfaceWhite

@@ -41,7 +41,7 @@ fun TransactionDetailHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 6.dp),
+            .padding(horizontal = com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Large, vertical = com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -58,7 +58,7 @@ fun TransactionDetailHeader(
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = tx.partyName.uppercase(),
+                    text = tx.partyName,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
@@ -85,7 +85,7 @@ fun TransactionDetailHeader(
                 IconButton(
                     onClick = onEdit,
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(48.dp)
                         .pressScaleFeedback()
                         .testTag("header_edit_transaction_button")
                 ) {
@@ -101,7 +101,7 @@ fun TransactionDetailHeader(
                 IconButton(
                     onClick = onShareReceipt,
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(48.dp)
                         .pressScaleFeedback()
                         .testTag("header_receipt_transaction_button")
                 ) {
@@ -116,7 +116,7 @@ fun TransactionDetailHeader(
             IconButton(
                 onClick = onDismiss,
                 modifier = Modifier
-                    .size(38.dp)
+                    .size(48.dp)
                     .pressScaleFeedback()
                     .testTag("close_detail_modal_button")
             ) {

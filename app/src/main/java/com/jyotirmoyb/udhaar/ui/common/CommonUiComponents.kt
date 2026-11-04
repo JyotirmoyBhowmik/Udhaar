@@ -83,7 +83,7 @@ fun SigningCredentialRow(
             IconButton(
                 onClick = onCopy,
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(48.dp)
                     .testTag(copyTag)
             ) {
                 Icon(
@@ -112,18 +112,18 @@ fun SettingsSectionCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp))
-            .padding(12.dp)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner16)
+            .background(MaterialTheme.colorScheme.surface, com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner16)
+            .padding(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Large)
             .testTag(testTag),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("${testTag}_header"),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)
         ) {
             Box(
                 modifier = Modifier
@@ -154,7 +154,7 @@ fun SettingsSectionCard(
             IconButton(
                 onClick = { isExpanded = !isExpanded },
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(48.dp)
                     .testTag("${testTag}_toggle")
             ) {
                 Text(

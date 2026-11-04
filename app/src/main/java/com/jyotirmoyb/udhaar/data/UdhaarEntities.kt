@@ -180,7 +180,10 @@ data class UdhaarTransaction(
     val lastGuestAction: String = "",
     val trustLevel: String = "",
     val pendingPaymentClaim: String = "",
-    val pendingDateProposal: String = ""
+    val pendingDateProposal: String = "",
+    // --- Phase 2: Integer Monetary Integrity (Paise) ---
+    val principalAmountPaise: Long = Math.round(principalAmount * 100.0),
+    val amountPaidPaise: Long = Math.round(amountPaid * 100.0)
 )
 
 @Entity(
@@ -209,7 +212,9 @@ data class PartialPayment(
     val recordedByName: String = "",
     val isAcknowledged: Boolean = false,
     val acknowledgedAtMillis: Long? = null,
-    val needsMyAcknowledgement: Boolean = false
+    val needsMyAcknowledgement: Boolean = false,
+    // --- Phase 2: Integer Monetary Integrity (Paise) ---
+    val amountPaise: Long = Math.round(amount * 100.0)
 )
 
 @Entity(

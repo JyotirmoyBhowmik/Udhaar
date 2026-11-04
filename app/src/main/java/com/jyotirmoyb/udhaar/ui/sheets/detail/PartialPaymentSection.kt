@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -244,9 +246,10 @@ fun PartialPaymentSection(
                 },
                 label = { Text(stringResource(R.string.ui_fmt_amount_c53f8e, tx.currency.symbol)) },
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = androidx.compose.ui.text.input.ImeAction.Next),
                 modifier = Modifier
                     .weight(1f)
+                    .heightIn(min = 56.dp)
                     .testTag("partial_payment_amount_input")
             )
             OutlinedTextField(
@@ -254,8 +257,10 @@ fun PartialPaymentSection(
                 onValueChange = { partialNoteText = it },
                 label = { Text(stringResource(R.string.ui_str_note_optional_df9d34)) },
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences, imeAction = androidx.compose.ui.text.input.ImeAction.Done),
                 modifier = Modifier
                     .weight(1f)
+                    .heightIn(min = 56.dp)
                     .testTag("partial_payment_note_input")
             )
         }
@@ -270,7 +275,7 @@ fun PartialPaymentSection(
                     onClick = onCameraClick,
                     modifier = Modifier
                         .weight(1f)
-                        .height(32.dp)
+                        .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.ChipHeight)
                         .testTag("proof_camera_button"),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 4.dp)
@@ -288,7 +293,7 @@ fun PartialPaymentSection(
                     },
                     modifier = Modifier
                         .weight(1f)
-                        .height(32.dp)
+                        .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.ChipHeight)
                         .testTag("proof_gallery_button"),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 4.dp)

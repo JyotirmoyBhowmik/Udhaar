@@ -183,7 +183,7 @@ fun RecordDetailSheet(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .widthIn(max = 640.dp)
+                    .widthIn(max = 720.dp)
             ) {
                 // Sticky Header with shared avatar, name, and quick Edit/Receipt actions
                 TransactionDetailHeader(
@@ -202,8 +202,8 @@ fun RecordDetailSheet(
                         .fillMaxWidth()
                         .weight(1f, fill = false)
                         .verticalScroll(rememberScrollState())
-                        .padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 36.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .padding(start = com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Large, end = com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Large, top = com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Medium, bottom = 36.dp),
+                    verticalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Medium)
                 ) {
                     // 1. Net Balance & Expandable Breakdown Card
                     TransactionBalanceCard(

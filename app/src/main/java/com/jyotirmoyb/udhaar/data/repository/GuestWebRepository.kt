@@ -76,7 +76,8 @@ open class GuestWebRepository @Inject constructor(
         if (result.success) {
             val updatedTx = preparedTx.copy(
                 webLinkStatus = "ACTIVE",
-                trustLevel = result.trustLevel.ifBlank { trustLevelRequired }
+                trustLevel = result.trustLevel.ifBlank { trustLevelRequired },
+                shareToken = if (result.secret.isNotBlank()) result.secret else preparedTx.shareToken
             )
             dao.updateTransaction(updatedTx)
 

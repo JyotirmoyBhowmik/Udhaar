@@ -39,85 +39,92 @@ fun scaledTypography(multiplier: Float = 1.0f): Typography = Typography(
         fontFamily = SpaceGroteskFamily,
         fontWeight = FontWeight.Medium,
         fontSize = (24f * multiplier).sp,
-        lineHeight = (30f * multiplier).sp,
-        letterSpacing = 0.4.sp
+        lineHeight = (32f * multiplier).sp,
+        letterSpacing = 0.sp
     ),
     displayMedium = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = (21f * multiplier).sp,
-        lineHeight = (26f * multiplier).sp,
-        letterSpacing = (-0.2).sp
+        fontSize = (22f * multiplier).sp,
+        lineHeight = (30f * multiplier).sp,
+        letterSpacing = 0.sp
     ),
     headlineLarge = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = (19f * multiplier).sp,
-        lineHeight = (24f * multiplier).sp,
-        letterSpacing = (-0.15).sp
+        fontSize = (20f * multiplier).sp,
+        lineHeight = (28f * multiplier).sp,
+        letterSpacing = 0.sp
     ),
     headlineMedium = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = (17f * multiplier).sp,
-        lineHeight = (22f * multiplier).sp
+        fontSize = (18f * multiplier).sp,
+        lineHeight = (26f * multiplier).sp,
+        letterSpacing = 0.sp
     ),
     titleLarge = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = (16f * multiplier).sp,
-        lineHeight = (21f * multiplier).sp
+        fontSize = (18f * multiplier).sp,
+        lineHeight = (26f * multiplier).sp,
+        letterSpacing = 0.sp
     ),
     titleMedium = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = (14f * multiplier).sp,
-        lineHeight = (19f * multiplier).sp
+        fontSize = (16f * multiplier).sp,
+        lineHeight = (24f * multiplier).sp,
+        letterSpacing = 0.sp
     ),
     titleSmall = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = (12.5f * multiplier).sp,
-        lineHeight = (17f * multiplier).sp
+        fontSize = (14f * multiplier).sp,
+        lineHeight = (20f * multiplier).sp,
+        letterSpacing = 0.sp
     ),
     bodyLarge = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = (14f * multiplier).sp,
-        lineHeight = (20f * multiplier).sp
+        fontSize = (16f * multiplier).sp,
+        lineHeight = (24f * multiplier).sp,
+        letterSpacing = 0.sp
     ),
     bodyMedium = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = (13f * multiplier).sp,
-        lineHeight = (18f * multiplier).sp
+        fontSize = (14f * multiplier).sp,
+        lineHeight = (20f * multiplier).sp,
+        letterSpacing = 0.sp
     ),
     bodySmall = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = (11.5f * multiplier).sp,
-        lineHeight = (16f * multiplier).sp
+        fontSize = (12f * multiplier).sp,
+        lineHeight = (18f * multiplier).sp,
+        letterSpacing = 0.sp
     ),
     labelLarge = TextStyle(
         fontFamily = InterFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = (12.5f * multiplier).sp,
-        lineHeight = (17f * multiplier).sp,
-        letterSpacing = 0.1.sp
+        fontWeight = FontWeight.Medium,
+        fontSize = (14f * multiplier).sp,
+        lineHeight = (20f * multiplier).sp,
+        letterSpacing = 0.sp
     ),
     labelMedium = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = (11.5f * multiplier).sp,
-        lineHeight = (15.5f * multiplier).sp,
-        letterSpacing = 0.1.sp
+        fontSize = (12f * multiplier).sp,
+        lineHeight = (18f * multiplier).sp,
+        letterSpacing = 0.sp
     ),
     labelSmall = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = (10.5f * multiplier).sp,
-        lineHeight = (14f * multiplier).sp,
-        letterSpacing = 0.1.sp
+        fontSize = (12f * multiplier).sp,
+        lineHeight = (16f * multiplier).sp,
+        letterSpacing = 0.sp
     )
 )
 

@@ -244,7 +244,7 @@ fun VerificationShareSheet(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = transaction.contentHash.ifBlank { stringResource(R.string.ui_str_generating_813622) },
-                            fontSize = 11.sp,
+                            fontSize = 12.sp,
                             fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -643,7 +643,7 @@ fun IncomingVerificationReviewSheet(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = payload.contentHash,
-                            fontSize = 11.sp,
+                            fontSize = 12.sp,
                             fontFamily = com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily,
                             color = MaterialTheme.colorScheme.onSurface
                         )

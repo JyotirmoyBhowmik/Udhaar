@@ -4,6 +4,7 @@ import com.jyotirmoyb.udhaar.data.CompoundFrequency
 import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.InterestRatePeriod
 import com.jyotirmoyb.udhaar.data.InterestType
+import com.jyotirmoyb.udhaar.data.PartialPayment
 import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.PaymentMode
 import com.jyotirmoyb.udhaar.data.TransactionType
@@ -19,6 +20,25 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ExampleUnitTest {
+
+    @Test
+    fun integerPaiseMonetaryIntegrity_preservesPrecisionWithoutFloatingPointDrift() {
+        val tx = UdhaarTransaction(
+            id = 101L,
+            partyName = "Priya",
+            principalAmount = 15000.75,
+            amountPaid = 5000.25
+        )
+        assertEquals(1500075L, tx.principalAmountPaise)
+        assertEquals(500025L, tx.amountPaidPaise)
+
+        val payment = PartialPayment(
+            id = 202L,
+            transactionId = 101L,
+            amount = 2500.50
+        )
+        assertEquals(250050L, payment.amountPaise)
+    }
 
     @Test
     fun simpleInterestAndPartialPayment_calculatesCorrectNetBalance() {

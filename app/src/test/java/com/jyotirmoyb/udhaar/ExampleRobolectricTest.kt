@@ -1250,9 +1250,5 @@ class ExampleRobolectricTest {
             assertTrue("Rendered reminder for $lang should include total remaining", rendered.contains("₹4,000"))
         }
     }
+
 }
-
-
-
-
-

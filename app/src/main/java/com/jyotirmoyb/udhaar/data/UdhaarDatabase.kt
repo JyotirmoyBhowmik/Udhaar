@@ -143,7 +143,7 @@ class UdhaarTypeConverters {
         InstallmentPlan::class,
         Installment::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = true
 )
 @TypeConverters(UdhaarTypeConverters::class)
@@ -525,6 +525,23 @@ abstract class UdhaarDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                if (!hasColumn(db, "udhaar_transactions", "principalAmountPaise")) {
+                    db.execSQL("ALTER TABLE `udhaar_transactions` ADD COLUMN `principalAmountPaise` INTEGER NOT NULL DEFAULT 0")
+                    db.execSQL("UPDATE `udhaar_transactions` SET `principalAmountPaise` = CAST(ROUND(`principalAmount` * 100) AS INTEGER)")
+                }
+                if (!hasColumn(db, "udhaar_transactions", "amountPaidPaise")) {
+                    db.execSQL("ALTER TABLE `udhaar_transactions` ADD COLUMN `amountPaidPaise` INTEGER NOT NULL DEFAULT 0")
+                    db.execSQL("UPDATE `udhaar_transactions` SET `amountPaidPaise` = CAST(ROUND(`amountPaid` * 100) AS INTEGER)")
+                }
+                if (!hasColumn(db, "partial_payments", "amountPaise")) {
+                    db.execSQL("ALTER TABLE `partial_payments` ADD COLUMN `amountPaise` INTEGER NOT NULL DEFAULT 0")
+                    db.execSQL("UPDATE `partial_payments` SET `amountPaise` = CAST(ROUND(`amount` * 100) AS INTEGER)")
+                }
+            }
+        }
+
         val ALL_MIGRATIONS: Array<Migration> = arrayOf(
             MIGRATION_1_2,
             MIGRATION_2_3,
@@ -534,7 +551,8 @@ abstract class UdhaarDatabase : RoomDatabase() {
             MIGRATION_6_7,
             MIGRATION_7_8,
             MIGRATION_8_9,
-            MIGRATION_9_10
+            MIGRATION_9_10,
+            MIGRATION_10_11
         )
 
         @Volatile

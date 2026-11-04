@@ -131,7 +131,7 @@ fun WebShareSheet(
         val formattedAmount = InterestCalculator.formatCurrency(transaction.principalAmount, transaction.currency)
         val roleDesc = if (transaction.transactionType == TransactionType.GIVEN) "lent" else "borrowed"
         val otpLine = if (!linkResult?.whatsappOtp.isNullOrBlank()) {
-            "\nYour WhatsApp verification code is: ${linkResult?.whatsappOtp}"
+            "\nYour WhatsApp verification code is: ${linkResult.whatsappOtp}"
         } else ""
 
         "Hi $recipientName, please review and verify our Udhaar record ($formattedAmount $roleDesc by $myName):\n" +
@@ -180,7 +180,7 @@ fun WebShareSheet(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(44.dp)) {
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp)) {
                         Icon(Icons.Default.Close, contentDescription = "Close")
                     }
                 }
@@ -433,7 +433,7 @@ fun WebShareSheet(
                                                 clipboard.setPrimaryClip(clip)
                                                 Toast.makeText(context, context.getString(R.string.toast_code_copied), Toast.LENGTH_SHORT).show()
                                             },
-                                            modifier = Modifier.weight(1f).height(38.dp),
+                                            modifier = Modifier.weight(1f).height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight),
                                             shape = RoundedCornerShape(8.dp)
                                         ) {
                                             Text(stringResource(R.string.btn_share_code_separately), style = MaterialTheme.typography.labelSmall)
@@ -442,7 +442,7 @@ fun WebShareSheet(
                                             onClick = {
                                                 Toast.makeText(context, context.getString(R.string.toast_read_code_in_person, linkResult.whatsappOtp), Toast.LENGTH_LONG).show()
                                             },
-                                            modifier = Modifier.weight(1f).height(38.dp),
+                                            modifier = Modifier.weight(1f).height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight),
                                             shape = RoundedCornerShape(8.dp)
                                         ) {
                                             Text(stringResource(R.string.btn_read_code_in_person), style = MaterialTheme.typography.labelSmall)
@@ -507,7 +507,7 @@ fun WebShareSheet(
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(46.dp)
+                                .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
                                 .testTag("btn_copy_web_link"),
                             shape = RoundedCornerShape(12.dp)
                         ) {
@@ -524,7 +524,7 @@ fun WebShareSheet(
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(44.dp)
+                                .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
                                 .testTag("btn_revoke_web_link"),
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)

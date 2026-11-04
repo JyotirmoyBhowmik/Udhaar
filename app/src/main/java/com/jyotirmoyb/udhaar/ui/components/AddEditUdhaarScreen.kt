@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -522,7 +523,7 @@ fun AddEditUdhaarScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                        .padding(horizontal = com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Large, vertical = com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Medium),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     if (isEditingExisting && onDeleteTransaction != null) {
@@ -605,7 +606,7 @@ fun AddEditUdhaarScreen(
                         },
                         modifier = Modifier
                             .weight(1.4f)
-                            .height(48.dp)
+                            .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.PrimaryButtonHeight)
                             .pressScaleFeedback()
                             .testTag("save_udhaar_button"),
                         shape = RoundedCornerShape(12.dp),
@@ -765,10 +766,11 @@ fun AddEditUdhaarScreen(
                         label = { Text(stringResource(R.string.ui_str_person_or_business_name_d8fb90)) },
                         placeholder = { Text(stringResource(R.string.ui_str_e_g_ramesh_sharma_7c54c2)) },
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = androidx.compose.ui.text.input.ImeAction.Next),
                         colors = textFieldColors,
                         modifier = Modifier
                             .weight(1f)
+                            .heightIn(min = 56.dp)
                             .testTag("party_name_input")
                     )
                     OutlinedButton(
@@ -818,7 +820,10 @@ fun AddEditUdhaarScreen(
                     visualTransformation = if (showPhoneText) VisualTransformation.None else PhoneMaskVisualTransformation,
                     trailingIcon = if (phoneNumber.isNotBlank()) {
                         {
-                            IconButton(onClick = { showPhoneText = !showPhoneText }) {
+                            IconButton(
+                                onClick = { showPhoneText = !showPhoneText },
+                                modifier = Modifier.size(48.dp)
+                            ) {
                                 Icon(
                                     imageVector = if (showPhoneText) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                                     contentDescription = if (showPhoneText) "Mask phone number" else "Show phone number",
@@ -827,10 +832,11 @@ fun AddEditUdhaarScreen(
                             }
                         }
                     } else null,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = androidx.compose.ui.text.input.ImeAction.Next),
                     colors = textFieldColors,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .heightIn(min = 56.dp)
                         .testTag("phone_number_input")
                 )
 
@@ -925,10 +931,11 @@ fun AddEditUdhaarScreen(
                         )
                     },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = androidx.compose.ui.text.input.ImeAction.Done),
                     colors = textFieldColors,
                     modifier = Modifier
                         .fillMaxWidth()
+                        .heightIn(min = 56.dp)
                         .testTag("principal_amount_input")
                 )
 
@@ -1145,10 +1152,11 @@ fun AddEditUdhaarScreen(
                                         label = { Text(stringResource(R.string.ui_str_rate_e25a28)) },
                                         suffix = { Text(stringResource(R.string.ui_str_symbol_4345cb)) },
                                         singleLine = true,
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = androidx.compose.ui.text.input.ImeAction.Done),
                                         colors = textFieldColors,
                                         modifier = Modifier
                                             .weight(1f)
+                                            .heightIn(min = 56.dp)
                                             .testTag("interest_rate_input")
                                     )
 
@@ -1251,9 +1259,11 @@ fun AddEditUdhaarScreen(
                             label = { Text(stringResource(R.string.ui_str_note_or_reason_optional_4213c0)) },
                             placeholder = { Text(stringResource(R.string.ui_str_e_g_shop_supplies_or_79c2a4)) },
                             maxLines = 3,
+                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = androidx.compose.ui.text.input.ImeAction.Done),
                             colors = textFieldColors,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .heightIn(min = 56.dp)
                                 .testTag("notes_input")
                         )
 
