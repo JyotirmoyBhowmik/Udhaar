@@ -219,4 +219,48 @@ class InstallmentRepositoryTest {
         val finalTx = fakeDao.getTransactionById(txId)!!
         assertEquals(VerificationStatus.CONFIRMED, finalTx.verificationStatus)
     }
+
+    @Test
+    fun moveInstallmentPayment_and_recalculateInstallmentsForTotalPaid_updateInstallmentStatuses() = runTest {
+        val txId = fakeDao.insertTransaction(
+            UdhaarTransaction(
+                partyName = "Deepak",
+                principalAmount = 2000.0,
+                currency = CurrencyType.INR
+            )
+        )
+        val tx = fakeDao.getTransactionById(txId)!!
+        val futureMillis = System.currentTimeMillis() + 86400000L * 10
+        val drafts = listOf(
+            InstallmentDraft(sequence = 1, dueDateMillis = futureMillis, amountDuePaise = 100000L),
+            InstallmentDraft(sequence = 2, dueDateMillis = futureMillis + 86400000L * 30, amountDuePaise = 100000L)
+        )
+        val plan = InstallmentPlan(
+            transactionId = txId,
+            installmentCount = 2,
+            frequency = InstallmentFrequency.MONTHLY,
+            startDate = futureMillis,
+            totalAmountDue = 200000L
+        )
+        val planId = installmentRepository.createOrUpdatePlan(tx, plan, drafts, "Lender")
+
+        // Apply ₹1000 payment to installment #1
+        installmentRepository.applyPaymentToInstallments(txId, 100000L, 501L, System.currentTimeMillis())
+
+        // Move payment from installment #1 to installment #2
+        installmentRepository.moveInstallmentPayment(planId, fromSequence = 1, toSequence = 2)
+        val afterMove = fakeDao.getInstallmentsForPlanSnapshot(planId).sortedBy { it.sequence }
+        assertEquals(0L, afterMove[0].amountPaid)
+        assertEquals(InstallmentStatus.PENDING, afterMove[0].status)
+        assertEquals(100000L, afterMove[1].amountPaid)
+        assertEquals(InstallmentStatus.PAID, afterMove[1].status)
+
+        // Recalculate when total paid is reduced to ₹400 (e.g. after deleting/editing a payment)
+        installmentRepository.recalculateInstallmentsForTotalPaid(txId, totalPaidPaise = 40000L)
+        val afterRecalc = fakeDao.getInstallmentsForPlanSnapshot(planId).sortedBy { it.sequence }
+        assertEquals(40000L, afterRecalc[0].amountPaid)
+        assertEquals(InstallmentStatus.PARTIAL, afterRecalc[0].status)
+        assertEquals(0L, afterRecalc[1].amountPaid)
+        assertEquals(InstallmentStatus.PENDING, afterRecalc[1].status)
+    }
 }

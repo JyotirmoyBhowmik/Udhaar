@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">উধাৰ</string>
-    <string name="default_web_client_id" translatable="false">528046585099-iklgaumm23ndn59kovmlgvqcomlbb4kq.apps.googleusercontent.com</string>
     <string name="tagline_monochrome_ledger">সহজ খাতা আৰু ধাৰৰ হিচাপ</string>
     <string name="total_to_receive">মুঠ পাবলগীয়া (দিয়া)</string>
     <string name="total_to_pay">মুঠ দিবলগীয়া (লোৱা)</string>
@@ -869,4 +868,8 @@
     <string name="pdf_full_ledger_footer_2">পৃষ্ঠা ১ / ১ • সকলো ৰেকৰ্ড আপোনাৰ ফোনতে সুৰক্ষিত আৰু গুগল ড্ৰাইভত বেকআপ আছে</string>
     <string name="toast_settings_saved">ছেটিংছ সংৰক্ষণ কৰা হ\'ল</string>
     <string name="toast_admin_email">সহায়তা ইমেইল: admin@jyotirmoyb.com</string>
+    <string name="move_installment_payment_btn">সলাওক</string>
+    <string name="move_installment_payment_title">কিস্তি #%1$d ৰ পৰিশোধ আন কিস্তিলৈ নিওক</string>
+    <string name="move_installment_payment_subtitle">কোনটো বাকী থকা কিস্তিত এই ধন যোগ কৰিব বিচাৰে বাছনি কৰক:</string>
+    <string name="move_installment_target_fmt">কিস্তি #%1$d লৈ নিওক (দেয় %2$s • %3$s বাকী)</string>
 </resources>

@@ -1181,6 +1181,75 @@ class ExampleRobolectricTest {
         assertTrue(proguardText.contains("-keep class com.jyotirmoyb.udhaar.data.**"))
         org.junit.Assert.assertFalse(proguardText.contains("-dontobfuscate"))
     }
+
+    @Test
+    fun `room migrations 8 to 9 to 10 and installment reminders in 5 languages work end to end`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+
+        // 1. Verify exported Room schemas 9.json and 10.json exist and include installment_plans and installments
+        val schema9Candidates = listOf(
+            java.io.File("schemas/com.jyotirmoyb.udhaar.data.UdhaarDatabase/9.json"),
+            java.io.File("app/schemas/com.jyotirmoyb.udhaar.data.UdhaarDatabase/9.json")
+        )
+        val schema9File = schema9Candidates.firstOrNull { it.exists() && it.isFile }
+        assertNotNull("Exported Room schema 9.json must exist", schema9File)
+        assertTrue(schema9File!!.readText().contains("installment_plans"))
+
+        val schema10Candidates = listOf(
+            java.io.File("schemas/com.jyotirmoyb.udhaar.data.UdhaarDatabase/10.json"),
+            java.io.File("app/schemas/com.jyotirmoyb.udhaar.data.UdhaarDatabase/10.json")
+        )
+        val schema10File = schema10Candidates.firstOrNull { it.exists() && it.isFile }
+        assertNotNull("Exported Room schema 10.json must exist", schema10File)
+        assertTrue(schema10File!!.readText().contains("\"version\": 10"))
+
+        // 2. Execute MIGRATION_8_9 and MIGRATION_9_10 on an in-memory SQLite database
+        val sqliteDb = android.database.sqlite.SQLiteDatabase.create(null)
+        val supportDb = androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory().create(
+            androidx.sqlite.db.SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(null)
+                .callback(object : androidx.sqlite.db.SupportSQLiteOpenHelper.Callback(8) {
+                    override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL("CREATE TABLE IF NOT EXISTS `udhaar_transactions` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `partyName` TEXT NOT NULL)")
+                        db.execSQL("CREATE TABLE IF NOT EXISTS `partial_payments` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `transactionId` INTEGER NOT NULL)")
+                    }
+                    override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+                })
+                .build()
+        ).writableDatabase
+
+        com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_8_9.migrate(supportDb)
+        com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_9_10.migrate(supportDb)
+
+        supportDb.query("SELECT name FROM sqlite_master WHERE type='table' AND name='installment_plans'").use { cursor ->
+            assertTrue("installment_plans table should exist after MIGRATION_8_9", cursor.moveToFirst())
+        }
+        supportDb.query("SELECT name FROM sqlite_master WHERE type='table' AND name='installments'").use { cursor ->
+            assertTrue("installments table should exist after MIGRATION_8_9", cursor.moveToFirst())
+        }
+        supportDb.close()
+        sqliteDb.close()
+
+        // 3. Verify 5-language installment reminder templates render placeholders properly
+        val languages = listOf("en", "hi", "bn", "as", "ne")
+        for (lang in languages) {
+            val tpl = com.jyotirmoyb.udhaar.reminder.ReminderEngine.getLocalizedInstallmentTemplate(context, lang)
+            val rendered = com.jyotirmoyb.udhaar.reminder.ReminderEngine.renderInstallmentDraftMessage(
+                template = tpl,
+                name = "Ravi",
+                sequence = 2,
+                totalCount = 6,
+                installmentAmount = "₹1,000",
+                dueDate = "15 Nov 2026",
+                totalRemaining = "₹4,000"
+            )
+            assertTrue("Rendered reminder for $lang should include party name", rendered.contains("Ravi"))
+            assertTrue("Rendered reminder for $lang should include installment number", rendered.contains("2"))
+            assertTrue("Rendered reminder for $lang should include total installments", rendered.contains("6"))
+            assertTrue("Rendered reminder for $lang should include installment amount", rendered.contains("₹1,000"))
+            assertTrue("Rendered reminder for $lang should include total remaining", rendered.contains("₹4,000"))
+        }
+    }
 }
 
 

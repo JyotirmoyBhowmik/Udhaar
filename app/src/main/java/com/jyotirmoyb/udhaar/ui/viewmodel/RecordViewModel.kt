@@ -434,4 +434,14 @@ class RecordViewModel @Inject constructor(
             installmentRepository.declineProposedSchedule(planId, txId, myName)
         }
     }
+
+    fun moveInstallmentPayment(
+        planId: Long,
+        fromSequence: Int,
+        toSequence: Int
+    ) {
+        viewModelScope.launch {
+            installmentRepository.moveInstallmentPayment(planId, fromSequence, toSequence)
+        }
+    }
 }

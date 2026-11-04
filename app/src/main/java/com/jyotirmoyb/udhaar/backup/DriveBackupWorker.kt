@@ -136,7 +136,9 @@ class DriveBackupWorker @AssistedInject constructor(
                         chatMessages = snapshot.chatMessages,
                         settings = settingsMap,
                         attachments = attachments,
-                        attachmentRecords = snapshot.attachments
+                        attachmentRecords = snapshot.attachments,
+                        installmentPlans = snapshot.installmentPlans,
+                        installments = snapshot.installments
                     ) as String?) ?: "{}"
                 } catch (stubEx: RuntimeException) {
                     if (stubEx.message?.contains("not mocked", ignoreCase = true) == true ||

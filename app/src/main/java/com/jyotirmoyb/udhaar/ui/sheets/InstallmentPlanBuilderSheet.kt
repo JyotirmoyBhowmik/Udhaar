@@ -72,6 +72,9 @@ import java.util.Locale
 fun InstallmentPlanBuilderSheet(
     tx: UdhaarTransaction,
     existingPlan: InstallmentPlan? = null,
+    existingInstallments: List<com.jyotirmoyb.udhaar.data.Installment> = emptyList(),
+    isProposalMode: Boolean = false,
+    onProposeNewDates: ((List<InstallmentDraft>) -> Unit)? = null,
     onSavePlan: (plan: InstallmentPlan, drafts: List<InstallmentDraft>) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -91,6 +94,7 @@ fun InstallmentPlanBuilderSheet(
     }
 
     val drafts = remember { mutableStateListOf<InstallmentDraft>() }
+    var initializedFromExisting by remember { mutableStateOf(false) }
 
     fun recalculateEqualSplit() {
         val generated = InstallmentCalculator.generateEqualSplit(
@@ -104,7 +108,27 @@ fun InstallmentPlanBuilderSheet(
     }
 
     LaunchedEffect(count, frequency, totalExpectedPaise, startDateMillis) {
-        recalculateEqualSplit()
+        if (!initializedFromExisting && existingPlan != null && existingInstallments.isNotEmpty() &&
+            count == existingPlan.installmentCount &&
+            frequency == existingPlan.frequency &&
+            totalExpectedPaise == existingPlan.totalAmountDue &&
+            startDateMillis == existingPlan.startDate
+        ) {
+            drafts.clear()
+            drafts.addAll(
+                existingInstallments.sortedBy { it.sequence }.map {
+                    InstallmentDraft(
+                        sequence = it.sequence,
+                        dueDateMillis = it.dueDate,
+                        amountDuePaise = it.amountDue
+                    )
+                }
+            )
+            initializedFromExisting = true
+        } else {
+            initializedFromExisting = true
+            recalculateEqualSplit()
+        }
     }
 
     var showDatePickerForIndex by remember { mutableStateOf<Int?>(null) }
@@ -126,7 +150,9 @@ fun InstallmentPlanBuilderSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = stringResource(R.string.split_into_installments),
+                    text = stringResource(
+                        if (isProposalMode) R.string.propose_schedule_title else R.string.split_into_installments
+                    ),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -215,10 +241,16 @@ fun InstallmentPlanBuilderSheet(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         InstallmentFrequency.values().forEach { freq ->
+                            val freqLabelRes = when (freq) {
+                                InstallmentFrequency.WEEKLY -> R.string.frequency_weekly
+                                InstallmentFrequency.EVERY_2_WEEKS -> R.string.frequency_every_2_weeks
+                                InstallmentFrequency.MONTHLY -> R.string.frequency_monthly
+                                InstallmentFrequency.CUSTOM -> R.string.frequency_custom
+                            }
                             FilterChip(
                                 selected = frequency == freq,
                                 onClick = { frequency = freq },
-                                label = { Text(freq.label, style = MaterialTheme.typography.labelSmall) },
+                                label = { Text(stringResource(freqLabelRes), style = MaterialTheme.typography.labelSmall) },
                                 colors = FilterChipDefaults.filterChipColors()
                             )
                         }
@@ -378,16 +410,21 @@ fun InstallmentPlanBuilderSheet(
 
                 Button(
                     onClick = {
-                        val plan = InstallmentPlan(
-                            transactionId = tx.id,
-                            installmentCount = drafts.size,
-                            frequency = frequency,
-                            startDate = startDateMillis,
-                            interestMode = interestMode,
-                            flatInterestRate = flatRate,
-                            totalAmountDue = totalExpectedPaise
-                        )
-                        onSavePlan(plan, drafts.toList())
+                        if (isProposalMode && onProposeNewDates != null) {
+                            onProposeNewDates(drafts.toList())
+                            onDismiss()
+                        } else {
+                            val plan = InstallmentPlan(
+                                transactionId = tx.id,
+                                installmentCount = drafts.size,
+                                frequency = frequency,
+                                startDate = startDateMillis,
+                                interestMode = interestMode,
+                                flatInterestRate = flatRate,
+                                totalAmountDue = totalExpectedPaise
+                            )
+                            onSavePlan(plan, drafts.toList())
+                        }
                     },
                     enabled = isValid,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
@@ -395,7 +432,11 @@ fun InstallmentPlanBuilderSheet(
                         .weight(1f)
                         .testTag("save_installment_plan_button")
                 ) {
-                    Text(stringResource(R.string.save_installment_plan))
+                    Text(
+                        stringResource(
+                            if (isProposalMode) R.string.propose_schedule_btn else R.string.save_installment_plan
+                        )
+                    )
                 }
             }
         }

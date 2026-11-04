@@ -157,4 +157,43 @@ class InstallmentCalculatorTest {
         assertEquals(2, progress.nextDueInstallment?.sequence)
         assertFalse(progress.hasOverdue)
     }
+
+    @Test
+    fun movePaymentBetweenInstallments_movesPaidAmountToTargetInstallment() {
+        val installments = listOf(
+            Installment(
+                id = 1L,
+                planId = 10L,
+                sequence = 1,
+                dueDate = 5_000L,
+                amountDue = 1_000_00L,
+                amountPaid = 1_000_00L,
+                status = InstallmentStatus.PAID,
+                paidAtMillis = 1_200L,
+                paymentId = 42L
+            ),
+            Installment(
+                id = 2L,
+                planId = 10L,
+                sequence = 2,
+                dueDate = 10_000L,
+                amountDue = 1_000_00L,
+                amountPaid = 0L,
+                status = InstallmentStatus.PENDING
+            )
+        )
+
+        val moved = InstallmentCalculator.movePaymentBetweenInstallments(
+            installments = installments,
+            fromSequence = 1,
+            toSequence = 2,
+            nowMillis = 2_000L
+        )
+
+        assertEquals(0L, moved[0].amountPaid)
+        assertEquals(InstallmentStatus.PENDING, moved[0].status)
+        assertEquals(1_000_00L, moved[1].amountPaid)
+        assertEquals(InstallmentStatus.PAID, moved[1].status)
+        assertEquals(42L, moved[1].paymentId)
+    }
 }

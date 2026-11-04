@@ -95,12 +95,65 @@ async function deploy() {
           "Access-Control-Allow-Origin": "*",
           "Cache-Control": "no-cache, no-store, must-revalidate"
         }
+      },
+      {
+        glob: "/u/**",
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          "X-Frame-Options": "DENY",
+          "X-Content-Type-Options": "nosniff",
+          "Referrer-Policy": "no-referrer",
+          "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+          "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+          "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; connect-src 'self' https://*.cloudfunctions.net https://asia-south1-*.cloudfunctions.net https://*.firebaseio.com; frame-ancestors 'none';"
+        }
+      },
+      {
+        glob: "/api/**",
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          "X-Content-Type-Options": "nosniff"
+        }
       }
     ],
     rewrites: [
       {
+        glob: "/u/r/**",
+        path: "/u/index.html"
+      },
+      {
         glob: "/u/**",
         path: "/u/index.html"
+      },
+      {
+        glob: "/api/getGuestRecord",
+        function: "getGuestRecord",
+        functionRegion: "asia-south1"
+      },
+      {
+        glob: "/api/guestConfirm",
+        function: "guestConfirm",
+        functionRegion: "asia-south1"
+      },
+      {
+        glob: "/api/guestDispute",
+        function: "guestDispute",
+        functionRegion: "asia-south1"
+      },
+      {
+        glob: "/api/guestPaymentClaim",
+        function: "guestPaymentClaim",
+        functionRegion: "asia-south1"
+      },
+      {
+        glob: "/api/guestProposeDate",
+        function: "guestProposeDate",
+        functionRegion: "asia-south1"
+      },
+      {
+        glob: "/api/guestSetUpi",
+        function: "guestSetUpi",
+        functionRegion: "asia-south1"
       },
       {
         glob: "**",
@@ -165,7 +218,7 @@ async function deploy() {
   const releaseRes = await apiRequest(
     `https://firebasehosting.googleapis.com/v1beta1/sites/${SITE_ID}/releases?versionName=${encodeURIComponent(versionName)}`,
     'POST',
-    { message: 'Deploy modernized Udhaar showcase & AssetLinks' },
+    { message: 'Deploy Udhaar v18.0 web showcase, Guest Web Flow & AssetLinks' },
     token
   );
 

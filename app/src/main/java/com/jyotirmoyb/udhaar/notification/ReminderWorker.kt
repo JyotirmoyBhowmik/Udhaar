@@ -41,6 +41,10 @@ class ReminderWorker @AssistedInject constructor(
             val dao = db.udhaarDao()
             val transactions = dao.getAllTransactions().first()
             val parties = dao.getAllParties().first().associateBy { it.partyId }
+            val activePlansByTx = dao.getAllInstallmentPlansSnapshot()
+                .filter { it.status == com.jyotirmoyb.udhaar.data.InstallmentPlanStatus.ACTIVE }
+                .associateBy { it.transactionId }
+            val installmentsByPlan = dao.getAllInstallmentsSnapshot().groupBy { it.planId }
 
             val repo = injectedRepository
             val settings = repo.userSettings.first()
@@ -66,12 +70,36 @@ class ReminderWorker @AssistedInject constructor(
                     continue
                 }
 
-                val level = ReminderEngine.computeEscalationLevel(tx, policy, now) ?: continue
-                val overdueDays = ReminderEngine.calculateOverdueDays(tx.expiryDateMillis, now) ?: 0
-                val summary = InterestCalculator.calculate(tx, now)
-                val formattedAmount = InterestCalculator.formatCurrency(summary.netBalanceDue, tx.currency)
+                val activePlan = activePlansByTx[tx.id]
+                val nextUnpaidInstallment = activePlan?.let { plan ->
+                    installmentsByPlan[plan.id]
+                        .orEmpty()
+                        .sortedBy { it.sequence }
+                        .firstOrNull { it.amountPaid < it.amountDue && it.status != com.jyotirmoyb.udhaar.data.InstallmentStatus.PAID }
+                }
 
-                val dueDateFormatted = tx.expiryDateMillis?.let {
+                // If the record has an active installment plan and all installments are paid, stop reminders
+                if (activePlan != null && nextUnpaidInstallment == null) continue
+
+                val level = if (nextUnpaidInstallment != null) {
+                    ReminderEngine.computeInstallmentEscalationLevel(nextUnpaidInstallment, policy, now) ?: continue
+                } else {
+                    ReminderEngine.computeEscalationLevel(tx, policy, now) ?: continue
+                }
+
+                val effectiveDueMillis = nextUnpaidInstallment?.dueDate ?: tx.expiryDateMillis
+                val overdueDays = ReminderEngine.calculateOverdueDays(effectiveDueMillis, now) ?: 0
+                val summary = InterestCalculator.calculate(tx, now)
+                val formattedAmount = if (nextUnpaidInstallment != null) {
+                    val instRemaining = com.jyotirmoyb.udhaar.util.InstallmentCalculator.paiseToDouble(
+                        nextUnpaidInstallment.amountDue - nextUnpaidInstallment.amountPaid
+                    )
+                    InterestCalculator.formatCurrency(instRemaining, tx.currency)
+                } else {
+                    InterestCalculator.formatCurrency(summary.netBalanceDue, tx.currency)
+                }
+
+                val dueDateFormatted = effectiveDueMillis?.let {
                     SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(it))
                 }.orEmpty()
 

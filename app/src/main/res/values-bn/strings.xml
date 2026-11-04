@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">উধার</string>
-    <string name="default_web_client_id" translatable="false">528046585099-iklgaumm23ndn59kovmlgvqcomlbb4kq.apps.googleusercontent.com</string>
     <string name="tagline_monochrome_ledger">সহজ খাতা ও ঋণ ট্র্যাকার</string>
     <string name="total_to_receive">মোট প্রাপ্য (প্রদত্ত)</string>
     <string name="total_to_pay">মোট প্রদেয় (গৃহীত)</string>
@@ -869,4 +868,8 @@
     <string name="pdf_full_ledger_footer_2">পৃষ্ঠা ১ / ১ • সমস্ত রেকর্ড আপনার ফোনেই সুরক্ষিত এবং গুগল ড্রাইভে ব্যাকআপ করা</string>
     <string name="toast_settings_saved">সেটিংস সংরক্ষিত হয়েছে</string>
     <string name="toast_admin_email">সহায়তা ইমেল: admin@jyotirmoyb.com</string>
+    <string name="move_installment_payment_btn">সরান</string>
+    <string name="move_installment_payment_title">কিস্তি #%1$d থেকে পেমেন্ট অন্য কিস্তিতে সরান</string>
+    <string name="move_installment_payment_subtitle">কোন অপরিশোধিত কিস্তিতে এই পেমেন্ট যোগ করবেন তা বেছে নিন:</string>
+    <string name="move_installment_target_fmt">কিস্তি #%1$d-এ সরান (দেয় %2$s • %3$s বাকি)</string>
 </resources>

@@ -368,7 +368,13 @@ class UdhaarViewModel(
     fun clearSuccessAnimation() = appStateHolder.clearSuccessAnimation()
     fun performUndoAction() = dashboardViewModel.performUndoAction()
 
-    fun generatePartyStatementPdf(khata: PartyKhataSummary, onReady: (File) -> Unit) = peopleViewModel.generatePartyStatementPdf(khata, onReady)
+    fun generatePartyStatementPdf(khata: PartyKhataSummary, onReady: (File) -> Unit) =
+        peopleViewModel.generatePartyStatementPdf(
+            khata = khata,
+            installmentPlansByTx = uiState.value.installmentPlansByTx,
+            installmentsByPlan = uiState.value.installmentsByPlan,
+            onReady = onReady
+        )
     fun generateFullLedgerPdf(onReady: (File) -> Unit) = peopleViewModel.generateFullLedgerPdf(onReady)
 
     fun openAddTransaction() = appStateHolder.openAddTransaction()
@@ -751,6 +757,12 @@ class UdhaarViewModel(
         planId: Long,
         txId: Long
     ) = recordViewModel.declineProposedInstallmentSchedule(planId, txId)
+
+    fun moveInstallmentPayment(
+        planId: Long,
+        fromSequence: Int,
+        toSequence: Int
+    ) = recordViewModel.moveInstallmentPayment(planId, fromSequence, toSequence)
 
     class Factory(
         private val repository: UdhaarRepository,

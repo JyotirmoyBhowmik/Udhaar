@@ -38,7 +38,9 @@ object PdfStatementGenerator {
         khata: PartyKhataSummary,
         userSettings: UserSettings,
         enabledCurrencies: List<CurrencyType>,
-        context: Context? = null
+        context: Context? = null,
+        installmentPlansByTx: Map<Long, com.jyotirmoyb.udhaar.data.InstallmentPlan> = emptyMap(),
+        installmentsByPlan: Map<Long, List<com.jyotirmoyb.udhaar.data.Installment>> = emptyMap()
     ) {
         val titlePaint = Paint().apply {
             color = Color.BLACK
@@ -206,6 +208,22 @@ object PdfStatementGenerator {
                 val verifyStr = "Status: ${tx.verificationStatus.label}$trustStr$webStr • Record fingerprint: $shortHash"
                 canvas.drawText(verifyStr, MARGIN + 130f, y, subtextPaint)
                 y += 12f
+            }
+
+            val txPlan = installmentPlansByTx[tx.id]
+            val txInstList = txPlan?.let { installmentsByPlan[it.id] }.orEmpty().sortedBy { it.sequence }
+            if (txPlan != null && txInstList.isNotEmpty()) {
+                val prog = InstallmentCalculator.computeProgress(txInstList)
+                val planSummary = "Installment Plan: ${prog.paidCount} of ${prog.totalCount} paid (${txPlan.frequency.label})"
+                canvas.drawText(planSummary, MARGIN + 130f, y, subtextPaint)
+                y += 11f
+                for (inst in txInstList.take(6)) {
+                    val instDueStr = itemDateSdf.format(Date(inst.dueDate))
+                    val instAmtStr = tx.currency.symbol + InterestCalculator.formatAmount(InstallmentCalculator.paiseToDouble(inst.amountDue))
+                    val instLine = "  #${inst.sequence} Due $instDueStr • $instAmtStr • ${inst.status.name}"
+                    canvas.drawText(instLine, MARGIN + 130f, y, subtextPaint)
+                    y += 10f
+                }
             }
 
             canvas.drawLine(MARGIN, y - 2f, PAGE_WIDTH - MARGIN, y - 2f, lightLinePaint)
@@ -520,7 +538,9 @@ object PdfStatementGenerator {
         context: Context,
         khata: PartyKhataSummary,
         userSettings: UserSettings,
-        enabledCurrencies: List<CurrencyType>
+        enabledCurrencies: List<CurrencyType>,
+        installmentPlansByTx: Map<Long, com.jyotirmoyb.udhaar.data.InstallmentPlan> = emptyMap(),
+        installmentsByPlan: Map<Long, List<com.jyotirmoyb.udhaar.data.Installment>> = emptyMap()
     ): File {
         val exportDir = File(context.cacheDir, "statements").apply { mkdirs() }
         val cleanName = khata.party.name.replace(Regex("[^a-zA-Z0-9]+"), "_").lowercase()
@@ -530,7 +550,15 @@ object PdfStatementGenerator {
             val document = PdfDocument()
             val pageInfo = PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, 1).create()
             val page = document.startPage(pageInfo)
-            drawPartyStatementOnCanvas(page.canvas, khata, userSettings, enabledCurrencies, context)
+            drawPartyStatementOnCanvas(
+                page.canvas,
+                khata,
+                userSettings,
+                enabledCurrencies,
+                context,
+                installmentPlansByTx,
+                installmentsByPlan
+            )
             document.finishPage(page)
             FileOutputStream(file).use { out ->
                 document.writeTo(out)
@@ -540,7 +568,15 @@ object PdfStatementGenerator {
             // Fallback for headless JVM / Robolectric where native PdfDocument Ptr is 0
             val bmp = Bitmap.createBitmap(PAGE_WIDTH, PAGE_HEIGHT, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bmp)
-            drawPartyStatementOnCanvas(canvas, khata, userSettings, enabledCurrencies, context)
+            drawPartyStatementOnCanvas(
+                canvas,
+                khata,
+                userSettings,
+                enabledCurrencies,
+                context,
+                installmentPlansByTx,
+                installmentsByPlan
+            )
             FileOutputStream(file).use { out ->
                 out.write("%PDF-1.4\n%Udhaar Statement Fallback PDF\n".toByteArray(Charsets.UTF_8))
                 bmp.compress(Bitmap.CompressFormat.PNG, 100, out)

@@ -216,7 +216,12 @@ open class PaymentRepository(
     ) {
         dao.deletePartialPayment(payment)
         val updatedPaid = (transaction.amountPaid - payment.amount).coerceAtLeast(0.0)
-        val nowSettled = updatedPaid >= (totalAccruedAmount - 0.01) && totalAccruedAmount > 0.0
+        val planResult = installmentRepository?.recalculateInstallmentsForTotalPaid(
+            txId = transaction.id,
+            totalPaidPaise = com.jyotirmoyb.udhaar.util.InstallmentCalculator.toPaise(updatedPaid)
+        )
+        val nowSettled = (planResult?.isPlanFullySettled == true) ||
+            (updatedPaid >= (totalAccruedAmount - 0.01) && totalAccruedAmount > 0.0)
         dao.updateTransaction(
             transaction.copy(
                 amountPaid = updatedPaid,

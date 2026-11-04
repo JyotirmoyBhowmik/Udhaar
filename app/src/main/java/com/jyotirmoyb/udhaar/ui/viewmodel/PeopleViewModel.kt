@@ -440,7 +440,12 @@ class PeopleViewModel @Inject constructor(
         _receiptModalPartyId.value = null
     }
 
-    fun generatePartyStatementPdf(khata: PartyKhataSummary, onReady: (File) -> Unit) {
+    fun generatePartyStatementPdf(
+        khata: PartyKhataSummary,
+        installmentPlansByTx: Map<Long, com.jyotirmoyb.udhaar.data.InstallmentPlan> = emptyMap(),
+        installmentsByPlan: Map<Long, List<com.jyotirmoyb.udhaar.data.Installment>> = emptyMap(),
+        onReady: (File) -> Unit
+    ) {
         if (appContext == null) return
         viewModelScope.launch {
             val settings = settingsRepository.userSettings.first()
@@ -448,7 +453,9 @@ class PeopleViewModel @Inject constructor(
                 context = appContext,
                 khata = khata,
                 userSettings = settings,
-                enabledCurrencies = settings.enabledCurrencies
+                enabledCurrencies = settings.enabledCurrencies,
+                installmentPlansByTx = installmentPlansByTx,
+                installmentsByPlan = installmentsByPlan
             )
             onReady(file)
         }

@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Udhaar</string>
-    <string name="default_web_client_id" translatable="false">528046585099-iklgaumm23ndn59kovmlgvqcomlbb4kq.apps.googleusercontent.com</string>
     <string name="tagline_monochrome_ledger">Minimalist loan &amp; Records</string>
     <string name="total_to_receive">Total to receive (given)</string>
     <string name="total_to_pay">Total to pay (taken)</string>
@@ -762,6 +761,10 @@
     <string name="installment_item_header_fmt">Installment #%1$d • %2$s</string>
     <string name="installment_item_due_fmt">Due: %1$s</string>
     <string name="installment_item_due_paid_fmt">Due: %1$s • Paid: %2$s</string>
+    <string name="move_installment_payment_btn">Move</string>
+    <string name="move_installment_payment_title">Move payment from Installment #%1$d</string>
+    <string name="move_installment_payment_subtitle">Choose which unpaid installment should receive this payment:</string>
+    <string name="move_installment_target_fmt">Move to Installment #%1$d (Due %2$s • %3$s left)</string>
     <string name="web_share_sheet_title">Send Web Link</string>
     <string name="inbox_updates_title">Updates &amp; Inbox</string>
     <string name="inbox_updates_subtitle">Review guest verifications, payments and return dates</string>

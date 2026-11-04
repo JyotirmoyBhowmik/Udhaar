@@ -66,7 +66,7 @@ open class InstallmentRepository @Inject constructor(
         )
         val planId = dao.insertInstallmentPlan(planToInsert)
 
-        val installmentsToInsert = draftInstallments.sortedBy { it.sequence }.map { draft ->
+        val baseInstallments = draftInstallments.sortedBy { it.sequence }.map { draft ->
             Installment(
                 id = 0L,
                 planId = planId,
@@ -79,7 +79,22 @@ open class InstallmentRepository @Inject constructor(
                 )
             )
         }
+
+        val existingPaidPaise = InstallmentCalculator.toPaise(tx.amountPaid)
+        val allocationOnSave = if (existingPaidPaise > 0L) {
+            InstallmentCalculator.allocatePayment(
+                installments = baseInstallments,
+                paymentAmountPaise = existingPaidPaise
+            )
+        } else {
+            AllocationResult(baseInstallments, 0L, false)
+        }
+        val installmentsToInsert = allocationOnSave.updatedInstallments
         dao.insertInstallments(installmentsToInsert)
+
+        if (allocationOnSave.isPlanFullySettled) {
+            dao.updateInstallmentPlan(planToInsert.copy(id = planId, status = InstallmentPlanStatus.COMPLETED))
+        }
 
         // Recompute content hash with plan included
         val computedHash = VerificationCryptoHelper.computeTransactionContentHash(
@@ -141,6 +156,40 @@ open class InstallmentRepository @Inject constructor(
             dao.updateInstallmentPlan(plan.copy(status = InstallmentPlanStatus.COMPLETED))
         }
 
+        return result
+    }
+
+    suspend fun moveInstallmentPayment(
+        planId: Long,
+        fromSequence: Int,
+        toSequence: Int
+    ): List<Installment> {
+        val installments = dao.getInstallmentsForPlanSnapshot(planId)
+        val updated = InstallmentCalculator.movePaymentBetweenInstallments(
+            installments = installments,
+            fromSequence = fromSequence,
+            toSequence = toSequence
+        )
+        dao.updateInstallments(updated)
+        return updated
+    }
+
+    suspend fun recalculateInstallmentsForTotalPaid(
+        txId: Long,
+        totalPaidPaise: Long
+    ): AllocationResult {
+        val plan = dao.getInstallmentPlanForTransactionSnapshot(txId)
+            ?: return AllocationResult(emptyList(), totalPaidPaise, false)
+        val installments = dao.getInstallmentsForPlanSnapshot(plan.id)
+        val result = InstallmentCalculator.reallocateTotalPaid(
+            installments = installments,
+            totalPaidPaise = totalPaidPaise
+        )
+        dao.updateInstallments(result.updatedInstallments)
+        val targetStatus = if (result.isPlanFullySettled) InstallmentPlanStatus.COMPLETED else InstallmentPlanStatus.ACTIVE
+        if (plan.status != targetStatus) {
+            dao.updateInstallmentPlan(plan.copy(status = targetStatus))
+        }
         return result
     }
 

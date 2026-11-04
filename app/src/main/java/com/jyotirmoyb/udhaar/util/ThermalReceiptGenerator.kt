@@ -117,7 +117,9 @@ object ThermalReceiptGenerator {
         partyUpiId: String? = null,
         auditTrail: List<com.jyotirmoyb.udhaar.data.AuditTrailEntry> = emptyList(),
         hideAmounts: Boolean = false,
-        strings: ThermalReceiptStrings = ThermalReceiptStrings()
+        strings: ThermalReceiptStrings = ThermalReceiptStrings(),
+        installmentPlan: com.jyotirmoyb.udhaar.data.InstallmentPlan? = null,
+        installments: List<com.jyotirmoyb.udhaar.data.Installment> = emptyList()
     ): Bitmap {
         val tx = summary.transaction
         val currency = tx.currency
@@ -150,11 +152,17 @@ object ThermalReceiptGenerator {
         }
 
         val auditItems = auditTrail.sortedBy { it.eventTimeMillis }.takeLast(8)
+        val sortedInstallments = installments.sortedBy { it.sequence }.take(12)
         val width = 840
         val paymentRowsHeight = if (partialPayments.isEmpty()) 56 else (partialPayments.size.coerceAtMost(12) * 44 + 74)
+        val installmentRowsHeight = if (installmentPlan != null && sortedInstallments.isNotEmpty()) {
+            sortedInstallments.size * 44 + 130
+        } else {
+            0
+        }
         val auditRowsHeight = if (auditItems.isEmpty()) 110 else (auditItems.size * 44 + 140)
         val qrSectionHeight = if (qrBitmap != null) 410 else 0
-        val height = 1140 + paymentRowsHeight + auditRowsHeight + qrSectionHeight
+        val height = 1140 + paymentRowsHeight + installmentRowsHeight + auditRowsHeight + qrSectionHeight
 
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -315,6 +323,29 @@ object ThermalReceiptGenerator {
         }
 
         drawDashedDivider()
+
+        // Optional Installment Schedule Table
+        if (installmentPlan != null && sortedInstallments.isNotEmpty()) {
+            val progress = InstallmentCalculator.computeProgress(installments)
+            canvas.drawText(
+                "Installment Schedule (${progress.paidCount} of ${progress.totalCount} paid • ${installmentPlan.frequency.label})",
+                leftX,
+                y,
+                sectionTitlePaint
+            )
+            y += 42f
+            sortedInstallments.forEach { inst ->
+                val dueStr = InterestCalculator.fmtDate(inst.dueDate)
+                val dueDouble = InstallmentCalculator.paiseToDouble(inst.amountDue)
+                val paidDouble = InstallmentCalculator.paiseToDouble(inst.amountPaid)
+                val statusTag = inst.status.name
+                drawRow(
+                    "#${inst.sequence} • Due $dueStr [$statusTag]",
+                    "${InterestCalculator.formatCurrencyPrivacy(paidDouble, currency, hideAmounts)} / ${InterestCalculator.formatCurrencyPrivacy(dueDouble, currency, hideAmounts)}"
+                )
+            }
+            drawDashedDivider()
+        }
 
         // Immutable Verification & Audit Timeline Section
         canvas.drawText("${strings.immutableAuditTimelineTitle} (${auditItems.size})", leftX, y, sectionTitlePaint)

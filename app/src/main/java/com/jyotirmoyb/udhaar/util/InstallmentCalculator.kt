@@ -181,6 +181,78 @@ object InstallmentCalculator {
     }
 
     /**
+     * Moves a paid amount from installment [fromSequence] to installment [toSequence].
+     * Re-evaluates the status of both installments and spills any excess if [toSequence] becomes full.
+     */
+    fun movePaymentBetweenInstallments(
+        installments: List<Installment>,
+        fromSequence: Int,
+        toSequence: Int,
+        amountPaise: Long = Long.MAX_VALUE,
+        nowMillis: Long = System.currentTimeMillis()
+    ): List<Installment> {
+        if (fromSequence == toSequence || installments.isEmpty()) return installments
+        val sorted = installments.sortedBy { it.sequence }.map { it.copy() }.toMutableList()
+        val fromIdx = sorted.indexOfFirst { it.sequence == fromSequence }
+        val toIdx = sorted.indexOfFirst { it.sequence == toSequence }
+        if (fromIdx == -1 || toIdx == -1) return installments
+
+        val fromInst = sorted[fromIdx]
+        val toInst = sorted[toIdx]
+        val availableToMove = minOf(fromInst.amountPaid, amountPaise.coerceAtLeast(0L))
+        val targetCapacity = (toInst.amountDue - toInst.amountPaid).coerceAtLeast(0L)
+        val movedAmount = minOf(availableToMove, targetCapacity)
+        if (movedAmount <= 0L) return installments
+
+        val updatedFromPaid = (fromInst.amountPaid - movedAmount).coerceAtLeast(0L)
+        val updatedFrom = fromInst.copy(
+            amountPaid = updatedFromPaid,
+            paidAtMillis = if (updatedFromPaid >= fromInst.amountDue) fromInst.paidAtMillis else null,
+            paymentId = if (updatedFromPaid > 0L) fromInst.paymentId else null
+        )
+        sorted[fromIdx] = updatedFrom.copy(
+            status = computeInstallmentStatus(updatedFrom, nowMillis)
+        )
+
+        val updatedToPaid = toInst.amountPaid + movedAmount
+        val isToPaidNow = updatedToPaid >= toInst.amountDue
+        val updatedTo = toInst.copy(
+            amountPaid = updatedToPaid,
+            paidAtMillis = if (isToPaidNow) (toInst.paidAtMillis ?: fromInst.paidAtMillis ?: nowMillis) else toInst.paidAtMillis,
+            paymentId = toInst.paymentId ?: fromInst.paymentId
+        )
+        sorted[toIdx] = updatedTo.copy(
+            status = computeInstallmentStatus(updatedTo, nowMillis)
+        )
+
+        return sorted
+    }
+
+    /**
+     * Resets all installments to 0 paid and re-allocates [totalPaidPaise] from the oldest installment forward.
+     */
+    fun reallocateTotalPaid(
+        installments: List<Installment>,
+        totalPaidPaise: Long,
+        nowMillis: Long = System.currentTimeMillis()
+    ): AllocationResult {
+        val resetList = installments.sortedBy { it.sequence }.map { inst ->
+            val clean = inst.copy(
+                amountPaid = 0L,
+                paidAtMillis = null,
+                paymentId = null
+            )
+            clean.copy(status = computeInstallmentStatus(clean, nowMillis))
+        }
+        return allocatePayment(
+            installments = resetList,
+            paymentAmountPaise = totalPaidPaise.coerceAtLeast(0L),
+            paymentId = null,
+            paidAtMillis = nowMillis
+        )
+    }
+
+    /**
      * Calculates the overall progress of an installment plan.
      */
     fun computeProgress(

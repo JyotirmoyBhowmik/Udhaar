@@ -301,7 +301,9 @@ class BackupViewModel @Inject constructor(
             chatMessages = snapshot.chatMessages,
             settings = settingsMap,
             attachments = attachments,
-            attachmentRecords = snapshot.attachments
+            attachmentRecords = snapshot.attachments,
+            installmentPlans = snapshot.installmentPlans,
+            installments = snapshot.installments
         )
         val preview = BackupPreviewSummary(
             partiesCount = snapshot.parties.size,
@@ -582,14 +584,19 @@ class BackupViewModel @Inject constructor(
 
     fun generateSinglePartyStatementJson(khata: PartyKhataSummary, onReady: (String) -> Unit) {
         viewModelScope.launch {
-            val (_, _, allPayments) = backupRepository.getFullLedgerSnapshot()
+            val snapshot = backupRepository.getFullLedgerBackupSnapshot()
             val txs = khata.transactions.map { it.transaction }
             val txIds = txs.map { it.id }.toSet()
-            val partyPayments = allPayments.filter { it.transactionId in txIds }
+            val partyPayments = snapshot.partialPayments.filter { it.transactionId in txIds }
+            val partyPlans = snapshot.installmentPlans.filter { it.transactionId in txIds }
+            val partyPlanIds = partyPlans.map { it.id }.toSet()
+            val partyInstallments = snapshot.installments.filter { it.planId in partyPlanIds }
             val json = LedgerBackupManager.buildBackupJson(
                 parties = listOf(khata.party),
                 transactions = txs,
                 partialPayments = partyPayments,
+                installmentPlans = partyPlans,
+                installments = partyInstallments,
                 exportType = "SINGLE_PARTY_STATEMENT",
                 statementPartyName = khata.party.name
             )
@@ -608,7 +615,9 @@ class BackupViewModel @Inject constructor(
                     parties = parsed.parties,
                     transactions = parsed.transactions,
                     partialPayments = parsed.partialPayments,
-                    attachments = parsed.attachmentRecords
+                    attachments = parsed.attachmentRecords,
+                    installmentPlans = parsed.installmentPlans,
+                    installments = parsed.installments
                 )
                 onComplete(Result.success(count))
             } catch (e: Exception) {

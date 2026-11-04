@@ -1,5 +1,5 @@
 // =========================================================================
-// Udhaar Guest Web Flow — v17.0
+// Udhaar Guest Web Flow — v18.0
 // Plain-language, accessible, multi-lingual client (EN, HI, BN, AS, NE)
 // =========================================================================
 
@@ -875,12 +875,27 @@
     if (rec.plan && Array.isArray(rec.installments) && rec.installments.length > 0) {
       instBox.style.display = "flex";
       const total = rec.installments.length;
-      const paid = rec.installments.filter((i) => i.status === "PAID").length;
+      const paid = rec.installments.filter((i) => i.status === "PAID" || (i.amountPaid || 0) >= i.amountDue).length;
       document.getElementById("inst-progress-label").textContent = t("badge_installments", { paid, total });
-      const nextUnpaid = rec.installments.find((i) => i.status !== "PAID");
+      const nextUnpaid = rec.installments.find((i) => i.status !== "PAID" && (i.amountPaid || 0) < i.amountDue);
       if (nextUnpaid) {
+        const remainingPaise = nextUnpaid.amountDue - (nextUnpaid.amountPaid || 0);
         document.getElementById("inst-next-due").textContent = t("badge_next_due", {
-          amount: formatCurrency(nextUnpaid.amountDue, rec.currency)
+          amount: formatCurrency(remainingPaise / 100, rec.currency)
+        });
+      } else {
+        document.getElementById("inst-next-due").textContent = t("badge_paid_back");
+      }
+      const pct = total > 0 ? Math.round((paid / total) * 100) : 0;
+      document.getElementById("inst-progress-fill").style.width = pct + "%";
+    } else if (rec.installmentPlan && rec.installmentPlan.installmentCount > 0) {
+      instBox.style.display = "flex";
+      const total = rec.installmentPlan.installmentCount;
+      const paid = rec.installmentPlan.paidCount || 0;
+      document.getElementById("inst-progress-label").textContent = t("badge_installments", { paid, total });
+      if (rec.installmentPlan.nextDueAmount > 0) {
+        document.getElementById("inst-next-due").textContent = t("badge_next_due", {
+          amount: formatCurrency(rec.installmentPlan.nextDueAmount / 100, rec.currency)
         });
       } else {
         document.getElementById("inst-next-due").textContent = t("badge_paid_back");
@@ -972,6 +987,7 @@
       const res = await apiCall("guestConfirm", {
         recordId: urlRecordId,
         secret: urlSecret,
+        whatsappOtp: codeStr || undefined,
         guestPhoneOtp: codeStr || undefined
       });
 
@@ -1454,7 +1470,7 @@
 
     try {
       const data = await apiCall("getGuestRecord", { recordId: urlRecordId, secret: urlSecret });
-      renderRecordView(data.record);
+      renderRecordView(data.record || data);
     } catch (err) {
       if (err.status === 410) {
         showErrorState("state_expired_title", "state_expired_desc", "state_expired_action", { name: "the sender" });

@@ -90,6 +90,8 @@ fun WhatsAppReminderModal(
     userSettings: UserSettings,
     party: PartyEntity? = null,
     fallbackPhoneNumber: String = "",
+    installmentPlan: com.jyotirmoyb.udhaar.data.InstallmentPlan? = null,
+    installments: List<com.jyotirmoyb.udhaar.data.Installment> = emptyList(),
     onRecordReminderEvent: ((level: Int, channel: ReminderChannel) -> Unit)? = null,
     onSendInAppChat: ((message: String) -> Unit)? = null,
     onDismiss: () -> Unit
@@ -109,8 +111,19 @@ fun WhatsAppReminderModal(
         )
     }
 
-    val computedDefaultLevel = remember(summary, policy) {
-        ReminderEngine.computeEscalationLevel(tx, policy) ?: ReminderLevel.LEVEL_1_GENTLE
+    val nextUnpaidInstallment = remember(installments) {
+        installments
+            .sortedBy { it.sequence }
+            .firstOrNull { it.amountPaid < it.amountDue && it.status != com.jyotirmoyb.udhaar.data.InstallmentStatus.PAID }
+    }
+
+    val computedDefaultLevel = remember(summary, policy, nextUnpaidInstallment) {
+        if (nextUnpaidInstallment != null) {
+            ReminderEngine.computeInstallmentEscalationLevel(nextUnpaidInstallment, policy)
+                ?: ReminderLevel.LEVEL_1_GENTLE
+        } else {
+            ReminderEngine.computeEscalationLevel(tx, policy) ?: ReminderLevel.LEVEL_1_GENTLE
+        }
     }
 
     var selectedLevel by rememberSaveable(tx.id) {
@@ -127,13 +140,14 @@ fun WhatsAppReminderModal(
     var hideExactAmount by rememberSaveable(tx.id) { mutableStateOf(false) }
     var includeUpiId by rememberSaveable(tx.id) { mutableStateOf(true) }
 
-    val dueDateStr = remember(tx.expiryDateMillis) {
-        tx.expiryDateMillis?.let {
+    val effectiveDueMillis = nextUnpaidInstallment?.dueDate ?: tx.expiryDateMillis
+    val dueDateStr = remember(effectiveDueMillis) {
+        effectiveDueMillis?.let {
             SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(it))
         }.orEmpty()
     }
-    val overdueDays = remember(tx.expiryDateMillis) {
-        ReminderEngine.calculateOverdueDays(tx.expiryDateMillis) ?: 0
+    val overdueDays = remember(effectiveDueMillis) {
+        ReminderEngine.calculateOverdueDays(effectiveDueMillis) ?: 0
     }
 
     val principalStr = remember(summary.principal, tx.currency) {
@@ -147,6 +161,28 @@ fun WhatsAppReminderModal(
     }
 
     fun generateMessage(level: ReminderLevel, lang: String, hideAmount: Boolean, upi: Boolean): String {
+        if (installmentPlan != null && nextUnpaidInstallment != null && !hideAmount) {
+            val instAmountDouble = com.jyotirmoyb.udhaar.util.InstallmentCalculator.paiseToDouble(
+                nextUnpaidInstallment.amountDue - nextUnpaidInstallment.amountPaid
+            )
+            val instAmountFormatted = InterestCalculator.formatCurrency(instAmountDouble, tx.currency)
+            val totalRemainingFormatted = InterestCalculator.formatCurrency(summary.netBalanceDue, tx.currency)
+            val instTemplate = ReminderEngine.getLocalizedInstallmentTemplate(context, lang)
+            val baseDraft = ReminderEngine.renderInstallmentDraftMessage(
+                template = instTemplate,
+                name = tx.partyName,
+                sequence = nextUnpaidInstallment.sequence,
+                totalCount = installmentPlan.installmentCount,
+                installmentAmount = instAmountFormatted,
+                dueDate = dueDateStr,
+                totalRemaining = totalRemainingFormatted
+            )
+            return if (upi && userSettings.upiId.isNotBlank()) {
+                "$baseDraft UPI: ${userSettings.upiId}"
+            } else {
+                baseDraft
+            }
+        }
         val template = ReminderEngine.getLocalizedTemplate(context, level, lang, hideAmount)
         return ReminderEngine.renderDraftMessage(
             template = template,

@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -66,6 +67,7 @@ fun InstallmentTimelineCard(
     onEditPlan: () -> Unit,
     onRequestNewDates: () -> Unit,
     onConfirmUpiPayment: (installment: Installment, amountDouble: Double) -> Unit,
+    onMoveInstallmentPayment: (fromSequence: Int, toSequence: Int) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -74,7 +76,11 @@ fun InstallmentTimelineCard(
     }
 
     var pendingUpiConfirmationInstallment by remember { mutableStateOf<Installment?>(null) }
+    var movingPaymentFromInstallment by remember { mutableStateOf<Installment?>(null) }
     val sdf = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
+    val unpaidInstallments = remember(installments) {
+        installments.sortedBy { it.sequence }.filter { it.amountPaid < it.amountDue }
+    }
 
     Column(
         modifier = modifier
@@ -167,7 +173,9 @@ fun InstallmentTimelineCard(
                         },
                         shape = RoundedCornerShape(6.dp),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.height(32.dp)
+                        modifier = Modifier
+                            .height(32.dp)
+                            .testTag("pay_installment_now_button")
                     ) {
                         Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
@@ -187,6 +195,7 @@ fun InstallmentTimelineCard(
                 val isLate = inst.status == InstallmentStatus.LATE || (!isPaid && System.currentTimeMillis() > inst.dueDate)
                 val isPartial = inst.status == InstallmentStatus.PARTIAL || (inst.amountPaid > 0L && !isPaid)
                 val dueAmt = tx.currency.symbol + InterestCalculator.formatAmount(InstallmentCalculator.paiseToDouble(inst.amountDue))
+                val canMoveThisPayment = inst.amountPaid > 0L && unpaidInstallments.any { it.sequence != inst.sequence }
 
                 Row(
                     modifier = Modifier
@@ -202,7 +211,8 @@ fun InstallmentTimelineCard(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f)
                     ) {
                         // Status Icon / Circle
                         Box(
@@ -246,22 +256,50 @@ fun InstallmentTimelineCard(
                         }
                     }
 
-                    // Status Badge
-                    val (statusLabel, statusColor) = when {
-                        isPaid -> stringResource(R.string.badge_paid) to Color(0xFF10B981)
-                        isLate -> stringResource(R.string.badge_late) to MaterialTheme.colorScheme.error
-                        isPartial -> stringResource(R.string.badge_partial) to MaterialTheme.colorScheme.tertiary
-                        else -> stringResource(R.string.badge_pending) to MaterialTheme.colorScheme.onSurfaceVariant
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        if (canMoveThisPayment) {
+                            TextButton(
+                                onClick = { movingPaymentFromInstallment = inst },
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.move_installment_payment_btn),
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        }
+
+                        // Status Badge
+                        val (statusLabel, statusColor) = when {
+                            isPaid -> stringResource(R.string.badge_paid) to Color(0xFF10B981)
+                            isLate -> stringResource(R.string.badge_late) to MaterialTheme.colorScheme.error
+                            isPartial -> stringResource(R.string.badge_partial) to MaterialTheme.colorScheme.tertiary
+                            else -> stringResource(R.string.badge_pending) to MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                        Text(
+                            text = statusLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = statusColor
+                        )
                     }
-                    Text(
-                        text = statusLabel,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = statusColor
-                    )
                 }
             }
         }
+
+        // No fake AutoPay help note on the plan screen
+        Text(
+            text = stringResource(R.string.no_fake_autopay_help),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("no_fake_autopay_help_text")
+        )
 
         // Actions: Edit Plan / Request New Dates
         Row(
@@ -270,14 +308,67 @@ fun InstallmentTimelineCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (tx.transactionType == TransactionType.TAKEN) {
-                TextButton(onClick = onRequestNewDates) {
+                TextButton(
+                    onClick = onRequestNewDates,
+                    modifier = Modifier.testTag("request_new_dates_button")
+                ) {
                     Text(stringResource(R.string.request_new_dates))
                 }
             }
-            TextButton(onClick = onEditPlan) {
+            TextButton(
+                onClick = onEditPlan,
+                modifier = Modifier.testTag("edit_installment_plan_button")
+            ) {
                 Text(stringResource(R.string.edit_installment_plan))
             }
         }
+    }
+
+    // Dialog to move applied payment from one installment to another unpaid installment
+    movingPaymentFromInstallment?.let { sourceInst ->
+        val candidateTargets = unpaidInstallments.filter { it.sequence != sourceInst.sequence }
+        AlertDialog(
+            onDismissRequest = { movingPaymentFromInstallment = null },
+            title = {
+                Text(stringResource(R.string.move_installment_payment_title, sourceInst.sequence))
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = stringResource(R.string.move_installment_payment_subtitle),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    candidateTargets.forEach { target ->
+                        val remainingDouble = InstallmentCalculator.paiseToDouble(target.amountDue - target.amountPaid)
+                        val remainingFormatted = "${tx.currency.symbol}${InterestCalculator.formatAmount(remainingDouble)}"
+                        val dueStr = sdf.format(Date(target.dueDate))
+                        OutlinedButton(
+                            onClick = {
+                                onMoveInstallmentPayment(sourceInst.sequence, target.sequence)
+                                movingPaymentFromInstallment = null
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = stringResource(
+                                    R.string.move_installment_target_fmt,
+                                    target.sequence,
+                                    dueStr,
+                                    remainingFormatted
+                                ),
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { movingPaymentFromInstallment = null }) {
+                    Text(stringResource(R.string.btn_cancel))
+                }
+            }
+        )
     }
 
     // Confirmation Dialog after UPI payment app returns

@@ -74,6 +74,7 @@ fun RecordDetailSheet(
     onOpenPlanBuilder: () -> Unit = {},
     onRequestNewDates: () -> Unit = {},
     onConfirmInstallmentUpiPayment: (installment: Installment, amountDouble: Double) -> Unit = { _, _ -> },
+    onMoveInstallmentPayment: (fromSequence: Int, toSequence: Int) -> Unit = { _, _ -> },
     onAcceptProposedSchedule: () -> Unit = {},
     onDeclineProposedSchedule: () -> Unit = {},
     onDismiss: () -> Unit,
@@ -269,6 +270,7 @@ fun RecordDetailSheet(
                             onEditPlan = onOpenPlanBuilder,
                             onRequestNewDates = onRequestNewDates,
                             onConfirmUpiPayment = onConfirmInstallmentUpiPayment,
+                            onMoveInstallmentPayment = onMoveInstallmentPayment,
                             modifier = Modifier.testTag("installment_timeline_card")
                         )
                     } else if (!tx.isSettled) {

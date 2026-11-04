@@ -232,6 +232,7 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
 
     var pendingJsonToSave by remember { mutableStateOf<String?>(null) }
     var showContactsRationaleDialog by remember { mutableStateOf(false) }
+    var isPlanProposalMode by remember { mutableStateOf(false) }
 
     val contactsPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -765,19 +766,27 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                                             linkedParty?.upiId.orEmpty()
                                         },
                                         onOpenPlanBuilder = {
+                                            isPlanProposalMode = false
                                             viewModel.openInstallmentPlanBuilder(detailTxId)
                                         },
                                         onRequestNewDates = {
+                                            isPlanProposalMode = true
                                             viewModel.openInstallmentPlanBuilder(detailTxId)
                                         },
                                         onConfirmInstallmentUpiPayment = { inst, amt ->
+                                            val totalCount = uiState.installmentPlansByTx[detailTxId]?.installmentCount ?: 1
                                             viewModel.recordPartialPayment(
                                                 summary = detailSummary,
                                                 amount = amt,
                                                 paymentMode = com.jyotirmoyb.udhaar.data.PaymentMode.UPI,
-                                                note = "Paid via UPI for installment ${inst.sequence} of ${uiState.installmentPlansByTx[detailTxId]?.installmentCount ?: 1}",
+                                                note = context.getString(R.string.upi_reference_note_fmt, inst.sequence, totalCount),
                                                 recordedByCounterparty = false
                                             )
+                                        },
+                                        onMoveInstallmentPayment = { fromSeq, toSeq ->
+                                            uiState.installmentPlansByTx[detailTxId]?.let { plan ->
+                                                viewModel.moveInstallmentPayment(plan.id, fromSeq, toSeq)
+                                            }
                                         },
                                         onAcceptProposedSchedule = {
                                             uiState.installmentPlansByTx[detailTxId]?.let { plan ->
@@ -1336,6 +1345,8 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                 (receiptSummary.transaction.partyId != null && p.partyId == receiptSummary.transaction.partyId) ||
                     p.name.trim().equals(receiptSummary.transaction.partyName.trim(), ignoreCase = true)
             }
+            val txPlan = uiState.installmentPlansByTx[receiptTxId]
+            val txInstallments = txPlan?.let { uiState.installmentsByPlan[it.id] }.orEmpty()
             val receiptStrings = remember(context) {
                 ThermalReceiptGenerator.ThermalReceiptStrings.fromContext(context)
             }
@@ -1346,7 +1357,9 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                 uiState.userSettings,
                 linkedParty,
                 uiState.isAmountsHidden,
-                receiptStrings
+                receiptStrings,
+                txPlan,
+                txInstallments
             ) {
                 ThermalReceiptGenerator.createTransactionReceiptBitmap(
                     summary = receiptSummary,
@@ -1355,7 +1368,9 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                     partyUpiId = linkedParty?.upiId,
                     auditTrail = auditTrail,
                     hideAmounts = uiState.isAmountsHidden,
-                    strings = receiptStrings
+                    strings = receiptStrings,
+                    installmentPlan = txPlan,
+                    installments = txInstallments
                 )
             }
             val safeParty = receiptSummary.transaction.partyName.replace(Regex("[^a-zA-Z0-9]+"), "_").lowercase()
@@ -1413,11 +1428,15 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                 (reminderSummary.transaction.partyId != null && p.partyId == reminderSummary.transaction.partyId) ||
                     p.name.trim().equals(reminderSummary.transaction.partyName.trim(), ignoreCase = true)
             }
+            val reminderPlan = uiState.installmentPlansByTx[whatsAppTxId]
+            val reminderInstallments = reminderPlan?.let { uiState.installmentsByPlan[it.id] }.orEmpty()
             WhatsAppReminderModal(
                 summary = reminderSummary,
                 userSettings = uiState.userSettings,
                 party = linkedParty,
                 fallbackPhoneNumber = linkedParty?.phoneNumber.orEmpty(),
+                installmentPlan = reminderPlan,
+                installments = reminderInstallments,
                 onRecordReminderEvent = { level, channel ->
                     viewModel.recordReminderSent(reminderSummary.transaction.id, level, channel)
                 },
@@ -1551,13 +1570,26 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
         val targetTx = uiState.allCalculatedItems.firstOrNull { it.transaction.id == planBuilderTxId }?.transaction
         if (targetTx != null) {
             val existingPlan = uiState.installmentPlansByTx[planBuilderTxId]
+            val existingInstallments = existingPlan?.let { uiState.installmentsByPlan[it.id] }.orEmpty()
             InstallmentPlanBuilderSheet(
                 tx = targetTx,
                 existingPlan = existingPlan,
+                existingInstallments = existingInstallments,
+                isProposalMode = isPlanProposalMode && existingPlan != null,
+                onProposeNewDates = if (existingPlan != null) {
+                    { drafts ->
+                        viewModel.proposeNewInstallmentSchedule(existingPlan.id, targetTx.id, drafts)
+                        isPlanProposalMode = false
+                    }
+                } else null,
                 onSavePlan = { plan, drafts ->
+                    isPlanProposalMode = false
                     viewModel.saveInstallmentPlan(targetTx, plan, drafts)
                 },
-                onDismiss = viewModel::closeInstallmentPlanBuilder
+                onDismiss = {
+                    isPlanProposalMode = false
+                    viewModel.closeInstallmentPlanBuilder()
+                }
             )
         }
     }

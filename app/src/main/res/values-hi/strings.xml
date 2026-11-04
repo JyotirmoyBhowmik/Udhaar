@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">उधार</string>
-    <string name="default_web_client_id" translatable="false">528046585099-iklgaumm23ndn59kovmlgvqcomlbb4kq.apps.googleusercontent.com</string>
     <string name="tagline_monochrome_ledger">सरल खाता एवं ऋण प्रबंधन</string>
     <string name="total_to_receive">कुल लेना (दिया)</string>
     <string name="total_to_pay">कुल देना (लिया)</string>
@@ -869,4 +868,8 @@
     <string name="pdf_full_ledger_footer_2">पेज 1 / 1 • सभी रिकॉर्ड आपके फोन में सुरक्षित हैं और आपके गूगल ड्राइव में बैकअप हैं</string>
     <string name="toast_settings_saved">सेटिंग्स सहेजी गईं</string>
     <string name="toast_admin_email">सहायता ईमेल: admin@jyotirmoyb.com</string>
+    <string name="move_installment_payment_btn">बदलें</string>
+    <string name="move_installment_payment_title">किस्त #%1$d का भुगतान दूसरी किस्त में ले जाएं</string>
+    <string name="move_installment_payment_subtitle">चुनें कि यह भुगतान किस बाकी किस्त में जोड़ा जाए:</string>
+    <string name="move_installment_target_fmt">किस्त #%1$d में ले जाएं (देय %2$s • %3$s बाकी)</string>
 </resources>
