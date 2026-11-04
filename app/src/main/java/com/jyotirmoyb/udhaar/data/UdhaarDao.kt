@@ -259,6 +259,73 @@ interface UdhaarDao {
     @Query("DELETE FROM reminder_events")
     suspend fun deleteAllReminderEvents()
 
+    // --- Installment Plans & Installments ---
+    @Query("SELECT * FROM installment_plans WHERE transactionId = :transactionId LIMIT 1")
+    fun getInstallmentPlanForTransaction(transactionId: Long): Flow<InstallmentPlan?>
+
+    @Query("SELECT * FROM installment_plans WHERE transactionId = :transactionId LIMIT 1")
+    suspend fun getInstallmentPlanForTransactionSnapshot(transactionId: Long): InstallmentPlan?
+
+    @Query("SELECT * FROM installment_plans WHERE id = :planId LIMIT 1")
+    suspend fun getInstallmentPlanById(planId: Long): InstallmentPlan?
+
+    @Query("SELECT * FROM installment_plans")
+    fun getAllInstallmentPlans(): Flow<List<InstallmentPlan>>
+
+    @Query("SELECT * FROM installment_plans")
+    suspend fun getAllInstallmentPlansSnapshot(): List<InstallmentPlan>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertInstallmentPlan(plan: InstallmentPlan): Long
+
+    @Update
+    suspend fun updateInstallmentPlan(plan: InstallmentPlan)
+
+    @Delete
+    suspend fun deleteInstallmentPlan(plan: InstallmentPlan)
+
+    @Query("DELETE FROM installment_plans WHERE transactionId = :transactionId")
+    suspend fun deleteInstallmentPlanForTransaction(transactionId: Long)
+
+    @Query("DELETE FROM installment_plans WHERE id = :planId")
+    suspend fun deleteInstallmentPlanById(planId: Long)
+
+    @Query("SELECT * FROM installments WHERE planId = :planId ORDER BY sequence ASC")
+    fun getInstallmentsForPlan(planId: Long): Flow<List<Installment>>
+
+    @Query("SELECT * FROM installments WHERE planId = :planId ORDER BY sequence ASC")
+    suspend fun getInstallmentsForPlanSnapshot(planId: Long): List<Installment>
+
+    @Query("SELECT * FROM installments ORDER BY planId ASC, sequence ASC")
+    fun getAllInstallments(): Flow<List<Installment>>
+
+    @Query("SELECT * FROM installments ORDER BY planId ASC, sequence ASC")
+    suspend fun getAllInstallmentsSnapshot(): List<Installment>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertInstallment(installment: Installment): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertInstallments(installments: List<Installment>): List<Long>
+
+    @Update
+    suspend fun updateInstallment(installment: Installment)
+
+    @Update
+    suspend fun updateInstallments(installments: List<Installment>)
+
+    @Delete
+    suspend fun deleteInstallment(installment: Installment)
+
+    @Query("DELETE FROM installments WHERE planId = :planId")
+    suspend fun deleteInstallmentsForPlan(planId: Long)
+
+    @Query("DELETE FROM installment_plans")
+    suspend fun deleteAllInstallmentPlans()
+
+    @Query("DELETE FROM installments")
+    suspend fun deleteAllInstallments()
+
     @Transaction
     suspend fun clearAllLedgerData() {
         deleteAllAttachments()
@@ -267,6 +334,8 @@ interface UdhaarDao {
         deleteAllChatMessages()
         deleteAllChatThreads()
         deleteAllReminderEvents()
+        deleteAllInstallments()
+        deleteAllInstallmentPlans()
         deleteAllTransactions()
         deleteAllParties()
     }

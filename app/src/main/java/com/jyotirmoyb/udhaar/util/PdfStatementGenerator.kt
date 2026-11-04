@@ -195,6 +195,119 @@ object PdfStatementGenerator {
         canvas.drawText("Verify online or link records via https://udhaar.jyotirmoyb.com/u/ • Page 1 of 1", MARGIN, y, subtextPaint)
     }
 
+    private fun drawInstallmentStatementOnCanvas(
+        canvas: Canvas,
+        tx: com.jyotirmoyb.udhaar.data.UdhaarTransaction,
+        plan: com.jyotirmoyb.udhaar.data.InstallmentPlan,
+        installments: List<com.jyotirmoyb.udhaar.data.Installment>,
+        userSettings: UserSettings
+    ) {
+        val titlePaint = Paint().apply {
+            color = Color.BLACK
+            textSize = 15f
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
+        val headerPaint = Paint().apply {
+            color = Color.BLACK
+            textSize = 10f
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
+        val textPaint = Paint().apply {
+            color = Color.BLACK
+            textSize = 9f
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
+            isAntiAlias = true
+        }
+
+        val boldPaint = Paint().apply {
+            color = Color.BLACK
+            textSize = 9f
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            isAntiAlias = true
+        }
+
+        val subtextPaint = Paint().apply {
+            color = Color.DKGRAY
+            textSize = 8f
+            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
+            isAntiAlias = true
+        }
+
+        val linePaint = Paint().apply {
+            color = Color.BLACK
+            strokeWidth = 1f
+        }
+
+        val lightLinePaint = Paint().apply {
+            color = Color.LTGRAY
+            strokeWidth = 0.5f
+        }
+
+        canvas.drawColor(Color.WHITE)
+        var y = MARGIN + 16f
+
+        canvas.drawText("UDHAAR — INSTALLMENT REPAYMENT SCHEDULE", MARGIN, y, titlePaint)
+        y += 14f
+
+        val sdf = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+        val generatedDateStr = sdf.format(Date())
+        canvas.drawText("Generated on: $generatedDateStr • Frequency: ${plan.frequency.label} • ${plan.installmentCount} Parts", MARGIN, y, subtextPaint)
+        y += 14f
+
+        canvas.drawLine(MARGIN, y, PAGE_WIDTH - MARGIN, y, linePaint)
+        y += 14f
+
+        val colWidth = (PAGE_WIDTH - 2 * MARGIN) / 2f
+        canvas.drawText("PARTY: ${tx.partyName}", MARGIN, y, headerPaint)
+        val roleStr = if (tx.transactionType == TransactionType.GIVEN) "LENDER (TO RECEIVE)" else "BORROWER (TO PAY)"
+        canvas.drawText("ROLE: $roleStr", MARGIN + colWidth, y, headerPaint)
+        y += 12f
+
+        val totalAmt = tx.currency.symbol + InterestCalculator.formatAmount(InstallmentCalculator.paiseToDouble(plan.totalAmountDue))
+        canvas.drawText("TOTAL SCHEDULED: $totalAmt", MARGIN, y, boldPaint)
+        canvas.drawText("INTEREST MODE: ${plan.interestMode.label}", MARGIN + colWidth, y, textPaint)
+        y += 14f
+
+        canvas.drawLine(MARGIN, y, PAGE_WIDTH - MARGIN, y, linePaint)
+        y += 14f
+
+        // Table Header
+        canvas.drawText("SEQ", MARGIN, y, headerPaint)
+        canvas.drawText("DUE DATE", MARGIN + 40f, y, headerPaint)
+        canvas.drawText("AMOUNT DUE", MARGIN + 140f, y, headerPaint)
+        canvas.drawText("AMOUNT PAID", MARGIN + 260f, y, headerPaint)
+        canvas.drawText("STATUS", MARGIN + 380f, y, headerPaint)
+        y += 6f
+        canvas.drawLine(MARGIN, y, PAGE_WIDTH - MARGIN, y, lightLinePaint)
+        y += 14f
+
+        for (inst in installments.sortedBy { it.sequence }) {
+            val dueStr = sdf.format(Date(inst.dueDate))
+            val dueAmt = tx.currency.symbol + InterestCalculator.formatAmount(InstallmentCalculator.paiseToDouble(inst.amountDue))
+            val paidAmt = tx.currency.symbol + InterestCalculator.formatAmount(InstallmentCalculator.paiseToDouble(inst.amountPaid))
+
+            canvas.drawText("#${inst.sequence}", MARGIN, y, boldPaint)
+            canvas.drawText(dueStr, MARGIN + 40f, y, textPaint)
+            canvas.drawText(dueAmt, MARGIN + 140f, y, textPaint)
+            canvas.drawText(paidAmt, MARGIN + 260f, y, boldPaint)
+            canvas.drawText(inst.status.name, MARGIN + 380f, y, boldPaint)
+            y += 14f
+
+            canvas.drawLine(MARGIN, y - 2f, PAGE_WIDTH - MARGIN, y - 2f, lightLinePaint)
+            y += 4f
+        }
+
+        y = PAGE_HEIGHT - MARGIN - 20f
+        canvas.drawLine(MARGIN, y, PAGE_WIDTH - MARGIN, y, linePaint)
+        y += 12f
+        val hashStr = tx.contentHash.take(16).ifBlank { "verified" }
+        canvas.drawText("Udhaar Installment Plan • Content Hash: $hashStr • Page 1 of 1", MARGIN, y, subtextPaint)
+    }
+
     private fun drawFullLedgerOnCanvas(
         canvas: Canvas,
         parties: List<PartyEntity>,
@@ -397,6 +510,39 @@ object PdfStatementGenerator {
             drawFullLedgerOnCanvas(canvas, parties, khataList, userSettings, enabledCurrencies)
             FileOutputStream(file).use { out ->
                 out.write("%PDF-1.4\n%Udhaar Full Ledger Statement Fallback PDF\n".toByteArray(Charsets.UTF_8))
+                bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
+            }
+        }
+        return file
+    }
+
+    fun generateTransactionInstallmentPdf(
+        context: Context,
+        tx: com.jyotirmoyb.udhaar.data.UdhaarTransaction,
+        plan: com.jyotirmoyb.udhaar.data.InstallmentPlan,
+        installments: List<com.jyotirmoyb.udhaar.data.Installment>,
+        userSettings: UserSettings
+    ): File {
+        val exportDir = File(context.cacheDir, "statements").apply { mkdirs() }
+        val cleanName = tx.partyName.replace(Regex("[^a-zA-Z0-9]+"), "_").lowercase()
+        val file = File(exportDir, "udhaar_installment_plan_${cleanName}_${tx.id}.pdf")
+
+        try {
+            val document = PdfDocument()
+            val pageInfo = PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, 1).create()
+            val page = document.startPage(pageInfo)
+            drawInstallmentStatementOnCanvas(page.canvas, tx, plan, installments, userSettings)
+            document.finishPage(page)
+            FileOutputStream(file).use { out ->
+                document.writeTo(out)
+            }
+            document.close()
+        } catch (_: Throwable) {
+            val bmp = Bitmap.createBitmap(PAGE_WIDTH, PAGE_HEIGHT, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bmp)
+            drawInstallmentStatementOnCanvas(canvas, tx, plan, installments, userSettings)
+            FileOutputStream(file).use { out ->
+                out.write("%PDF-1.4\n%Udhaar Installment Statement Fallback PDF\n".toByteArray(Charsets.UTF_8))
                 bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
             }
         }

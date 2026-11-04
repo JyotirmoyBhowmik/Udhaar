@@ -91,6 +91,7 @@ class UdhaarViewModel(
             repository.paymentRepository,
             repository.attachmentRepository,
             repository.settingsRepository,
+            repository.installmentRepository,
             stateHolder,
             appContext
         ),
@@ -248,6 +249,9 @@ class UdhaarViewModel(
             partyKhataList = pState.partyKhataList,
             filteredPartyKhataList = pState.filteredPartyKhataList,
             partialPaymentsByTx = rState.partialPaymentsByTx,
+            installmentPlansByTx = rState.installmentPlansByTx,
+            installmentsByPlan = rState.installmentsByPlan,
+            showPlanBuilderTxId = rState.showPlanBuilderTxId,
             auditTrailByTx = emptyMap(),
             userSettings = sState.userSettings,
             editingTransaction = nav1.editingTransaction,
@@ -687,6 +691,27 @@ class UdhaarViewModel(
         wifiOnly: Boolean,
         passphraseToSave: String? = null
     ) = backupViewModel.updateDriveAutoBackupSettings(frequency, wifiOnly, passphraseToSave)
+
+    fun openInstallmentPlanBuilder(transactionId: Long) = recordViewModel.openPlanBuilder(transactionId)
+    fun closeInstallmentPlanBuilder() = recordViewModel.closePlanBuilder()
+    fun saveInstallmentPlan(
+        tx: com.jyotirmoyb.udhaar.data.UdhaarTransaction,
+        plan: com.jyotirmoyb.udhaar.data.InstallmentPlan,
+        drafts: List<com.jyotirmoyb.udhaar.util.InstallmentDraft>
+    ) = recordViewModel.saveInstallmentPlan(tx, plan, drafts)
+    fun proposeNewInstallmentSchedule(
+        planId: Long,
+        txId: Long,
+        proposals: List<com.jyotirmoyb.udhaar.util.InstallmentDraft>
+    ) = recordViewModel.proposeNewInstallmentSchedule(planId, txId, proposals)
+    fun acceptProposedInstallmentSchedule(
+        planId: Long,
+        tx: com.jyotirmoyb.udhaar.data.UdhaarTransaction
+    ) = recordViewModel.acceptProposedInstallmentSchedule(planId, tx)
+    fun declineProposedInstallmentSchedule(
+        planId: Long,
+        txId: Long
+    ) = recordViewModel.declineProposedInstallmentSchedule(planId, txId)
 
     class Factory(
         private val repository: UdhaarRepository,

@@ -717,6 +717,54 @@
     <string name="reminder_editor_level_label">सम्झनाको तह</string>
     <string name="reminder_editor_preview_label">सन्देश पूर्वावलोकन र सम्पादन</string>
     <string name="cd_more_options">थप विकल्पहरू</string>
+
+    <!-- Installment Plans & Repayment Schedule -->
+    <string name="split_into_installments">किस्तामा विभाजन गर्नुहोस्</string>
+    <string name="installment_count_label">किस्ताहरूको संख्या</string>
+    <string name="installment_frequency_label">फ्रिक्वेन्सी</string>
+    <string name="frequency_weekly">साप्ताहिक</string>
+    <string name="frequency_every_2_weeks">प्रत्येक २ हप्ता</string>
+    <string name="frequency_monthly">मासिक</string>
+    <string name="frequency_custom">कस्टम</string>
+    <string name="start_date_label">सुरु मिति</string>
+    <string name="equal_split_info">समान विभाजन: अन्तिम किस्तामा बाँकी अन्तर मिलाइन्छ।</string>
+    <string name="manual_edit_preview">किस्ता तालिका पूर्वावलोकन</string>
+    <string name="interest_mode_label">ब्याज मोड</string>
+    <string name="interest_none">कुनै पनि होइन</string>
+    <string name="interest_flat">फ्ल्याट ब्याज</string>
+    <string name="flat_interest_rate_label">फ्ल्याट ब्याज दर (%)</string>
+    <string name="installment_total_label">कुल तिर्नुपर्ने रकम</string>
+    <string name="installment_sum_mismatch_warning">कुल किस्ताहरू (%1$s) अपेक्षित रकम (%2$s) सँग मेल खाँदैन।</string>
+    <string name="save_installment_plan">किस्ता योजना बचत गर्नुहोस्</string>
+    <string name="cancel_installment_plan">योजना रद्द गर्नुहोस्</string>
+    <string name="no_fake_autopay_help">यो एपमा व्यक्तिगत ऋणको लागि UPI AutoPay उपलब्ध छैन। तपाईंले प्रत्येक भुक्तानी मितिमा Pay now बटन सहित रिमाइन्डर प्राप्त गर्नुहुनेछ।</string>
+    <string name="installments_progress_fmt">%2$d मध्ये %1$d भुक्तान भयो</string>
+    <string name="next_installment_due_fmt">अर्को: %1$s भुक्तानी मिति %2$s</string>
+    <string name="badge_late">ढिलाइ</string>
+    <string name="badge_paid">भुक्तान भयो</string>
+    <string name="badge_partial">आंशिक</string>
+    <string name="badge_pending">बाँकी</string>
+    <string name="installments_timeline_title">किस्ता तालिका</string>
+    <string name="edit_installment_plan">योजना सम्पादन गर्नुहोस्</string>
+    <string name="pay_installment_now">अहिले भुक्तान गर्नुहोस्</string>
+    <string name="upi_installment_note_fmt">उधार किस्ता %1$d/%2$d</string>
+    <string name="upi_payment_confirmation_title">के भुक्तानी सफल भयो?</string>
+    <string name="upi_payment_confirmation_msg">के तपाईंले आफ्नो UPI एपमा %1$s को भुक्तानी पूरा गर्नुभयो?</string>
+    <string name="upi_payment_confirmed_btn">हो, भुक्तानी गरियो</string>
+    <string name="upi_payment_cancelled_btn">अझै भएन / रद्द गर्नुहोस्</string>
+    <string name="upi_reference_note_fmt">किस्ता %1$d/%2$d को लागि UPI मार्फत भुक्तान गरियो</string>
+    <string name="reminder_installment_draft">नमस्ते {name}, {total} मध्ये किस्ता {n} ({amount}) तिर्ने मिति {due_date} हो। कुल {remaining} बाँकी छ।</string>
+    <string name="request_new_dates">नयाँ मितिहरू अनुरोध गर्नुहोस्</string>
+    <string name="propose_schedule_title">संशोधित तालिका प्रस्ताव गर्नुहोस्</string>
+    <string name="propose_schedule_btn">प्रस्ताव पठाउनुहोस्</string>
+    <string name="proposed_schedule_pending_banner">अन्य पक्षले संशोधित किस्ता तालिका प्रस्ताव गरेको छ।</string>
+    <string name="accept_schedule_btn">तालिका स्वीकार गर्नुहोस्</string>
+    <string name="decline_schedule_btn">तालिका अस्वीकार गर्नुहोस्</string>
+    <string name="ui_str_ok">हुन्छ</string>
+    <string name="installment_seq_fmt">#%1$d</string>
+    <string name="installment_item_header_fmt">किस्ता #%1$d • %2$s</string>
+    <string name="installment_item_due_fmt">म्याद: %1$s</string>
+    <string name="installment_item_due_paid_fmt">म्याद: %1$s • भुक्तानी: %2$s</string>
 </resources>
 
 

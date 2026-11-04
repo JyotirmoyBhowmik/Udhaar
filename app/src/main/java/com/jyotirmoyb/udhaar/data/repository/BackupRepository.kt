@@ -59,14 +59,18 @@ open class BackupRepository(
         val threads = dao.getAllChatThreadsSnapshot()
         val messages = dao.getAllChatMessagesSnapshot()
         val attachments = dao.getAllAttachmentsSnapshot()
-        return FullLedgerSnapshot(parties, transactions, payments, threads, messages, attachments)
+        val plans = dao.getAllInstallmentPlansSnapshot()
+        val installments = dao.getAllInstallmentsSnapshot()
+        return FullLedgerSnapshot(parties, transactions, payments, threads, messages, attachments, plans, installments)
     }
 
     suspend fun importLedgerData(
         parties: List<PartyEntity>,
         transactions: List<UdhaarTransaction>,
         partialPayments: List<PartialPayment>,
-        attachments: List<Attachment> = emptyList()
+        attachments: List<Attachment> = emptyList(),
+        installmentPlans: List<com.jyotirmoyb.udhaar.data.InstallmentPlan> = emptyList(),
+        installments: List<com.jyotirmoyb.udhaar.data.Installment> = emptyList()
     ): Int {
         val partyIdMap = mutableMapOf<Long, Long>()
         for (party in parties) {
@@ -135,6 +139,36 @@ open class BackupRepository(
                     att.copy(
                         id = 0L,
                         transactionId = targetTxId,
+                        paymentId = targetPaymentId
+                    )
+                )
+            }
+        }
+
+        val planIdMap = mutableMapOf<Long, Long>()
+        for (plan in installmentPlans) {
+            val targetTxId = txIdMap[plan.transactionId]
+            if (targetTxId != null) {
+                val insertedPlanId = dao.insertInstallmentPlan(
+                    plan.copy(
+                        id = 0L,
+                        transactionId = targetTxId
+                    )
+                )
+                if (plan.id > 0L) {
+                    planIdMap[plan.id] = insertedPlanId
+                }
+            }
+        }
+
+        for (inst in installments) {
+            val targetPlanId = planIdMap[inst.planId]
+            if (targetPlanId != null) {
+                val targetPaymentId = inst.paymentId?.let { paymentIdMap[it] }
+                dao.insertInstallment(
+                    inst.copy(
+                        id = 0L,
+                        planId = targetPlanId,
                         paymentId = targetPaymentId
                     )
                 )
@@ -247,7 +281,9 @@ open class BackupRepository(
             parties = backup.parties,
             transactions = backup.transactions,
             partialPayments = backup.partialPayments,
-            attachments = backup.attachmentRecords
+            attachments = backup.attachmentRecords,
+            installmentPlans = backup.installmentPlans,
+            installments = backup.installments
         )
 
         for (th in backup.chatThreads) {
@@ -271,7 +307,9 @@ open class BackupRepository(
                 chatThreads = snap.chatThreads,
                 chatMessages = snap.chatMessages,
                 attachments = attachmentsMap,
-                attachmentRecords = snap.attachments
+                attachmentRecords = snap.attachments,
+                installmentPlans = snap.installmentPlans,
+                installments = snap.installments
             )
             UdhaarResult.Success(json)
         } catch (t: Throwable) {

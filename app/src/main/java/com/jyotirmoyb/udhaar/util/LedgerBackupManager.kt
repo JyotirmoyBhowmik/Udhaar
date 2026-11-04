@@ -26,7 +26,7 @@ import java.io.File
 
 data class ParsedLedgerBackup(
     val exportType: String,
-    val schemaVersion: Int = 7,
+    val schemaVersion: Int = 8,
     val parties: List<PartyEntity>,
     val transactions: List<UdhaarTransaction>,
     val partialPayments: List<PartialPayment>,
@@ -34,7 +34,9 @@ data class ParsedLedgerBackup(
     val chatMessages: List<ChatMessageEntity> = emptyList(),
     val settings: Map<String, Any?> = emptyMap(),
     val attachments: Map<String, String> = emptyMap(),
-    val attachmentRecords: List<Attachment> = emptyList()
+    val attachmentRecords: List<Attachment> = emptyList(),
+    val installmentPlans: List<com.jyotirmoyb.udhaar.data.InstallmentPlan> = emptyList(),
+    val installments: List<com.jyotirmoyb.udhaar.data.Installment> = emptyList()
 )
 
 object LedgerBackupManager {
@@ -48,11 +50,13 @@ object LedgerBackupManager {
         settings: Map<String, Any?> = emptyMap(),
         attachments: Map<String, String> = emptyMap(),
         attachmentRecords: List<Attachment> = emptyList(),
+        installmentPlans: List<com.jyotirmoyb.udhaar.data.InstallmentPlan> = emptyList(),
+        installments: List<com.jyotirmoyb.udhaar.data.Installment> = emptyList(),
         exportType: String = "FULL_LEDGER",
         statementPartyName: String? = null
     ): String {
         val root = JSONObject()
-        root.put("schemaVersion", 7)
+        root.put("schemaVersion", 8)
         root.put("app", "Udhaar")
         root.put("packageName", "com.jyotirmoyb.udhaar")
         root.put("exportType", exportType)
@@ -234,6 +238,49 @@ object LedgerBackupManager {
                 attArray.put(obj)
             }
             root.put("attachmentRecords", attArray)
+        }
+
+        // Phase 7: Installment Plans and Installments
+        if (installmentPlans.isNotEmpty()) {
+            val plansArray = JSONArray()
+            for (plan in installmentPlans) {
+                val obj = JSONObject().apply {
+                    put("id", plan.id)
+                    put("transactionId", plan.transactionId)
+                    put("installmentCount", plan.installmentCount)
+                    put("frequency", plan.frequency.name)
+                    put("startDate", plan.startDate)
+                    put("interestMode", plan.interestMode.name)
+                    put("flatInterestRate", plan.flatInterestRate)
+                    put("totalAmountDue", plan.totalAmountDue)
+                    put("createdAt", plan.createdAt)
+                    put("status", plan.status.name)
+                    put("remotePlanId", plan.remotePlanId)
+                    put("proposedScheduleJson", plan.proposedScheduleJson)
+                    put("scheduleProposalStatus", plan.scheduleProposalStatus)
+                }
+                plansArray.put(obj)
+            }
+            root.put("installmentPlans", plansArray)
+        }
+
+        if (installments.isNotEmpty()) {
+            val instArray = JSONArray()
+            for (inst in installments) {
+                val obj = JSONObject().apply {
+                    put("id", inst.id)
+                    put("planId", inst.planId)
+                    put("sequence", inst.sequence)
+                    put("dueDate", inst.dueDate)
+                    put("amountDue", inst.amountDue)
+                    put("amountPaid", inst.amountPaid)
+                    put("status", inst.status.name)
+                    put("paidAtMillis", inst.paidAtMillis ?: -1L)
+                    put("paymentId", inst.paymentId ?: -1L)
+                }
+                instArray.put(obj)
+            }
+            root.put("installments", instArray)
         }
 
         return root.toString(2)
@@ -472,6 +519,64 @@ object LedgerBackupManager {
             )
         }
 
+        val installmentPlans = mutableListOf<com.jyotirmoyb.udhaar.data.InstallmentPlan>()
+        val plansArray = root.optJSONArray("installmentPlans") ?: JSONArray()
+        for (i in 0 until plansArray.length()) {
+            val obj = plansArray.getJSONObject(i)
+            val freq = runCatching {
+                com.jyotirmoyb.udhaar.data.InstallmentFrequency.valueOf(obj.optString("frequency", "MONTHLY"))
+            }.getOrDefault(com.jyotirmoyb.udhaar.data.InstallmentFrequency.MONTHLY)
+            val intMode = runCatching {
+                com.jyotirmoyb.udhaar.data.InstallmentInterestMode.valueOf(obj.optString("interestMode", "NONE"))
+            }.getOrDefault(com.jyotirmoyb.udhaar.data.InstallmentInterestMode.NONE)
+            val status = runCatching {
+                com.jyotirmoyb.udhaar.data.InstallmentPlanStatus.valueOf(obj.optString("status", "ACTIVE"))
+            }.getOrDefault(com.jyotirmoyb.udhaar.data.InstallmentPlanStatus.ACTIVE)
+
+            installmentPlans.add(
+                com.jyotirmoyb.udhaar.data.InstallmentPlan(
+                    id = obj.optLong("id", 0L),
+                    transactionId = obj.optLong("transactionId", 0L),
+                    installmentCount = obj.optInt("installmentCount", 1),
+                    frequency = freq,
+                    startDate = obj.optLong("startDate", System.currentTimeMillis()),
+                    interestMode = intMode,
+                    flatInterestRate = obj.optDouble("flatInterestRate", 0.0),
+                    totalAmountDue = obj.optLong("totalAmountDue", 0L),
+                    createdAt = obj.optLong("createdAt", System.currentTimeMillis()),
+                    status = status,
+                    remotePlanId = obj.optString("remotePlanId", ""),
+                    proposedScheduleJson = obj.optString("proposedScheduleJson", ""),
+                    scheduleProposalStatus = obj.optString("scheduleProposalStatus", "NONE")
+                )
+            )
+        }
+
+        val installments = mutableListOf<com.jyotirmoyb.udhaar.data.Installment>()
+        val instArray = root.optJSONArray("installments") ?: JSONArray()
+        for (i in 0 until instArray.length()) {
+            val obj = instArray.getJSONObject(i)
+            val status = runCatching {
+                com.jyotirmoyb.udhaar.data.InstallmentStatus.valueOf(obj.optString("status", "PENDING"))
+            }.getOrDefault(com.jyotirmoyb.udhaar.data.InstallmentStatus.PENDING)
+            val paidAtRaw = obj.optLong("paidAtMillis", -1L).takeIf { it > 0L }
+            val paymentIdRaw = obj.optLong("paymentId", -1L).takeIf { it > 0L }
+
+            installments.add(
+                com.jyotirmoyb.udhaar.data.Installment(
+                    id = obj.optLong("id", 0L),
+                    planId = obj.optLong("planId", 0L),
+                    sequence = obj.optInt("sequence", 1),
+                    dueDate = obj.optLong("dueDate", System.currentTimeMillis()),
+                    amountDue = obj.optLong("amountDue", 0L),
+                    amountPaid = obj.optLong("amountPaid", 0L),
+                    status = status,
+                    paidAtMillis = paidAtRaw,
+                    paymentId = paymentIdRaw
+                )
+            )
+        }
+
         return ParsedLedgerBackup(
             exportType = exportType,
             schemaVersion = schemaVersion,
@@ -482,7 +587,9 @@ object LedgerBackupManager {
             chatMessages = chatMessages,
             settings = settings,
             attachments = attachments,
-            attachmentRecords = attachmentRecords
+            attachmentRecords = attachmentRecords,
+            installmentPlans = installmentPlans,
+            installments = installments
         )
     }
 

@@ -4,6 +4,8 @@ import com.jyotirmoyb.udhaar.data.Attachment
 import com.jyotirmoyb.udhaar.data.AuditTrailEntry
 import com.jyotirmoyb.udhaar.data.ChatMessageEntity
 import com.jyotirmoyb.udhaar.data.ChatThreadMetadata
+import com.jyotirmoyb.udhaar.data.Installment
+import com.jyotirmoyb.udhaar.data.InstallmentPlan
 import com.jyotirmoyb.udhaar.data.PartialPayment
 import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.ReminderEvent
@@ -23,6 +25,8 @@ class FakeUdhaarDao : UdhaarDao {
     private val msgIdGen = AtomicLong(1L)
     private val attachmentIdGen = AtomicLong(1L)
     private val reminderIdGen = AtomicLong(1L)
+    private val planIdGen = AtomicLong(1L)
+    private val installmentIdGen = AtomicLong(1L)
 
     private val partiesFlow = MutableStateFlow<List<PartyEntity>>(emptyList())
     private val txFlow = MutableStateFlow<List<UdhaarTransaction>>(emptyList())
@@ -32,6 +36,8 @@ class FakeUdhaarDao : UdhaarDao {
     private val chatMessagesFlow = MutableStateFlow<List<ChatMessageEntity>>(emptyList())
     private val attachmentsFlow = MutableStateFlow<List<Attachment>>(emptyList())
     private val reminderEventsFlow = MutableStateFlow<List<ReminderEvent>>(emptyList())
+    private val plansFlow = MutableStateFlow<List<InstallmentPlan>>(emptyList())
+    private val installmentsFlow = MutableStateFlow<List<Installment>>(emptyList())
 
     // --- Parties ---
     override fun getAllParties(): Flow<List<PartyEntity>> = partiesFlow.asStateFlow()
@@ -402,5 +408,113 @@ class FakeUdhaarDao : UdhaarDao {
 
     override suspend fun deleteAllReminderEvents() {
         reminderEventsFlow.value = emptyList()
+    }
+
+    // --- Installment Plans & Installments ---
+    override fun getInstallmentPlanForTransaction(transactionId: Long): Flow<InstallmentPlan?> =
+        plansFlow.map { list -> list.firstOrNull { it.transactionId == transactionId } }
+
+    override suspend fun getInstallmentPlanForTransactionSnapshot(transactionId: Long): InstallmentPlan? =
+        plansFlow.value.firstOrNull { it.transactionId == transactionId }
+
+    override suspend fun getInstallmentPlanById(planId: Long): InstallmentPlan? =
+        plansFlow.value.firstOrNull { it.id == planId }
+
+    override fun getAllInstallmentPlans(): Flow<List<InstallmentPlan>> = plansFlow.asStateFlow()
+
+    override suspend fun getAllInstallmentPlansSnapshot(): List<InstallmentPlan> = plansFlow.value
+
+    override suspend fun insertInstallmentPlan(plan: InstallmentPlan): Long {
+        val current = plansFlow.value.toMutableList()
+        val assignedId = if (plan.id > 0L) plan.id else planIdGen.getAndIncrement()
+        val item = plan.copy(id = assignedId)
+        current.removeAll { it.id == assignedId || it.transactionId == plan.transactionId }
+        current.add(item)
+        plansFlow.value = current
+        return assignedId
+    }
+
+    override suspend fun updateInstallmentPlan(plan: InstallmentPlan) {
+        val current = plansFlow.value.toMutableList()
+        val idx = current.indexOfFirst { it.id == plan.id }
+        if (idx >= 0) {
+            current[idx] = plan
+        } else {
+            current.add(plan)
+        }
+        plansFlow.value = current
+    }
+
+    override suspend fun deleteInstallmentPlan(plan: InstallmentPlan) {
+        deleteInstallmentPlanById(plan.id)
+    }
+
+    override suspend fun deleteInstallmentPlanForTransaction(transactionId: Long) {
+        val matchingPlan = plansFlow.value.firstOrNull { it.transactionId == transactionId }
+        if (matchingPlan != null) {
+            deleteInstallmentPlanById(matchingPlan.id)
+        }
+    }
+
+    override suspend fun deleteInstallmentPlanById(planId: Long) {
+        plansFlow.value = plansFlow.value.filterNot { it.id == planId }
+        deleteInstallmentsForPlan(planId)
+    }
+
+    override fun getInstallmentsForPlan(planId: Long): Flow<List<Installment>> =
+        installmentsFlow.map { list -> list.filter { it.planId == planId }.sortedBy { it.sequence } }
+
+    override suspend fun getInstallmentsForPlanSnapshot(planId: Long): List<Installment> =
+        installmentsFlow.value.filter { it.planId == planId }.sortedBy { it.sequence }
+
+    override fun getAllInstallments(): Flow<List<Installment>> =
+        installmentsFlow.map { list -> list.sortedWith(compareBy({ it.planId }, { it.sequence })) }
+
+    override suspend fun getAllInstallmentsSnapshot(): List<Installment> =
+        installmentsFlow.value.sortedWith(compareBy({ it.planId }, { it.sequence }))
+
+    override suspend fun insertInstallment(installment: Installment): Long {
+        val current = installmentsFlow.value.toMutableList()
+        val assignedId = if (installment.id > 0L) installment.id else installmentIdGen.getAndIncrement()
+        val item = installment.copy(id = assignedId)
+        current.removeAll { it.id == assignedId }
+        current.add(item)
+        installmentsFlow.value = current
+        return assignedId
+    }
+
+    override suspend fun insertInstallments(installments: List<Installment>): List<Long> {
+        return installments.map { insertInstallment(it) }
+    }
+
+    override suspend fun updateInstallment(installment: Installment) {
+        val current = installmentsFlow.value.toMutableList()
+        val idx = current.indexOfFirst { it.id == installment.id }
+        if (idx >= 0) {
+            current[idx] = installment
+        } else {
+            current.add(installment)
+        }
+        installmentsFlow.value = current
+    }
+
+    override suspend fun updateInstallments(installments: List<Installment>) {
+        installments.forEach { updateInstallment(it) }
+    }
+
+    override suspend fun deleteInstallment(installment: Installment) {
+        installmentsFlow.value = installmentsFlow.value.filterNot { it.id == installment.id }
+    }
+
+    override suspend fun deleteInstallmentsForPlan(planId: Long) {
+        installmentsFlow.value = installmentsFlow.value.filterNot { it.planId == planId }
+    }
+
+    override suspend fun deleteAllInstallmentPlans() {
+        plansFlow.value = emptyList()
+    }
+
+    override suspend fun deleteAllInstallments() {
+        installmentsFlow.value = emptyList()
     }
 }

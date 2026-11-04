@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -13,11 +14,15 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -35,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import com.jyotirmoyb.udhaar.R
 import com.jyotirmoyb.udhaar.data.Attachment
 import com.jyotirmoyb.udhaar.data.AuditTrailEntry
+import com.jyotirmoyb.udhaar.data.Installment
+import com.jyotirmoyb.udhaar.data.InstallmentPlan
 import com.jyotirmoyb.udhaar.data.PartialPayment
 import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.PaymentMode
@@ -42,6 +49,7 @@ import com.jyotirmoyb.udhaar.ui.components.rememberAnimatedCurrencyText
 import com.jyotirmoyb.udhaar.ui.components.rememberReducedMotionEnabled
 import com.jyotirmoyb.udhaar.ui.components.udhaarSharedBounds
 import com.jyotirmoyb.udhaar.ui.sheets.detail.InstallmentHistorySection
+import com.jyotirmoyb.udhaar.ui.sheets.detail.InstallmentTimelineCard
 import com.jyotirmoyb.udhaar.ui.sheets.detail.PartialPaymentSection
 import com.jyotirmoyb.udhaar.ui.sheets.detail.TransactionActionsSection
 import com.jyotirmoyb.udhaar.ui.sheets.detail.TransactionAttachmentsSection
@@ -60,6 +68,14 @@ fun RecordDetailSheet(
     linkedParty: PartyEntity? = null,
     attachments: List<Attachment> = emptyList(),
     attachmentsByPayment: Map<Long, List<Attachment>> = emptyMap(),
+    installmentPlan: InstallmentPlan? = null,
+    installments: List<Installment> = emptyList(),
+    lenderUpiId: String = "",
+    onOpenPlanBuilder: () -> Unit = {},
+    onRequestNewDates: () -> Unit = {},
+    onConfirmInstallmentUpiPayment: (installment: Installment, amountDouble: Double) -> Unit = { _, _ -> },
+    onAcceptProposedSchedule: () -> Unit = {},
+    onDeclineProposedSchedule: () -> Unit = {},
     onDismiss: () -> Unit,
     onRecordPartialPayment: (amount: Double, paymentMode: PaymentMode, note: String) -> Unit,
     onRecordCounterpartyPayment: (amount: Double, paymentMode: PaymentMode, note: String) -> Unit = { _, _, _ -> },
@@ -202,6 +218,60 @@ fun RecordDetailSheet(
                         onAddAttachment = onAddAttachment,
                         onOpenAttachmentViewer = onOpenAttachmentViewer
                     )
+
+                    // Installment Plan & Repayment Schedule Section
+                    if (installmentPlan != null) {
+                        if (installmentPlan.scheduleProposalStatus == "PENDING") {
+                            Surface(
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                shape = MaterialTheme.shapes.medium,
+                                modifier = Modifier.fillMaxWidth().testTag("pending_schedule_proposal_card")
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text(
+                                        text = stringResource(R.string.proposed_schedule_pending_banner),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                        horizontalArrangement = Arrangement.End
+                                    ) {
+                                        TextButton(onClick = onDeclineProposedSchedule) {
+                                            Text(stringResource(R.string.decline_schedule_btn))
+                                        }
+                                        Button(onClick = onAcceptProposedSchedule) {
+                                            Text(stringResource(R.string.accept_schedule_btn))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        InstallmentTimelineCard(
+                            tx = tx,
+                            plan = installmentPlan,
+                            installments = installments,
+                            lenderUpiId = lenderUpiId.ifBlank { linkedParty?.upiId.orEmpty() },
+                            onEditPlan = onOpenPlanBuilder,
+                            onRequestNewDates = onRequestNewDates,
+                            onConfirmUpiPayment = onConfirmInstallmentUpiPayment,
+                            modifier = Modifier.testTag("installment_timeline_card")
+                        )
+                    } else if (!tx.isSettled) {
+                        OutlinedButton(
+                            onClick = onOpenPlanBuilder,
+                            modifier = Modifier.fillMaxWidth().testTag("split_into_installments_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Schedule,
+                                contentDescription = null,
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                            Text(stringResource(R.string.split_into_installments))
+                        }
+                    }
 
                     // Partial Payment Entry Section (Only when not settled)
                     if (!tx.isSettled) {

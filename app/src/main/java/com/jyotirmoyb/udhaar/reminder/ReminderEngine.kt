@@ -260,4 +260,70 @@ object ReminderEngine {
             .replace("{upi_id}", upiId)
             .replace("{new_date}", newDate)
     }
+
+    /**
+     * Determines the escalation level for a specific installment.
+     * Stops automatically if the installment is already paid.
+     */
+    fun computeInstallmentEscalationLevel(
+        installment: com.jyotirmoyb.udhaar.data.Installment,
+        policy: ReminderPolicy = ReminderPolicy(),
+        nowMillis: Long = System.currentTimeMillis()
+    ): ReminderLevel? {
+        if (installment.amountPaid >= installment.amountDue || installment.status == com.jyotirmoyb.udhaar.data.InstallmentStatus.PAID) {
+            return null
+        }
+        val overdueDays = calculateOverdueDays(installment.dueDate, nowMillis) ?: return null
+
+        return when {
+            overdueDays < -policy.level1DaysBefore -> null
+            overdueDays <= 0 -> ReminderLevel.LEVEL_1_GENTLE
+            overdueDays <= policy.level2MaxOverdueDays -> ReminderLevel.LEVEL_2_FRIENDLY
+            overdueDays <= policy.level3MaxOverdueDays -> ReminderLevel.LEVEL_3_FIRM
+            else -> ReminderLevel.LEVEL_4_FINAL
+        }
+    }
+
+    fun getLocalizedInstallmentTemplate(
+        context: Context,
+        languageCode: String
+    ): String {
+        val resId = R.string.reminder_installment_draft
+        if (languageCode.isBlank()) {
+            return context.getString(resId)
+        }
+        val targetLocale = when (languageCode.lowercase()) {
+            "hi" -> Locale("hi")
+            "bn" -> Locale("bn")
+            "as" -> Locale("as")
+            "ne" -> Locale("ne")
+            else -> Locale("en")
+        }
+        val conf = android.content.res.Configuration(context.resources.configuration)
+        conf.setLocale(targetLocale)
+        val localizedCtx = context.createConfigurationContext(conf)
+        return localizedCtx.getString(resId)
+    }
+
+    /**
+     * Replaces placeholders for an installment reminder:
+     * {name}, {n}, {total}, {amount}, {due_date}, {remaining}
+     */
+    fun renderInstallmentDraftMessage(
+        template: String,
+        name: String,
+        sequence: Int,
+        totalCount: Int,
+        installmentAmount: String,
+        dueDate: String,
+        totalRemaining: String
+    ): String {
+        return template
+            .replace("{name}", name)
+            .replace("{n}", sequence.toString())
+            .replace("{total}", totalCount.toString())
+            .replace("{amount}", installmentAmount)
+            .replace("{due_date}", dueDate)
+            .replace("{remaining}", totalRemaining)
+    }
 }

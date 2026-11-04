@@ -311,10 +311,155 @@ service cloud.firestore {
         // Allow creator of event to delete only when exercising "Delete my cloud data"
         allow delete: if isSignedIn() && isValidId(remoteId) && isValidId(eventId) && existing().actorUid == request.auth.uid;
       }
+
+      // =======================================================================
+      // 5. /shared_records/{remoteId}/installment_plans/{planId}
+      //    Installment plan schedule, negotiation, and installment subcollections
+      // =======================================================================
+      match /installment_plans/{planId} {
+        function isValidInstallmentPlan(data) {
+          return data.planId is string && data.planId.size() >= 1 && data.planId.size() <= 128 && data.planId == planId &&
+                 data.remoteId is string && data.remoteId == remoteId &&
+                 data.creatorUid is string && data.creatorUid.size() >= 1 && data.creatorUid.size() <= 128 &&
+                 data.creatorUid in data.participantUids &&
+                 isValidParticipantsList(data.participantUids) &&
+                 data.installmentCount is int && data.installmentCount >= 1 && data.installmentCount <= 60 &&
+                 data.frequency is string && data.frequency in ['WEEKLY', 'BI_WEEKLY', 'MONTHLY', 'CUSTOM'] &&
+                 data.startDate is int && data.startDate > 0 &&
+                 data.interestMode is string && data.interestMode in ['NONE', 'FLAT'] &&
+                 (data.flatInterestRate is int || data.flatInterestRate is float) && data.flatInterestRate >= 0 &&
+                 data.totalAmountDue is int && data.totalAmountDue > 0 &&
+                 data.status is string && data.status in ['ACTIVE', 'COMPLETED', 'CANCELLED'] &&
+                 data.proposedScheduleJson is string && data.proposedScheduleJson.size() <= 5000 &&
+                 data.scheduleProposalStatus is string && data.scheduleProposalStatus in ['NONE', 'PENDING', 'ACCEPTED', 'DECLINED'] &&
+                 data.createdAt is timestamp && data.createdAt <= request.time &&
+                 data.updatedAt is timestamp && data.updatedAt <= request.time;
+        }
+
+        allow get: if isSignedIn() && isValidId(remoteId) && isValidId(planId) && request.auth.uid in existing().participantUids;
+        allow list: if isSignedIn() && request.auth.uid in existing().participantUids;
+
+        allow create: if isSignedIn() &&
+                         isValidId(remoteId) &&
+                         isValidId(planId) &&
+                         incoming().planId == planId &&
+                         incoming().creatorUid == request.auth.uid &&
+                         request.auth.uid in incoming().participantUids &&
+                         incoming().remoteId == remoteId &&
+                         incoming().keys().hasAll([
+                           'planId', 'remoteId', 'creatorUid', 'participantUids',
+                           'installmentCount', 'frequency', 'startDate', 'interestMode',
+                           'flatInterestRate', 'totalAmountDue', 'status',
+                           'proposedScheduleJson', 'scheduleProposalStatus',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'planId', 'remoteId', 'creatorUid', 'participantUids',
+                           'installmentCount', 'frequency', 'startDate', 'interestMode',
+                           'flatInterestRate', 'totalAmountDue', 'status',
+                           'proposedScheduleJson', 'scheduleProposalStatus',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidInstallmentPlan(incoming());
+
+        allow update: if isSignedIn() &&
+                         isValidId(remoteId) &&
+                         isValidId(planId) &&
+                         isValidInstallmentPlan(incoming()) &&
+                         request.auth.uid in existing().participantUids &&
+                         incoming().planId == existing().planId &&
+                         incoming().remoteId == existing().remoteId &&
+                         incoming().creatorUid == existing().creatorUid &&
+                         incoming().createdAt == existing().createdAt &&
+                         (
+                           // Creator or participant proposes a new schedule or updates status
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'proposedScheduleJson', 'scheduleProposalStatus', 'updatedAt'
+                           ]) ||
+                           // Full plan revision (when schedule is accepted or creator edits)
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'installmentCount', 'frequency', 'startDate', 'interestMode',
+                             'flatInterestRate', 'totalAmountDue', 'status',
+                             'proposedScheduleJson', 'scheduleProposalStatus',
+                             'participantUids', 'updatedAt'
+                           ])
+                         );
+
+        allow delete: if isSignedIn() && isValidId(remoteId) && isValidId(planId) && existing().creatorUid == request.auth.uid;
+
+        // =====================================================================
+        // /shared_records/{remoteId}/installment_plans/{planId}/installments/{installmentId}
+        // =====================================================================
+        match /installments/{installmentId} {
+          function isValidInstallment(data) {
+            return data.installmentId is string && data.installmentId.size() >= 1 && data.installmentId.size() <= 128 && data.installmentId == installmentId &&
+                   data.planId is string && data.planId == planId &&
+                   data.remoteId is string && data.remoteId == remoteId &&
+                   data.sequence is int && data.sequence >= 1 &&
+                   data.dueDate is int && data.dueDate > 0 &&
+                   data.amountDue is int && data.amountDue > 0 &&
+                   data.amountPaid is int && data.amountPaid >= 0 &&
+                   data.status is string && data.status in ['PENDING', 'PARTIAL', 'PAID', 'LATE'] &&
+                   data.paidAtMillis is int && data.paidAtMillis >= -1 &&
+                   data.paymentId is string && data.paymentId.size() <= 128 &&
+                   isValidParticipantsList(data.participantUids) &&
+                   data.createdAt is timestamp && data.createdAt <= request.time &&
+                   data.updatedAt is timestamp && data.updatedAt <= request.time;
+          }
+
+          allow get: if isSignedIn() && isValidId(remoteId) && isValidId(planId) && isValidId(installmentId) && request.auth.uid in existing().participantUids;
+          allow list: if isSignedIn() && request.auth.uid in existing().participantUids;
+
+          allow create: if isSignedIn() &&
+                           isValidId(remoteId) &&
+                           isValidId(planId) &&
+                           isValidId(installmentId) &&
+                           incoming().installmentId == installmentId &&
+                           incoming().planId == planId &&
+                           incoming().remoteId == remoteId &&
+                           request.auth.uid in incoming().participantUids &&
+                           incoming().keys().hasAll([
+                             'installmentId', 'planId', 'remoteId', 'sequence',
+                             'dueDate', 'amountDue', 'amountPaid', 'status',
+                             'paidAtMillis', 'paymentId', 'participantUids',
+                             'createdAt', 'updatedAt'
+                           ]) &&
+                           incoming().keys().hasOnly([
+                             'installmentId', 'planId', 'remoteId', 'sequence',
+                             'dueDate', 'amountDue', 'amountPaid', 'status',
+                             'paidAtMillis', 'paymentId', 'participantUids',
+                             'createdAt', 'updatedAt'
+                           ]) &&
+                           isValidInstallment(incoming());
+
+          allow update: if isSignedIn() &&
+                           isValidId(remoteId) &&
+                           isValidId(planId) &&
+                           isValidId(installmentId) &&
+                           isValidInstallment(incoming()) &&
+                           request.auth.uid in existing().participantUids &&
+                           incoming().installmentId == existing().installmentId &&
+                           incoming().planId == existing().planId &&
+                           incoming().remoteId == existing().remoteId &&
+                           incoming().sequence == existing().sequence &&
+                           incoming().dueDate == existing().dueDate &&
+                           incoming().amountDue == existing().amountDue &&
+                           incoming().createdAt == existing().createdAt &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'amountPaid', 'status', 'paidAtMillis', 'paymentId', 'participantUids', 'updatedAt'
+                           ]);
+
+          allow delete: if isSignedIn() &&
+                           isValidId(remoteId) &&
+                           isValidId(planId) &&
+                           isValidId(installmentId) &&
+                           request.auth.uid in existing().participantUids;
+        }
+      }
     }
 
     // =========================================================================
-    // 5. /chat_threads/{threadId} — Phase 4 In-App Communication Thread
+    // 6. /chat_threads/{threadId} — Phase 4 In-App Communication Thread
     //    Readable & writable ONLY by the two participants on the thread.
     // =========================================================================
     function isValidChatThread(data) {
@@ -404,7 +549,7 @@ service cloud.firestore {
       allow delete: if isSignedIn() && isValidId(threadId) && existing().creatorUid == request.auth.uid;
 
       // =======================================================================
-      // 6. /chat_threads/{threadId}/messages/{messageId}
+      // 7. /chat_threads/{threadId}/messages/{messageId}
       // =======================================================================
       function isValidChatMessage(data) {
         return data.messageId is string && data.messageId.size() >= 1 && data.messageId.size() <= 128 &&

@@ -717,6 +717,54 @@
     <string name="reminder_editor_level_label">অনুস্মারকের স্তর</string>
     <string name="reminder_editor_preview_label">বার্তা পূর্বরূপ ও সম্পাদনা</string>
     <string name="cd_more_options">আরও বিকল্প</string>
+
+    <!-- Installment Plans & Repayment Schedule -->
+    <string name="split_into_installments">কিস্তিতে ভাগ করুন</string>
+    <string name="installment_count_label">কিস্তির সংখ্যা</string>
+    <string name="installment_frequency_label">পুনরাবৃত্তি</string>
+    <string name="frequency_weekly">সাপ্তাহিক</string>
+    <string name="frequency_every_2_weeks">প্রতি ২ সপ্তাহ</string>
+    <string name="frequency_monthly">মাসিক</string>
+    <string name="frequency_custom">কাস্টম</string>
+    <string name="start_date_label">শুরুর তারিখ</string>
+    <string name="equal_split_info">সমান ভাগ: শেষ কিস্তিতে ভগ্নাংশের সমন্বয় করা হয়েছে।</string>
+    <string name="manual_edit_preview">কিস্তির সময়সূচী পূর্বরূপ</string>
+    <string name="interest_mode_label">সুদের মোড</string>
+    <string name="interest_none">কোনোটি নয়</string>
+    <string name="interest_flat">স্থির সুদ</string>
+    <string name="flat_interest_rate_label">স্থির সুদের হার (%)</string>
+    <string name="installment_total_label">মোট পরিশোধের পরিমাণ</string>
+    <string name="installment_sum_mismatch_warning">মোট কিস্তি (%1$s) প্রত্যাশিত পরিমাণের (%2$s) সাথে মিলছে না।</string>
+    <string name="save_installment_plan">কিস্তি পরিকল্পনা সংরক্ষণ করুন</string>
+    <string name="cancel_installment_plan">পরিকল্পনা বাতিল করুন</string>
+    <string name="no_fake_autopay_help">এই অ্যাপে ব্যক্তিগত ঋণের জন্য UPI AutoPay উপলব্ধ নেই। প্রতিটি নির্দিষ্ট তারিখে আপনি Pay now বাটন সহ একটি অনুস্মারক পাবেন।</string>
+    <string name="installments_progress_fmt">%2$d এর মধ্যে %1$d পরিশোধিত</string>
+    <string name="next_installment_due_fmt">পরবর্তী: %1$s পরিশোধের তারিখ %2$s</string>
+    <string name="badge_late">বকেয়া</string>
+    <string name="badge_paid">পরিশোধিত</string>
+    <string name="badge_partial">আংশিক</string>
+    <string name="badge_pending">মুলতুবি</string>
+    <string name="installments_timeline_title">কিস্তির সময়সূচী</string>
+    <string name="edit_installment_plan">পরিকল্পনা সম্পাদনা করুন</string>
+    <string name="pay_installment_now">এখনই পরিশোধ করুন</string>
+    <string name="upi_installment_note_fmt">উধার কিস্তি %1$d/%2$d</string>
+    <string name="upi_payment_confirmation_title">পেমেন্ট কি সফল হয়েছে?</string>
+    <string name="upi_payment_confirmation_msg">আপনি কি আপনার UPI অ্যাপে %1$s পেমেন্ট সম্পন্ন করেছেন?</string>
+    <string name="upi_payment_confirmed_btn">হ্যাঁ, পেমেন্ট সম্পন্ন</string>
+    <string name="upi_payment_cancelled_btn">এখনও নয় / বাতিল</string>
+    <string name="upi_reference_note_fmt">কিস্তি %1$d/%2$d এর জন্য UPI মারফত পরিশোধিত</string>
+    <string name="reminder_installment_draft">নমস্কার {name}, {total} এর মধ্যে কিস্তি {n} ({amount}) এর পরিশোধের তারিখ {due_date}। মোট {remaining} বাকি আছে।</string>
+    <string name="request_new_dates">নতুন তারিখের অনুরোধ করুন</string>
+    <string name="propose_schedule_title">সংশোধিত সময়সূচীর প্রস্তাব করুন</string>
+    <string name="propose_schedule_btn">প্রস্তাব পাঠান</string>
+    <string name="proposed_schedule_pending_banner">বিপরীত পক্ষ একটি সংশোধিত কিস্তির সময়সূচীর প্রস্তাব করেছে।</string>
+    <string name="accept_schedule_btn">সময়সূচী গ্রহণ করুন</string>
+    <string name="decline_schedule_btn">সময়সূচী প্রত্যাখ্যান করুন</string>
+    <string name="ui_str_ok">ঠিক আছে</string>
+    <string name="installment_seq_fmt">#%1$d</string>
+    <string name="installment_item_header_fmt">কিস্তি #%1$d • %2$s</string>
+    <string name="installment_item_due_fmt">নির্দিষ্ট তারিখ: %1$s</string>
+    <string name="installment_item_due_paid_fmt">নির্দিষ্ট তারিখ: %1$s • পরিশোধ: %2$s</string>
 </resources>
 
 

@@ -511,7 +511,7 @@ class ExampleRobolectricTest {
         )
 
         val parsed = LedgerBackupManager.parseBackupJson(jsonString)
-        assertEquals(7, parsed.schemaVersion)
+        assertEquals(8, parsed.schemaVersion)
         assertEquals(1, parsed.parties.size)
         assertEquals(1, parsed.transactions.size)
         assertEquals(1, parsed.partialPayments.size)
@@ -573,7 +573,7 @@ class ExampleRobolectricTest {
         }
 
     @Test
-    fun `room migrations 1 to 8 apply cleanly without schema violation`() {
+    fun `room migrations 1 to 9 apply cleanly without schema violation`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val dbFile = context.getDatabasePath("migration_test.db")
         dbFile.delete()
@@ -633,6 +633,7 @@ class ExampleRobolectricTest {
         com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_5_6.migrate(v1Db)
         com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_6_7.migrate(v1Db)
         com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_7_8.migrate(v1Db)
+        com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_8_9.migrate(v1Db)
 
         val cursor = v1Db.query("SELECT partyId, remoteId, verificationStatus, contentHash, remindersDisabled, snoozedUntilMillis, lastReminderSentMillis, lastReminderLevel FROM udhaar_transactions WHERE id = 1")
         assertTrue(cursor.moveToFirst())
@@ -654,6 +655,14 @@ class ExampleRobolectricTest {
         val attachmentCursor = v1Db.query("SELECT count(*) FROM attachments")
         assertTrue(attachmentCursor.moveToFirst())
         attachmentCursor.close()
+
+        val plansCursor = v1Db.query("SELECT count(*) FROM installment_plans")
+        assertTrue(plansCursor.moveToFirst())
+        plansCursor.close()
+
+        val installmentsCursor = v1Db.query("SELECT count(*) FROM installments")
+        assertTrue(installmentsCursor.moveToFirst())
+        installmentsCursor.close()
 
         v1Db.close()
         helper.close()

@@ -7,6 +7,7 @@ import com.jyotirmoyb.udhaar.data.cloud.VerificationCloudRepository
 import com.jyotirmoyb.udhaar.data.repository.AttachmentRepository
 import com.jyotirmoyb.udhaar.data.repository.BackupRepository
 import com.jyotirmoyb.udhaar.data.repository.ChatRepository
+import com.jyotirmoyb.udhaar.data.repository.InstallmentRepository
 import com.jyotirmoyb.udhaar.data.repository.LedgerRepository
 import com.jyotirmoyb.udhaar.data.repository.PartyRepository
 import com.jyotirmoyb.udhaar.data.repository.PaymentRepository
@@ -26,6 +27,7 @@ open class UdhaarRepository(
     val ledgerRepository: LedgerRepository,
     val partyRepository: PartyRepository,
     val paymentRepository: PaymentRepository,
+    val installmentRepository: InstallmentRepository,
     val attachmentRepository: AttachmentRepository,
     val verificationRepository: VerificationRepository,
     val chatRepository: ChatRepository,
@@ -44,7 +46,8 @@ open class UdhaarRepository(
         cloudRepositoryOverride = cloudRepositoryOverride,
         driveHelperOverride = driveHelperOverride,
         sharedSettingsRepository = SettingsRepository(context, cloudRepositoryOverride),
-        sharedAttachmentRepository = AttachmentRepository(dao, context)
+        sharedAttachmentRepository = AttachmentRepository(dao, context),
+        sharedInstallmentRepository = InstallmentRepository(dao, SettingsRepository(context, cloudRepositoryOverride), cloudRepositoryOverride)
     )
 
     private constructor(
@@ -53,7 +56,8 @@ open class UdhaarRepository(
         cloudRepositoryOverride: VerificationCloudRepository?,
         driveHelperOverride: DriveServiceHelper?,
         sharedSettingsRepository: SettingsRepository,
-        sharedAttachmentRepository: AttachmentRepository
+        sharedAttachmentRepository: AttachmentRepository,
+        sharedInstallmentRepository: InstallmentRepository
     ) : this(
         ledgerRepository = LedgerRepository(
             dao = dao,
@@ -65,8 +69,10 @@ open class UdhaarRepository(
         paymentRepository = PaymentRepository(
             dao = dao,
             settingsRepository = sharedSettingsRepository,
-            cloudRepository = cloudRepositoryOverride
+            cloudRepository = cloudRepositoryOverride,
+            installmentRepository = sharedInstallmentRepository
         ),
+        installmentRepository = sharedInstallmentRepository,
         attachmentRepository = sharedAttachmentRepository,
         verificationRepository = VerificationRepository(
             dao = dao,
@@ -442,4 +448,43 @@ open class UdhaarRepository(
         backup: ParsedLedgerBackup,
         replaceExisting: Boolean
     ): Int = backupRepository.restoreFullLedgerBackup(backup, replaceExisting)
+
+    // --- Installment Plans ---
+    val allInstallmentPlans: Flow<List<com.jyotirmoyb.udhaar.data.InstallmentPlan>> =
+        installmentRepository.allInstallmentPlans
+
+    val allInstallments: Flow<List<com.jyotirmoyb.udhaar.data.Installment>> =
+        installmentRepository.allInstallments
+
+    fun getInstallmentPlanForTransaction(txId: Long): Flow<com.jyotirmoyb.udhaar.data.InstallmentPlan?> =
+        installmentRepository.getInstallmentPlanForTransaction(txId)
+
+    fun getInstallmentsForPlan(planId: Long): Flow<List<com.jyotirmoyb.udhaar.data.Installment>> =
+        installmentRepository.getInstallmentsForPlan(planId)
+
+    suspend fun createOrUpdateInstallmentPlan(
+        tx: com.jyotirmoyb.udhaar.data.UdhaarTransaction,
+        plan: com.jyotirmoyb.udhaar.data.InstallmentPlan,
+        draftInstallments: List<com.jyotirmoyb.udhaar.util.InstallmentDraft>,
+        myProfileName: String = "You"
+    ): Long = installmentRepository.createOrUpdatePlan(tx, plan, draftInstallments, myProfileName)
+
+    suspend fun proposeNewInstallmentSchedule(
+        planId: Long,
+        txId: Long,
+        proposals: List<com.jyotirmoyb.udhaar.util.InstallmentDraft>,
+        proposerName: String
+    ) = installmentRepository.proposeNewSchedule(planId, txId, proposals, proposerName)
+
+    suspend fun acceptProposedInstallmentSchedule(
+        planId: Long,
+        tx: com.jyotirmoyb.udhaar.data.UdhaarTransaction,
+        actorName: String
+    ) = installmentRepository.acceptProposedSchedule(planId, tx, actorName)
+
+    suspend fun declineProposedInstallmentSchedule(
+        planId: Long,
+        txId: Long,
+        actorName: String
+    ) = installmentRepository.declineProposedSchedule(planId, txId, actorName)
 }

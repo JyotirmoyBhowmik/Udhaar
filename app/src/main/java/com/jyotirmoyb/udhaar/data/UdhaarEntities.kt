@@ -375,6 +375,98 @@ data class ReminderEvent(
     val channel: ReminderChannel = ReminderChannel.NOTIFICATION
 )
 
+// =========================================================================
+// Installment Plans & Installments (Room v9)
+// =========================================================================
+
+enum class InstallmentFrequency(val label: String) {
+    WEEKLY("Weekly"),
+    EVERY_2_WEEKS("Every 2 weeks"),
+    MONTHLY("Monthly"),
+    CUSTOM("Custom")
+}
+
+enum class InstallmentInterestMode(val label: String) {
+    NONE("None"),
+    FLAT("Flat Interest")
+}
+
+enum class InstallmentPlanStatus(val label: String) {
+    ACTIVE("Active"),
+    COMPLETED("Completed"),
+    CANCELLED("Cancelled")
+}
+
+enum class InstallmentStatus(val label: String) {
+    PENDING("Pending"),
+    PARTIAL("Partial"),
+    PAID("Paid"),
+    LATE("Late")
+}
+
+@Entity(
+    tableName = "installment_plans",
+    foreignKeys = [
+        ForeignKey(
+            entity = UdhaarTransaction::class,
+            parentColumns = ["id"],
+            childColumns = ["transactionId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index(value = ["transactionId"])]
+)
+data class InstallmentPlan(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0L,
+    val transactionId: Long,
+    val installmentCount: Int,
+    val frequency: InstallmentFrequency = InstallmentFrequency.MONTHLY,
+    val startDate: Long,
+    val interestMode: InstallmentInterestMode = InstallmentInterestMode.NONE,
+    val flatInterestRate: Double = 0.0,
+    val totalAmountDue: Long, // in smallest currency unit (paise)
+    val createdAt: Long = System.currentTimeMillis(),
+    val status: InstallmentPlanStatus = InstallmentPlanStatus.ACTIVE,
+    val remotePlanId: String = "",
+    val proposedScheduleJson: String = "",
+    val scheduleProposalStatus: String = "NONE" // NONE, PENDING, ACCEPTED, DECLINED
+)
+
+@Entity(
+    tableName = "installments",
+    foreignKeys = [
+        ForeignKey(
+            entity = InstallmentPlan::class,
+            parentColumns = ["id"],
+            childColumns = ["planId"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = PartialPayment::class,
+            parentColumns = ["id"],
+            childColumns = ["paymentId"],
+            onDelete = ForeignKey.SET_NULL
+        )
+    ],
+    indices = [
+        Index(value = ["planId"]),
+        Index(value = ["paymentId"])
+    ]
+)
+data class Installment(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0L,
+    val planId: Long,
+    val sequence: Int,
+    val dueDate: Long,
+    val amountDue: Long, // in smallest currency unit (paise)
+    val amountPaid: Long = 0L, // in smallest currency unit (paise)
+    val status: InstallmentStatus = InstallmentStatus.PENDING,
+    val paidAtMillis: Long? = null,
+    val paymentId: Long? = null
+)
+
 data class UserSettings(
     val upiId: String = "",
     val payeeName: String = "",

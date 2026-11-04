@@ -27,6 +27,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.jyotirmoyb.udhaar.data.Installment
+import com.jyotirmoyb.udhaar.data.InstallmentPlan
+import com.jyotirmoyb.udhaar.data.repository.InstallmentRepository
+import com.jyotirmoyb.udhaar.util.InstallmentDraft
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
@@ -42,7 +46,10 @@ data class RecordUiState(
     val draftAttachments: List<Attachment> = emptyList(),
     val partialPaymentsByTx: Map<Long, List<PartialPayment>> = emptyMap(),
     val attachmentsByTx: Map<Long, List<Attachment>> = emptyMap(),
-    val attachmentsByPayment: Map<Long, List<Attachment>> = emptyMap()
+    val attachmentsByPayment: Map<Long, List<Attachment>> = emptyMap(),
+    val installmentPlansByTx: Map<Long, InstallmentPlan> = emptyMap(),
+    val installmentsByPlan: Map<Long, List<Installment>> = emptyMap(),
+    val showPlanBuilderTxId: Long? = null
 )
 
 @HiltViewModel
@@ -51,6 +58,7 @@ class RecordViewModel @Inject constructor(
     private val paymentRepository: PaymentRepository,
     private val attachmentRepository: AttachmentRepository,
     private val settingsRepository: SettingsRepository,
+    private val installmentRepository: InstallmentRepository,
     private val appStateHolder: AppStateHolder,
     @ApplicationContext private val appContext: Context? = null
 ) : ViewModel() {
@@ -67,24 +75,40 @@ class RecordViewModel @Inject constructor(
     private val _draftAttachments = MutableStateFlow<List<Attachment>>(emptyList())
     val draftAttachments: StateFlow<List<Attachment>> = _draftAttachments.asStateFlow()
 
+    private val _showPlanBuilderTxId = MutableStateFlow<Long?>(null)
+    val showPlanBuilderTxId: StateFlow<Long?> = _showPlanBuilderTxId.asStateFlow()
+
     val uiState: StateFlow<RecordUiState> = combine(
         ledgerRepository.allPartialPayments,
         attachmentRepository.allAttachments,
+        installmentRepository.allInstallmentPlans,
+        installmentRepository.allInstallments,
         combine(
             appStateHolder.detailTransactionId,
             _whatsAppPreviewTransactionId,
             _receiptModalTransactionId,
             _activeViewerAttachment,
-            _draftAttachments
-        ) { detailId, waId, receiptId, viewerAtt, drafts ->
-            ModalParams(detailId, waId, receiptId, viewerAtt, drafts)
+            _draftAttachments,
+            _showPlanBuilderTxId
+        ) { args: Array<Any?> ->
+            @Suppress("UNCHECKED_CAST")
+            ModalParams(
+                detailTransactionId = args[0] as Long?,
+                whatsAppPreviewTransactionId = args[1] as Long?,
+                receiptModalTransactionId = args[2] as Long?,
+                activeViewerAttachment = args[3] as Attachment?,
+                draftAttachments = args[4] as List<Attachment>,
+                showPlanBuilderTxId = args[5] as Long?
+            )
         }
-    ) { payments, attachments, params ->
+    ) { payments, attachments, plans, installments, params ->
         val paymentsMap = payments.groupBy { it.transactionId }
         val attByTx = attachments.filter { it.transactionId > 0L }.groupBy { it.transactionId }
         val attByPayment = attachments
             .mapNotNull { att -> att.paymentId?.takeIf { it > 0L }?.let { pid -> pid to att } }
             .groupBy({ it.first }, { it.second })
+        val plansMap = plans.associateBy { it.transactionId }
+        val installmentsMap = installments.groupBy { it.planId }
 
         RecordUiState(
             detailTransactionId = params.detailTransactionId,
@@ -94,7 +118,10 @@ class RecordViewModel @Inject constructor(
             draftAttachments = params.draftAttachments,
             partialPaymentsByTx = paymentsMap,
             attachmentsByTx = attByTx,
-            attachmentsByPayment = attByPayment
+            attachmentsByPayment = attByPayment,
+            installmentPlansByTx = plansMap,
+            installmentsByPlan = installmentsMap,
+            showPlanBuilderTxId = params.showPlanBuilderTxId
         )
     }.stateIn(
         scope = viewModelScope,
@@ -107,7 +134,8 @@ class RecordViewModel @Inject constructor(
         val whatsAppPreviewTransactionId: Long?,
         val receiptModalTransactionId: Long?,
         val activeViewerAttachment: Attachment?,
-        val draftAttachments: List<Attachment>
+        val draftAttachments: List<Attachment>,
+        val showPlanBuilderTxId: Long?
     )
 
     fun openWhatsAppReminderModal(transactionId: Long) {
@@ -343,6 +371,67 @@ class RecordViewModel @Inject constructor(
     fun recordReminderSent(recordId: Long, level: Int, channel: ReminderChannel) {
         viewModelScope.launch {
             ledgerRepository.recordReminderEvent(recordId, level, channel)
+        }
+    }
+
+    fun openPlanBuilder(transactionId: Long) {
+        _showPlanBuilderTxId.value = transactionId
+    }
+
+    fun closePlanBuilder() {
+        _showPlanBuilderTxId.value = null
+    }
+
+    fun saveInstallmentPlan(
+        tx: UdhaarTransaction,
+        plan: InstallmentPlan,
+        drafts: List<InstallmentDraft>,
+        onSuccess: (Long) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val myName = settingsRepository.userSettings.first().payeeName.ifBlank { "You" }
+            val planId = installmentRepository.createOrUpdatePlan(
+                tx = tx,
+                plan = plan,
+                draftInstallments = drafts,
+                myProfileName = myName
+            )
+            _showPlanBuilderTxId.value = null
+            appStateHolder.setSuccessAnimation(SuccessAnimationEvent(message = "Installment plan saved"))
+            onSuccess(planId)
+        }
+    }
+
+    fun proposeNewInstallmentSchedule(
+        planId: Long,
+        txId: Long,
+        proposals: List<InstallmentDraft>
+    ) {
+        viewModelScope.launch {
+            val myName = settingsRepository.userSettings.first().payeeName.ifBlank { "You" }
+            installmentRepository.proposeNewSchedule(planId, txId, proposals, myName)
+            appStateHolder.setSuccessAnimation(SuccessAnimationEvent(message = "Revised schedule proposed"))
+        }
+    }
+
+    fun acceptProposedInstallmentSchedule(
+        planId: Long,
+        tx: UdhaarTransaction
+    ) {
+        viewModelScope.launch {
+            val myName = settingsRepository.userSettings.first().payeeName.ifBlank { "You" }
+            installmentRepository.acceptProposedSchedule(planId, tx, myName)
+            appStateHolder.setSuccessAnimation(SuccessAnimationEvent(message = "Schedule accepted"))
+        }
+    }
+
+    fun declineProposedInstallmentSchedule(
+        planId: Long,
+        txId: Long
+    ) {
+        viewModelScope.launch {
+            val myName = settingsRepository.userSettings.first().payeeName.ifBlank { "You" }
+            installmentRepository.declineProposedSchedule(planId, txId, myName)
         }
     }
 }

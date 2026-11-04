@@ -5,7 +5,10 @@ import com.jyotirmoyb.udhaar.data.Attachment
 import com.jyotirmoyb.udhaar.data.ChatMessageEntity
 import com.jyotirmoyb.udhaar.data.ChatThreadMetadata
 import com.jyotirmoyb.udhaar.data.CurrencyType
+import com.jyotirmoyb.udhaar.data.Installment
+import com.jyotirmoyb.udhaar.data.InstallmentPlan
 import com.jyotirmoyb.udhaar.data.PartialPayment
+import com.jyotirmoyb.udhaar.util.ParsedLedgerBackup
 import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.PaymentMode
 import com.jyotirmoyb.udhaar.data.TransactionType
@@ -201,5 +204,79 @@ class BackupRepositoryTest {
         backupRepository.saveAutoBackupPassphrase(testPassphrase)
         val retrieved = backupRepository.getAutoBackupPassphrase()
         assertEquals(testPassphrase, retrieved)
+    }
+
+    @Test
+    fun getFullLedgerBackupSnapshot_includesInstallmentPlansAndInstallments() = runTest {
+        val tId = fakeDao.insertTransaction(UdhaarTransaction(partyName = "Geeta", principalAmount = 4000.0))
+        val planId = fakeDao.insertInstallmentPlan(
+            InstallmentPlan(transactionId = tId, installmentCount = 2, startDate = 1715000000000L, totalAmountDue = 400000L)
+        )
+        fakeDao.insertInstallments(
+            listOf(
+                Installment(planId = planId, sequence = 1, dueDate = 1715000000000L, amountDue = 200000L),
+                Installment(planId = planId, sequence = 2, dueDate = 1717500000000L, amountDue = 200000L)
+            )
+        )
+
+        val snapshot = backupRepository.getFullLedgerBackupSnapshot()
+        assertEquals(1, snapshot.installmentPlans.size)
+        assertEquals(2, snapshot.installments.size)
+        assertEquals(400000L, snapshot.installmentPlans.first().totalAmountDue)
+    }
+
+    @Test
+    fun restoreFullLedgerBackup_roundtripsInstallmentPlansAndInstallments() = runTest {
+        val exportParties = listOf(PartyEntity(partyId = 1L, name = "Karan"))
+        val exportTxs = listOf(UdhaarTransaction(id = 2L, partyId = 1L, partyName = "Karan", principalAmount = 5000.0))
+        val exportPlans = listOf(
+            InstallmentPlan(id = 10L, transactionId = 2L, installmentCount = 2, startDate = 1715000000000L, totalAmountDue = 500000L)
+        )
+        val exportInstallments = listOf(
+            Installment(id = 101L, planId = 10L, sequence = 1, dueDate = 1715000000000L, amountDue = 250000L),
+            Installment(id = 102L, planId = 10L, sequence = 2, dueDate = 1717500000000L, amountDue = 250000L)
+        )
+
+        val snapshot = ParsedLedgerBackup(
+            exportType = "FULL_BACKUP",
+            schemaVersion = 8,
+            parties = exportParties,
+            transactions = exportTxs,
+            partialPayments = emptyList(),
+            installmentPlans = exportPlans,
+            installments = exportInstallments
+        )
+
+        val restoredCount = backupRepository.restoreFullLedgerBackup(snapshot, replaceExisting = true)
+        assertEquals(1, restoredCount)
+
+        val restoredPlans = fakeDao.getAllInstallmentPlansSnapshot()
+        val restoredInstallments = fakeDao.getAllInstallmentsSnapshot()
+        val restoredTxs = fakeDao.getAllTransactionsSnapshot()
+
+        assertEquals(1, restoredPlans.size)
+        assertEquals(2, restoredInstallments.size)
+        assertEquals(restoredTxs.first().id, restoredPlans.first().transactionId)
+        assertEquals(restoredPlans.first().id, restoredInstallments.first().planId)
+    }
+
+    @Test
+    fun restoreFullLedgerBackup_backwardsCompatibleWithOlderBackupWithoutInstallments() = runTest {
+        val exportParties = listOf(PartyEntity(partyId = 1L, name = "OldUser"))
+        val exportTxs = listOf(UdhaarTransaction(id = 2L, partyId = 1L, partyName = "OldUser", principalAmount = 1000.0))
+
+        val legacySnapshot = ParsedLedgerBackup(
+            exportType = "FULL_BACKUP",
+            schemaVersion = 7,
+            parties = exportParties,
+            transactions = exportTxs,
+            partialPayments = emptyList(),
+            installmentPlans = emptyList(),
+            installments = emptyList()
+        )
+
+        val restoredCount = backupRepository.restoreFullLedgerBackup(legacySnapshot, replaceExisting = true)
+        assertEquals(1, restoredCount)
+        assertTrue(fakeDao.getAllInstallmentPlansSnapshot().isEmpty())
     }
 }

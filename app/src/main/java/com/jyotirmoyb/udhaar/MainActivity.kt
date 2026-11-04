@@ -91,6 +91,7 @@ import com.jyotirmoyb.udhaar.ui.components.ThermalReceiptModal
 import com.jyotirmoyb.udhaar.ui.components.TransactionDetailModal
 import com.jyotirmoyb.udhaar.ui.components.UpiQrCodeModal
 import com.jyotirmoyb.udhaar.ui.components.VerificationShareSheet
+import com.jyotirmoyb.udhaar.ui.sheets.InstallmentPlanBuilderSheet
 import com.jyotirmoyb.udhaar.ui.sheets.WhatsAppReminderModal
 import com.jyotirmoyb.udhaar.ui.theme.AppThemeMode
 import com.jyotirmoyb.udhaar.ui.theme.UdhaarTheme
@@ -746,6 +747,40 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                                         linkedParty = linkedParty,
                                         attachments = txAttachments,
                                         attachmentsByPayment = uiState.attachmentsByPayment,
+                                        installmentPlan = uiState.installmentPlansByTx[detailTxId],
+                                        installments = uiState.installmentPlansByTx[detailTxId]?.let { plan ->
+                                            uiState.installmentsByPlan[plan.id]
+                                        }.orEmpty(),
+                                        lenderUpiId = if (detailSummary.transaction.transactionType == com.jyotirmoyb.udhaar.data.TransactionType.GIVEN) {
+                                            uiState.userSettings.upiId
+                                        } else {
+                                            linkedParty?.upiId.orEmpty()
+                                        },
+                                        onOpenPlanBuilder = {
+                                            viewModel.openInstallmentPlanBuilder(detailTxId)
+                                        },
+                                        onRequestNewDates = {
+                                            viewModel.openInstallmentPlanBuilder(detailTxId)
+                                        },
+                                        onConfirmInstallmentUpiPayment = { inst, amt ->
+                                            viewModel.recordPartialPayment(
+                                                summary = detailSummary,
+                                                amount = amt,
+                                                paymentMode = com.jyotirmoyb.udhaar.data.PaymentMode.UPI,
+                                                note = "Paid via UPI for installment ${inst.sequence} of ${uiState.installmentPlansByTx[detailTxId]?.installmentCount ?: 1}",
+                                                recordedByCounterparty = false
+                                            )
+                                        },
+                                        onAcceptProposedSchedule = {
+                                            uiState.installmentPlansByTx[detailTxId]?.let { plan ->
+                                                viewModel.acceptProposedInstallmentSchedule(plan.id, detailSummary.transaction)
+                                            }
+                                        },
+                                        onDeclineProposedSchedule = {
+                                            uiState.installmentPlansByTx[detailTxId]?.let { plan ->
+                                                viewModel.declineProposedInstallmentSchedule(plan.id, detailTxId)
+                                            }
+                                        },
                                         onDismiss = viewModel::closeTransactionDetail,
                                         onRecordPartialPayment = { amount, paymentMode, note ->
                                             viewModel.recordPartialPayment(detailSummary, amount, paymentMode, note, recordedByCounterparty = false)
@@ -1463,6 +1498,23 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                 Toast.makeText(context, "Welcome to Udhaar!", Toast.LENGTH_SHORT).show()
             }
         )
+    }
+
+    // Installment Plan Builder Sheet
+    val planBuilderTxId = uiState.showPlanBuilderTxId
+    if (planBuilderTxId != null) {
+        val targetTx = uiState.allCalculatedItems.firstOrNull { it.transaction.id == planBuilderTxId }?.transaction
+        if (targetTx != null) {
+            val existingPlan = uiState.installmentPlansByTx[planBuilderTxId]
+            InstallmentPlanBuilderSheet(
+                tx = targetTx,
+                existingPlan = existingPlan,
+                onSavePlan = { plan, drafts ->
+                    viewModel.saveInstallmentPlan(targetTx, plan, drafts)
+                },
+                onDismiss = viewModel::closeInstallmentPlanBuilder
+            )
+        }
     }
 }
 

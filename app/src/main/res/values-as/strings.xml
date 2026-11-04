@@ -717,6 +717,54 @@
     <string name="reminder_editor_level_label">সোঁৱৰণিৰ স্তৰ</string>
     <string name="reminder_editor_preview_label">বাৰ্তা পূৰ্বৰূপ আৰু সম্পাদনা</string>
     <string name="cd_more_options">অধিক বিকল্প</string>
+
+    <!-- Installment Plans & Repayment Schedule -->
+    <string name="split_into_installments">কিস্তিত ভাগ কৰক</string>
+    <string name="installment_count_label">কিস্তিৰ সংখ্যা</string>
+    <string name="installment_frequency_label">পুনৰাবৃত্তি</string>
+    <string name="frequency_weekly">সাপ্তাহিক</string>
+    <string name="frequency_every_2_weeks">প্ৰতি ২ সপ্তাহত</string>
+    <string name="frequency_monthly">মাহেকীয়া</string>
+    <string name="frequency_custom">স্বনিৰ্ধাৰিত</string>
+    <string name="start_date_label">আৰম্ভণিৰ তাৰিখ</string>
+    <string name="equal_split_info">সমান বিভাজন: শেষৰ কিস্তিত অৱশিষ্ট পাৰ্থক্য অন্তৰ্ভুক্ত কৰা হৈছে।</string>
+    <string name="manual_edit_preview">কিস্তি সময়সূচীৰ পূৰ্বদৃশ্য</string>
+    <string name="interest_mode_label">সুদৰ প্ৰকাৰ</string>
+    <string name="interest_none">কোনো নহয়</string>
+    <string name="interest_flat">স্থিৰ সুদ</string>
+    <string name="flat_interest_rate_label">স্থিৰ সুদৰ হাৰ (%)</string>
+    <string name="installment_total_label">মুঠ পৰিশোধৰ পৰিমাণ</string>
+    <string name="installment_sum_mismatch_warning">মুঠ কিস্তি (%1$s) প্ৰত্যাশিত পৰিমাণৰ (%2$s) সৈতে মিলা নাই।</string>
+    <string name="save_installment_plan">কিস্তি পৰিকল্পনা সংৰক্ষণ কৰক</string>
+    <string name="cancel_installment_plan">পৰিকল্পনা বাতিল কৰক</string>
+    <string name="no_fake_autopay_help">এই এপত ব্যক্তিগত ঋণৰ বাবে UPI AutoPay উপলব্ধ নহয়। আপুনি প্ৰতিটো নিৰ্ধাৰিত তাৰিখত Pay now বুটামৰ সৈতে এটা ৰিমাইণ্ডাৰ পাব।</string>
+    <string name="installments_progress_fmt">%2$d ৰ ভিতৰত %1$d পৰিশোধিত</string>
+    <string name="next_installment_due_fmt">পৰৱৰ্তী: %1$s পৰিশোধৰ তাৰিখ %2$s</string>
+    <string name="badge_late">বিলম্বিত</string>
+    <string name="badge_paid">পৰিশোধিত</string>
+    <string name="badge_partial">আংশিক</string>
+    <string name="badge_pending">বাকী থকা</string>
+    <string name="installments_timeline_title">কিস্তিৰ সময়সূচী</string>
+    <string name="edit_installment_plan">পৰিকল্পনা সম্পাদনা কৰক</string>
+    <string name="pay_installment_now">এতিয়াই পৰিশোধ কৰক</string>
+    <string name="upi_installment_note_fmt">ধাৰৰ কিস্তি %1$d/%2$d</string>
+    <string name="upi_payment_confirmation_title">পেমেন্ট সফল হ’লনে?</string>
+    <string name="upi_payment_confirmation_msg">আপুনি আপোনাৰ UPI এপত %1$s পৰিশোধ সম্পূৰ্ণ কৰিলেনে?</string>
+    <string name="upi_payment_confirmed_btn">হয়, পেমেন্ট সম্পন্ন হ’ল</string>
+    <string name="upi_payment_cancelled_btn">এতিয়াও হোৱা নাই / বাতিল</string>
+    <string name="upi_reference_note_fmt">কিস্তি %1$d/%2$d ৰ বাবে UPI যোগে পৰিশোধ কৰা হৈছে</string>
+    <string name="reminder_installment_draft">নমস্কাৰ {name}, {total} ৰ ভিতৰত কিস্তি {n} ({amount}) পৰিশোধৰ তাৰিখ {due_date}। মুঠ {remaining} বাকী আছে।</string>
+    <string name="request_new_dates">নতুন তাৰিখৰ অনুৰোধ জনাওক</string>
+    <string name="propose_schedule_title">সংশোধিত সময়সূচীৰ প্ৰস্তাৱ কৰক</string>
+    <string name="propose_schedule_btn">প্ৰস্তাৱ প্ৰেৰণ কৰক</string>
+    <string name="proposed_schedule_pending_banner">অন্য পক্ষই এক সংশোধিত কিস্তি সময়সূচীৰ প্ৰস্তাৱ দিছে।</string>
+    <string name="accept_schedule_btn">সময়সূচী গ্ৰহণ কৰক</string>
+    <string name="decline_schedule_btn">সময়সূচী নাকচ কৰক</string>
+    <string name="ui_str_ok">ঠিক আছে</string>
+    <string name="installment_seq_fmt">#%1$d</string>
+    <string name="installment_item_header_fmt">কিস্তি #%1$d • %2$s</string>
+    <string name="installment_item_due_fmt">ধাৰ্য্য তাৰিখ: %1$s</string>
+    <string name="installment_item_due_paid_fmt">ধাৰ্য্য তাৰিখ: %1$s • পৰিশোধ: %2$s</string>
 </resources>
 
 

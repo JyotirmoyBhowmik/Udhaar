@@ -8,6 +8,7 @@ import com.jyotirmoyb.udhaar.data.cloud.VerificationCloudRepository
 import com.jyotirmoyb.udhaar.data.repository.AttachmentRepository
 import com.jyotirmoyb.udhaar.data.repository.BackupRepository
 import com.jyotirmoyb.udhaar.data.repository.ChatRepository
+import com.jyotirmoyb.udhaar.data.repository.InstallmentRepository
 import com.jyotirmoyb.udhaar.data.repository.LedgerRepository
 import com.jyotirmoyb.udhaar.data.repository.PartyRepository
 import com.jyotirmoyb.udhaar.data.repository.PaymentRepository
@@ -62,12 +63,23 @@ object RepositoryModule {
 
     @Provides
     @Singleton
-    fun providePaymentRepository(
+    fun provideInstallmentRepository(
         dao: UdhaarDao,
         settingsRepository: SettingsRepository,
         cloudRepository: VerificationCloudRepository?
+    ): InstallmentRepository {
+        return InstallmentRepository(dao, settingsRepository, cloudRepository)
+    }
+
+    @Provides
+    @Singleton
+    fun providePaymentRepository(
+        dao: UdhaarDao,
+        settingsRepository: SettingsRepository,
+        cloudRepository: VerificationCloudRepository?,
+        installmentRepository: InstallmentRepository
     ): PaymentRepository {
-        return PaymentRepository(dao, settingsRepository, cloudRepository)
+        return PaymentRepository(dao, settingsRepository, cloudRepository, installmentRepository)
     }
 
     @Provides
@@ -127,6 +139,7 @@ object RepositoryModule {
         ledgerRepository: LedgerRepository,
         partyRepository: PartyRepository,
         paymentRepository: PaymentRepository,
+        installmentRepository: InstallmentRepository,
         attachmentRepository: AttachmentRepository,
         verificationRepository: VerificationRepository,
         chatRepository: ChatRepository,
@@ -138,6 +151,7 @@ object RepositoryModule {
             ledgerRepository = ledgerRepository,
             partyRepository = partyRepository,
             paymentRepository = paymentRepository,
+            installmentRepository = installmentRepository,
             attachmentRepository = attachmentRepository,
             verificationRepository = verificationRepository,
             chatRepository = chatRepository,

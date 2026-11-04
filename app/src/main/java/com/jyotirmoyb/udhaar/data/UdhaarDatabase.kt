@@ -100,6 +100,34 @@ class UdhaarTypeConverters {
     @TypeConverter
     fun toReminderChannel(value: String): ReminderChannel =
         runCatching { ReminderChannel.valueOf(value) }.getOrDefault(ReminderChannel.NOTIFICATION)
+
+    @TypeConverter
+    fun fromInstallmentFrequency(value: InstallmentFrequency): String = value.name
+
+    @TypeConverter
+    fun toInstallmentFrequency(value: String): InstallmentFrequency =
+        runCatching { InstallmentFrequency.valueOf(value) }.getOrDefault(InstallmentFrequency.MONTHLY)
+
+    @TypeConverter
+    fun fromInstallmentInterestMode(value: InstallmentInterestMode): String = value.name
+
+    @TypeConverter
+    fun toInstallmentInterestMode(value: String): InstallmentInterestMode =
+        runCatching { InstallmentInterestMode.valueOf(value) }.getOrDefault(InstallmentInterestMode.NONE)
+
+    @TypeConverter
+    fun fromInstallmentPlanStatus(value: InstallmentPlanStatus): String = value.name
+
+    @TypeConverter
+    fun toInstallmentPlanStatus(value: String): InstallmentPlanStatus =
+        runCatching { InstallmentPlanStatus.valueOf(value) }.getOrDefault(InstallmentPlanStatus.ACTIVE)
+
+    @TypeConverter
+    fun fromInstallmentStatus(value: InstallmentStatus): String = value.name
+
+    @TypeConverter
+    fun toInstallmentStatus(value: String): InstallmentStatus =
+        runCatching { InstallmentStatus.valueOf(value) }.getOrDefault(InstallmentStatus.PENDING)
 }
 
 @Database(
@@ -111,9 +139,11 @@ class UdhaarTypeConverters {
         ChatThreadMetadata::class,
         ChatMessageEntity::class,
         Attachment::class,
-        ReminderEvent::class
+        ReminderEvent::class,
+        InstallmentPlan::class,
+        Installment::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 @TypeConverters(UdhaarTypeConverters::class)
@@ -434,6 +464,57 @@ abstract class UdhaarDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `installment_plans` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `transactionId` INTEGER NOT NULL,
+                        `installmentCount` INTEGER NOT NULL,
+                        `frequency` TEXT NOT NULL,
+                        `startDate` INTEGER NOT NULL,
+                        `interestMode` TEXT NOT NULL,
+                        `flatInterestRate` REAL NOT NULL,
+                        `totalAmountDue` INTEGER NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        `status` TEXT NOT NULL,
+                        `remotePlanId` TEXT NOT NULL,
+                        `proposedScheduleJson` TEXT NOT NULL,
+                        `scheduleProposalStatus` TEXT NOT NULL,
+                        FOREIGN KEY(`transactionId`) REFERENCES `udhaar_transactions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_installment_plans_transactionId` ON `installment_plans` (`transactionId`)"
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `installments` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `planId` INTEGER NOT NULL,
+                        `sequence` INTEGER NOT NULL,
+                        `dueDate` INTEGER NOT NULL,
+                        `amountDue` INTEGER NOT NULL,
+                        `amountPaid` INTEGER NOT NULL,
+                        `status` TEXT NOT NULL,
+                        `paidAtMillis` INTEGER,
+                        `paymentId` INTEGER,
+                        FOREIGN KEY(`planId`) REFERENCES `installment_plans`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
+                        FOREIGN KEY(`paymentId`) REFERENCES `partial_payments`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_installments_planId` ON `installments` (`planId`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_installments_paymentId` ON `installments` (`paymentId`)"
+                )
+            }
+        }
+
         val ALL_MIGRATIONS: Array<Migration> = arrayOf(
             MIGRATION_1_2,
             MIGRATION_2_3,
@@ -441,7 +522,8 @@ abstract class UdhaarDatabase : RoomDatabase() {
             MIGRATION_4_5,
             MIGRATION_5_6,
             MIGRATION_6_7,
-            MIGRATION_7_8
+            MIGRATION_7_8,
+            MIGRATION_8_9
         )
 
         @Volatile

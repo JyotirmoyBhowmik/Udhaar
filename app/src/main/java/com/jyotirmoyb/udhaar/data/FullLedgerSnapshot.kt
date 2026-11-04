@@ -6,5 +6,7 @@ data class FullLedgerSnapshot(
     val partialPayments: List<PartialPayment>,
     val chatThreads: List<ChatThreadMetadata>,
     val chatMessages: List<ChatMessageEntity>,
-    val attachments: List<Attachment> = emptyList()
+    val attachments: List<Attachment> = emptyList(),
+    val installmentPlans: List<InstallmentPlan> = emptyList(),
+    val installments: List<Installment> = emptyList()
 )

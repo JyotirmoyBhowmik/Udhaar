@@ -75,6 +75,7 @@ import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -837,6 +838,7 @@ fun DashboardScreen(
                                         isAmountsHidden = uiState.isAmountsHidden,
                                         unreadCount = uiState.unreadCountByTx[summary.transaction.id] ?: 0,
                                         attachmentsCount = uiState.attachmentsByTx[summary.transaction.id]?.size ?: 0,
+                                        installments = uiState.installmentPlansByTx[summary.transaction.id]?.let { uiState.installmentsByPlan[it.id] }.orEmpty(),
                                         onCardClick = { onTransactionClick(summary) },
                                         onChatClick = { onOpenTransactionChat(summary) },
                                         onWhatsAppClick = { onWhatsAppClick(summary) },
@@ -1585,6 +1587,7 @@ private fun SwipeableTransactionCardItem(
     isAmountsHidden: Boolean = false,
     unreadCount: Int = 0,
     attachmentsCount: Int = 0,
+    installments: List<com.jyotirmoyb.udhaar.data.Installment> = emptyList(),
     onCardClick: () -> Unit,
     onChatClick: () -> Unit = {},
     onWhatsAppClick: () -> Unit,
@@ -1678,6 +1681,7 @@ private fun SwipeableTransactionCardItem(
             isAmountsHidden = isAmountsHidden,
             unreadCount = unreadCount,
             attachmentsCount = attachmentsCount,
+            installments = installments,
             onCardClick = onCardClick,
             onChatClick = onChatClick,
             onWhatsAppClick = onWhatsAppClick,
@@ -1697,6 +1701,7 @@ internal fun TransactionCardItem(
     isAmountsHidden: Boolean = false,
     unreadCount: Int = 0,
     attachmentsCount: Int = 0,
+    installments: List<com.jyotirmoyb.udhaar.data.Installment> = emptyList(),
     onCardClick: () -> Unit,
     onChatClick: () -> Unit = {},
     onWhatsAppClick: () -> Unit,
@@ -1708,6 +1713,11 @@ internal fun TransactionCardItem(
 ) {
     val tx = summary.transaction
     val isGiven = tx.transactionType == TransactionType.GIVEN
+    val installmentProgress = remember(installments) {
+        if (installments.isNotEmpty()) {
+            com.jyotirmoyb.udhaar.util.InstallmentCalculator.computeProgress(installments)
+        } else null
+    }
 
     Surface(
         modifier = Modifier
@@ -1835,6 +1845,23 @@ internal fun TransactionCardItem(
                     }
 
                     val now = System.currentTimeMillis()
+                    if (installmentProgress?.hasOverdue == true) {
+                        Box(
+                            modifier = Modifier
+                                .background(MaterialTheme.colorScheme.errorContainer, UdhaarShapeTokens.Corner8)
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .testTag("tx_installment_late_badge_${tx.id}")
+                        ) {
+                            Text(
+                                text = stringResource(R.string.badge_late),
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                maxLines = 1
+                            )
+                        }
+                    }
+
                     val isSnoozed = tx.snoozedUntilMillis != null && tx.snoozedUntilMillis!! > now
                     if (isSnoozed) {
                         Box(
@@ -2035,6 +2062,65 @@ internal fun TransactionCardItem(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+
+            if (installmentProgress != null) {
+                val sdf = remember { java.text.SimpleDateFormat("dd MMM", java.util.Locale.getDefault()) }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 2.dp)
+                        .testTag("tx_card_installment_progress_${tx.id}"),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(
+                                R.string.installments_progress_fmt,
+                                installmentProgress.paidCount,
+                                installmentProgress.totalCount
+                            ),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontFamily = IbmPlexMonoFamily,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 11.sp
+                            ),
+                            color = PureBlack
+                        )
+                        installmentProgress.nextDueInstallment?.let { nextDue ->
+                            val nextDueFormatted = "${tx.currency.symbol}${InterestCalculator.formatAmount(com.jyotirmoyb.udhaar.util.InstallmentCalculator.paiseToDouble(nextDue.amountDue - nextDue.amountPaid))}"
+                            val nextDueDateStr = sdf.format(java.util.Date(nextDue.dueDate))
+                            Text(
+                                text = stringResource(
+                                    R.string.next_installment_due_fmt,
+                                    nextDueFormatted,
+                                    nextDueDateStr
+                                ),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontFamily = IbmPlexMonoFamily,
+                                    fontSize = 11.sp
+                                ),
+                                color = if (nextDue.dueDate < System.currentTimeMillis() && nextDue.amountPaid < nextDue.amountDue)
+                                    MaterialTheme.colorScheme.error
+                                else
+                                    SecondaryInkGrey
+                            )
+                        }
+                    }
+                    LinearProgressIndicator(
+                        progress = { installmentProgress.progressFraction },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(5.dp)
+                            .clip(UdhaarShapeTokens.Corner8),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = BorderGrey.copy(alpha = 0.5f)
+                    )
+                }
             }
 
             HorizontalDivider(color = BorderGrey.copy(alpha = 0.7f), thickness = 1.dp)

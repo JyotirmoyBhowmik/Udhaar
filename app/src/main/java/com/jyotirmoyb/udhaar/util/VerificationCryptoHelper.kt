@@ -83,7 +83,9 @@ object VerificationCryptoHelper {
         interestType: InterestType,
         interestRate: Double,
         interestRatePeriod: InterestRatePeriod,
-        compoundFrequency: CompoundFrequency
+        compoundFrequency: CompoundFrequency,
+        plan: com.jyotirmoyb.udhaar.data.InstallmentPlan? = null,
+        installments: List<com.jyotirmoyb.udhaar.data.Installment> = emptyList()
     ): String {
         val normalizedLender = lenderName.trim().lowercase(Locale.ROOT)
         val normalizedBorrower = borrowerName.trim().lowercase(Locale.ROOT)
@@ -112,6 +114,18 @@ object VerificationCryptoHelper {
             append("start=").append(startDateMillis).append('|')
             append("expiry=").append(normalizedExpiry).append('|')
             append("interest=").append(interestSegment)
+            if (plan != null && installments.isNotEmpty()) {
+                append('|').append("plan=")
+                    .append(plan.installmentCount).append(';')
+                    .append(plan.frequency.name).append(';')
+                    .append(plan.interestMode.name).append(';')
+                    .append(plan.totalAmountDue)
+                append('|').append("inst=")
+                append(
+                    installments.sortedBy { it.sequence }
+                        .joinToString(";") { "${it.sequence}:${it.dueDate}:${it.amountDue}" }
+                )
+            }
         }
 
         val digest = MessageDigest.getInstance("SHA-256")
@@ -122,7 +136,9 @@ object VerificationCryptoHelper {
     fun computeTransactionContentHash(
         tx: UdhaarTransaction,
         currencyCode: String = tx.currency.code,
-        myProfileName: String = "Udhaar User"
+        myProfileName: String = "Udhaar User",
+        plan: com.jyotirmoyb.udhaar.data.InstallmentPlan? = null,
+        installments: List<com.jyotirmoyb.udhaar.data.Installment> = emptyList()
     ): String {
         val (lender, borrower) = resolveLenderAndBorrowerNames(
             type = tx.transactionType,
@@ -142,7 +158,9 @@ object VerificationCryptoHelper {
             interestType = tx.interestType,
             interestRate = tx.interestRate,
             interestRatePeriod = tx.interestRatePeriod,
-            compoundFrequency = tx.compoundFrequency
+            compoundFrequency = tx.compoundFrequency,
+            plan = plan,
+            installments = installments
         )
     }
 

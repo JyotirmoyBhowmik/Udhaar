@@ -24,7 +24,8 @@ import javax.inject.Singleton
 open class PaymentRepository(
     private val dao: UdhaarDao,
     private val settingsRepository: SettingsRepository,
-    private val cloudRepository: VerificationCloudRepository? = null
+    private val cloudRepository: VerificationCloudRepository? = null,
+    private val installmentRepository: InstallmentRepository? = null
 ) {
     val allPartialPayments: Flow<List<PartialPayment>> = dao.getAllPartialPayments().catch { e ->
         SafeLogger.e("PaymentRepository", "Failed reading partial payments flow", e)
@@ -78,8 +79,22 @@ open class PaymentRepository(
             )
         }
 
+        val plan = dao.getInstallmentPlanForTransactionSnapshot(transaction.id)
+        val planSettled = if (plan != null) {
+            val paymentPaise = com.jyotirmoyb.udhaar.util.InstallmentCalculator.toPaise(cleanPayment)
+            val allocResult = installmentRepository?.applyPaymentToInstallments(
+                txId = transaction.id,
+                paymentAmountPaise = paymentPaise,
+                paymentId = insertedPaymentId,
+                paidAtMillis = nowMillis
+            )
+            allocResult?.isPlanFullySettled ?: false
+        } else {
+            false
+        }
+
         val updatedPaid = transaction.amountPaid + cleanPayment
-        val nowSettled = updatedPaid >= (totalAccruedAmount - 0.01)
+        val nowSettled = planSettled || (updatedPaid >= (totalAccruedAmount - 0.01))
         val updatedTx = transaction.copy(
             amountPaid = updatedPaid,
             isSettled = nowSettled,
