@@ -123,10 +123,10 @@ fun TransactionAttachmentsSection(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
-            .padding(12.dp)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
+            .padding(10.dp)
             .testTag("detail_attachments_section"),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -137,7 +137,7 @@ fun TransactionAttachmentsSection(
                 Icon(
                     imageVector = Icons.Default.AttachFile,
                     contentDescription = null,
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(15.dp),
                     tint = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -152,7 +152,7 @@ fun TransactionAttachmentsSection(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             OutlinedButton(
                 onClick = {
@@ -162,12 +162,12 @@ fun TransactionAttachmentsSection(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .height(38.dp)
+                    .height(34.dp)
                     .testTag("attach_camera_button"),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 4.dp)
             ) {
-                Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(14.dp))
+                Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(13.dp))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(stringResource(R.string.ui_str_camera_7d2039), style = MaterialTheme.typography.labelSmall)
             }
@@ -180,12 +180,12 @@ fun TransactionAttachmentsSection(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .height(38.dp)
+                    .height(34.dp)
                     .testTag("attach_gallery_button"),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 4.dp)
             ) {
-                Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(14.dp))
+                Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(13.dp))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(stringResource(R.string.ui_str_gallery_73dcec), style = MaterialTheme.typography.labelSmall)
             }
@@ -196,28 +196,22 @@ fun TransactionAttachmentsSection(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .height(38.dp)
+                    .height(34.dp)
                     .testTag("attach_doc_button"),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 4.dp)
             ) {
-                Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(14.dp))
+                Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(13.dp))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(stringResource(R.string.ui_str_doc_pdf_c5e19f), style = MaterialTheme.typography.labelSmall)
             }
         }
 
-        if (attachments.isEmpty()) {
-            Text(
-                text = stringResource(R.string.ui_str_no_documents_attached_attach_promis_e527cb),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else {
+        if (attachments.isNotEmpty()) {
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp)
+                    .padding(vertical = 2.dp)
                     .testTag("detail_attachments_lazy_row"),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {

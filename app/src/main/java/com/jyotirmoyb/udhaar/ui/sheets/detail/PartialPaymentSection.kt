@@ -113,13 +113,14 @@ fun PartialPaymentSection(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Text(
             text = stringResource(R.string.ui_str_record_partial_installment_payment_a11544),
             style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )
 
@@ -148,7 +149,7 @@ fun PartialPaymentSection(
                             }
                             errorText = null
                         }
-                        .padding(vertical = 6.dp)
+                        .padding(vertical = 4.dp)
                         .testTag("quick_pay_${label.take(3).lowercase()}"),
                     contentAlignment = Alignment.Center
                 ) {
@@ -182,7 +183,7 @@ fun PartialPaymentSection(
                             shape = RoundedCornerShape(8.dp)
                         )
                         .clickable { partialPaymentMode = mode }
-                        .padding(vertical = 6.dp)
+                        .padding(vertical = 4.dp)
                         .testTag("partial_mode_${mode.name.lowercase()}"),
                     contentAlignment = Alignment.Center
                 ) {
@@ -242,12 +243,12 @@ fun PartialPaymentSection(
                     },
                     modifier = Modifier
                         .weight(1f)
-                        .height(36.dp)
+                        .height(32.dp)
                         .testTag("proof_camera_button"),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
-                    Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(13.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(stringResource(R.string.ui_str_proof_cam_cc115b), style = MaterialTheme.typography.labelSmall)
                 }
@@ -260,12 +261,12 @@ fun PartialPaymentSection(
                     },
                     modifier = Modifier
                         .weight(1f)
-                        .height(36.dp)
+                        .height(32.dp)
                         .testTag("proof_gallery_button"),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
-                    Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(13.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(stringResource(R.string.ui_str_proof_pic_ec0060), style = MaterialTheme.typography.labelSmall)
                 }
@@ -278,7 +279,7 @@ fun PartialPaymentSection(
                         .fillMaxWidth()
                         .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
                         .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -310,7 +311,7 @@ fun PartialPaymentSection(
                             AttachmentManager.deleteAttachmentFile(context, currentProof.localPath)
                             pendingProofAttachment = null
                         },
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(26.dp)
                     ) {
                         Icon(Icons.Default.Close, contentDescription = "Remove proof", modifier = Modifier.size(14.dp))
                     }
@@ -322,7 +323,7 @@ fun PartialPaymentSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { reportedByCounterparty = !reportedByCounterparty }
-                .padding(vertical = 2.dp),
+                .padding(vertical = 1.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -372,16 +373,16 @@ fun PartialPaymentSection(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
+                .height(42.dp)
                 .pressScaleFeedback()
                 .testTag("submit_partial_payment_button"),
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(10.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             )
         ) {
-            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = stringResource(

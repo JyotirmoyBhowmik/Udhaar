@@ -2,13 +2,12 @@
 <html lang="en" data-theme="system">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Udhaar — Keep clear records of money you lend and borrow</title>
   <meta name="description" content="No more forgetting. No more arguments. Private offline lending and borrowing records with zero-cost WhatsApp confirmation." />
   <meta name="theme-color" content="#064E3B" />
-  <meta name="color-scheme" content="light dark" />
 
-  <!-- Canonical and Multilingual Alternates -->
+  <!-- Canonical & Multi-Language hreflang SEO -->
   <link rel="canonical" href="https://udhaar.jyotirmoyb.com/" />
   <link rel="alternate" hreflang="en" href="https://udhaar.jyotirmoyb.com/?lang=en" />
   <link rel="alternate" hreflang="hi" href="https://udhaar.jyotirmoyb.com/?lang=hi" />
@@ -17,18 +16,28 @@
   <link rel="alternate" hreflang="ne" href="https://udhaar.jyotirmoyb.com/?lang=ne" />
   <link rel="alternate" hreflang="x-default" href="https://udhaar.jyotirmoyb.com/" />
 
-  <!-- OpenGraph Metadata -->
+  <!-- Open Graph / Social Sharing -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://udhaar.jyotirmoyb.com/" />
   <meta property="og:title" content="Udhaar — Keep clear records of money you lend and borrow" />
   <meta property="og:description" content="No more forgetting. No more arguments. Private offline lending and borrowing records with zero-cost WhatsApp confirmation." />
   <meta property="og:image" content="https://udhaar.jyotirmoyb.com/assets/og-image.jpg" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://udhaar.jyotirmoyb.com/" />
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Udhaar — Keep clear records of money you lend and borrow" />
+  <meta name="twitter:description" content="No more forgetting. No more arguments. Private offline lending and borrowing records with zero-cost WhatsApp confirmation." />
   <meta name="twitter:image" content="https://udhaar.jyotirmoyb.com/assets/og-image.jpg" />
 
-  <!-- SoftwareApplication JSON-LD Structured Data -->
+  <!-- Fonts from Old Theme Skin -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="/landing.css" />
+
+  <!-- Structured Data (JSON-LD) -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -41,399 +50,420 @@
       "price": "0",
       "priceCurrency": "INR"
     },
-    "description": "Keep clear records of money you lend and borrow. Works offline, private, zero-cost WhatsApp confirmation.",
-    "url": "https://udhaar.jyotirmoyb.com",
-    "downloadUrl": "https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar"
+    "description": "Keep clear records of money you lend and borrow. No more forgetting. No more arguments.",
+    "downloadUrl": "https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar",
+    "url": "https://udhaar.jyotirmoyb.com/"
   }
   </script>
-
-  <!-- External Styles and Scripts -->
-  <link rel="icon" type="image/png" href="/assets/hero-3d-phone.png" />
-  <link rel="stylesheet" href="landing.css" />
-  <script src="landing.js" defer></script>
 </head>
 <body>
 
-  <!-- =========================================================
-       NAVIGATION BAR
-       ========================================================= -->
+  <!-- Sticky Navigation Header -->
   <header class="site-header">
     <div class="container nav-wrapper">
-      <a href="/" class="brand-logo">
-        <div class="brand-icon" aria-hidden="true">U</div>
+      <a href="/" class="brand-logo" aria-label="Udhaar Home">
+        <span class="brand-icon">₹</span>
         <span data-i18n="brand_name">UDHAAR</span>
       </a>
 
       <nav class="nav-links" aria-label="Primary Navigation">
         <a href="#how-it-works" data-i18n="nav_how_it_works">How it works</a>
         <a href="#benefits" data-i18n="nav_benefits">Benefits</a>
-        <a href="#trust" data-i18n="nav_trust">Trust & Privacy</a>
+        <a href="#trust" data-i18n="nav_trust">Trust &amp; Privacy</a>
         <a href="#faq" data-i18n="nav_faq">FAQ</a>
         <a href="/privacy.html" data-i18n="nav_privacy">Privacy Policy</a>
       </nav>
 
       <div class="nav-right">
-        <!-- Language Switcher -->
+        <label for="lang-select" class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Language</label>
         <select id="lang-select" class="lang-select" aria-label="Select Language">
           <option value="en">English</option>
-          <option value="hi">हिंदी (Hindi)</option>
+          <option value="hi">हिन्दी (Hindi)</option>
           <option value="bn">বাংলা (Bengali)</option>
           <option value="as">অসমীয়া (Assamese)</option>
           <option value="ne">नेपाली (Nepali)</option>
         </select>
 
-        <!-- Theme Switcher -->
-        <button id="theme-btn" class="theme-toggle-btn" aria-label="Toggle dark/light mode" title="Toggle theme">🌙</button>
+        <button id="theme-btn" class="theme-toggle-btn" type="button" aria-label="Toggle Dark Mode">🌙</button>
 
-        <!-- Play Store Button -->
-        <a class="btn-header-play" href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar" target="_blank" rel="noopener">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M3.609 1.814L13.792 12 3.61 22.186a1.996 1.996 0 0 1-.61-1.428V3.242c0-.53.21-1.04.61-1.428zM15.207 13.414l2.58 2.58-12.78 7.368 10.2-9.948zm0-2.828l-10.2-9.948 12.78 7.368-2.58 2.58zm1.414 1.414l3.774 2.18c.95.55.95 1.45 0 2l-3.774 2.18-2.12-2.18 2.12-2.18z"/>
-          </svg>
-          <span data-i18n="btn_get_play">Get on Google Play</span>
+        <a
+          href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn-header-play"
+          data-i18n="btn_get_play"
+        >
+          Get on Google Play
         </a>
       </div>
     </div>
   </header>
 
-  <!-- =========================================================
-       HERO SECTION
-       ========================================================= -->
-  <section class="hero-section">
-    <div class="container hero-grid">
-      <div class="hero-content">
-        <div class="hero-pill">
-          <span>✨</span>
-          <span data-i18n="hero_pill">Free • Private • Works Offline</span>
-        </div>
-        <h1 class="hero-title" data-i18n="hero_title">Keep clear records of money you lend and borrow</h1>
-        <p class="hero-promise" data-i18n="hero_promise">No more forgetting. No more arguments.</p>
-        <p class="hero-desc" data-i18n="hero_desc">
-          Record personal lending and borrowing in seconds. Send a private link on WhatsApp so both people agree on the amount and date. Works 100% offline and stays locked on your phone.
-        </p>
+  <main>
+    <!-- Hero Section (Old Theme Emerald Radial Gradient + 3D Phone Card, New Content) -->
+    <section class="hero-section">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <div class="hero-pill">
+            <span class="hero-pill-dot"></span>
+            <span data-i18n="hero_pill">Free • Private • Works Offline</span>
+          </div>
 
-        <div class="hero-actions">
-          <a class="btn-primary" href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar" target="_blank" rel="noopener">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M3.609 1.814L13.792 12 3.61 22.186a1.996 1.996 0 0 1-.61-1.428V3.242c0-.53.21-1.04.61-1.428zM15.207 13.414l2.58 2.58-12.78 7.368 10.2-9.948zm0-2.828l-10.2-9.948 12.78 7.368-2.58 2.58zm1.414 1.414l3.774 2.18c.95.55.95 1.45 0 2l-3.774 2.18-2.12-2.18 2.12-2.18z"/>
-            </svg>
-            <span data-i18n="btn_get_play">Get on Google Play</span>
+          <h1 class="hero-title" data-i18n="hero_title">
+            Keep clear records of money you lend and borrow
+          </h1>
+
+          <p class="hero-promise" data-i18n="hero_promise">
+            No more forgetting. No more arguments.
+          </p>
+
+          <p class="hero-desc" data-i18n="hero_desc">
+            Record personal lending and borrowing in seconds. Send a private link on WhatsApp so both people agree on the amount and date. Works 100% offline and stays locked on your phone.
+          </p>
+
+          <div class="hero-actions">
+            <a
+              href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="btn-primary"
+            >
+              <span>▶</span>
+              <span data-i18n="btn_get_play">Get on Google Play</span>
+            </a>
+
+            <a
+              href="/u/?demo=true"
+              id="btn-try-demo-hero"
+              class="btn-secondary"
+              data-i18n="btn_try_demo"
+            >
+              See how the confirmation page looks
+            </a>
+          </div>
+        </div>
+
+        <div class="hero-phone-wrap">
+          <div class="hero-phone-card">
+            <picture>
+              <source srcset="/assets/hero-3d-phone.webp" type="image/webp" />
+              <img
+                src="/assets/hero-3d-phone.png"
+                alt="Udhaar Android App showing clear lending and borrowing records"
+                width="360"
+                height="720"
+              />
+            </picture>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- How It Works in 3 Steps -->
+    <section id="how-it-works" class="section">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-badge" data-i18n="steps_badge">Simple 3-Step Flow</span>
+          <h2 class="section-title" data-i18n="steps_title">How it works in 3 steps</h2>
+          <p class="section-subtitle" data-i18n="steps_subtitle">
+            Zero confusion. Both people stay on the exact same page.
+          </p>
+        </div>
+
+        <div class="steps-grid">
+          <article class="step-card">
+            <div class="step-num-badge" data-i18n="step1_num">1</div>
+            <h3 class="step-title" data-i18n="step1_title">Add the record</h3>
+            <p class="step-desc" data-i18n="step1_desc">
+              Enter the amount, due date, and the other person's name. It takes less than 10 seconds.
+            </p>
+          </article>
+
+          <article class="step-card">
+            <div class="step-num-badge" data-i18n="step2_num">2</div>
+            <h3 class="step-title" data-i18n="step2_title">Send the link on WhatsApp</h3>
+            <p class="step-desc" data-i18n="step2_desc">
+              Udhaar prepares a polite message with a private confirmation link and 6-digit code for you to send.
+            </p>
+          </article>
+
+          <article class="step-card">
+            <div class="step-num-badge" data-i18n="step3_num">3</div>
+            <h3 class="step-title" data-i18n="step3_title">The other person confirms</h3>
+            <p class="step-desc" data-i18n="step3_desc">
+              They open the link in any mobile browser, check the details, and confirm. They do not need to install the app.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Benefits in Plain Words -->
+    <section id="benefits" class="section section-alt">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-badge" data-i18n="benefits_badge">Built for Real Life</span>
+          <h2 class="section-title" data-i18n="benefits_title">Benefits in plain words</h2>
+          <p class="section-subtitle" data-i18n="benefits_subtitle">
+            Everything you need to keep personal credit friendly and clear.
+          </p>
+        </div>
+
+        <div class="benefits-grid">
+          <article class="benefit-card">
+            <div class="benefit-icon">🔒</div>
+            <h3 class="benefit-title" data-i18n="benefit1_title">Locked on your phone</h3>
+            <p class="benefit-desc" data-i18n="benefit1_desc">
+              Your records are encrypted and stored only on your own phone. Nobody else can access or view them.
+            </p>
+          </article>
+
+          <article class="benefit-card">
+            <div class="benefit-icon">⚡</div>
+            <h3 class="benefit-title" data-i18n="benefit2_title">Works without internet</h3>
+            <p class="benefit-desc" data-i18n="benefit2_desc">
+              Add records, check balances, and browse transaction history anywhere, even without cellular connectivity.
+            </p>
+          </article>
+
+          <article class="benefit-card">
+            <div class="benefit-icon">💬</div>
+            <h3 class="benefit-title" data-i18n="benefit3_title">Polite reminders</h3>
+            <p class="benefit-desc" data-i18n="benefit3_desc">
+              Send gentle, friendly payment reminder drafts that protect your personal relationships and friendships.
+            </p>
+          </article>
+
+          <article class="benefit-card">
+            <div class="benefit-icon">📲</div>
+            <h3 class="benefit-title" data-i18n="benefit4_title">Pay easily by UPI</h3>
+            <p class="benefit-desc" data-i18n="benefit4_desc">
+              Generate custom UPI QR codes with the exact installment amount or pay instantly via GPay, PhonePe, or Paytm.
+            </p>
+          </article>
+
+          <article class="benefit-card">
+            <div class="benefit-icon">☁️</div>
+            <h3 class="benefit-title" data-i18n="benefit5_title">Backup to your Google Drive</h3>
+            <p class="benefit-desc" data-i18n="benefit5_desc">
+              Securely backup your database to your personal Google Drive with a backup password only you know.
+            </p>
+          </article>
+
+          <article class="benefit-card">
+            <div class="benefit-icon">🌐</div>
+            <h3 class="benefit-title" data-i18n="benefit6_title">Works in 5 languages</h3>
+            <p class="benefit-desc" data-i18n="benefit6_desc">
+              Available in English, Hindi, Bengali, Assamese, and Nepali with plain, everyday words.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- App Interface Showcase -->
+    <section class="section">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-badge">App Preview</span>
+          <h2 class="section-title">Clean, Fast &amp; Easy to Read</h2>
+          <p class="section-subtitle">
+            Designed with clear totals, installment progress bars, and instant QR receipts.
+          </p>
+        </div>
+
+        <div class="screens-grid">
+          <div class="screen-card">
+            <picture>
+              <source srcset="/assets/screen-dashboard.webp" type="image/webp" />
+              <img src="/assets/screen-dashboard.png" alt="Udhaar Dashboard Screen" width="270" height="600" loading="lazy" />
+            </picture>
+            <div class="screen-card-caption">Clear Receivable &amp; Payable Totals</div>
+          </div>
+
+          <div class="screen-card">
+            <picture>
+              <source srcset="/assets/screen-new-record.webp" type="image/webp" />
+              <img src="/assets/screen-new-record.png" alt="Add New Record Screen" width="270" height="600" loading="lazy" />
+            </picture>
+            <div class="screen-card-caption">Quick 3-Step Record Entry</div>
+          </div>
+
+          <div class="screen-card">
+            <picture>
+              <source srcset="/assets/screen-details.webp" type="image/webp" />
+              <img src="/assets/screen-details.png" alt="Record Detail and Installment Timeline" width="270" height="600" loading="lazy" />
+            </picture>
+            <div class="screen-card-caption">Installments &amp; Payment History</div>
+          </div>
+
+          <div class="screen-card">
+            <picture>
+              <source srcset="/assets/screen-whatsapp.webp" type="image/webp" />
+              <img src="/assets/screen-whatsapp.png" alt="Polite WhatsApp Reminder Sheet" width="270" height="600" loading="lazy" />
+            </picture>
+            <div class="screen-card-caption">Polite Multi-Language Reminders</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Trust & Privacy Section -->
+    <section id="trust" class="section section-alt">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-badge" data-i18n="trust_badge">Your Data Belongs to You</span>
+          <h2 class="section-title" data-i18n="trust_title">What we store and what we do not</h2>
+          <p class="section-subtitle" data-i18n="trust_subtitle">
+            Honest privacy. No trackers, no data sales, no surprises.
+          </p>
+        </div>
+
+        <div class="trust-table-wrap">
+          <table class="trust-table">
+            <thead>
+              <tr>
+                <th data-i18n="th_data">Information</th>
+                <th data-i18n="th_where">Where it lives</th>
+                <th data-i18n="th_status">Privacy Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td data-i18n="row1_data">Your contact book &amp; phone contacts</td>
+                <td data-i18n="row1_where">Never touched or read</td>
+                <td><span class="tag-safe" data-i18n="row1_status">Zero access</span></td>
+              </tr>
+              <tr>
+                <td data-i18n="row2_data">Bank accounts &amp; UPI PINs</td>
+                <td data-i18n="row2_where">Never requested or collected</td>
+                <td><span class="tag-safe" data-i18n="row2_status">Zero access</span></td>
+              </tr>
+              <tr>
+                <td data-i18n="row3_data">All loan records, notes &amp; photos</td>
+                <td data-i18n="row3_where">Stored only on your phone</td>
+                <td><span class="tag-safe" data-i18n="row3_status">Locked &amp; Private</span></td>
+              </tr>
+              <tr>
+                <td data-i18n="row4_data">Shared confirmation link</td>
+                <td data-i18n="row4_where">Temporary link (expires in 15 mins / 7 days)</td>
+                <td><span class="tag-safe" data-i18n="row4_status">Encrypted in transit</span></td>
+              </tr>
+              <tr>
+                <td data-i18n="row5_data">Backup files</td>
+                <td data-i18n="row5_where">Your personal Google Drive</td>
+                <td><span class="tag-safe" data-i18n="row5_status">Password encrypted</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="honest-notes-grid">
+          <div class="honest-note-card">
+            <div class="note-icon">💡</div>
+            <div>
+              <h4 data-i18n="honest_money_title">Udhaar does not move or hold money</h4>
+              <p data-i18n="honest_money_desc">
+                We are a record-keeping notebook, not a wallet or bank. All payments are completed through your UPI app or bank.
+              </p>
+            </div>
+          </div>
+
+          <div class="honest-note-card">
+            <div class="note-icon">🤝</div>
+            <div>
+              <h4 data-i18n="honest_legal_title">Udhaar is not a legal contract</h4>
+              <p data-i18n="honest_legal_desc">
+                Records and confirmation links provide mutual clarity between friends and family, but do not replace legal loan contracts.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section id="faq" class="section">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-badge" data-i18n="faq_badge">Got questions?</span>
+          <h2 class="section-title" data-i18n="faq_title">Frequently asked questions</h2>
+        </div>
+
+        <div class="faq-wrap">
+          <div class="faq-item active">
+            <button class="faq-question" type="button">
+              <span data-i18n="faq1_q">Is Udhaar completely free?</span>
+              <span class="faq-toggle-icon">+</span>
+            </button>
+            <div class="faq-answer" data-i18n="faq1_a">
+              Yes. Udhaar is 100% free with no advertisements, no monthly subscriptions, and no hidden payment fees.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question" type="button">
+              <span data-i18n="faq2_q">Do I need to give my phone number to use the app?</span>
+              <span class="faq-toggle-icon">+</span>
+            </button>
+            <div class="faq-answer" data-i18n="faq2_a">
+              No. You can download and use the app completely anonymously without registering a phone number or creating an account.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question" type="button">
+              <span data-i18n="faq3_q">What happens if I lose or change my phone?</span>
+              <span class="faq-toggle-icon">+</span>
+            </button>
+            <div class="faq-answer" data-i18n="faq3_a">
+              If you enabled backups, you can restore all your records onto your new phone from your own Google Drive using your backup password.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question" type="button">
+              <span data-i18n="faq4_q">Can the other person see all my other records?</span>
+              <span class="faq-toggle-icon">+</span>
+            </button>
+            <div class="faq-answer" data-i18n="faq4_a">
+              No. When you share a confirmation link, the other person can only see that one specific record you chose to share.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question" type="button">
+              <span data-i18n="faq5_q">How do I delete my data?</span>
+              <span class="faq-toggle-icon">+</span>
+            </button>
+            <div class="faq-answer" data-i18n="faq5_a">
+              You can delete any record in the app anytime. Deleting the app removes all local records. To remove a shared web link, use our instant deletion form.
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive Demo CTA Box -->
+        <div class="demo-cta-box">
+          <h3 data-i18n="demo_box_title">Experience the guest flow without installing</h3>
+          <p data-i18n="demo_box_desc">
+            See exactly what the other person experiences when they tap your WhatsApp link. Test confirming, installments, and payment proof.
+          </p>
+          <a href="/u/?demo=true" id="btn-try-demo" class="btn-primary">
+            <span>✨</span>
+            <span data-i18n="btn_launch_demo">Try Interactive Demo</span>
           </a>
-
-          <a id="btn-try-demo-hero" class="btn-secondary" href="/u/?demo=true">
-            <span>👁️</span>
-            <span data-i18n="btn_try_demo">See how the confirmation page looks</span>
-          </a>
         </div>
       </div>
+    </section>
+  </main>
 
-      <div class="hero-phone-wrap">
-        <div class="hero-phone-card">
-          <picture>
-            <source type="image/webp" srcset="/assets/hero-3d-phone.webp" />
-            <img src="/assets/hero-3d-phone.png" alt="Udhaar App on phone" width="350" height="420" loading="eager" fetchpriority="high" />
-          </picture>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- =========================================================
-       HOW IT WORKS (3 STEPS)
-       ========================================================= -->
-  <section id="how-it-works" class="section">
-    <div class="container">
-      <div class="section-header">
-        <span class="section-badge" data-i18n="steps_badge">Simple 3-Step Flow</span>
-        <h2 class="section-title" data-i18n="steps_title">How it works in 3 steps</h2>
-        <p class="section-subtitle" data-i18n="steps_subtitle">Zero confusion. Both people stay on the exact same page.</p>
-      </div>
-
-      <div class="steps-grid">
-        <!-- Step 1 -->
-        <div class="step-card">
-          <div class="step-num-badge" data-i18n="step1_num">1</div>
-          <h3 class="step-title" data-i18n="step1_title">Add the record</h3>
-          <p class="step-desc" data-i18n="step1_desc">
-            Enter the amount, due date, and the other person's name. It takes less than 10 seconds.
-          </p>
-        </div>
-
-        <!-- Step 2 -->
-        <div class="step-card">
-          <div class="step-num-badge" data-i18n="step2_num">2</div>
-          <h3 class="step-title" data-i18n="step2_title">Send the link on WhatsApp</h3>
-          <p class="step-desc" data-i18n="step2_desc">
-            Udhaar prepares a polite message with a private confirmation link and 6-digit code for you to send.
-          </p>
-        </div>
-
-        <!-- Step 3 -->
-        <div class="step-card">
-          <div class="step-num-badge" data-i18n="step3_num">3</div>
-          <h3 class="step-title" data-i18n="step3_title">The other person confirms</h3>
-          <p class="step-desc" data-i18n="step3_desc">
-            They open the link in any mobile browser, check the details, and confirm. They do not need to install the app.
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- =========================================================
-       BENEFITS IN PLAIN WORDS
-       ========================================================= -->
-  <section id="benefits" class="section" style="background: var(--bg-subtle);">
-    <div class="container">
-      <div class="section-header">
-        <span class="section-badge" data-i18n="benefits_badge">Built for Real Life</span>
-        <h2 class="section-title" data-i18n="benefits_title">Benefits in plain words</h2>
-        <p class="section-subtitle" data-i18n="benefits_subtitle">Everything you need to keep personal credit friendly and clear.</p>
-      </div>
-
-      <div class="benefits-grid">
-        <div class="benefit-card">
-          <div class="benefit-icon">🔒</div>
-          <h3 class="benefit-title" data-i18n="benefit1_title">Locked on your phone</h3>
-          <p class="benefit-desc" data-i18n="benefit1_desc">Your records are encrypted and stored only on your own phone. Nobody else can access or view them.</p>
-        </div>
-
-        <div class="benefit-card">
-          <div class="benefit-icon">⚡</div>
-          <h3 class="benefit-title" data-i18n="benefit2_title">Works without internet</h3>
-          <p class="benefit-desc" data-i18n="benefit2_desc">Add records, check balances, and browse transaction history anywhere, even without cellular connectivity.</p>
-        </div>
-
-        <div class="benefit-card">
-          <div class="benefit-icon">🤝</div>
-          <h3 class="benefit-title" data-i18n="benefit3_title">Polite reminders</h3>
-          <p class="benefit-desc" data-i18n="benefit3_desc">Send gentle, friendly payment reminder drafts that protect your personal relationships and friendships.</p>
-        </div>
-
-        <div class="benefit-card">
-          <div class="benefit-icon">💳</div>
-          <h3 class="benefit-title" data-i18n="benefit4_title">Pay easily by UPI</h3>
-          <p class="benefit-desc" data-i18n="benefit4_desc">Generate custom UPI QR codes with the exact installment amount or pay instantly via GPay, PhonePe, or Paytm.</p>
-        </div>
-
-        <div class="benefit-card">
-          <div class="benefit-icon">☁️</div>
-          <h3 class="benefit-title" data-i18n="benefit5_title">Backup to your Google Drive</h3>
-          <p class="benefit-desc" data-i18n="benefit5_desc">Securely backup your database to your personal Google Drive with a backup password only you know.</p>
-        </div>
-
-        <div class="benefit-card">
-          <div class="benefit-icon">🗣️</div>
-          <h3 class="benefit-title" data-i18n="benefit6_title">Works in 5 languages</h3>
-          <p class="benefit-desc" data-i18n="benefit6_desc">Available in English, Hindi, Bengali, Assamese, and Nepali with plain, everyday words.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- =========================================================
-       TRUST & PRIVACY SECTION (WHAT WE STORE & WHAT WE DO NOT)
-       ========================================================= -->
-  <section id="trust" class="section">
-    <div class="container">
-      <div class="section-header">
-        <span class="section-badge" data-i18n="trust_badge">Your Data Belongs to You</span>
-        <h2 class="section-title" data-i18n="trust_title">What we store and what we do not</h2>
-        <p class="section-subtitle" data-i18n="trust_subtitle">Honest privacy. No trackers, no data sales, no surprises.</p>
-      </div>
-
-      <div class="trust-table-wrap">
-        <table class="trust-table">
-          <thead>
-            <tr>
-              <th data-i18n="th_data">Information</th>
-              <th data-i18n="th_where">Where it lives</th>
-              <th data-i18n="th_status">Privacy Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td data-i18n="row1_data">Your contact book & phone contacts</td>
-              <td data-i18n="row1_where">Never touched or read</td>
-              <td><span class="tag-danger" data-i18n="row1_status">Zero access</span></td>
-            </tr>
-            <tr>
-              <td data-i18n="row2_data">Bank accounts & UPI PINs</td>
-              <td data-i18n="row2_where">Never requested or collected</td>
-              <td><span class="tag-danger" data-i18n="row2_status">Zero access</span></td>
-            </tr>
-            <tr>
-              <td data-i18n="row3_data">All loan records, notes & photos</td>
-              <td data-i18n="row3_where">Stored only on your phone</td>
-              <td><span class="tag-safe" data-i18n="row3_status">Locked & Private</span></td>
-            </tr>
-            <tr>
-              <td data-i18n="row4_data">Shared confirmation link</td>
-              <td data-i18n="row4_where">Temporary link (expires in 15 mins / 7 days)</td>
-              <td><span class="tag-safe" data-i18n="row4_status">Encrypted in transit</span></td>
-            </tr>
-            <tr>
-              <td data-i18n="row5_data">Backup files</td>
-              <td data-i18n="row5_where">Your personal Google Drive</td>
-              <td><span class="tag-safe" data-i18n="row5_status">Password encrypted</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Honest Disclaimers -->
-      <div class="honest-notes-grid">
-        <div class="honest-note-card">
-          <div class="note-icon">⚠️</div>
-          <div>
-            <h4 data-i18n="honest_money_title">Udhaar does not move or hold money</h4>
-            <p data-i18n="honest_money_desc">We are a record-keeping notebook, not a wallet or bank. All payments are completed through your UPI app or bank.</p>
-          </div>
-        </div>
-
-        <div class="honest-note-card">
-          <div class="note-icon">📋</div>
-          <div>
-            <h4 data-i18n="honest_legal_title">Udhaar is not a legal contract</h4>
-            <p data-i18n="honest_legal_desc">Records and confirmation links provide mutual clarity between friends and family, but do not replace legal loan contracts.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- =========================================================
-       FREQUENTLY ASKED QUESTIONS
-       ========================================================= -->
-  <section id="faq" class="section" style="background: var(--bg-subtle);">
-    <div class="container">
-      <div class="section-header">
-        <span class="section-badge" data-i18n="faq_badge">Got questions?</span>
-        <h2 class="section-title" data-i18n="faq_title">Frequently asked questions</h2>
-      </div>
-
-      <div class="faq-wrap">
-        <div class="faq-item">
-          <button class="faq-question">
-            <span data-i18n="faq1_q">Is Udhaar completely free?</span>
-            <span class="faq-toggle-icon">+</span>
-          </button>
-          <div class="faq-answer">
-            <p data-i18n="faq1_a">Yes. Udhaar is 100% free with no advertisements, no monthly subscriptions, and no hidden payment fees.</p>
-          </div>
-        </div>
-
-        <div class="faq-item">
-          <button class="faq-question">
-            <span data-i18n="faq2_q">Do I need to give my phone number to use the app?</span>
-            <span class="faq-toggle-icon">+</span>
-          </button>
-          <div class="faq-answer">
-            <p data-i18n="faq2_a">No. You can download and use the app completely anonymously without registering a phone number or creating an account.</p>
-          </div>
-        </div>
-
-        <div class="faq-item">
-          <button class="faq-question">
-            <span data-i18n="faq3_q">What happens if I lose or change my phone?</span>
-            <span class="faq-toggle-icon">+</span>
-          </button>
-          <div class="faq-answer">
-            <p data-i18n="faq3_a">If you enabled backups, you can restore all your records onto your new phone from your own Google Drive using your backup password.</p>
-          </div>
-        </div>
-
-        <div class="faq-item">
-          <button class="faq-question">
-            <span data-i18n="faq4_q">Can the other person see all my other records?</span>
-            <span class="faq-toggle-icon">+</span>
-          </button>
-          <div class="faq-answer">
-            <p data-i18n="faq4_a">No. When you share a confirmation link, the other person can only see that one specific record you chose to share.</p>
-          </div>
-        </div>
-
-        <div class="faq-item">
-          <button class="faq-question">
-            <span data-i18n="faq5_q">How do I delete my data?</span>
-            <span class="faq-toggle-icon">+</span>
-          </button>
-          <div class="faq-answer">
-            <p data-i18n="faq5_a">You can delete any record in the app anytime. Deleting the app removes all local records. To remove a shared web link, use our instant deletion form.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- =========================================================
-       APP SCREENSHOTS SHOWCASE
-       ========================================================= -->
-  <section class="section">
-    <div class="container">
-      <div class="section-header">
-        <span class="section-badge">Simple & Clean</span>
-        <h2 class="section-title">Designed for easy daily use</h2>
-        <p class="section-subtitle">Clear numbers, large fonts, and straightforward buttons.</p>
-      </div>
-
-      <div class="screens-grid">
-        <div class="screen-card">
-          <picture>
-            <source type="image/webp" srcset="/assets/screen-dashboard.webp" />
-            <img src="/assets/screen-dashboard.png" alt="Udhaar Dashboard" width="270" height="600" loading="lazy" />
-          </picture>
-          <div class="screen-card-caption">All your records in one place</div>
-        </div>
-
-        <div class="screen-card">
-          <picture>
-            <source type="image/webp" srcset="/assets/screen-new-record.webp" />
-            <img src="/assets/screen-new-record.png" alt="Add Record" width="270" height="600" loading="lazy" />
-          </picture>
-          <div class="screen-card-caption">Add in under 10 seconds</div>
-        </div>
-
-        <div class="screen-card">
-          <picture>
-            <source type="image/webp" srcset="/assets/screen-details.webp" />
-            <img src="/assets/screen-details.png" alt="Installments and Timeline" width="270" height="600" loading="lazy" />
-          </picture>
-          <div class="screen-card-caption">Installment schedules & timeline</div>
-        </div>
-
-        <div class="screen-card">
-          <picture>
-            <source type="image/webp" srcset="/assets/screen-whatsapp.webp" />
-            <img src="/assets/screen-whatsapp.png" alt="WhatsApp Confirmation" width="270" height="600" loading="lazy" />
-          </picture>
-          <div class="screen-card-caption">WhatsApp confirmation & code</div>
-        </div>
-      </div>
-
-      <!-- Try Demo Banner -->
-      <div class="demo-cta-box">
-        <h3 data-i18n="demo_box_title">Experience the guest flow without installing</h3>
-        <p data-i18n="demo_box_desc">
-          See exactly what the other person experiences when they tap your WhatsApp link. Test confirming, installments, and payment proof.
-        </p>
-        <a id="btn-try-demo" class="btn-primary" href="/u/?demo=true">
-          <span>🚀</span>
-          <span data-i18n="btn_launch_demo">Try Interactive Demo</span>
-        </a>
-      </div>
-    </div>
-  </section>
-
-  <!-- =========================================================
-       FOOTER
-       ========================================================= -->
+  <!-- Footer -->
   <footer class="site-footer">
     <div class="container">
       <div class="footer-grid">
         <div class="footer-brand">
           <a href="/" class="brand-logo">
-            <div class="brand-icon" aria-hidden="true">U</div>
+            <span class="brand-icon">₹</span>
             <span data-i18n="brand_name">UDHAAR</span>
           </a>
           <p data-i18n="footer_desc">
@@ -446,26 +476,28 @@
           <ul>
             <li><a href="#how-it-works" data-i18n="nav_how_it_works">How it works</a></li>
             <li><a href="#benefits" data-i18n="nav_benefits">Benefits</a></li>
-            <li><a href="/u/?demo=true" data-i18n="btn_try_demo">Interactive Demo</a></li>
-            <li><a href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar" target="_blank" rel="noopener">Google Play Store</a></li>
+            <li><a href="/u/?demo=true" data-i18n="btn_launch_demo">Try Interactive Demo</a></li>
+            <li><a href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar" target="_blank" rel="noopener noreferrer" data-i18n="btn_get_play">Get on Google Play</a></li>
           </ul>
         </div>
 
         <div class="footer-col">
           <h4 data-i18n="footer_legal">Legal</h4>
           <ul>
-            <li><a href="/privacy.html" data-i18n="nav_privacy">Privacy Policy & Data Deletion</a></li>
-            <li><a href="/.well-known/assetlinks.json" target="_blank">AssetLinks Verification</a></li>
+            <li><a href="/privacy.html" data-i18n="nav_privacy">Privacy Policy</a></li>
+            <li><a href="/privacy.html#delete-request-form">Data Deletion Request</a></li>
+            <li><a href="mailto:admin@jyotirmoyb.com">Contact Support</a></li>
           </ul>
         </div>
       </div>
 
       <div class="footer-bottom">
         <span data-i18n="footer_rights">© 2026 Udhaar. All rights reserved. Open-source and privacy-first.</span>
-        <span>Version 17.0</span>
+        <span>Built by Jyotirmoy Bhowmik</span>
       </div>
     </div>
   </footer>
 
+  <script src="/landing.js" defer></script>
 </body>
 </html>

@@ -151,13 +151,13 @@ fun WhatsAppReminderModal(
     }
 
     val principalStr = remember(summary.principal, tx.currency) {
-        InterestCalculator.formatCurrency(summary.principal, tx.currency).removePrefix("₹").removePrefix("रू")
+        InterestCalculator.formatCurrency(summary.principal, tx.currency).removePrefix("₹").removePrefix("रू").trim()
     }
     val netDueStr = remember(summary.netBalanceDue, tx.currency) {
-        InterestCalculator.formatCurrency(summary.netBalanceDue, tx.currency).removePrefix("₹").removePrefix("रू")
+        InterestCalculator.formatCurrency(summary.netBalanceDue, tx.currency).removePrefix("₹").removePrefix("रू").trim()
     }
     val paidStr = remember(summary.amountPaid, tx.currency) {
-        InterestCalculator.formatCurrency(summary.amountPaid, tx.currency).removePrefix("₹").removePrefix("रू")
+        InterestCalculator.formatCurrency(summary.amountPaid, tx.currency).removePrefix("₹").removePrefix("रू").trim()
     }
 
     fun generateMessage(level: ReminderLevel, lang: String, hideAmount: Boolean, upi: Boolean): String {

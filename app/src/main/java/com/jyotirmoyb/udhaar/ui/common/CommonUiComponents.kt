@@ -31,6 +31,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -101,32 +103,39 @@ fun SettingsSectionCard(
     title: String,
     subtitle: String,
     testTag: String,
+    initiallyExpanded: Boolean = true,
     content: @Composable () -> Unit
 ) {
+    var isExpanded by androidx.compose.runtime.saveable.rememberSaveable {
+        androidx.compose.runtime.mutableStateOf(initiallyExpanded)
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp))
-            .padding(14.dp)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp))
+            .padding(12.dp)
             .testTag(testTag),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("${testTag}_header"),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(24.dp)
-                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp)),
+                    .size(26.dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(8.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = sectionNumber,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimary
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
@@ -142,9 +151,26 @@ fun SettingsSectionCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            IconButton(
+                onClick = { isExpanded = !isExpanded },
+                modifier = Modifier
+                    .size(28.dp)
+                    .testTag("${testTag}_toggle")
+            ) {
+                Text(
+                    text = stringResource(
+                        if (isExpanded) R.string.card_collapse_details else R.string.card_expand_details
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1
+                )
+            }
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f), thickness = 1.dp)
-        content()
+        if (isExpanded) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
+            content()
+        }
     }
 }
 

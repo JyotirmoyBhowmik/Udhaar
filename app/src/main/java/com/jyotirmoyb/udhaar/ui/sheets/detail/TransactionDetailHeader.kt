@@ -5,8 +5,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -31,12 +34,14 @@ fun TransactionDetailHeader(
     tx: UdhaarTransaction,
     linkedParty: PartyEntity?,
     onDismiss: () -> Unit,
+    onEdit: (() -> Unit)? = null,
+    onShareReceipt: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 14.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -48,13 +53,13 @@ fun TransactionDetailHeader(
             PersonAvatar(
                 name = tx.partyName,
                 photoUri = linkedParty?.photoUri.orEmpty(),
-                size = 40.dp,
+                size = 36.dp,
                 modifier = Modifier.udhaarSharedElement("tx_avatar_${tx.id}")
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = tx.partyName.uppercase(),
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -72,13 +77,55 @@ fun TransactionDetailHeader(
                 )
             }
         }
-        IconButton(
-            onClick = onDismiss,
-            modifier = Modifier
-                .pressScaleFeedback()
-                .testTag("close_detail_modal_button")
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurface)
+            if (onEdit != null) {
+                IconButton(
+                    onClick = onEdit,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .pressScaleFeedback()
+                        .testTag("header_edit_transaction_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = stringResource(R.string.ui_str_edit_17865b),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
+            }
+            if (onShareReceipt != null) {
+                IconButton(
+                    onClick = onShareReceipt,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .pressScaleFeedback()
+                        .testTag("header_receipt_transaction_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ReceiptLong,
+                        contentDescription = stringResource(R.string.ui_str_receipt_slip_1ccbe9),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
+            }
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .size(38.dp)
+                    .pressScaleFeedback()
+                    .testTag("close_detail_modal_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Close",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
         }
     }
 }

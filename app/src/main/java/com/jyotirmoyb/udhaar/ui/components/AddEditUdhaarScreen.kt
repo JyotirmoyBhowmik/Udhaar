@@ -318,13 +318,7 @@ fun AddEditUdhaarScreen(
         )
     }
     var showMoreDetails by rememberSaveable {
-        mutableStateOf(
-            initialTransaction != null && (
-                initialTransaction.isInterestEnabled ||
-                    initialTransaction.notes.isNotBlank() ||
-                    initialTransaction.reminderDateMillis != null
-                )
-        )
+        mutableStateOf(true)
     }
     val plainAmountLabel = if (transactionType == TransactionType.GIVEN) {
         "Amount lent"
@@ -860,7 +854,7 @@ fun AddEditUdhaarScreen(
                     listOf("500", "1000", "5000").forEach { quickAmt ->
                         val isQuickSelected = principalText.trim() == quickAmt
                         MonochromeTogglePill(
-                            text = "${currency.symbol}$quickAmt",
+                            text = InterestCalculator.formatCurrency(quickAmt.toDouble(), currency),
                             selected = isQuickSelected,
                             onClick = {
                                 principalText = quickAmt
@@ -1031,8 +1025,10 @@ fun AddEditUdhaarScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
                                 .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
                                 .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
+                                .clickable { isInterestEnabled = !isInterestEnabled }
                                 .padding(horizontal = 14.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween

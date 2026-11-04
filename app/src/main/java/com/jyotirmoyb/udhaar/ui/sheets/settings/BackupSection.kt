@@ -15,6 +15,9 @@ import com.jyotirmoyb.udhaar.data.UserSettings
 import com.jyotirmoyb.udhaar.ui.common.SettingsSectionCard
 import com.jyotirmoyb.udhaar.util.AppSigningInfo
 
+import androidx.compose.ui.res.stringResource
+import com.jyotirmoyb.udhaar.R
+
 @Composable
 fun BackupSection(
     currentSettings: UserSettings,
@@ -52,8 +55,8 @@ fun BackupSection(
 ) {
     SettingsSectionCard(
         sectionNumber = "5",
-        title = "BACKUP AND SYNC",
-        subtitle = "Google Drive AppData cloud backup, encrypted restore & offline JSON export",
+        title = stringResource(R.string.settings_sec_backup_title),
+        subtitle = stringResource(R.string.settings_sec_backup_sub),
         testTag = "section_backup_and_sync"
     ) {
         Column(

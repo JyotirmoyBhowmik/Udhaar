@@ -138,7 +138,7 @@ fun InstallmentTimelineCard(
 
         // Next Due Installment Highlight
         progress.nextDueInstallment?.let { nextDue ->
-            val dueAmt = tx.currency.symbol + InterestCalculator.formatAmount(InstallmentCalculator.paiseToDouble(nextDue.amountDue - nextDue.amountPaid))
+            val dueAmt = InterestCalculator.formatCurrency(InstallmentCalculator.paiseToDouble(nextDue.amountDue - nextDue.amountPaid), tx.currency)
             val dueStr = sdf.format(Date(nextDue.dueDate))
             Row(
                 modifier = Modifier
@@ -194,7 +194,7 @@ fun InstallmentTimelineCard(
                 val isPaid = inst.status == InstallmentStatus.PAID || inst.amountPaid >= inst.amountDue
                 val isLate = inst.status == InstallmentStatus.LATE || (!isPaid && System.currentTimeMillis() > inst.dueDate)
                 val isPartial = inst.status == InstallmentStatus.PARTIAL || (inst.amountPaid > 0L && !isPaid)
-                val dueAmt = tx.currency.symbol + InterestCalculator.formatAmount(InstallmentCalculator.paiseToDouble(inst.amountDue))
+                val dueAmt = InterestCalculator.formatCurrency(InstallmentCalculator.paiseToDouble(inst.amountDue), tx.currency)
                 val canMoveThisPayment = inst.amountPaid > 0L && unpaidInstallments.any { it.sequence != inst.sequence }
 
                 Row(

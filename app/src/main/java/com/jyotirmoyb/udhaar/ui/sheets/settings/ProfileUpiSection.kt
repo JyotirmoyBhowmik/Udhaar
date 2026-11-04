@@ -68,8 +68,8 @@ fun ProfileUpiSection(
 
     SettingsSectionCard(
         sectionNumber = "1",
-        title = "PROFILE AND UPI",
-        subtitle = "Business name & UPI ID for QR collection and WhatsApp reminders",
+        title = stringResource(R.string.settings_sec_profile_title),
+        subtitle = stringResource(R.string.settings_sec_profile_sub),
         testTag = "section_profile_and_upi"
     ) {
         OutlinedTextField(
@@ -178,9 +178,9 @@ fun ProfileUpiSection(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .height(48.dp)
+                    .height(42.dp)
                     .testTag("settings_pick_profile_photo_button"),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(10.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
                 Text(
@@ -197,9 +197,9 @@ fun ProfileUpiSection(
                 onClick = onShareMyPaymentDetails,
                 modifier = Modifier
                     .weight(1.2f)
-                    .height(48.dp)
+                    .height(42.dp)
                     .testTag("settings_share_payment_profile_button"),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(10.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
             ) {
                 Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -212,9 +212,9 @@ fun ProfileUpiSection(
             onClick = onOpenGlobalQrModal,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
+                .height(42.dp)
                 .testTag("settings_open_upi_qr_button"),
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(10.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
         ) {
             Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(18.dp))

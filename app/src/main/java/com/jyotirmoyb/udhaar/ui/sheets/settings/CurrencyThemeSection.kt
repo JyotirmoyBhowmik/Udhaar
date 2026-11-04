@@ -61,8 +61,8 @@ fun CurrencyThemeSection(
 
     SettingsSectionCard(
         sectionNumber = "3",
-        title = "CURRENCY AND THEME",
-        subtitle = "INR (₹) / NPR (रू) ledgers, 4 themes, font scale & phone settings",
+        title = stringResource(R.string.settings_sec_currency_title),
+        subtitle = stringResource(R.string.settings_sec_currency_sub),
         testTag = "section_currency_and_theme"
     ) {
         Text(

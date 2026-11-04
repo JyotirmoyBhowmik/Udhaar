@@ -43,10 +43,30 @@ class ExampleUnitTest {
         assertEquals(10_000.0, summary.principal, 1.0)
         assertEquals(1_200.0, summary.accruedInterest, 5.0)
         assertEquals(9_200.0, summary.netBalanceDue, 5.0)
-        assertTrue(summary.subtitleBreakdown.contains("Amount lent: रू10,000"))
-        assertTrue(summary.subtitleBreakdown.contains("Paid: रू2,000"))
+        assertTrue(summary.subtitleBreakdown.contains("Amount lent: रू 10,000"))
+        assertTrue(summary.subtitleBreakdown.contains("Paid: रू 2,000"))
         assertEquals("रू •••••", InterestCalculator.formatCurrencyPrivacy(10_000.0, CurrencyType.NPR, isHidden = true))
-        assertEquals("रू10,000", InterestCalculator.formatCurrencyPrivacy(10_000.0, CurrencyType.NPR, isHidden = false))
+        assertEquals("रू 10,000", InterestCalculator.formatCurrencyPrivacy(10_000.0, CurrencyType.NPR, isHidden = false))
+        assertEquals("₹ 50,98,768", InterestCalculator.formatCurrency(5_098_768.0, CurrencyType.INR))
+        assertEquals("₹ 7,77,67,647", InterestCalculator.formatCurrency(77_767_647.0, CurrencyType.INR))
+        assertEquals("₹ 0", InterestCalculator.formatCurrency(0.0, CurrencyType.INR))
+
+        // Verify newly created record today with interest enabled calculates 1 billing cycle immediately
+        val sameDayTx = UdhaarTransaction(
+            id = 99L,
+            transactionType = TransactionType.GIVEN,
+            partyName = "Rahul",
+            currency = CurrencyType.INR,
+            principalAmount = 1_00_000.0,
+            isInterestEnabled = true,
+            interestType = InterestType.SIMPLE,
+            interestRate = 2.0,
+            interestRatePeriod = InterestRatePeriod.PER_MONTH,
+            startDateMillis = now
+        )
+        val sameDaySummary = InterestCalculator.calculate(sameDayTx, now)
+        assertEquals(2_000.0, sameDaySummary.accruedInterest, 0.01)
+        assertEquals(1_02_000.0, sameDaySummary.netBalanceDue, 0.01)
     }
 
     @Test
@@ -87,7 +107,7 @@ class ExampleUnitTest {
             hideExactAmount = false,
             upiId = "udhaar@upi"
         )
-        assertTrue(visibleMsg.contains("₹5,000"))
+        assertTrue(visibleMsg.contains("₹ 5,000"))
         assertTrue(visibleMsg.contains("udhaar@upi"))
 
         val hiddenMsg = InterestCalculator.buildWhatsAppReminderMessage(
@@ -95,7 +115,7 @@ class ExampleUnitTest {
             hideExactAmount = true,
             upiId = "udhaar@upi"
         )
-        assertFalse(hiddenMsg.contains("₹5,000"))
+        assertFalse(hiddenMsg.contains("₹ 5,000"))
         assertTrue(hiddenMsg.contains("Hello Sita Verma"))
     }
 
@@ -1259,5 +1279,59 @@ class ExampleUnitTest {
             }
         }
         assertTrue("No hardcoded UI literals in Kotlin UI files (found: $uiLiterals)", uiLiterals.isEmpty())
+    }
+
+    @Test
+    fun groupSplitCalculator_computesEqualCustomAndPercentageSplitsAndActiveGroups() {
+        val members = listOf(
+            com.jyotirmoyb.udhaar.util.GroupMemberDraft(id = 1L, name = "Rahul"),
+            com.jyotirmoyb.udhaar.util.GroupMemberDraft(id = 2L, name = "Priya"),
+            com.jyotirmoyb.udhaar.util.GroupMemberDraft(id = 3L, name = "Amit")
+        )
+
+        // 1. Equal split of ₹ 1,000 among You + 3 members (4 participants total -> ₹ 250 each)
+        val equalRes = com.jyotirmoyb.udhaar.util.GroupSplitCalculator.calculateSplit(
+            totalBillAmount = 1000.0,
+            splitMode = com.jyotirmoyb.udhaar.util.GroupSplitMode.EQUAL,
+            includeMyself = true,
+            members = members
+        )
+        assertTrue(equalRes.isTotalMatching)
+        assertEquals(250.0, equalRes.myShareDouble, 0.001)
+        assertEquals(3, equalRes.memberShares.size)
+        assertTrue(equalRes.memberShares.all { kotlin.math.abs(it.amountDouble - 250.0) < 0.001 })
+
+        // 2. Equal split with rounding remainder (₹ 100 among 3 members without self -> 33.33, 33.33, 33.34)
+        val remainderRes = com.jyotirmoyb.udhaar.util.GroupSplitCalculator.calculateSplit(
+            totalBillAmount = 100.0,
+            splitMode = com.jyotirmoyb.udhaar.util.GroupSplitMode.EQUAL,
+            includeMyself = false,
+            members = members
+        )
+        assertTrue(remainderRes.isTotalMatching)
+        assertEquals(100.0, remainderRes.allocatedTotalDouble, 0.001)
+        assertEquals(33.33, remainderRes.memberShares[0].amountDouble, 0.001)
+        assertEquals(33.33, remainderRes.memberShares[1].amountDouble, 0.001)
+        assertEquals(33.34, remainderRes.memberShares[2].amountDouble, 0.001)
+
+        // 3. Percentage split (Rahul 25%, Priya 50%, You remaining 25%)
+        val pctMembers = listOf(
+            com.jyotirmoyb.udhaar.util.GroupMemberDraft(id = 1L, name = "Rahul", percentageInput = "25"),
+            com.jyotirmoyb.udhaar.util.GroupMemberDraft(id = 2L, name = "Priya", percentageInput = "50")
+        )
+        val pctRes = com.jyotirmoyb.udhaar.util.GroupSplitCalculator.calculateSplit(
+            totalBillAmount = 2000.0,
+            splitMode = com.jyotirmoyb.udhaar.util.GroupSplitMode.PERCENTAGE,
+            includeMyself = true,
+            members = pctMembers
+        )
+        assertTrue(pctRes.isTotalMatching)
+        assertEquals(500.0, pctRes.myShareDouble, 0.001)
+        assertEquals(500.0, pctRes.memberShares[0].amountDouble, 0.001)
+        assertEquals(1000.0, pctRes.memberShares[1].amountDouble, 0.001)
+
+        // 4. Extract Group Tag & Compute Active Groups
+        val tagNote = com.jyotirmoyb.udhaar.util.GroupSplitCalculator.formatGroupNote("Goa Trip", "Beach Dinner")
+        assertEquals("Goa Trip", com.jyotirmoyb.udhaar.util.GroupSplitCalculator.extractGroupName(tagNote))
     }
 }

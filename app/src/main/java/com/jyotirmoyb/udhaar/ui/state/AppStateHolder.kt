@@ -102,12 +102,14 @@ class AppStateHolder @Inject constructor() {
     }
 
     fun openAddTransaction(partyDraft: PreselectedPartyDraft? = null) {
+        _detailTransactionId.value = null
         _editingTransaction.value = null
         _preselectedPartyDraft.value = partyDraft
         _activeScreen.value = ActiveScreen.ADD_EDIT
     }
 
     fun openAddTransactionForParty(party: PartyEntity) {
+        _detailTransactionId.value = null
         _editingTransaction.value = null
         _preselectedPartyDraft.value = PreselectedPartyDraft(
             partyId = party.partyId,
@@ -119,6 +121,7 @@ class AppStateHolder @Inject constructor() {
     }
 
     fun openEditTransaction(transaction: UdhaarTransaction) {
+        _detailTransactionId.value = null
         _preselectedPartyDraft.value = null
         _editingTransaction.value = transaction
         _activeScreen.value = ActiveScreen.ADD_EDIT

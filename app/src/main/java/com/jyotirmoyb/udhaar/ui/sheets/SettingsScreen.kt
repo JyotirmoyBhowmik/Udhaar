@@ -230,6 +230,16 @@ fun SettingsScreen(
         )
     }
 
+    var selectedCategory by rememberSaveable { mutableStateOf("ALL") }
+    val categories = listOf(
+        "ALL" to R.string.settings_cat_all,
+        "PROFILE" to R.string.settings_cat_profile,
+        "SECURITY" to R.string.settings_cat_security,
+        "DISPLAY" to R.string.settings_cat_display,
+        "BACKUP" to R.string.settings_cat_backup,
+        "ABOUT" to R.string.settings_cat_about
+    )
+
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
@@ -244,11 +254,12 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(MaterialTheme.colorScheme.surface)
+                        .statusBarsPadding()
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -270,7 +281,8 @@ fun SettingsScreen(
                             Column {
                                 Text(
                                     text = stringResource(R.string.ui_str_settings_preferences_1f2ee4),
-                                    style = MaterialTheme.typography.titleLarge,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1
                                 )
@@ -283,7 +295,35 @@ fun SettingsScreen(
                             }
                         }
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
+
+                    // Horizontal Category Filter Strip
+                    androidx.compose.foundation.lazy.LazyRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                            .testTag("settings_category_filter_row"),
+                        contentPadding = PaddingValues(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(categories.size) { idx ->
+                            val (catKey, labelRes) = categories[idx]
+                            val isSelected = selectedCategory == catKey
+                            androidx.compose.material3.FilterChip(
+                                selected = isSelected,
+                                onClick = { selectedCategory = catKey },
+                                label = {
+                                    Text(
+                                        text = stringResource(labelRes),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                },
+                                modifier = Modifier.testTag("settings_cat_chip_${catKey.lowercase()}")
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
                 }
             },
             bottomBar = {
@@ -291,13 +331,14 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(MaterialTheme.colorScheme.surface)
+                        .navigationBarsPadding()
                         .imePadding()
                 ) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -305,7 +346,7 @@ fun SettingsScreen(
                             onClick = onDismiss,
                             modifier = Modifier
                                 .weight(1f)
-                                .height(48.dp)
+                                .height(44.dp)
                                 .pressScaleFeedback()
                                 .testTag("cancel_settings_button"),
                             shape = RoundedCornerShape(12.dp),
@@ -317,7 +358,7 @@ fun SettingsScreen(
                             onClick = { validateAndSave(true) },
                             modifier = Modifier
                                 .weight(1.6f)
-                                .height(48.dp)
+                                .height(44.dp)
                                 .pressScaleFeedback()
                                 .testTag("save_settings_button"),
                             shape = RoundedCornerShape(12.dp),
@@ -338,211 +379,219 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .widthIn(max = 640.dp)
-                    .statusBarsPadding()
                     .padding(innerPadding)
                     .imePadding()
                     .testTag("settings_lazy_column"),
-                contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 44.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 36.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // 1. PROFILE AND UPI
-                item(key = "section_profile_and_upi") {
-                    ProfileUpiSection(
-                        payeeName = payeeName,
-                        onPayeeNameChange = { payeeName = it },
-                        upiId = upiId,
-                        onUpiIdChange = { upiId = it },
-                        phoneNumber = phoneNumber,
-                        onPhoneNumberChange = { phoneNumber = it },
-                        profilePhotoUri = profilePhotoUri,
-                        onProfilePhotoChanged = { uri ->
-                            profilePhotoUri = uri
-                            onSaveExtendedProfile(phoneNumber.trim(), profilePhotoUri, cloudVerificationConsent)
-                        },
-                        onShareMyPaymentDetails = {
-                            persistImmediately()
-                            onShareMyPaymentDetails()
-                        },
-                        onOpenGlobalQrModal = {
-                            persistImmediately()
-                            onOpenGlobalQrModal()
-                        }
-                    )
+                if (selectedCategory == "ALL" || selectedCategory == "PROFILE") {
+                    item(key = "section_profile_and_upi") {
+                        ProfileUpiSection(
+                            payeeName = payeeName,
+                            onPayeeNameChange = { payeeName = it },
+                            upiId = upiId,
+                            onUpiIdChange = { upiId = it },
+                            phoneNumber = phoneNumber,
+                            onPhoneNumberChange = { phoneNumber = it },
+                            profilePhotoUri = profilePhotoUri,
+                            onProfilePhotoChanged = { uri ->
+                                profilePhotoUri = uri
+                                onSaveExtendedProfile(phoneNumber.trim(), profilePhotoUri, cloudVerificationConsent)
+                            },
+                            onShareMyPaymentDetails = {
+                                persistImmediately()
+                                onShareMyPaymentDetails()
+                            },
+                            onOpenGlobalQrModal = {
+                                persistImmediately()
+                                onOpenGlobalQrModal()
+                            }
+                        )
+                    }
                 }
 
                 // 2. SECURITY
-                item(key = "section_security") {
-                    SecuritySection(
-                        currentSettings = currentSettings,
-                        dbEncryptionState = dbEncryptionState,
-                        biometricLockEnabled = biometricLockEnabled,
-                        onBiometricLockToggled = { enabled ->
-                            biometricLockEnabled = enabled
-                            persistImmediately()
-                        },
-                        securityPin = securityPin,
-                        onSecurityPinChanged = { securityPin = it },
-                        pinValidationError = pinValidationError,
-                        onPinValidationErrorChanged = { pinValidationError = it },
-                        onRetryDatabaseEncryption = onRetryDatabaseEncryption,
-                        onLockAppNow = {
-                            persistImmediately()
-                            onLockAppNow()
-                        }
-                    )
+                if (selectedCategory == "ALL" || selectedCategory == "SECURITY") {
+                    item(key = "section_security") {
+                        SecuritySection(
+                            currentSettings = currentSettings,
+                            dbEncryptionState = dbEncryptionState,
+                            biometricLockEnabled = biometricLockEnabled,
+                            onBiometricLockToggled = { enabled ->
+                                biometricLockEnabled = enabled
+                                persistImmediately()
+                            },
+                            securityPin = securityPin,
+                            onSecurityPinChanged = { securityPin = it },
+                            pinValidationError = pinValidationError,
+                            onPinValidationErrorChanged = { pinValidationError = it },
+                            onRetryDatabaseEncryption = onRetryDatabaseEncryption,
+                            onLockAppNow = {
+                                persistImmediately()
+                                onLockAppNow()
+                            }
+                        )
+                    }
                 }
 
                 // 3. CURRENCY AND THEME
-                item(key = "section_currency_and_theme") {
-                    CurrencyThemeSection(
-                        inrEnabled = inrEnabled,
-                        onInrEnabledChange = { checked ->
-                            if (!checked && !nprEnabled) {
-                                nprEnabled = true
-                                defaultCurrency = CurrencyType.NPR
+                if (selectedCategory == "ALL" || selectedCategory == "DISPLAY") {
+                    item(key = "section_currency_and_theme") {
+                        CurrencyThemeSection(
+                            inrEnabled = inrEnabled,
+                            onInrEnabledChange = { checked ->
+                                if (!checked && !nprEnabled) {
+                                    nprEnabled = true
+                                    defaultCurrency = CurrencyType.NPR
+                                }
+                                inrEnabled = checked
+                                if (!inrEnabled && defaultCurrency == CurrencyType.INR) {
+                                    defaultCurrency = CurrencyType.NPR
+                                }
+                                persistImmediately()
+                            },
+                            nprEnabled = nprEnabled,
+                            onNprEnabledChange = { checked ->
+                                if (!checked && !inrEnabled) {
+                                    inrEnabled = true
+                                    defaultCurrency = CurrencyType.INR
+                                }
+                                nprEnabled = checked
+                                if (!nprEnabled && defaultCurrency == CurrencyType.NPR) {
+                                    defaultCurrency = CurrencyType.INR
+                                }
+                                persistImmediately()
+                            },
+                            defaultCurrency = defaultCurrency,
+                            onDefaultCurrencyChange = { curr ->
+                                defaultCurrency = curr
+                                persistImmediately()
+                            },
+                            fontScale = fontScale,
+                            onFontScaleChange = { scale ->
+                                fontScale = scale
+                                persistImmediately()
+                            },
+                            themeMode = themeMode,
+                            onThemeModeChange = { mode ->
+                                themeMode = mode
+                                persistImmediately()
                             }
-                            inrEnabled = checked
-                            if (!inrEnabled && defaultCurrency == CurrencyType.INR) {
-                                defaultCurrency = CurrencyType.NPR
+                        )
+                    }
+
+                    // 4. REMINDERS AND QUIET HOURS
+                    item(key = "section_reminders_and_quiet_hours") {
+                        RemindersSettingsSection(
+                            quietHoursEnabled = quietHoursEnabled,
+                            onQuietHoursEnabledChange = { checked ->
+                                quietHoursEnabled = checked
+                                persistReminderSettings()
+                            },
+                            quietHoursStartHour = quietHoursStartHour,
+                            onQuietHoursStartHourChange = { hour ->
+                                quietHoursStartHour = hour
+                                persistReminderSettings()
+                            },
+                            quietHoursEndHour = quietHoursEndHour,
+                            onQuietHoursEndHourChange = { hour ->
+                                quietHoursEndHour = hour
+                                persistReminderSettings()
+                            },
+                            reminderL1Days = reminderL1Days,
+                            onReminderL1DaysChange = { days ->
+                                reminderL1Days = days
+                                persistReminderSettings()
+                            },
+                            reminderL2Days = reminderL2Days,
+                            onReminderL2DaysChange = { days ->
+                                reminderL2Days = days
+                                persistReminderSettings()
+                            },
+                            reminderL3Days = reminderL3Days,
+                            onReminderL3DaysChange = { days ->
+                                reminderL3Days = days
+                                persistReminderSettings()
                             }
-                            persistImmediately()
-                        },
-                        nprEnabled = nprEnabled,
-                        onNprEnabledChange = { checked ->
-                            if (!checked && !inrEnabled) {
-                                inrEnabled = true
-                                defaultCurrency = CurrencyType.INR
-                            }
-                            nprEnabled = checked
-                            if (!nprEnabled && defaultCurrency == CurrencyType.NPR) {
-                                defaultCurrency = CurrencyType.INR
-                            }
-                            persistImmediately()
-                        },
-                        defaultCurrency = defaultCurrency,
-                        onDefaultCurrencyChange = { curr ->
-                            defaultCurrency = curr
-                            persistImmediately()
-                        },
-                        fontScale = fontScale,
-                        onFontScaleChange = { scale ->
-                            fontScale = scale
-                            persistImmediately()
-                        },
-                        themeMode = themeMode,
-                        onThemeModeChange = { mode ->
-                            themeMode = mode
-                            persistImmediately()
-                        }
-                    )
+                        )
+                    }
                 }
 
-                // 4. REMINDERS AND QUIET HOURS
-                item(key = "section_reminders_and_quiet_hours") {
-                    RemindersSettingsSection(
-                        quietHoursEnabled = quietHoursEnabled,
-                        onQuietHoursEnabledChange = { checked ->
-                            quietHoursEnabled = checked
-                            persistReminderSettings()
-                        },
-                        quietHoursStartHour = quietHoursStartHour,
-                        onQuietHoursStartHourChange = { hour ->
-                            quietHoursStartHour = hour
-                            persistReminderSettings()
-                        },
-                        quietHoursEndHour = quietHoursEndHour,
-                        onQuietHoursEndHourChange = { hour ->
-                            quietHoursEndHour = hour
-                            persistReminderSettings()
-                        },
-                        reminderL1Days = reminderL1Days,
-                        onReminderL1DaysChange = { days ->
-                            reminderL1Days = days
-                            persistReminderSettings()
-                        },
-                        reminderL2Days = reminderL2Days,
-                        onReminderL2DaysChange = { days ->
-                            reminderL2Days = days
-                            persistReminderSettings()
-                        },
-                        reminderL3Days = reminderL3Days,
-                        onReminderL3DaysChange = { days ->
-                            reminderL3Days = days
-                            persistReminderSettings()
-                        }
-                    )
-                }
+                // 5. BACKUP AND SYNC + 6. WEB VERIFICATION LINKS
+                if (selectedCategory == "ALL" || selectedCategory == "BACKUP") {
+                    item(key = "section_backup_and_sync") {
+                        BackupSection(
+                            currentSettings = currentSettings,
+                            driveRemoteBackups = driveRemoteBackups,
+                            isDriveOperationInProgress = isDriveOperationInProgress,
+                            driveOperationStatusMessage = driveOperationStatusMessage,
+                            driveOperationError = driveOperationError,
+                            hasPendingDriveResolution = hasPendingDriveResolution,
+                            driveConnectionTestReport = driveConnectionTestReport,
+                            appSigningInfo = appSigningInfo,
+                            cloudVerificationConsent = cloudVerificationConsent,
+                            onCloudVerificationConsentChange = { granted ->
+                                cloudVerificationConsent = granted
+                                persistImmediately()
+                            },
+                            onSignInWithGoogleForDrive = onSignInWithGoogleForDrive,
+                            onReconnectGoogleDrive = onReconnectGoogleDrive,
+                            onRunDriveConnectionTest = onRunDriveConnectionTest,
+                            onClearDriveConnectionTestReport = onClearDriveConnectionTestReport,
+                            onSignOutFromDrive = onSignOutFromDrive,
+                            onBackupNowClicked = {
+                                isLocalUdhaarExportMode = false
+                                showBackupDialog = true
+                            },
+                            onRestoreBackupClicked = { backup ->
+                                selectedRestoreBackup = backup
+                                showRestoreDialog = true
+                            },
+                            onDeleteDriveBackup = onDeleteDriveBackup,
+                            onDeleteAllDriveBackups = onDeleteAllDriveBackups,
+                            onUpdateAutoBackupSettings = onUpdateAutoBackupSettings,
+                            onRefreshDriveBackups = onRefreshDriveBackups,
+                            onClearDriveOperationError = onClearDriveOperationError,
+                            onExportFullLedgerSaf = onExportFullLedgerSaf,
+                            onShareFullLedgerFile = onShareFullLedgerFile,
+                            onExportLocalUdhaarSafClicked = {
+                                isLocalUdhaarExportMode = true
+                                showBackupDialog = true
+                            },
+                            onImportLedgerSaf = onImportLedgerSaf,
+                            onOpenContactPicker = onOpenContactPicker,
+                            onSignInWithGoogleForVerification = {
+                                persistImmediately()
+                                onSignInWithGoogleForVerification()
+                            },
+                            onRetryCloudBackup = onRetryCloudBackup,
+                            onOpenReceivedVerificationLink = onOpenReceivedVerificationLink,
+                            onDeleteMyCloudData = onDeleteMyCloudData
+                        )
+                    }
 
-                // 5. BACKUP AND SYNC
-                item(key = "section_backup_and_sync") {
-                    BackupSection(
-                        currentSettings = currentSettings,
-                        driveRemoteBackups = driveRemoteBackups,
-                        isDriveOperationInProgress = isDriveOperationInProgress,
-                        driveOperationStatusMessage = driveOperationStatusMessage,
-                        driveOperationError = driveOperationError,
-                        hasPendingDriveResolution = hasPendingDriveResolution,
-                        driveConnectionTestReport = driveConnectionTestReport,
-                        appSigningInfo = appSigningInfo,
-                        cloudVerificationConsent = cloudVerificationConsent,
-                        onCloudVerificationConsentChange = { granted ->
-                            cloudVerificationConsent = granted
-                            persistImmediately()
-                        },
-                        onSignInWithGoogleForDrive = onSignInWithGoogleForDrive,
-                        onReconnectGoogleDrive = onReconnectGoogleDrive,
-                        onRunDriveConnectionTest = onRunDriveConnectionTest,
-                        onClearDriveConnectionTestReport = onClearDriveConnectionTestReport,
-                        onSignOutFromDrive = onSignOutFromDrive,
-                        onBackupNowClicked = {
-                            isLocalUdhaarExportMode = false
-                            showBackupDialog = true
-                        },
-                        onRestoreBackupClicked = { backup ->
-                            selectedRestoreBackup = backup
-                            showRestoreDialog = true
-                        },
-                        onDeleteDriveBackup = onDeleteDriveBackup,
-                        onDeleteAllDriveBackups = onDeleteAllDriveBackups,
-                        onUpdateAutoBackupSettings = onUpdateAutoBackupSettings,
-                        onRefreshDriveBackups = onRefreshDriveBackups,
-                        onClearDriveOperationError = onClearDriveOperationError,
-                        onExportFullLedgerSaf = onExportFullLedgerSaf,
-                        onShareFullLedgerFile = onShareFullLedgerFile,
-                        onExportLocalUdhaarSafClicked = {
-                            isLocalUdhaarExportMode = true
-                            showBackupDialog = true
-                        },
-                        onImportLedgerSaf = onImportLedgerSaf,
-                        onOpenContactPicker = onOpenContactPicker,
-                        onSignInWithGoogleForVerification = {
-                            persistImmediately()
-                            onSignInWithGoogleForVerification()
-                        },
-                        onRetryCloudBackup = onRetryCloudBackup,
-                        onOpenReceivedVerificationLink = onOpenReceivedVerificationLink,
-                        onDeleteMyCloudData = onDeleteMyCloudData
-                    )
-                }
-
-                // 6. WEB VERIFICATION LINKS
-                item(key = "section_web_links") {
-                    com.jyotirmoyb.udhaar.ui.sheets.settings.WebLinkSettingsSection(
-                        settings = currentSettings,
-                        onSaveDefaults = { expiry, trust, upi ->
-                            onSaveWebLinkDefaults?.invoke(expiry, trust, upi)
-                        },
-                        onRevokeAllLinks = {
-                            onRevokeAllWebLinks?.invoke()
-                        }
-                    )
+                    item(key = "section_web_links") {
+                        com.jyotirmoyb.udhaar.ui.sheets.settings.WebLinkSettingsSection(
+                            settings = currentSettings,
+                            onSaveDefaults = { expiry, trust, upi ->
+                                onSaveWebLinkDefaults?.invoke(expiry, trust, upi)
+                            },
+                            onRevokeAllLinks = {
+                                onRevokeAllWebLinks?.invoke()
+                            }
+                        )
+                    }
                 }
 
                 // 7. ABOUT
-                item(key = "section_about") {
-                    AboutSection(
-                        onOpenShareAppModal = onOpenShareAppModal
-                    )
+                if (selectedCategory == "ALL" || selectedCategory == "ABOUT") {
+                    item(key = "section_about") {
+                        AboutSection(
+                            onOpenShareAppModal = onOpenShareAppModal
+                        )
+                    }
                 }
             }
         }

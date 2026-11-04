@@ -70,8 +70,8 @@ fun SecuritySection(
 
     SettingsSectionCard(
         sectionNumber = "2",
-        title = "SECURITY",
-        subtitle = "Biometric fingerprint, device credential & salted PBKDF2 PIN lock",
+        title = stringResource(R.string.settings_sec_security_title),
+        subtitle = stringResource(R.string.settings_sec_security_sub),
         testTag = "section_security"
     ) {
         val isEncryptionFailed = dbEncryptionState ==

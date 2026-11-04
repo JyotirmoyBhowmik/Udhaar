@@ -48,9 +48,9 @@ fun AboutSection(
     val context = LocalContext.current
 
     SettingsSectionCard(
-        sectionNumber = "5",
-        title = "ABOUT",
-        subtitle = "Share Udhaar app, version info & direct developer support",
+        sectionNumber = "7",
+        title = stringResource(R.string.settings_sec_about_title),
+        subtitle = stringResource(R.string.settings_sec_about_sub),
         testTag = "section_about"
     ) {
         // Share & Give Access Card

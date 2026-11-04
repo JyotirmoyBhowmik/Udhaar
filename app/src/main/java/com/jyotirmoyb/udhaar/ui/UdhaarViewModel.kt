@@ -529,6 +529,8 @@ class UdhaarViewModel(
     fun saveTransaction(transaction: UdhaarTransaction, attachments: List<Attachment> = emptyList()) =
         recordViewModel.saveTransaction(transaction, attachments)
     fun saveUdhaarTransaction(transaction: UdhaarTransaction) = saveTransaction(transaction)
+    fun saveGroupSplitTransactions(transactions: List<UdhaarTransaction>) =
+        recordViewModel.saveGroupSplitTransactions(transactions)
 
     fun retryCloudBackup(onComplete: ((Boolean) -> Unit)? = null) {
         viewModelScope.launch {

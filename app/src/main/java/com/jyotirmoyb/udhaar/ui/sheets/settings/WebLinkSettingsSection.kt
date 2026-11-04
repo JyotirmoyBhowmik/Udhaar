@@ -38,7 +38,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.jyotirmoyb.udhaar.data.UserSettings
-import com.jyotirmoyb.udhaar.ui.components.SettingsSectionCard
+import com.jyotirmoyb.udhaar.ui.common.SettingsSectionCard
 
 @Composable
 fun WebLinkSettingsSection(
@@ -52,9 +52,9 @@ fun WebLinkSettingsSection(
     var showRevokeConfirmDialog by rememberSaveable { mutableStateOf(false) }
 
     SettingsSectionCard(
-        sectionNumber = "07",
-        title = "Web Verification Links",
-        subtitle = "Configure defaults for browser-based counterparty verifications",
+        sectionNumber = "6",
+        title = stringResource(R.string.web_share_sheet_title),
+        subtitle = stringResource(R.string.settings_web_link_upi_subtitle),
         testTag = "settings_web_links_section"
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

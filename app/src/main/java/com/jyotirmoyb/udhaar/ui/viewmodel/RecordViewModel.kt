@@ -251,6 +251,28 @@ class RecordViewModel @Inject constructor(
         }
     }
 
+    fun saveGroupSplitTransactions(transactions: List<UdhaarTransaction>) {
+        if (transactions.isEmpty()) return
+        viewModelScope.launch {
+            for (tx in transactions) {
+                val savedId = ledgerRepository.saveTransaction(tx)
+                val savedTx = tx.copy(id = savedId)
+                appContext?.let { ctx ->
+                    if (savedTx.expiryDateMillis != null && !savedTx.isSettled) {
+                        val formatted = InterestCalculator.formatCurrency(savedTx.principalAmount, savedTx.currency)
+                        RecurringReminderScheduler.scheduleRemindersForTransaction(ctx, savedTx, formatted)
+                    }
+                }
+            }
+            appContext?.let { ctx ->
+                UdhaarWidgetProvider.updateAllWidgets(ctx)
+            }
+            appStateHolder.setSummaryCurrency(transactions.first().currency)
+            appStateHolder.setSuccessAnimation(SuccessAnimationEvent(message = "Group split saved"))
+            appStateHolder.switchMainTab(ActiveScreen.DASHBOARD)
+        }
+    }
+
     fun deleteTransaction(transaction: UdhaarTransaction) {
         viewModelScope.launch {
             val staged = _draftAttachments.value

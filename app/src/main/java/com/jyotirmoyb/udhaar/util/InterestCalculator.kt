@@ -26,10 +26,8 @@ data class CalculatedUdhaarSummary(
 )
 
 object InterestCalculator {
-    private val wholeNumberFormat = DecimalFormat("#,##0")
-    private val decimalFormat = DecimalFormat("#,##0.00")
     private const val MILLIS_PER_DAY = 86_400_000L
-    private const val DAYS_PER_MONTH = 30.4375
+    private const val DAYS_PER_MONTH = 30.0
     private const val DAYS_PER_YEAR = 365.25
 
     fun calculate(
@@ -39,16 +37,29 @@ object InterestCalculator {
         val principal = max(0.0, transaction.principalAmount)
         val effectiveEndMillis = when {
             transaction.isSettled && transaction.settledAtMillis != null -> transaction.settledAtMillis
-            transaction.expiryDateMillis != null && asOfMillis > transaction.expiryDateMillis ->
+            transaction.expiryDateMillis != null && transaction.expiryDateMillis > transaction.startDateMillis ->
                 max(transaction.expiryDateMillis, asOfMillis)
             else -> asOfMillis
         }
 
         val elapsedMillis = max(0L, effectiveEndMillis - transaction.startDateMillis)
-        val elapsedDays = elapsedMillis / MILLIS_PER_DAY
+        val rawElapsedDays = elapsedMillis / MILLIS_PER_DAY
 
-        val accruedInterest = if (!transaction.isInterestEnabled || transaction.interestRate <= 0.0 || elapsedDays <= 0L) {
+        // When interest is enabled on a record created today (rawElapsedDays == 0L) with no future due date yet,
+        // compute 1 standard billing cycle (30 days for monthly rate, 365 days for annual rate) so interest is active immediately.
+        val effectiveCalcDays = if (transaction.isInterestEnabled && transaction.interestRate > 0.0 && rawElapsedDays <= 0L) {
+            when (transaction.interestRatePeriod) {
+                InterestRatePeriod.PER_MONTH -> 30L
+                InterestRatePeriod.PER_ANNUM -> 365L
+            }
+        } else {
+            rawElapsedDays
+        }
+
+        val accruedInterest = if (!transaction.isInterestEnabled || transaction.interestRate <= 0.0) {
             0.0
+        } else if (rawElapsedDays <= 0L && transaction.interestType == InterestType.SIMPLE) {
+            principal * (transaction.interestRate / 100.0)
         } else {
             computeInterestAmount(
                 principal = principal,
@@ -56,10 +67,11 @@ object InterestCalculator {
                 ratePeriod = transaction.interestRatePeriod,
                 interestType = transaction.interestType,
                 compoundFrequency = transaction.compoundFrequency,
-                elapsedDays = elapsedDays
+                elapsedDays = effectiveCalcDays
             )
         }
 
+        val elapsedDays = effectiveCalcDays
         val grossTotal = principal + accruedInterest
         val paid = max(0.0, transaction.amountPaid)
         val netBalanceDue = if (transaction.isSettled) {
@@ -153,15 +165,41 @@ object InterestCalculator {
         }
     }
 
-    fun formatCurrency(amount: Double, currency: CurrencyType): String {
+    private fun formatIndianNumber(amount: Double): String {
         val clean = if (kotlin.math.abs(amount) < 0.005) 0.0 else amount
-        val hasDecimals = kotlin.math.abs(clean - kotlin.math.round(clean)) >= 0.01
-        val formattedNumber = if (hasDecimals) {
-            decimalFormat.format(clean)
+        val isNegative = clean < 0.0
+        val absVal = kotlin.math.abs(clean)
+        val hasDecimals = kotlin.math.abs(absVal - kotlin.math.round(absVal)) >= 0.01
+        val roundedCents = kotlin.math.round(absVal * 100.0).toLong()
+        val integerPart = if (hasDecimals) roundedCents / 100L else kotlin.math.round(absVal).toLong()
+        val decimalPart = if (hasDecimals) (roundedCents % 100L).toString().padStart(2, '0') else null
+
+        val intStr = integerPart.toString()
+        val formattedInt = if (intStr.length <= 3) {
+            intStr
         } else {
-            wholeNumberFormat.format(clean)
+            val lastThree = intStr.substring(intStr.length - 3)
+            val rest = intStr.substring(0, intStr.length - 3)
+            val groups = mutableListOf<String>()
+            var i = rest.length
+            while (i > 0) {
+                val start = max(0, i - 2)
+                groups.add(0, rest.substring(start, i))
+                i = start
+            }
+            groups.joinToString(",") + "," + lastThree
         }
-        return "${currency.symbol}$formattedNumber"
+
+        val sign = if (isNegative) "-" else ""
+        return if (decimalPart != null) {
+            "$sign$formattedInt.$decimalPart"
+        } else {
+            "$sign$formattedInt"
+        }
+    }
+
+    fun formatCurrency(amount: Double, currency: CurrencyType): String {
+        return "${currency.symbol} ${formatIndianNumber(amount)}"
     }
 
     fun formatCurrencyPrivacy(amount: Double, currency: CurrencyType, isHidden: Boolean): String {
@@ -203,13 +241,7 @@ object InterestCalculator {
     }
 
     fun formatAmount(amount: Double): String {
-        val clean = if (kotlin.math.abs(amount) < 0.005) 0.0 else amount
-        val hasDecimals = kotlin.math.abs(clean - kotlin.math.round(clean)) >= 0.01
-        return if (hasDecimals) {
-            decimalFormat.format(clean)
-        } else {
-            wholeNumberFormat.format(clean)
-        }
+        return formatIndianNumber(amount)
     }
 
     fun formatPlainAmount(amount: Double): String {

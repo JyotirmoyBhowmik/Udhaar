@@ -185,54 +185,45 @@ fun RecordDetailSheet(
                     .fillMaxSize()
                     .widthIn(max = 640.dp)
             ) {
-                // Sticky Header with shared avatar and name
+                // Sticky Header with shared avatar, name, and quick Edit/Receipt actions
                 TransactionDetailHeader(
                     tx = tx,
                     linkedParty = linkedParty,
-                    onDismiss = onDismiss
+                    onDismiss = onDismiss,
+                    onEdit = onEdit,
+                    onShareReceipt = onShareReceipt
                 )
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
 
-                // Scrollable Body
+                // Scrollable Body (Compact layout with Payment & Actions up front)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f, fill = false)
                         .verticalScroll(rememberScrollState())
-                        .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                        .padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 36.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Net Balance & Breakdown Card
+                    // 1. Net Balance & Expandable Breakdown Card
                     TransactionBalanceCard(
                         summary = summary,
                         tx = tx,
                         animatedNetBalanceText = animatedNetBalanceText
                     )
 
-                    // Two-Party Verification Card
-                    TransactionVerificationCard(
-                        summary = summary,
-                        tx = tx,
-                        onRequestVerification = onRequestVerification,
-                        onConfirmOrDisputeRecord = onConfirmOrDisputeRecord,
-                        onOpenWebShare = onOpenWebShare,
-                        onRevokeWebLink = onRevokeWebLink,
-                        onConfirmPaymentClaim = onConfirmPaymentClaim,
-                        onRejectPaymentClaim = onRejectPaymentClaim,
-                        onAcceptDateProposal = onAcceptDateProposal,
-                        onDeclineDateProposal = onDeclineDateProposal
-                    )
+                    // 2. Partial Payment Entry Section (Up top for instant payment logging)
+                    if (!tx.isSettled) {
+                        PartialPaymentSection(
+                            summary = summary,
+                            tx = tx,
+                            onRecordPartialPayment = onRecordPartialPayment,
+                            onRecordCounterpartyPayment = onRecordCounterpartyPayment,
+                            onRecordPartialPaymentWithProof = onRecordPartialPaymentWithProof
+                        )
+                    }
 
-                    // Transaction Documents & Attachments Section
-                    TransactionAttachmentsSection(
-                        transactionId = tx.id,
-                        attachments = attachments,
-                        onAddAttachment = onAddAttachment,
-                        onOpenAttachmentViewer = onOpenAttachmentViewer
-                    )
-
-                    // Installment Plan & Repayment Schedule Section
+                    // 3. Installment Plan & Repayment Schedule Section
                     if (installmentPlan != null) {
                         if (installmentPlan.scheduleProposalStatus == "PENDING") {
                             Surface(
@@ -240,7 +231,7 @@ fun RecordDetailSheet(
                                 shape = MaterialTheme.shapes.medium,
                                 modifier = Modifier.fillMaxWidth().testTag("pending_schedule_proposal_card")
                             ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
+                                Column(modifier = Modifier.padding(10.dp)) {
                                     Text(
                                         text = stringResource(R.string.proposed_schedule_pending_banner),
                                         style = MaterialTheme.typography.bodyMedium,
@@ -248,7 +239,7 @@ fun RecordDetailSheet(
                                         color = MaterialTheme.colorScheme.onSecondaryContainer
                                     )
                                     Row(
-                                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                                         horizontalArrangement = Arrangement.End
                                     ) {
                                         TextButton(onClick = onDeclineProposedSchedule) {
@@ -281,40 +272,13 @@ fun RecordDetailSheet(
                             Icon(
                                 imageVector = Icons.Default.Schedule,
                                 contentDescription = null,
-                                modifier = Modifier.padding(end = 8.dp)
+                                modifier = Modifier.padding(end = 6.dp)
                             )
                             Text(stringResource(R.string.split_into_installments))
                         }
                     }
 
-                    // Partial Payment Entry Section (Only when not settled)
-                    if (!tx.isSettled) {
-                        PartialPaymentSection(
-                            summary = summary,
-                            tx = tx,
-                            onRecordPartialPayment = onRecordPartialPayment,
-                            onRecordCounterpartyPayment = onRecordCounterpartyPayment,
-                            onRecordPartialPaymentWithProof = onRecordPartialPaymentWithProof
-                        )
-                    }
-
-                    // Installment History List
-                    InstallmentHistorySection(
-                        tx = tx,
-                        partialPayments = partialPayments,
-                        attachmentsByPayment = attachmentsByPayment,
-                        onAcknowledgePartialPayment = onAcknowledgePartialPayment,
-                        onDeletePartialPayment = onDeletePartialPayment,
-                        onOpenAttachmentViewer = onOpenAttachmentViewer
-                    )
-
-                    // Verification details section (SHA-256 hash, cloud IDs, and Audit Trail)
-                    VerificationAuditTrailSection(
-                        tx = tx,
-                        auditTrail = auditTrail
-                    )
-
-                    // Quick Actions Row (WhatsApp + Thermal Receipt + UPI QR / Pay Party UPI), Chat, Mark Settled, Edit & Delete
+                    // 4. Compact Quick Actions Row (WhatsApp, Receipt, UPI QR, Chat, Mark Settled, Edit & Delete)
                     TransactionActionsSection(
                         summary = summary,
                         tx = tx,
@@ -335,6 +299,44 @@ fun RecordDetailSheet(
                                 confirmDelete = true
                             }
                         }
+                    )
+
+                    // 5. Two-Party Verification Card
+                    TransactionVerificationCard(
+                        summary = summary,
+                        tx = tx,
+                        onRequestVerification = onRequestVerification,
+                        onConfirmOrDisputeRecord = onConfirmOrDisputeRecord,
+                        onOpenWebShare = onOpenWebShare,
+                        onRevokeWebLink = onRevokeWebLink,
+                        onConfirmPaymentClaim = onConfirmPaymentClaim,
+                        onRejectPaymentClaim = onRejectPaymentClaim,
+                        onAcceptDateProposal = onAcceptDateProposal,
+                        onDeclineDateProposal = onDeclineDateProposal
+                    )
+
+                    // 6. Transaction Documents & Attachments Section
+                    TransactionAttachmentsSection(
+                        transactionId = tx.id,
+                        attachments = attachments,
+                        onAddAttachment = onAddAttachment,
+                        onOpenAttachmentViewer = onOpenAttachmentViewer
+                    )
+
+                    // 7. Installment History List
+                    InstallmentHistorySection(
+                        tx = tx,
+                        partialPayments = partialPayments,
+                        attachmentsByPayment = attachmentsByPayment,
+                        onAcknowledgePartialPayment = onAcknowledgePartialPayment,
+                        onDeletePartialPayment = onDeletePartialPayment,
+                        onOpenAttachmentViewer = onOpenAttachmentViewer
+                    )
+
+                    // 8. Verification details section (SHA-256 hash, cloud IDs, and Audit Trail)
+                    VerificationAuditTrailSection(
+                        tx = tx,
+                        auditTrail = auditTrail
                     )
                 }
             }

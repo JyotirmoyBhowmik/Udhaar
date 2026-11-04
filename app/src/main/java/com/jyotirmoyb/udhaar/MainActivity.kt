@@ -530,10 +530,10 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
     val currentNavDestination = remember(uiState.activeScreen, uiState.detailTransactionId) {
         val detailId = uiState.detailTransactionId
         when {
-            detailId != null -> UdhaarNavDestination.RecordDetail(detailId)
-            uiState.activeScreen == ActiveScreen.PARTY_DETAIL -> UdhaarNavDestination.PartyDetail
             uiState.activeScreen == ActiveScreen.ADD_EDIT -> UdhaarNavDestination.AddEdit
             uiState.activeScreen == ActiveScreen.SETTINGS -> UdhaarNavDestination.Settings
+            detailId != null -> UdhaarNavDestination.RecordDetail(detailId)
+            uiState.activeScreen == ActiveScreen.PARTY_DETAIL -> UdhaarNavDestination.PartyDetail
             uiState.activeScreen == ActiveScreen.PEOPLE_DIRECTORY -> UdhaarNavDestination.PeopleDirectory
             else -> UdhaarNavDestination.Home
         }
@@ -646,7 +646,8 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                                     onDismissCoachMarks = viewModel::dismissCoachMarks,
                                     onUndoAction = viewModel::performUndoAction,
                                     onDismissUndo = viewModel::dismissUndoSnackbar,
-                                    onOpenUpdatesScreen = viewModel::openUpdatesScreen
+                                    onOpenUpdatesScreen = viewModel::openUpdatesScreen,
+                                    onCreateGroupSplitTransactions = viewModel::saveGroupSplitTransactions
                                 )
                             }
                             is UdhaarNavDestination.PartyDetail -> {

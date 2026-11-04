@@ -3,6 +3,7 @@ package com.jyotirmoyb.udhaar.ui.sheets.detail
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -57,198 +58,223 @@ fun TransactionActionsSection(
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // In-App Transaction Chat & One-Tap Extension Button
-        Button(
-            onClick = onOpenTransactionChat,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
-                .pressScaleFeedback()
-                .testTag("detail_open_chat_button"),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
+        // Row 1: WhatsApp + Receipt + UPI QR / Pay Party UPI
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = if (unreadChatCount > 0) {
-                    stringResource(R.string.ui_fmt_open_transaction_chat_new_91bcd1, unreadChatCount)
-                } else {
-                    stringResource(R.string.ui_str_open_transaction_chat_extension_41a166)
-                },
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        // Quick Actions Row (WhatsApp + Thermal Receipt + UPI QR / Pay Party UPI)
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            OutlinedButton(
+                onClick = onOpenWhatsApp,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(40.dp)
+                    .pressScaleFeedback()
+                    .testTag("detail_whatsapp_button"),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
             ) {
-                OutlinedButton(
-                    onClick = onOpenWhatsApp,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .pressScaleFeedback()
-                        .testTag("detail_whatsapp_button"),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(stringResource(R.string.ui_str_whatsapp_5c39d5), style = MaterialTheme.typography.labelMedium)
-                }
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    stringResource(R.string.ui_str_whatsapp_5c39d5),
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
 
-                OutlinedButton(
-                    onClick = onShareReceipt,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .pressScaleFeedback()
-                        .testTag("detail_thermal_receipt_button"),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-                ) {
-                    Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(stringResource(R.string.ui_str_receipt_slip_1ccbe9), style = MaterialTheme.typography.labelMedium)
-                }
+            OutlinedButton(
+                onClick = onShareReceipt,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(40.dp)
+                    .pressScaleFeedback()
+                    .testTag("detail_thermal_receipt_button"),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+            ) {
+                Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    stringResource(R.string.ui_str_receipt_slip_1ccbe9),
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
 
             if (tx.currency == CurrencyType.INR && !tx.isSettled) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    if (tx.transactionType == TransactionType.GIVEN) {
-                        OutlinedButton(
-                            onClick = onOpenQr,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp)
-                                .pressScaleFeedback()
-                                .testTag("detail_upi_qr_button"),
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-                        ) {
-                            Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.ui_str_collect_via_my_upi_qr_c6b866), style = MaterialTheme.typography.labelMedium)
-                        }
-                    } else if (tx.transactionType == TransactionType.TAKEN) {
-                        val partyUpi = linkedParty?.upiId.orEmpty()
-                        OutlinedButton(
-                            onClick = {
-                                if (partyUpi.isNotBlank()) {
-                                    onPayPartyViaUpi(tx.partyName, partyUpi, summary.netBalanceDue)
-                                } else {
-                                    onOpenQr()
-                                }
+                if (tx.transactionType == TransactionType.GIVEN) {
+                    OutlinedButton(
+                        onClick = onOpenQr,
+                        modifier = Modifier
+                            .weight(1.1f)
+                            .height(40.dp)
+                            .pressScaleFeedback()
+                            .testTag("detail_upi_qr_button"),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                    ) {
+                        Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            stringResource(R.string.ui_str_collect_via_my_upi_qr_c6b866),
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                } else if (tx.transactionType == TransactionType.TAKEN) {
+                    val partyUpi = linkedParty?.upiId.orEmpty()
+                    OutlinedButton(
+                        onClick = {
+                            if (partyUpi.isNotBlank()) {
+                                onPayPartyViaUpi(tx.partyName, partyUpi, summary.netBalanceDue)
+                            } else {
+                                onOpenQr()
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1.1f)
+                            .height(40.dp)
+                            .pressScaleFeedback()
+                            .testTag("detail_pay_party_upi_button"),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                    ) {
+                        Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (partyUpi.isNotBlank()) {
+                                stringResource(R.string.ui_fmt_pay_via_upi_7718ac, tx.partyName.uppercase())
+                            } else {
+                                stringResource(R.string.ui_str_open_upi_qr_tool_2e9aa8)
                             },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp)
-                                .pressScaleFeedback()
-                                .testTag("detail_pay_party_upi_button"),
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-                        ) {
-                            Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (partyUpi.isNotBlank()) {
-                                    stringResource(R.string.ui_fmt_pay_via_upi_7718ac, tx.partyName.uppercase())
-                                } else {
-                                    stringResource(R.string.ui_str_open_upi_qr_tool_2e9aa8)
-                                },
-                                style = MaterialTheme.typography.labelMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }
         }
 
-        // Mark Settled / Re-open Button
-        Button(
-            onClick = onToggleSettled,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
-                .pressScaleFeedback()
-                .testTag("toggle_settled_button"),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (tx.isSettled) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary,
-                contentColor = if (tx.isSettled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary
-            ),
-            border = if (tx.isSettled) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
-        ) {
-            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = if (tx.isSettled) {
-                    stringResource(R.string.ui_str_re_open_ledger_entry_bd882c)
-                } else {
-                    stringResource(R.string.ui_str_mark_as_fully_settled_c262a2)
-                },
-                style = MaterialTheme.typography.labelLarge
-            )
-        }
-
-        // Edit & Delete Row
+        // Row 2: In-App Transaction Chat & Mark Settled / Re-open
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Button(
+                onClick = onOpenTransactionChat,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(40.dp)
+                    .pressScaleFeedback()
+                    .testTag("detail_open_chat_button"),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = if (unreadChatCount > 0) {
+                        stringResource(R.string.ui_fmt_open_transaction_chat_new_91bcd1, unreadChatCount)
+                    } else {
+                        stringResource(R.string.ui_str_open_transaction_chat_extension_41a166)
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Button(
+                onClick = onToggleSettled,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(40.dp)
+                    .pressScaleFeedback()
+                    .testTag("toggle_settled_button"),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (tx.isSettled) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = if (tx.isSettled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSecondaryContainer
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+            ) {
+                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = if (tx.isSettled) {
+                        stringResource(R.string.ui_str_re_open_ledger_entry_bd882c)
+                    } else {
+                        stringResource(R.string.ui_str_mark_as_fully_settled_c262a2)
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+
+        // Row 3: Edit & Delete Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             OutlinedButton(
                 onClick = onEdit,
                 modifier = Modifier
                     .weight(1f)
-                    .height(48.dp)
+                    .height(38.dp)
                     .pressScaleFeedback()
                     .testTag("edit_transaction_button"),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
-                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(stringResource(R.string.ui_str_edit_17865b), style = MaterialTheme.typography.labelMedium)
+                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(stringResource(R.string.ui_str_edit_17865b), style = MaterialTheme.typography.labelSmall)
             }
             OutlinedButton(
                 onClick = onDeleteClicked,
                 modifier = Modifier
                     .weight(1f)
-                    .height(48.dp)
+                    .height(38.dp)
                     .pressScaleFeedback()
                     .testTag("delete_transaction_button"),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
             ) {
                 Icon(
                     Icons.Default.DeleteOutline,
                     contentDescription = null,
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(14.dp),
                     tint = MaterialTheme.colorScheme.error
                 )
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = if (confirmDelete) {
                         stringResource(R.string.ui_str_tap_to_confirm_0fe819)
                     } else {
                         stringResource(R.string.ui_str_delete_d6f563)
                     },
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error
                 )
             }
