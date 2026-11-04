@@ -104,6 +104,7 @@ class UdhaarViewModel(
         ),
         verificationViewModel = VerificationViewModel(
             repository.verificationRepository,
+            repository.guestWebRepository,
             repository.paymentRepository,
             repository.settingsRepository,
             stateHolder
@@ -274,6 +275,10 @@ class UdhaarViewModel(
             showShareMyPaymentDetailsModal = vState.showShareMyPaymentDetailsModal,
             shareMyPaymentDetailsTargetParty = vState.shareMyPaymentDetailsTargetParty,
             requestPaymentDetailsParty = vState.requestPaymentDetailsParty,
+            webShareTransactionId = vState.webShareTransactionId,
+            webShareResult = vState.webShareResult,
+            isGeneratingWebLink = vState.isGeneratingWebLink,
+            showUpdatesScreen = vState.showUpdatesScreen,
             chatThreadsByKey = cState.chatThreadsByKey,
             chatMessagesByThreadKey = cState.chatMessagesByThreadKey,
             unreadCountByTx = cState.unreadCountByTx,
@@ -442,6 +447,40 @@ class UdhaarViewModel(
     fun closeSettingsModal() = settingsViewModel.closeSettingsModal()
     fun openShareAppModal() = settingsViewModel.openShareAppModal()
     fun closeShareAppModal() = settingsViewModel.closeShareAppModal()
+
+    val transactionsWithUpdates = verificationViewModel.transactionsWithUpdates
+
+    fun openWebShareModal(transactionId: Long) =
+        verificationViewModel.openWebShareModal(transactionId)
+    fun closeWebShareModal() =
+        verificationViewModel.closeWebShareModal()
+    fun generateWebLink(
+        transactionId: Long,
+        expiryDays: Int = 30,
+        trustLevel: String = "WHATSAPP_OTP",
+        allowNote: Boolean = true,
+        allowAttachments: Boolean = false,
+        showUpi: Boolean = true,
+        allowedActions: List<String> = listOf("view", "confirm", "dispute", "pay_claim", "propose_date", "set_upi", "show_pay_qr")
+    ) = verificationViewModel.generateWebLink(transactionId, expiryDays, trustLevel, allowNote, allowAttachments, showUpi, allowedActions)
+    fun revokeWebLink(transactionId: Long) =
+        verificationViewModel.revokeWebLink(transactionId)
+    fun openUpdatesScreen() =
+        verificationViewModel.openUpdatesScreen()
+    fun closeUpdatesScreen() =
+        verificationViewModel.closeUpdatesScreen()
+    fun confirmPaymentClaim(transactionId: Long) =
+        verificationViewModel.confirmPaymentClaim(transactionId)
+    fun rejectPaymentClaim(transactionId: Long, reason: String = "Not received") =
+        verificationViewModel.rejectPaymentClaim(transactionId, reason)
+    fun acceptDateProposal(transactionId: Long) =
+        verificationViewModel.acceptDateProposal(transactionId)
+    fun declineDateProposal(transactionId: Long, reason: String = "Declined") =
+        verificationViewModel.declineDateProposal(transactionId, reason)
+    fun suggestCounterDate(transactionId: Long, newDateMillis: Long) =
+        verificationViewModel.suggestCounterDate(transactionId, newDateMillis)
+    fun revokeAllWebLinks() =
+        verificationViewModel.revokeAllGuestLinks()
 
     fun requestVerificationForTransaction(transaction: UdhaarTransaction) =
         verificationViewModel.requestVerificationForTransaction(transaction)

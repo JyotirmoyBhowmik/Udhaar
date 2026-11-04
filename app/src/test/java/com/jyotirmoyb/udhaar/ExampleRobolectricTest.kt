@@ -634,14 +634,20 @@ class ExampleRobolectricTest {
         com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_6_7.migrate(v1Db)
         com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_7_8.migrate(v1Db)
         com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_8_9.migrate(v1Db)
+        com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_9_10.migrate(v1Db)
 
-        val cursor = v1Db.query("SELECT partyId, remoteId, verificationStatus, contentHash, remindersDisabled, snoozedUntilMillis, lastReminderSentMillis, lastReminderLevel FROM udhaar_transactions WHERE id = 1")
+        val cursor = v1Db.query("SELECT partyId, remoteId, verificationStatus, contentHash, remindersDisabled, snoozedUntilMillis, lastReminderSentMillis, lastReminderLevel, webLinkStatus, lastGuestAction, trustLevel, pendingPaymentClaim, pendingDateProposal FROM udhaar_transactions WHERE id = 1")
         assertTrue(cursor.moveToFirst())
         assertEquals("LOCAL_ONLY", cursor.getString(cursor.getColumnIndexOrThrow("verificationStatus")))
         assertEquals(0, cursor.getInt(cursor.getColumnIndexOrThrow("remindersDisabled")))
         assertTrue(cursor.isNull(cursor.getColumnIndexOrThrow("snoozedUntilMillis")))
         assertTrue(cursor.isNull(cursor.getColumnIndexOrThrow("lastReminderSentMillis")))
         assertEquals(0, cursor.getInt(cursor.getColumnIndexOrThrow("lastReminderLevel")))
+        assertEquals("", cursor.getString(cursor.getColumnIndexOrThrow("webLinkStatus")))
+        assertEquals("", cursor.getString(cursor.getColumnIndexOrThrow("lastGuestAction")))
+        assertEquals("", cursor.getString(cursor.getColumnIndexOrThrow("trustLevel")))
+        assertEquals("", cursor.getString(cursor.getColumnIndexOrThrow("pendingPaymentClaim")))
+        assertEquals("", cursor.getString(cursor.getColumnIndexOrThrow("pendingDateProposal")))
         cursor.close()
 
         // Check that new tables and columns exist

@@ -123,6 +123,8 @@ fun SettingsScreen(
     onRetryCloudBackup: () -> Unit = {},
     onOpenContactPicker: () -> Unit = {},
     onSaveReminderSettings: ((Boolean, Int, Int, Int, Int, Int) -> Unit)? = null,
+    onSaveWebLinkDefaults: ((defaultExpiryDays: Int, defaultTrustLevel: String, defaultShowUpi: Boolean) -> Unit)? = null,
+    onRevokeAllWebLinks: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     SecureScreenEffect(enabled = false)
@@ -523,7 +525,20 @@ fun SettingsScreen(
                     )
                 }
 
-                // 6. ABOUT
+                // 6. WEB VERIFICATION LINKS
+                item(key = "section_web_links") {
+                    com.jyotirmoyb.udhaar.ui.sheets.settings.WebLinkSettingsSection(
+                        settings = currentSettings,
+                        onSaveDefaults = { expiry, trust, upi ->
+                            onSaveWebLinkDefaults?.invoke(expiry, trust, upi)
+                        },
+                        onRevokeAllLinks = {
+                            onRevokeAllWebLinks?.invoke()
+                        }
+                    )
+                }
+
+                // 7. ABOUT
                 item(key = "section_about") {
                     AboutSection(
                         onOpenShareAppModal = onOpenShareAppModal

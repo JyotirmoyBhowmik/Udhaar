@@ -6,7 +6,20 @@ const {
 const { defineString } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https");
+const { getStorage } = require("firebase-admin/storage");
 const { getMessaging } = require("firebase-admin/messaging");
+const {
+  maskPhoneNumber,
+  maskUpiId,
+  getCoarseDeviceType,
+  computeContentHashServer,
+  writeAuditEntry,
+  writeInboxItem,
+  sendPushToCreator,
+  validateAndRateLimitWebLink,
+  verifyGuestPhoneOtp,
+} = require("./guestWebFlow");
 
 initializeApp();
 
@@ -306,3 +319,6 @@ exports.onPartialPaymentWrittenPush = onDocumentWritten(
     }
   }
 );
+
+// Guest Web Flow Endpoints (Stage W1)
+Object.assign(exports, require('./guestWebFlowEndpoints'));

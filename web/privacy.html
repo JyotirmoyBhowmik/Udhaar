@@ -67,12 +67,20 @@
       padding-top: 16px;
       border-top: 1px solid var(--hairline);
     }
+    h3 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin: 14px 0 6px;
+      color: #262626;
+    }
     p, li {
       font-size: 14px;
       color: #171717;
       margin-bottom: 10px;
     }
-    ul {
+    ul, ol {
       padding-left: 20px;
       margin-bottom: 12px;
     }
@@ -116,11 +124,11 @@
     <span class="badge">UDHAAR • PRIVACY &amp; DATA SAFETY</span>
     <h1>Privacy Policy &amp; Cloud Data Deletion</h1>
     <div class="meta">
-      Application: Udhaar (<code>com.jyotirmoyb.udhaar</code>) • Effective &amp; Updated: November 3, 2026 • Developer: Jyotirmoy Bhowmik
+      Application: Udhaar (<code>com.jyotirmoyb.udhaar</code>) • Effective &amp; Updated: November 4, 2026 (v16.0) • Developer: Jyotirmoy Bhowmik
     </div>
 
     <p>
-      <strong>Udhaar</strong> is an offline-first personal and party loan/ledger application. By default, 100% of your financial records, party profiles, and attachments remain strictly on your device inside an encrypted SQLCipher database. Cloud features (Encrypted Google Drive Backup and Counterparty Mutual Verification) are strictly opt-in.
+      <strong>Udhaar</strong> is an offline-first personal and party loan/ledger application. By default, 100% of your financial records, party profiles, and attachments remain strictly on your device inside an encrypted SQLCipher database. Cloud features (Encrypted Google Drive Backup, Counterparty Mutual Verification, and Guest Web Flow) are strictly opt-in.
     </p>
 
     <h2>1. On-Device Data &amp; Hardware Encryption</h2>
@@ -145,29 +153,75 @@
           <li><strong>Hidden App Data Isolation:</strong> Files in <code>appDataFolder</code> are strictly isolated to the Udhaar application and cannot be accessed by other Google Drive apps.</li>
         </ul>
       </li>
-      <li><strong>Mutual Record Verification &amp; Party Chat (Firebase Firestore &amp; FCM):</strong> When you sign in with Google and explicitly share a verification link (<code>https://udhaar.jyotirmoyb.com/u/...</code>) or message a counterparty, the shared transaction snapshot, verification status, chat messages, and Firebase Cloud Messaging (FCM) registration token are stored in Google Cloud Firestore with TLS encryption in transit and strict participant-only security rules.</li>
+      <li><strong>Mutual Record Verification &amp; Party Chat (Firebase Firestore &amp; FCM):</strong> When you sign in with Google and explicitly share a verification link or message a counterparty, the shared transaction snapshot, verification status, chat messages, and Firebase Cloud Messaging (FCM) registration token are stored in Google Cloud Firestore with TLS encryption in transit and strict participant-only security rules.</li>
     </ul>
 
-    <h2>4. Zero-PII Telemetry &amp; No Third-Party Ad Sharing</h2>
+    <h2>4. Guest Web Verification Portal (<code>/u/</code> &amp; Zero-Cost Verification)</h2>
+    <p>
+      Udhaar provides an accessible web portal at <code>https://udhaar.jyotirmoyb.com/u/</code> where counterparties can view and verify transaction records in a mobile-first browser interface without needing to install the Udhaar app or create an account.
+    </p>
+
+    <h3>What Web Guests See</h3>
+    <ul>
+      <li><strong>Transaction Core:</strong> Counterparty name, loan type (Given / Taken), principal amount in INR, transaction start date, and due date.</li>
+      <li><strong>Installments:</strong> If the transaction is split into scheduled installments, guests see paid vs. remaining progress and due dates.</li>
+      <li><strong>Private Note Controls:</strong> The creator’s private transaction note is <strong>hidden by default</strong> and is only displayed if the creator explicitly toggled <em>"Allow guest to view note"</em> when generating the link.</li>
+      <li><strong>PII Masking:</strong> Sensitive identifiers are strictly masked on the web page: phone numbers appear as <code>+91 98*** ***10</code> and UPI VPAs appear as <code>ra*** ***ar@okaxis</code>. The guest never has access to the creator’s full address book or other ledger records.</li>
+    </ul>
+
+    <h3>Zero-Cost WhatsApp Verification Code (No SMS Gateways)</h3>
+    <ul>
+      <li><strong>Cost-Free Authentication:</strong> Udhaar does not use costly third-party SMS gateways, carrier text fees, or Meta WhatsApp Cloud API charges.</li>
+      <li><strong>Cryptographic Fragment Secret:</strong> When a link is generated, the app produces a 24-byte random URL fragment secret (e.g., <code>https://udhaar.jyotirmoyb.com/u/r/RECORD_ID#SECRET</code>) and a 6-digit WhatsApp OTP.</li>
+      <li><strong>Client-Side Anchor Isolation:</strong> URL fragment anchors (<code>#SECRET</code>) are never transmitted to cloud servers in HTTP request headers. The guest's browser extracts the secret locally.</li>
+      <li><strong>SHA-256 Hash Storage:</strong> The Cloud Firestore database stores only the one-way <code>SHA-256</code> hash of the secret and OTP. Plaintext verification tokens are never stored on any server.</li>
+      <li><strong>Brute-Force Immunity:</strong> Constant-time hash comparison (<code>crypto.timingSafeEqual</code>) and automatic rate-limiting lockouts (maximum 5 failed OTP attempts per hour) prevent timing attacks and automated brute-force attempts.</li>
+    </ul>
+
+    <h3>Guest Actions &amp; Immutable Audit Logging</h3>
+    <ul>
+      <li><strong>Permitted Actions:</strong> Depending on permissions granted by the creator, guests can confirm terms, dispute with structured reasons, propose an alternative return date, submit a payment claim (with optional proof screenshot), or provide their repayment UPI ID.</li>
+      <li><strong>State Machine Integrity:</strong> The record creator is strictly blocked by both Firestore Security Rules and Cloud Functions backend logic from confirming their own record. Only the designated counterparty can confirm.</li>
+      <li><strong>Tamper-Proof Audit Trail:</strong> Every action appends an immutable entry to <code>/shared_records/{id}/audit/{eventId}</code> containing the event type, actor role (<code>"guest"</code> or <code>"creator"</code>), timestamp, and a cryptographic content hash snapshot. Neither party can alter past audit logs.</li>
+    </ul>
+
+    <h3>Zero Cookies &amp; No Third-Party Trackers</h3>
+    <ul>
+      <li>The guest portal contains <strong>no tracking cookies</strong>, no advertising SDKs, no Google Analytics, and no marketing beacons.</li>
+      <li>Browser storage (<code>localStorage</code> and <code>sessionStorage</code>) is used exclusively on the guest's device to persist UI theme (dark/light), selected language (English, Hindi, Bengali, Assamese, Nepali), and the active OTP verification session.</li>
+    </ul>
+
+    <h2>5. Zero-PII Telemetry &amp; No Third-Party Ad Sharing</h2>
     <p>
       Udhaar contains <strong>no advertising SDKs</strong> and never sells or shares your personal or financial data with marketers. Internal error handling redacts phone numbers, UPI IDs, names, currency amounts, tokens, and PINs.
     </p>
 
-    <h2 id="delete-data">5. How to Delete Your Cloud Data &amp; Google Drive Backups</h2>
+    <h2 id="delete-data">6. How to Delete Your Cloud Data, Links &amp; Backups</h2>
     <div class="callout">
       <div class="callout-title">1. Delete Google Drive Backups</div>
       <p style="margin-bottom:6px;">
-        You can permanently delete all encrypted ledger backups stored in your Google Drive at any time through either of the following methods:
+        You can permanently delete all encrypted ledger backups stored in your Google Drive at any time:
       </p>
       <ul style="padding-left:20px; font-size:14px; margin-bottom:8px;">
-        <li><strong>In-App Deletion (Instant):</strong> Open Udhaar &rarr; Tap <strong>Settings (Gear)</strong> &rarr; Scroll to <strong>Backup &amp; Sync</strong> &rarr; Tap <strong>Delete my Drive backups</strong> &rarr; Confirm <strong>Delete Permanently</strong>. This connects to Google Drive and permanently deletes every file inside the Udhaar <code>appDataFolder</code>.</li>
-        <li><strong>Via Google Drive Web Interface:</strong> Visit <a href="https://drive.google.com" target="_blank" rel="noopener">drive.google.com</a> &rarr; Click <strong>Settings (Gear icon)</strong> &rarr; Select <strong>Manage Apps</strong> &rarr; Find <strong>Udhaar</strong> &rarr; Click <strong>Options</strong> &rarr; Select <strong>Delete hidden app data</strong>.</li>
-        <li><strong>Revoke App Access:</strong> You can completely revoke Udhaar’s authorization at any time by visiting <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account Permissions</a> and removing Udhaar.</li>
+        <li><strong>In-App Deletion (Instant):</strong> Open Udhaar &rarr; Tap <strong>Settings (Gear)</strong> &rarr; Scroll to <strong>Backup &amp; Sync</strong> &rarr; Tap <strong>Delete my Drive backups</strong> &rarr; Confirm <strong>Delete Permanently</strong>.</li>
+        <li><strong>Via Google Drive Web Interface:</strong> Visit <a href="https://drive.google.com" target="_blank" rel="noopener">drive.google.com</a> &rarr; <strong>Settings &rarr; Manage Apps &rarr; Udhaar &rarr; Delete hidden app data</strong>.</li>
+        <li><strong>Revoke Google Access:</strong> Visit <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account Permissions</a> and remove Udhaar.</li>
       </ul>
 
-      <div class="callout-title" style="margin-top:14px;">2. Delete Counterparty Cloud Verification Records</div>
+      <div class="callout-title" style="margin-top:14px;">2. Revoke Web Links &amp; Delete Guest Attachments</div>
       <p style="margin-bottom:6px;">
-        To delete your cloud verification profile, shared link records, and mutual chat messages:
+        You maintain complete control over guest verification links:
+      </p>
+      <ul style="padding-left:20px; font-size:14px; margin-bottom:8px;">
+        <li><strong>Immediate Link Revocation:</strong> In the transaction verification card, tap <strong>Revoke Link</strong>. The link is instantly marked invalid and further access is blocked.</li>
+        <li><strong>Revoke All Active Links:</strong> Open <strong>Settings &rarr; Web Verification Links &rarr; Revoke All Active Web Links</strong>. This invalidates every shared link across all your records.</li>
+        <li><strong>Automated Expiration:</strong> Web links automatically expire after your chosen duration (7, 30, or 90 days), after which the portal is completely inaccessible.</li>
+        <li><strong>Purge Guest Proof Images:</strong> Payment proof photos uploaded by guests to Cloud Storage can be purged directly by the creator tapping <strong>Delete guest data</strong>, or via automated daily retention cleanup.</li>
+      </ul>
+
+      <div class="callout-title" style="margin-top:14px;">3. Delete Counterparty Cloud Verification Records</div>
+      <p style="margin-bottom:6px;">
+        To completely delete your cloud verification profile, shared link records, and mutual chat messages:
       </p>
       <ol style="padding-left:20px; font-size:14px;">
         <li>Open <strong>Udhaar</strong> &rarr; Tap <strong>Settings (Gear)</strong>.</li>
@@ -182,7 +236,7 @@
       If you have uninstalled the app and wish to request deletion of cloud verification records associated with your Google account email or phone number, email <a href="mailto:admin@jyotirmoyb.com?subject=Udhaar%20Cloud%20Data%20Deletion%20Request">admin@jyotirmoyb.com</a> from that email address and your cloud records will be purged within 48 hours.
     </p>
 
-    <h2>6. Contact &amp; Data Controller</h2>
+    <h2>7. Contact &amp; Data Controller</h2>
     <p>
       For privacy inquiries, security disclosures, or support, contact:<br />
       <strong>Jyotirmoy Bhowmik</strong> — <a href="mailto:admin@jyotirmoyb.com">admin@jyotirmoyb.com</a>

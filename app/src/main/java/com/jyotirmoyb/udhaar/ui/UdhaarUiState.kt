@@ -126,6 +126,11 @@ data class UdhaarUiState(
     val showShareMyPaymentDetailsModal: Boolean = false,
     val shareMyPaymentDetailsTargetParty: PartyEntity? = null,
     val requestPaymentDetailsParty: PartyEntity? = null,
+    // --- Stage W3: Guest Web Flow State ---
+    val webShareTransactionId: Long? = null,
+    val webShareResult: com.jyotirmoyb.udhaar.data.cloud.GuestWebLinkCreateResult? = null,
+    val isGeneratingWebLink: Boolean = false,
+    val showUpdatesScreen: Boolean = false,
     // --- Phase 4: In-App Communication State ---
     val chatThreadsByKey: Map<String, ChatThreadMetadata> = emptyMap(),
     val chatMessagesByThreadKey: Map<String, List<ChatMessageEntity>> = emptyMap(),

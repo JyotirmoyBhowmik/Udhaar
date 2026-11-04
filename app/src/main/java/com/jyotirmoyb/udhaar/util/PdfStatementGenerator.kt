@@ -177,7 +177,9 @@ object PdfStatementGenerator {
 
             if (tx.contentHash.isNotBlank()) {
                 val shortHash = tx.contentHash.take(16) + "…"
-                val verifyStr = "Status: ${tx.verificationStatus.label.uppercase()} • SHA-256: $shortHash"
+                val trustStr = if (tx.trustLevel.isNotBlank()) " • ${tx.trustLevel}" else ""
+                val webStr = if (tx.webLinkStatus.isNotBlank()) " • Web: ${tx.webLinkStatus}" else ""
+                val verifyStr = "Status: ${tx.verificationStatus.label.uppercase()}$trustStr$webStr • SHA-256: $shortHash"
                 canvas.drawText(verifyStr, MARGIN + 130f, y, subtextPaint)
                 y += 12f
             }

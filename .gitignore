@@ -24,3 +24,6 @@ firebase-applet-config.json
 .antigravity/
 .vscode/
 app/google-services.json
+
+node_modules/
+functions/node_modules/

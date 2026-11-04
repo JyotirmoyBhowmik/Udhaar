@@ -229,4 +229,14 @@ class SettingsViewModel @Inject constructor(
     fun lockApplicationNow() {
         appStateHolder.lockApplicationNow()
     }
+
+    fun updateWebLinkDefaults(
+        expiryDays: Int,
+        trustLevel: String,
+        showUpi: Boolean
+    ) {
+        viewModelScope.launch {
+            settingsRepository.updateWebLinkDefaults(expiryDays, trustLevel, showUpi)
+        }
+    }
 }

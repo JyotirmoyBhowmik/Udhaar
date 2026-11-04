@@ -206,7 +206,8 @@ fun DashboardScreen(
     onDismissUndo: () -> Unit = {},
     onSnoozeTransaction: (recordId: Long, days: Int) -> Unit = { _, _ -> },
     onStopTransactionReminders: (recordId: Long) -> Unit = {},
-    onEnableTransactionReminders: (recordId: Long) -> Unit = {}
+    onEnableTransactionReminders: (recordId: Long) -> Unit = {},
+    onOpenUpdatesScreen: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var pendingExtensionSummary by remember { mutableStateOf<CalculatedUdhaarSummary?>(null) }
@@ -496,19 +497,35 @@ fun DashboardScreen(
                         )
                     }
 
-                    IconButton(
-                        onClick = onSettingsClick,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .pressScaleFeedback()
-                            .testTag("open_settings_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Settings,
-                            contentDescription = stringResource(R.string.settings_title),
-                            tint = PureBlack,
-                            modifier = Modifier.size(26.dp)
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(
+                            onClick = onOpenUpdatesScreen,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .pressScaleFeedback()
+                                .testTag("open_inbox_updates_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = "Updates & Inbox",
+                                tint = PureBlack,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = onSettingsClick,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .pressScaleFeedback()
+                                .testTag("open_settings_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Settings,
+                                contentDescription = stringResource(R.string.settings_title),
+                                tint = PureBlack,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
                     }
                 }
 
@@ -1809,6 +1826,27 @@ internal fun TransactionCardItem(
                         summary = summary,
                         modifier = Modifier.testTag("tx_verification_badge_${tx.id}")
                     )
+
+                    if (tx.trustLevel.isNotBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFFE0F2FE),
+                            modifier = Modifier.testTag("tx_trust_badge_${tx.id}")
+                        ) {
+                            Text(
+                                text = when (tx.trustLevel) {
+                                    "WHATSAPP_OTP", "PHONE_VERIFIED" -> "WhatsApp Verified ✓"
+                                    "LINK_ONLY" -> "Link Only"
+                                    "APP_VERIFIED" -> "App Verified ✓"
+                                    else -> tx.trustLevel
+                                },
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF0369A1),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
 
                     if (unreadCount > 0) {
                         Box(

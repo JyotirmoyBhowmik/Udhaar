@@ -33,6 +33,7 @@ open class UdhaarRepository(
     val chatRepository: ChatRepository,
     val backupRepository: BackupRepository,
     val settingsRepository: SettingsRepository,
+    val guestWebRepository: com.jyotirmoyb.udhaar.data.repository.GuestWebRepository,
     private val dao: UdhaarDao
 ) {
     constructor(
@@ -94,6 +95,19 @@ open class UdhaarRepository(
             context = context
         ),
         settingsRepository = sharedSettingsRepository,
+        guestWebRepository = com.jyotirmoyb.udhaar.data.repository.GuestWebRepository(
+            dao = dao,
+            settingsRepository = sharedSettingsRepository,
+            paymentRepository = PaymentRepository(
+                dao = dao,
+                settingsRepository = sharedSettingsRepository,
+                cloudRepository = cloudRepositoryOverride,
+                installmentRepository = sharedInstallmentRepository
+            ),
+            installmentRepository = sharedInstallmentRepository,
+            guestWebCloudRepository = com.jyotirmoyb.udhaar.data.cloud.GuestWebCloudRepository(null, null, null),
+            context = context
+        ),
         dao = dao
     )
 

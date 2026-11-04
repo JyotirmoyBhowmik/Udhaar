@@ -121,6 +121,13 @@ service cloud.firestore {
              data.attachmentRefs is list && data.attachmentRefs.size() <= 5 &&
              (data.attachmentRefs.size() == 0 || (data.attachmentRefs[0] is string && data.attachmentRefs[0].size() <= 512)) &&
              data.isSettled is bool &&
+             (!('trustLevel' in data) || (data.trustLevel is string && data.trustLevel in ['LINK_ONLY', 'PHONE_VERIFIED', 'APP_VERIFIED'])) &&
+             (!('verifiedPhoneMasked' in data) || (data.verifiedPhoneMasked is string && data.verifiedPhoneMasked.size() <= 32)) &&
+             (!('webLinkStatus' in data) || (data.webLinkStatus is string && data.webLinkStatus.size() <= 32)) &&
+             (!('guestUpiId' in data) || (data.guestUpiId is string && data.guestUpiId.size() <= 100)) &&
+             (!('lastGuestAction' in data) || (data.lastGuestAction is string && data.lastGuestAction.size() <= 64)) &&
+             (!('pendingPaymentClaim' in data) || data.pendingPaymentClaim is bool) &&
+             (!('pendingDateProposal' in data) || data.pendingDateProposal is bool) &&
              data.createdAt is timestamp && data.createdAt <= request.time &&
              data.updatedAt is timestamp && data.updatedAt <= request.time;
     }
@@ -154,7 +161,10 @@ service cloud.firestore {
                          'startDateMillis', 'expiryDateMillis', 'contentHash',
                          'verificationStatus', 'verifiedAtMillis', 'disputeReason',
                          'encryptedNotes', 'attachmentRefs', 'isSettled',
-                         'createdAt', 'updatedAt'
+                         'createdAt', 'updatedAt',
+                         'trustLevel', 'verifiedPhoneMasked', 'webLinkStatus',
+                         'guestUpiId', 'lastGuestAction',
+                         'pendingPaymentClaim', 'pendingDateProposal'
                        ]) &&
                        isValidSharedRecord(incoming());
 
@@ -164,6 +174,23 @@ service cloud.firestore {
                        incoming().remoteId == existing().remoteId &&
                        incoming().creatorUid == existing().creatorUid &&
                        incoming().createdAt == existing().createdAt &&
+                       // Creator must NOT be able to confirm their own record
+                       (
+                         incoming().verificationStatus != 'CONFIRMED' ||
+                         (
+                           request.auth.uid != existing().creatorUid &&
+                           (request.auth.uid == existing().counterpartyUid || (existing().counterpartyUid == '' && incoming().counterpartyUid == request.auth.uid))
+                         )
+                       ) &&
+                       // If terms are modified, enforce EDITED_AFTER_CONFIRM status
+                       (
+                         !incoming().diff(existing()).affectedKeys().hasAny([
+                           'principalAmount', 'currency', 'isInterestEnabled', 'interestRate',
+                           'interestType', 'interestRatePeriod', 'compoundFrequency',
+                           'startDateMillis', 'expiryDateMillis'
+                         ]) ||
+                         incoming().verificationStatus == 'EDITED_AFTER_CONFIRM'
+                       ) &&
                        (
                          // Action 1: Counterparty claims an unclaimed record via verification link & confirms/disputes
                          (
@@ -175,7 +202,10 @@ service cloud.firestore {
                            request.auth.uid in incoming().participantUids &&
                            incoming().diff(existing()).affectedKeys().hasOnly([
                              'counterpartyUid', 'participantUids', 'verificationStatus',
-                             'verifiedAtMillis', 'disputeReason', 'updatedAt'
+                             'verifiedAtMillis', 'disputeReason', 'updatedAt',
+                             'trustLevel', 'verifiedPhoneMasked', 'webLinkStatus',
+                             'guestUpiId', 'lastGuestAction',
+                             'pendingPaymentClaim', 'pendingDateProposal'
                            ])
                          ) ||
                          // Action 2: Existing participant updates verification status, terms, extension due date, or settlement
@@ -190,7 +220,10 @@ service cloud.firestore {
                              'interestRatePeriod', 'compoundFrequency',
                              'startDateMillis', 'expiryDateMillis', 'contentHash',
                              'verificationStatus', 'verifiedAtMillis', 'disputeReason',
-                             'encryptedNotes', 'attachmentRefs', 'isSettled', 'updatedAt'
+                             'encryptedNotes', 'attachmentRefs', 'isSettled', 'updatedAt',
+                             'trustLevel', 'verifiedPhoneMasked', 'webLinkStatus',
+                             'guestUpiId', 'lastGuestAction',
+                             'pendingPaymentClaim', 'pendingDateProposal'
                            ])
                          )
                        );
@@ -310,6 +343,40 @@ service cloud.firestore {
 
         // Allow creator of event to delete only when exercising "Delete my cloud data"
         allow delete: if isSignedIn() && isValidId(remoteId) && isValidId(eventId) && existing().actorUid == request.auth.uid;
+      }
+
+      // =======================================================================
+      // Cloud Functions Admin SDK Audit Log
+      // =======================================================================
+      match /audit/{eventId} {
+        allow get, list: if isSignedIn() && isValidId(remoteId) && isValidId(eventId) && request.auth.uid in existing().participantUids;
+        allow write: if false;
+      }
+
+      // =======================================================================
+      // Guest Web Flow: Payment Claims (Written via Admin SDK / Webhook)
+      // =======================================================================
+      match /payment_claims/{claimId} {
+        allow get, list: if isSignedIn() && isValidId(remoteId) && isValidId(claimId) && request.auth.uid in existing().participantUids;
+        allow write: if false;
+      }
+
+      // =======================================================================
+      // Guest Web Flow: Date Proposals (Written via Admin SDK / Webhook)
+      // =======================================================================
+      match /date_proposals/{proposalId} {
+        allow get, list: if isSignedIn() && isValidId(remoteId) && isValidId(proposalId) && request.auth.uid in existing().participantUids;
+        allow write: if false;
+      }
+
+      // =======================================================================
+      // In-App Notification Inbox for Shared Record
+      // =======================================================================
+      match /inbox/{inboxId} {
+        allow get, list: if isSignedIn() && isValidId(remoteId) && isValidId(inboxId) && request.auth.uid in existing().participantUids;
+        allow update: if isSignedIn() && isValidId(remoteId) && isValidId(inboxId) && request.auth.uid in existing().participantUids && incoming().diff(existing()).affectedKeys().hasOnly(['isRead', 'readAtMillis', 'updatedAt']);
+        allow delete: if isSignedIn() && isValidId(remoteId) && isValidId(inboxId) && request.auth.uid in existing().participantUids;
+        allow create: if false;
       }
 
       // =======================================================================
@@ -623,6 +690,13 @@ service cloud.firestore {
 
         allow delete: if isSignedIn() && isValidId(threadId) && isValidId(messageId) && existing().senderUid == request.auth.uid;
       }
+    }
+
+    // =========================================================================
+    // 8. /webLinks/{recordId} — Secret Token Hashes & Rate Limiting (Admin SDK Only)
+    // =========================================================================
+    match /webLinks/{recordId} {
+      allow read, write: if false;
     }
   }
 }

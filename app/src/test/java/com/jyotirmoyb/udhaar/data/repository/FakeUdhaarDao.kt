@@ -140,6 +140,15 @@ class FakeUdhaarDao : UdhaarDao {
     override suspend fun getTransactionByRemoteId(remoteId: String): UdhaarTransaction? =
         txFlow.value.firstOrNull { it.remoteId == remoteId }
 
+    override fun getTransactionsWithGuestUpdates(): Flow<List<UdhaarTransaction>> =
+        txFlow.map { list ->
+            list.filter {
+                it.pendingPaymentClaim.isNotBlank() ||
+                it.pendingDateProposal.isNotBlank() ||
+                it.lastGuestAction.isNotBlank()
+            }
+        }
+
     override suspend fun insertTransaction(transaction: UdhaarTransaction): Long {
         val current = txFlow.value.toMutableList()
         val assignedId = if (transaction.id > 0L) transaction.id else txIdGen.getAndIncrement()

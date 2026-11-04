@@ -174,7 +174,13 @@ data class UdhaarTransaction(
     val shareToken: String = "",
     val disputeReason: String = "",
     val lenderName: String = "",
-    val borrowerName: String = ""
+    val borrowerName: String = "",
+    // --- Stage W3: Guest Web Flow & Verification Fields ---
+    val webLinkStatus: String = "",
+    val lastGuestAction: String = "",
+    val trustLevel: String = "",
+    val pendingPaymentClaim: String = "",
+    val pendingDateProposal: String = ""
 )
 
 @Entity(
@@ -503,7 +509,11 @@ data class UserSettings(
     val quietHoursEndHour: Int = 8,
     val reminderLevel1DaysBefore: Int = 3,
     val reminderLevel2MaxOverdueDays: Int = 7,
-    val reminderLevel3MaxOverdueDays: Int = 30
+    val reminderLevel3MaxOverdueDays: Int = 30,
+    // --- Stage W3: Web Link Defaults ---
+    val defaultWebLinkExpiryDays: Int = 30,
+    val defaultWebTrustLevel: String = "WHATSAPP_OTP",
+    val defaultWebShowUpi: Boolean = true
 ) {
     val driveAccountEmail: String get() = driveUserEmail
     val driveLastBackupMillis: Long get() = driveLastBackupTimeMillis
@@ -514,4 +524,48 @@ data class UserSettings(
             if (nprEnabled) add(CurrencyType.NPR)
             if (isEmpty()) add(CurrencyType.INR)
         }
+}
+
+data class GuestPaymentClaimData(
+    val amountPaise: Long = 0L,
+    val amountDouble: Double = 0.0,
+    val dateMillis: Long = 0L,
+    val paymentMode: PaymentMode = PaymentMode.UPI,
+    val reference: String = "",
+    val proofUrl: String = "",
+    val note: String = ""
+)
+
+data class GuestDateProposalData(
+    val proposedDateMillis: Long = 0L,
+    val message: String = ""
+)
+
+fun UdhaarTransaction.getParsedPaymentClaim(): GuestPaymentClaimData? {
+    if (pendingPaymentClaim.isBlank()) return null
+    return runCatching {
+        val json = org.json.JSONObject(pendingPaymentClaim)
+        val paise = json.optLong("amountPaise", 0L)
+        val amt = if (paise > 0L) paise / 100.0 else json.optDouble("amount", json.optDouble("amountDouble", 0.0))
+        GuestPaymentClaimData(
+            amountPaise = if (paise > 0L) paise else (amt * 100).toLong(),
+            amountDouble = amt,
+            dateMillis = json.optLong("dateMillis", System.currentTimeMillis()),
+            paymentMode = runCatching { PaymentMode.valueOf(json.optString("paymentMode", "UPI")) }.getOrDefault(PaymentMode.UPI),
+            reference = json.optString("reference", ""),
+            proofUrl = json.optString("proofUrl", ""),
+            note = json.optString("note", "")
+        )
+    }.getOrNull()
+}
+
+fun UdhaarTransaction.getParsedDateProposal(): GuestDateProposalData? {
+    if (pendingDateProposal.isBlank()) return null
+    return runCatching {
+        val json = org.json.JSONObject(pendingDateProposal)
+        GuestDateProposalData(
+            proposedDateMillis = json.optLong("proposedDateMillis", 0L),
+            message = json.optString("message", "")
+        )
+    }.getOrNull()
 }

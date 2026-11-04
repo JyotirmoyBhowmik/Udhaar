@@ -765,6 +765,63 @@
     <string name="installment_item_header_fmt">কিস্তি #%1$d • %2$s</string>
     <string name="installment_item_due_fmt">নির্দিষ্ট তারিখ: %1$s</string>
     <string name="installment_item_due_paid_fmt">নির্দিষ্ট তারিখ: %1$s • পরিশোধ: %2$s</string>
+
+    <!-- Stage W3 Guest Web Flow & Verification Strings -->
+    <string name="web_share_sheet_title">ওয়েব লিঙ্ক পাঠান</string>
+    <string name="inbox_updates_title">আপডেট ও ইনবক্স</string>
+    <string name="inbox_updates_subtitle">যাচাইকরণ, পেমেন্ট দাবি এবং ফেরত তারিখ পর্যালোচনা করুন</string>
+    <string name="inbox_all_caught_up">সব আপডেট সম্পন্ন</string>
+    <string name="inbox_no_pending_updates">আপনার ওয়েব লিঙ্ক থেকে কোনো অমীমাংসিত আপডেট নেই।</string>
+    <string name="trust_badge_whatsapp_verified">হোয়াটসঅ্যাপ যাচাইকৃত ✓</string>
+    <string name="trust_badge_link_only">শুধুমাত্র লিঙ্ক</string>
+    <string name="trust_badge_app_verified">অ্যাপ যাচাইকৃত ✓</string>
+
+    <!-- Additional Stage W3 Guest Web Flow & Verification Strings -->
+    <string name="btn_resend">Resend</string>
+    <string name="btn_revoke">Revoke</string>
+    <string name="btn_create_new_web_link">Create New Web Link</string>
+    <string name="btn_confirm_payment">Confirm Payment</string>
+    <string name="btn_not_received">Not Received</string>
+    <string name="btn_accept_date">Accept Date</string>
+    <string name="btn_accept">Accept</string>
+    <string name="btn_decline">Decline</string>
+    <string name="btn_suggest_date">Suggest Date</string>
+    <string name="btn_suggest">Suggest</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="btn_revoke_all">Revoke All</string>
+    <string name="btn_revoke_all_web_links">Revoke All Active Web Links</string>
+    <string name="dialog_revoke_all_web_links_title">Revoke All Web Links?</string>
+    <string name="dialog_revoke_all_web_links_msg">All previously shared web links will immediately stop working. Guests will not be able to view, confirm, or claim payments through old links.</string>
+    <string name="settings_web_link_upi_title">Show UPI QR on web page by default</string>
+    <string name="settings_web_link_upi_subtitle">Allows counterparty to pay via UPI QR code directly on the web page</string>
+    <string name="trust_level_whatsapp_otp">WhatsApp OTP (Zero-Cost)</string>
+    <string name="trust_level_link_only">Link Only</string>
+    <string name="web_share_show_note">Show Note / Purpose</string>
+    <string name="web_share_show_attachments">Show Attachments / Proofs</string>
+    <string name="web_share_show_upi">Show My UPI QR on Web Page</string>
+    <string name="web_share_action_confirm">Confirm</string>
+    <string name="web_share_action_dispute">Dispute</string>
+    <string name="web_share_action_pay_claim">I Have Paid</string>
+    <string name="web_share_action_propose_date">Propose Date</string>
+    <string name="web_share_generating">Generating Secure Link...</string>
+    <string name="web_share_create_btn">Create Web Link</string>
+    <string name="web_share_whatsapp_btn">Share via WhatsApp</string>
+    <string name="web_share_copy_btn">Copy Link &amp; Verification Code</string>
+    <string name="web_share_revoke_btn">Revoke Link</string>
+    <string name="inbox_proof_image_attached">Proof image attached</string>
+    <string name="inbox_view_record_detail">View Record Detail →</string>
+    <string name="days_count">%1$d Days</string>
+
+
+    <string name="btn_qr_app_link">QR / অ্যাপ লিংক</string>
+    <string name="settings_default_link_expiry">ডিফল্ট লিংক মেয়াদ</string>
+    <string name="settings_default_verification_method">ডিফল্ট যাচাইকরণ পদ্ধতি</string>
+    <string name="web_share_link_expiry">লিংক মেয়াদ</string>
+    <string name="web_share_verification_method">যাচাইকরণ পদ্ধতি</string>
+    <string name="web_share_allowed_details_actions">অনুমোদিত বিবরণ ও অ্যাকশন</string>
+    <string name="web_share_otp_code_title">হোয়াটসঅ্যাপ ওটিপি যাচাই কোড</string>
+    <string name="web_share_otp_code_subtitle">নিচের হোয়াটসঅ্যাপ বার্তায় স্বয়ংক্রিয়ভাবে অন্তর্ভুক্ত</string>
+
 </resources>
 
 

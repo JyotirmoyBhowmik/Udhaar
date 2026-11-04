@@ -765,6 +765,63 @@
     <string name="installment_item_header_fmt">किस्त #%1$d • %2$s</string>
     <string name="installment_item_due_fmt">नियत तारीख: %1$s</string>
     <string name="installment_item_due_paid_fmt">नियत तारीख: %1$s • भुगतान: %2$s</string>
+
+    <!-- Stage W3 Guest Web Flow & Verification Strings -->
+    <string name="web_share_sheet_title">वेब लिंक भेजें</string>
+    <string name="inbox_updates_title">अपडेट्स और इनबॉक्स</string>
+    <string name="inbox_updates_subtitle">सत्यापन, भुगतान के दावे और नई तारीखों की समीक्षा करें</string>
+    <string name="inbox_all_caught_up">सब कुछ अपडेट है</string>
+    <string name="inbox_no_pending_updates">वेब लिंक से कोई लंबित अपडेट या दावा नहीं है।</string>
+    <string name="trust_badge_whatsapp_verified">व्हाट्सएप सत्यापित ✓</string>
+    <string name="trust_badge_link_only">केवल लिंक</string>
+    <string name="trust_badge_app_verified">ऐप सत्यापित ✓</string>
+
+    <!-- Additional Stage W3 Guest Web Flow & Verification Strings -->
+    <string name="btn_resend">Resend</string>
+    <string name="btn_revoke">Revoke</string>
+    <string name="btn_create_new_web_link">Create New Web Link</string>
+    <string name="btn_confirm_payment">Confirm Payment</string>
+    <string name="btn_not_received">Not Received</string>
+    <string name="btn_accept_date">Accept Date</string>
+    <string name="btn_accept">Accept</string>
+    <string name="btn_decline">Decline</string>
+    <string name="btn_suggest_date">Suggest Date</string>
+    <string name="btn_suggest">Suggest</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="btn_revoke_all">Revoke All</string>
+    <string name="btn_revoke_all_web_links">Revoke All Active Web Links</string>
+    <string name="dialog_revoke_all_web_links_title">Revoke All Web Links?</string>
+    <string name="dialog_revoke_all_web_links_msg">All previously shared web links will immediately stop working. Guests will not be able to view, confirm, or claim payments through old links.</string>
+    <string name="settings_web_link_upi_title">Show UPI QR on web page by default</string>
+    <string name="settings_web_link_upi_subtitle">Allows counterparty to pay via UPI QR code directly on the web page</string>
+    <string name="trust_level_whatsapp_otp">WhatsApp OTP (Zero-Cost)</string>
+    <string name="trust_level_link_only">Link Only</string>
+    <string name="web_share_show_note">Show Note / Purpose</string>
+    <string name="web_share_show_attachments">Show Attachments / Proofs</string>
+    <string name="web_share_show_upi">Show My UPI QR on Web Page</string>
+    <string name="web_share_action_confirm">Confirm</string>
+    <string name="web_share_action_dispute">Dispute</string>
+    <string name="web_share_action_pay_claim">I Have Paid</string>
+    <string name="web_share_action_propose_date">Propose Date</string>
+    <string name="web_share_generating">Generating Secure Link...</string>
+    <string name="web_share_create_btn">Create Web Link</string>
+    <string name="web_share_whatsapp_btn">Share via WhatsApp</string>
+    <string name="web_share_copy_btn">Copy Link &amp; Verification Code</string>
+    <string name="web_share_revoke_btn">Revoke Link</string>
+    <string name="inbox_proof_image_attached">Proof image attached</string>
+    <string name="inbox_view_record_detail">View Record Detail →</string>
+    <string name="days_count">%1$d Days</string>
+
+
+    <string name="btn_qr_app_link">क्यूआर / ऐप लिंक</string>
+    <string name="settings_default_link_expiry">डिफ़ॉल्ट लिंक समाप्ति</string>
+    <string name="settings_default_verification_method">डिफ़ॉल्ट सत्यापन विधि</string>
+    <string name="web_share_link_expiry">लिंक समाप्ति</string>
+    <string name="web_share_verification_method">सत्यापन विधि</string>
+    <string name="web_share_allowed_details_actions">अनुमत विवरण और कार्रवाइयां</string>
+    <string name="web_share_otp_code_title">व्हाट्सएप ओटीपी सत्यापन कोड</string>
+    <string name="web_share_otp_code_subtitle">नीचे दिए गए व्हाट्सएप संदेश में स्वचालित रूप से शामिल</string>
+
 </resources>
 
 

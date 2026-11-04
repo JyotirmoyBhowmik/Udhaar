@@ -424,4 +424,21 @@ open class SettingsRepository(
             prefs[PrefKeys.DRIVE_AUTO_BACKUP_KEY_SAVED] = isKeySaved
         }
     }
+
+    suspend fun updateWebLinkDefaults(
+        expiryDays: Int,
+        trustLevel: String,
+        showUpi: Boolean
+    ) {
+        inMemorySettingsFallback.value = inMemorySettingsFallback.value.copy(
+            defaultWebLinkExpiryDays = expiryDays,
+            defaultWebTrustLevel = trustLevel,
+            defaultWebShowUpi = showUpi
+        )
+        context?.udhaarDataStore?.edit { prefs ->
+            prefs[PrefKeys.DEFAULT_WEB_LINK_EXPIRY] = expiryDays
+            prefs[PrefKeys.DEFAULT_WEB_TRUST_LEVEL] = trustLevel
+            prefs[PrefKeys.DEFAULT_WEB_SHOW_UPI] = showUpi
+        }
+    }
 }

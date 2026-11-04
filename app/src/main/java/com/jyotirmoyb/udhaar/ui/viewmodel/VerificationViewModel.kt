@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.jyotirmoyb.udhaar.data.PartialPayment
 import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
+import com.jyotirmoyb.udhaar.data.cloud.GuestWebLinkCreateResult
+import com.jyotirmoyb.udhaar.data.repository.GuestWebRepository
 import com.jyotirmoyb.udhaar.data.repository.PaymentRepository
 import com.jyotirmoyb.udhaar.data.repository.SettingsRepository
 import com.jyotirmoyb.udhaar.data.repository.VerificationRepository
@@ -15,13 +17,13 @@ import com.jyotirmoyb.udhaar.util.VerificationCryptoHelper
 import com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.SharedPaymentProfilePayload
 import com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.SharedVerificationPayload
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -33,12 +35,17 @@ data class VerificationUiState(
     val incomingPaymentProfileTargetPartyId: Long? = null,
     val showShareMyPaymentDetailsModal: Boolean = false,
     val shareMyPaymentDetailsTargetParty: PartyEntity? = null,
-    val requestPaymentDetailsParty: PartyEntity? = null
+    val requestPaymentDetailsParty: PartyEntity? = null,
+    val webShareTransactionId: Long? = null,
+    val webShareResult: GuestWebLinkCreateResult? = null,
+    val isGeneratingWebLink: Boolean = false,
+    val showUpdatesScreen: Boolean = false
 )
 
 @HiltViewModel
 class VerificationViewModel @Inject constructor(
     private val verificationRepository: VerificationRepository,
+    private val guestWebRepository: GuestWebRepository,
     private val paymentRepository: PaymentRepository,
     private val settingsRepository: SettingsRepository,
     private val appStateHolder: AppStateHolder
@@ -68,6 +75,21 @@ class VerificationViewModel @Inject constructor(
     private val _requestPaymentDetailsParty = MutableStateFlow<PartyEntity?>(null)
     val requestPaymentDetailsParty: StateFlow<PartyEntity?> = _requestPaymentDetailsParty.asStateFlow()
 
+    private val _webShareTransactionId = MutableStateFlow<Long?>(null)
+    val webShareTransactionId: StateFlow<Long?> = _webShareTransactionId.asStateFlow()
+
+    private val _webShareResult = MutableStateFlow<GuestWebLinkCreateResult?>(null)
+    val webShareResult: StateFlow<GuestWebLinkCreateResult?> = _webShareResult.asStateFlow()
+
+    private val _isGeneratingWebLink = MutableStateFlow(false)
+    val isGeneratingWebLink: StateFlow<Boolean> = _isGeneratingWebLink.asStateFlow()
+
+    private val _showUpdatesScreen = MutableStateFlow(false)
+    val showUpdatesScreen: StateFlow<Boolean> = _showUpdatesScreen.asStateFlow()
+
+    val transactionsWithUpdates: Flow<List<UdhaarTransaction>> =
+        guestWebRepository.getTransactionsWithGuestUpdates()
+
     val uiState: StateFlow<VerificationUiState> = combine(
         combine(
             _verificationShareTransactionId,
@@ -84,8 +106,16 @@ class VerificationViewModel @Inject constructor(
             _requestPaymentDetailsParty
         ) { showShare, shareTarget, reqParty ->
             SecondHalf(showShare, shareTarget, reqParty)
+        },
+        combine(
+            _webShareTransactionId,
+            _webShareResult,
+            _isGeneratingWebLink,
+            _showUpdatesScreen
+        ) { webTxId, webRes, isGen, showUpd ->
+            ThirdHalf(webTxId, webRes, isGen, showUpd)
         }
-    ) { first, second ->
+    ) { first, second, third ->
         VerificationUiState(
             verificationShareTransactionId = first.shareTxId,
             verificationShareLink = first.shareLink,
@@ -94,7 +124,11 @@ class VerificationViewModel @Inject constructor(
             incomingPaymentProfileTargetPartyId = first.targetPartyId,
             showShareMyPaymentDetailsModal = second.showShare,
             shareMyPaymentDetailsTargetParty = second.shareTarget,
-            requestPaymentDetailsParty = second.reqParty
+            requestPaymentDetailsParty = second.reqParty,
+            webShareTransactionId = third.webTxId,
+            webShareResult = third.webRes,
+            isGeneratingWebLink = third.isGen,
+            showUpdatesScreen = third.showUpd
         )
     }.stateIn(
         scope = viewModelScope,
@@ -116,6 +150,13 @@ class VerificationViewModel @Inject constructor(
         val reqParty: PartyEntity?
     )
 
+    private data class ThirdHalf(
+        val webTxId: Long?,
+        val webRes: GuestWebLinkCreateResult?,
+        val isGen: Boolean,
+        val showUpd: Boolean
+    )
+
     fun requestVerificationForTransaction(transaction: UdhaarTransaction) {
         viewModelScope.launch {
             val (updatedTx, link) = verificationRepository.prepareVerificationShare(transaction)
@@ -129,10 +170,110 @@ class VerificationViewModel @Inject constructor(
         _verificationShareLink.value = null
     }
 
+    fun openWebShareModal(transactionId: Long) {
+        _webShareTransactionId.value = transactionId
+        _webShareResult.value = null
+    }
+
+    fun closeWebShareModal() {
+        _webShareTransactionId.value = null
+        _webShareResult.value = null
+    }
+
+    fun generateWebLink(
+        transactionId: Long,
+        expiryDays: Int = 30,
+        trustLevel: String = "WHATSAPP_OTP",
+        allowNote: Boolean = true,
+        allowAttachments: Boolean = false,
+        showUpi: Boolean = true,
+        allowedActions: List<String> = listOf("view", "confirm", "dispute", "pay_claim", "propose_date", "set_upi", "show_pay_qr")
+    ) {
+        viewModelScope.launch {
+            _isGeneratingWebLink.value = true
+            try {
+                val result = guestWebRepository.createGuestWebLink(
+                    transactionId = transactionId,
+                    expiryDays = expiryDays,
+                    trustLevelRequired = trustLevel,
+                    allowNote = allowNote,
+                    allowAttachments = allowAttachments,
+                    showUpiQr = showUpi,
+                    allowedActions = allowedActions
+                )
+                _webShareResult.value = result
+            } finally {
+                _isGeneratingWebLink.value = false
+            }
+        }
+    }
+
+    fun revokeWebLink(transactionId: Long) {
+        viewModelScope.launch {
+            guestWebRepository.revokeGuestWebLink(transactionId)
+            _webShareResult.value = null
+        }
+    }
+
+    fun openUpdatesScreen() {
+        _showUpdatesScreen.value = true
+    }
+
+    fun closeUpdatesScreen() {
+        _showUpdatesScreen.value = false
+    }
+
+    fun confirmPaymentClaim(transactionId: Long) {
+        viewModelScope.launch {
+            val ok = guestWebRepository.acceptPaymentClaim(transactionId)
+            if (ok) {
+                appStateHolder.setSuccessAnimation(SuccessAnimationEvent(message = "Payment confirmed"))
+            }
+        }
+    }
+
+    fun rejectPaymentClaim(transactionId: Long, reason: String = "Not received") {
+        viewModelScope.launch {
+            guestWebRepository.rejectPaymentClaim(transactionId, reason)
+        }
+    }
+
+    fun acceptDateProposal(transactionId: Long) {
+        viewModelScope.launch {
+            val ok = guestWebRepository.acceptDateProposal(transactionId)
+            if (ok) {
+                appStateHolder.setSuccessAnimation(SuccessAnimationEvent(message = "Due date updated"))
+            }
+        }
+    }
+
+    fun declineDateProposal(transactionId: Long, reason: String = "Declined") {
+        viewModelScope.launch {
+            guestWebRepository.declineDateProposal(transactionId, reason)
+        }
+    }
+
+    fun suggestCounterDate(transactionId: Long, counterDateMillis: Long) {
+        viewModelScope.launch {
+            guestWebRepository.declineDateProposal(transactionId, "Counter proposed")
+            // Optionally update notes or send suggestion
+        }
+    }
+
     fun handleIncomingDeepLinkOrToken(
         urlOrToken: String,
         targetPartyId: Long? = null
     ): Boolean {
+        // 1. Check for guest web link: https://udhaar.jyotirmoyb.com/u/r/<recordId>#<secret>
+        val guestLinkData = VerificationCryptoHelper.parseGuestWebLink(urlOrToken)
+        if (guestLinkData != null) {
+            viewModelScope.launch {
+                guestWebRepository.claimGuestActions(guestLinkData.recordId, guestLinkData.secret)
+            }
+            return true
+        }
+
+        // 2. Check for payment profile link
         val profilePayload = VerificationCryptoHelper.parsePaymentProfileLink(urlOrToken)
         if (profilePayload != null) {
             _incomingPaymentProfilePayload.value = profilePayload
@@ -140,6 +281,7 @@ class VerificationViewModel @Inject constructor(
             return true
         }
 
+        // 3. Check for standard verification link
         val verificationPayload = VerificationCryptoHelper.parseVerificationLink(urlOrToken)
         if (verificationPayload != null) {
             _incomingVerificationPayload.value = verificationPayload
@@ -248,6 +390,13 @@ class VerificationViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             settingsRepository.setCloudAccountState(consentGranted, userId, email)
+        }
+    }
+
+    fun revokeAllGuestLinks() {
+        viewModelScope.launch {
+            val count = guestWebRepository.revokeAllGuestLinks()
+            appStateHolder.setSuccessAnimation(SuccessAnimationEvent(message = "Revoked $count active links"))
         }
     }
 }

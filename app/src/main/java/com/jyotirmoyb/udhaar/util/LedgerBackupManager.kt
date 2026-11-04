@@ -121,6 +121,11 @@ object LedgerBackupManager {
                 put("disputeReason", tx.disputeReason)
                 put("lenderName", tx.lenderName)
                 put("borrowerName", tx.borrowerName)
+                put("webLinkStatus", tx.webLinkStatus)
+                put("lastGuestAction", tx.lastGuestAction)
+                put("trustLevel", tx.trustLevel)
+                put("pendingPaymentClaim", tx.pendingPaymentClaim)
+                put("pendingDateProposal", tx.pendingDateProposal)
             }
             txArray.put(obj)
         }
@@ -374,7 +379,12 @@ object LedgerBackupManager {
                     shareToken = obj.optString("shareToken", ""),
                     disputeReason = obj.optString("disputeReason", ""),
                     lenderName = obj.optString("lenderName", ""),
-                    borrowerName = obj.optString("borrowerName", "")
+                    borrowerName = obj.optString("borrowerName", ""),
+                    webLinkStatus = obj.optString("webLinkStatus", ""),
+                    lastGuestAction = obj.optString("lastGuestAction", ""),
+                    trustLevel = obj.optString("trustLevel", ""),
+                    pendingPaymentClaim = obj.optString("pendingPaymentClaim", ""),
+                    pendingDateProposal = obj.optString("pendingDateProposal", "")
                 )
             )
         }

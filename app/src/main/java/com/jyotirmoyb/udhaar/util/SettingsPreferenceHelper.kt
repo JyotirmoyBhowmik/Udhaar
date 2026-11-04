@@ -53,6 +53,9 @@ object SettingsPreferenceHelper {
         val REMINDER_L1_DAYS_BEFORE = intPreferencesKey("reminder_l1_days_before")
         val REMINDER_L2_MAX_OVERDUE = intPreferencesKey("reminder_l2_max_overdue")
         val REMINDER_L3_MAX_OVERDUE = intPreferencesKey("reminder_l3_max_overdue")
+        val DEFAULT_WEB_LINK_EXPIRY = intPreferencesKey("default_web_link_expiry_days")
+        val DEFAULT_WEB_TRUST_LEVEL = stringPreferencesKey("default_web_trust_level")
+        val DEFAULT_WEB_SHOW_UPI = booleanPreferencesKey("default_web_show_upi")
     }
 
     fun mapPreferencesToUserSettings(
@@ -137,7 +140,10 @@ object SettingsPreferenceHelper {
             quietHoursEndHour = prefs[PrefKeys.QUIET_HOURS_END_HOUR] ?: 8,
             reminderLevel1DaysBefore = prefs[PrefKeys.REMINDER_L1_DAYS_BEFORE] ?: 3,
             reminderLevel2MaxOverdueDays = prefs[PrefKeys.REMINDER_L2_MAX_OVERDUE] ?: 7,
-            reminderLevel3MaxOverdueDays = prefs[PrefKeys.REMINDER_L3_MAX_OVERDUE] ?: 30
+            reminderLevel3MaxOverdueDays = prefs[PrefKeys.REMINDER_L3_MAX_OVERDUE] ?: 30,
+            defaultWebLinkExpiryDays = prefs[PrefKeys.DEFAULT_WEB_LINK_EXPIRY] ?: 30,
+            defaultWebTrustLevel = prefs[PrefKeys.DEFAULT_WEB_TRUST_LEVEL] ?: "WHATSAPP_OTP",
+            defaultWebShowUpi = prefs[PrefKeys.DEFAULT_WEB_SHOW_UPI] ?: true
         )
     }
 }

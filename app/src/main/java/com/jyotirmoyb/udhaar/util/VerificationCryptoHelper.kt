@@ -31,6 +31,12 @@ object VerificationCryptoHelper {
     const val VERIFICATION_URL_PREFIX = "https://udhaar.jyotirmoyb.com/u/"
     const val PROFILE_URL_PREFIX = "https://udhaar.jyotirmoyb.com/u/p/"
 
+    fun generateShareToken(): String {
+        val randomBytes = ByteArray(24)
+        SecureRandom().nextBytes(randomBytes)
+        return base64UrlEncode(randomBytes)
+    }
+
     private fun base64UrlEncode(bytes: ByteArray): String {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
     }
@@ -237,6 +243,11 @@ object VerificationCryptoHelper {
         val photoUrl: String = ""
     )
 
+    data class GuestWebLinkData(
+        val recordId: String,
+        val secret: String
+    )
+
     /**
      * Generates a verification URL (`https://udhaar.jyotirmoyb.com/u/<token>`) that acts both as an Android App Link
      * and a web fallback URL, embedding the signed verification envelope so it works seamlessly online or offline.
@@ -313,6 +324,32 @@ object VerificationCryptoHelper {
             SafeLogger.w("VerificationCrypto", "Failed to parse verification link", e)
             null
         }
+    }
+
+    /**
+     * Parses a guest web link of format: https://udhaar.jyotirmoyb.com/u/r/<recordId>#<secret>
+     * Extracts recordId from the path and the 128-bit secret from the URL fragment.
+     */
+    fun parseGuestWebLink(input: String): GuestWebLinkData? {
+        val trimmed = input.trim()
+        if (!trimmed.contains("/u/r/")) return null
+        val afterPrefix = trimmed.substringAfter("/u/r/")
+        val recordId = afterPrefix.substringBefore("#").substringBefore("?").substringBefore("/").trim()
+        val secret = if (trimmed.contains("#")) {
+            trimmed.substringAfter("#").substringBefore("?").trim()
+        } else {
+            ""
+        }
+        if (recordId.isBlank()) return null
+        return GuestWebLinkData(recordId = recordId, secret = secret)
+    }
+
+    /**
+     * Constructs a guest web link with random base64url 128-bit secret in the fragment:
+     * https://udhaar.jyotirmoyb.com/u/r/<recordId>#<secret>
+     */
+    fun buildGuestWebLink(recordId: String, secret: String): String {
+        return "https://udhaar.jyotirmoyb.com/u/r/$recordId#$secret"
     }
 
     /**

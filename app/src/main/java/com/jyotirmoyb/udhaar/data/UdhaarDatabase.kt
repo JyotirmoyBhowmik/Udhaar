@@ -143,7 +143,7 @@ class UdhaarTypeConverters {
         InstallmentPlan::class,
         Installment::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 @TypeConverters(UdhaarTypeConverters::class)
@@ -515,6 +515,16 @@ abstract class UdhaarDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `udhaar_transactions` ADD COLUMN `webLinkStatus` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `udhaar_transactions` ADD COLUMN `lastGuestAction` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `udhaar_transactions` ADD COLUMN `trustLevel` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `udhaar_transactions` ADD COLUMN `pendingPaymentClaim` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `udhaar_transactions` ADD COLUMN `pendingDateProposal` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         val ALL_MIGRATIONS: Array<Migration> = arrayOf(
             MIGRATION_1_2,
             MIGRATION_2_3,
@@ -523,7 +533,8 @@ abstract class UdhaarDatabase : RoomDatabase() {
             MIGRATION_5_6,
             MIGRATION_6_7,
             MIGRATION_7_8,
-            MIGRATION_8_9
+            MIGRATION_8_9,
+            MIGRATION_9_10
         )
 
         @Volatile

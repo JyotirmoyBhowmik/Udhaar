@@ -2,465 +2,1573 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Udhaar — Two-Party Record Verification</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <meta name="theme-color" content="#064e3b" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Udhaar — Record Verification</title>
+  <link rel="icon" type="image/png" href="../assets/hero-3d-phone.png" />
+  <script src="../assets/qrcode.min.js"></script>
+
   <style>
     :root {
-      --bg: #f3f7f5;
-      --card: #ffffff;
-      --ink: #0e3828;
-      --muted: #5d7a6e;
-      --border: #cbdad3;
-      --green-bg: #a2d6be;
-      --green-ink: #0b3625;
-      --red-bg: #f89894;
-      --red-ink: #5a1513;
-      --accent: #369668;
+      --emerald-900: #064e3b;
+      --emerald-800: #065f46;
+      --emerald-700: #047857;
+      --emerald-600: #059669;
+      --emerald-500: #10b981;
+      --emerald-100: #d1fae5;
+      --emerald-50: #ecfdf5;
+      --slate-900: #0f172a;
+      --slate-800: #1e293b;
+      --slate-700: #334155;
+      --slate-500: #64748b;
+      --slate-400: #94a3b8;
+      --slate-200: #e2e8f0;
+      --slate-100: #f1f5f9;
+      --slate-50: #f8fafc;
+      --red-600: #dc2626;
+      --red-100: #fee2e2;
+      --red-50: #fef2f2;
+      --amber-600: #d97706;
+      --amber-100: #fef3c7;
+      --amber-50: #fffbeb;
+
+      --card-bg: #ffffff;
+      --body-bg: #f8fafc;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
     }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --card-bg: #1e293b;
+        --body-bg: #0f172a;
+        --text-main: #f8fafc;
+        --text-muted: #94a3b8;
+        --border-color: #334155;
+        --slate-50: #1e293b;
+        --slate-100: #334155;
+        --emerald-50: #064e3b;
+        --emerald-100: #065f46;
+        --amber-50: #78350f;
+        --amber-100: #b45309;
+        --red-50: #7f1d1d;
+        --red-100: #991b1b;
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --card-bg: #1e293b;
+      --body-bg: #0f172a;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-color: #334155;
+      --slate-50: #1e293b;
+      --slate-100: #334155;
+      --emerald-50: #064e3b;
+      --emerald-100: #065f46;
+      --amber-50: #78350f;
+      --amber-100: #b45309;
+      --red-50: #7f1d1d;
+      --red-100: #991b1b;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", sans-serif;
+      background: var(--body-bg);
+      color: var(--text-main);
       min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 12px 40px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app-wrapper {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Header & Controls */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 4px 12px;
+    }
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      color: var(--emerald-600);
+      text-decoration: none;
+    }
+    .brand-logo span {
+      background: var(--emerald-600);
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+    }
+    .top-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .lang-select, .theme-btn {
+      padding: 6px 10px;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      color: var(--text-main);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      min-height: 38px;
+    }
+    .theme-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      min-width: 38px;
     }
-    .container {
-      width: 100%;
-      max-width: 460px;
-      background: var(--card);
-      border: 1.5px solid var(--border);
-      border-radius: 24px;
-      padding: 24px;
-      box-shadow: 0 12px 32px rgba(14, 56, 40, 0.08);
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 22px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
     }
-    .brand {
+
+    /* Badges */
+    .badge-bar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 16px;
-    }
-    .brand h1 {
-      font-size: 22px;
-      letter-spacing: 0.04em;
-      font-weight: 800;
+      flex-wrap: wrap;
+      gap: 8px;
     }
     .badge {
-      font-size: 11px;
-      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
       padding: 4px 10px;
       border-radius: 999px;
-      background: var(--green-bg);
-      color: var(--green-ink);
+      white-space: nowrap;
     }
-    .amount-box {
-      background: #eaf2ee;
-      border-radius: 16px;
-      padding: 18px;
-      margin-bottom: 16px;
+    .badge-green { background: var(--emerald-100); color: var(--emerald-900); }
+    .badge-amber { background: var(--amber-100); color: var(--amber-600); }
+    .badge-red { background: var(--red-100); color: var(--red-600); }
+    .badge-slate { background: var(--slate-100); color: var(--slate-700); }
+
+    /* Amount Box */
+    .amount-display {
+      background: var(--emerald-50);
+      border: 1px solid var(--emerald-100);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      text-align: center;
     }
-    .amount-label {
-      font-size: 12px;
-      color: var(--muted);
+    .amount-subtext {
+      font-size: 13px;
+      color: var(--text-muted);
       margin-bottom: 4px;
     }
-    .amount-value {
-      font-family: "IBM Plex Mono", ui-monospace, monospace;
-      font-size: 30px;
-      font-weight: 700;
-      color: var(--ink);
+    .amount-number {
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--emerald-900);
+      letter-spacing: -0.02em;
     }
-    .row {
+    .amount-sentence {
+      margin-top: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    /* Data rows */
+    .data-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border-top: 1px solid var(--border-color);
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 0;
+    }
+    .data-row {
       display: flex;
       justify-content: space-between;
-      padding: 10px 0;
-      border-bottom: 1px solid var(--border);
       font-size: 14px;
       gap: 12px;
     }
-    .row span:first-child { color: var(--muted); flex-shrink: 0; }
-    .row span:last-child { font-weight: 600; text-align: right; word-break: break-word; }
-    .hash-box {
-      margin-top: 14px;
-      padding: 10px 12px;
-      background: #f8faf9;
-      border: 1px dashed var(--border);
-      border-radius: 12px;
-      font-family: ui-monospace, monospace;
-      font-size: 11px;
-      color: var(--muted);
-      word-break: break-all;
+    .data-label { color: var(--text-muted); flex-shrink: 0; }
+    .data-value { font-weight: 600; text-align: right; word-break: break-word; }
+
+    /* Installment Progress */
+    .progress-box {
+      background: var(--slate-50);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
-    .privacy-note {
-      margin-top: 10px;
-      font-size: 11px;
-      color: var(--muted);
-      line-height: 1.4;
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 600;
     }
-    .actions {
+    .progress-bar-bg {
+      height: 8px;
+      background: var(--slate-200);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--emerald-500);
+      border-radius: 999px;
+      transition: width 0.3s ease;
+    }
+
+    /* Buttons */
+    .btn {
+      width: 100%;
+      min-height: 48px;
+      padding: 12px 20px;
+      border-radius: var(--radius-md);
+      font-size: 15px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      transition: transform 0.1s ease, background 0.15s ease;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary { background: var(--emerald-600); color: #fff; }
+    .btn-primary:hover { background: var(--emerald-700); }
+    .btn-danger { background: var(--red-50); color: var(--red-600); border: 1px solid var(--red-100); }
+    .btn-danger:hover { background: var(--red-100); }
+    .btn-secondary { background: var(--slate-100); color: var(--text-main); border: 1px solid var(--border-color); }
+    .btn-secondary:hover { background: var(--slate-200); }
+    .btn-outline { background: transparent; color: var(--emerald-600); border: 1.5px solid var(--emerald-600); }
+
+    /* Button Grid for Success Screen */
+    .action-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
-      margin-top: 20px;
+      margin-top: 8px;
     }
-    button, .btn-link {
-      appearance: none;
-      border: none;
-      border-radius: 12px;
-      padding: 13px 16px;
-      font-size: 14px;
-      font-weight: 700;
+    .action-card-btn {
+      padding: 14px 10px;
+      background: var(--slate-50);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
       cursor: pointer;
       text-align: center;
-      text-decoration: none;
-      transition: transform 0.15s ease;
-    }
-    button:active, .btn-link:active { transform: scale(0.96); }
-    .btn-confirm {
-      background: var(--ink);
-      color: #ffffff;
-    }
-    .btn-dispute {
-      background: var(--red-bg);
-      color: var(--red-ink);
-    }
-    .btn-install {
-      grid-column: 1 / -1;
-      background: var(--accent);
-      color: #ffffff;
-      margin-top: 4px;
-      display: block;
-    }
-    .status-banner {
-      display: none;
-      margin-top: 14px;
-      padding: 12px;
-      border-radius: 12px;
       font-size: 13px;
       font-weight: 600;
+      color: var(--text-main);
+      text-decoration: none;
+      min-height: 84px;
+      justify-content: center;
+    }
+    .action-card-btn:hover { background: var(--emerald-50); border-color: var(--emerald-500); }
+    .action-card-btn svg { width: 24px; height: 24px; color: var(--emerald-600); }
+
+    /* Modal / Sheets */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 1000;
+      padding: 0;
+      visibility: hidden;
+      opacity: 0;
+      transition: opacity 0.2s ease, visibility 0.2s;
+    }
+    .modal-overlay.active {
+      visibility: visible;
+      opacity: 1;
+    }
+    .sheet-card {
+      background: var(--card-bg);
+      width: 100%;
+      max-width: 480px;
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      padding: 24px;
+      max-height: 90vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      transform: translateY(100%);
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .modal-overlay.active .sheet-card {
+      transform: translateY(0);
+    }
+    .sheet-handle {
+      width: 40px;
+      height: 4px;
+      background: var(--slate-300);
+      border-radius: 999px;
+      align-self: center;
+      margin-bottom: 4px;
+    }
+    .sheet-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .sheet-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .close-btn {
+      background: transparent;
+      border: none;
+      font-size: 22px;
+      cursor: pointer;
+      color: var(--text-muted);
+      padding: 4px;
+    }
+
+    /* Forms */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      min-height: 46px;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-color);
+      background: var(--card-bg);
+      color: var(--text-main);
+      font-size: 14px;
+    }
+    .form-textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+    .chips-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .chip {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--slate-100);
+      border: 1px solid var(--border-color);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .chip.selected {
+      background: var(--emerald-600);
+      color: #fff;
+      border-color: var(--emerald-600);
+    }
+
+    /* WhatsApp OTP UI */
+    .wa-banner {
+      background: #e7f7ed;
+      border: 1px solid #b6e9c9;
+      color: #0b5e28;
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .otp-inputs {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin: 12px 0;
+    }
+    .otp-box {
+      width: 44px;
+      height: 52px;
+      font-size: 24px;
+      font-weight: 700;
+      text-align: center;
+      border: 1.5px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      background: var(--card-bg);
+      color: var(--text-main);
+    }
+    .otp-box:focus {
+      border-color: var(--emerald-500);
+      outline: none;
+    }
+
+    /* QR Code Display */
+    .qr-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 16px;
+      background: #fff;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+      width: fit-content;
+      margin: 0 auto;
+    }
+    #qrcode-canvas {
+      display: flex;
+      justify-content: center;
+    }
+
+    /* Error / Warning states */
+    .notice-box {
+      padding: 14px;
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .notice-amber { background: var(--amber-50); border: 1px solid var(--amber-100); color: var(--amber-600); }
+    .notice-red { background: var(--red-50); border: 1px solid var(--red-100); color: var(--red-600); }
+    .notice-green { background: var(--emerald-50); border: 1px solid var(--emerald-100); color: var(--emerald-900); }
+
+    /* Footer & Privacy */
+    footer {
+      text-align: center;
+      padding: 16px 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    footer a { color: var(--emerald-600); text-decoration: underline; }
+
+    /* Loading Skeleton */
+    .skeleton {
+      background: linear-gradient(90deg, var(--slate-100) 25%, var(--slate-200) 50%, var(--slate-100) 75%);
+      background-size: 200% 100%;
+      animation: pulse 1.5s infinite;
+      border-radius: var(--radius-sm);
+    }
+    @keyframes pulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    /* Print styling */
+    @media print {
+      body { background: #fff; color: #000; padding: 0; }
+      header, footer, .btn, .top-controls, .action-grid { display: none !important; }
+      .app-wrapper, .card { max-width: 100%; border: none; box-shadow: none; }
+      .amount-display { background: #f0fdf4 !important; border: 1px solid #000; }
     }
   </style>
 </head>
 <body>
-  <main class="container">
-    <div class="brand">
-      <div>
-        <h1>UDHAAR</h1>
-        <p id="subtitleLabel" style="font-size: 12px; color: var(--muted);">Read-Only Shared Verification Record</p>
-      </div>
-      <span class="badge" id="statusBadge">READ-ONLY</span>
-    </div>
-
-    <div class="amount-box">
-      <div class="amount-label" id="roleLabel">Principal Amount</div>
-      <div class="amount-value" id="amountValue">₹0</div>
-    </div>
-
-    <div id="detailsList">
-      <div class="row"><span id="labelRow1">Lender (Given by)</span><span id="lenderVal">—</span></div>
-      <div class="row"><span id="labelRow2">Borrower (Taken by)</span><span id="borrowerVal">—</span></div>
-      <div class="row" id="phoneRow" style="display: none;"><span>Phone (Masked)</span><span id="phoneVal">—</span></div>
-      <div class="row" id="upiRow" style="display: none;"><span>UPI ID (Masked)</span><span id="upiVal">—</span></div>
-      <div class="row"><span id="labelRow3">Start Date</span><span id="startVal">—</span></div>
-      <div class="row"><span id="labelRow4">Due Date</span><span id="dueVal">Open-ended</span></div>
-      <div class="row"><span id="labelRow5">Interest Terms</span><span id="interestVal">Interest-free (0%)</span></div>
-      <div class="row" id="noteRow" style="display: none;"><span>Decrypted Note</span><span id="noteVal">—</span></div>
-    </div>
-
-    <div class="hash-box" id="hashVal">SHA-256: Verifying cryptographic digest…</div>
-    <p class="privacy-note" id="privacyNote">
-      Phone numbers and UPI IDs are masked on the web for privacy. Open in the Udhaar app to verify or settle.
-    </p>
-
-    <div class="status-banner" id="statusBanner"></div>
-
-    <div class="actions">
-      <button class="btn-confirm" id="confirmBtn" type="button">✓ Confirm Record</button>
-      <button class="btn-dispute" id="disputeBtn" type="button">✕ Dispute Terms</button>
-      <a class="btn-link btn-install" id="installBtn" href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar">
-        Get it on Google Play
+  <div class="app-wrapper">
+    <!-- Top Header -->
+    <header>
+      <a href="/" class="brand-logo" aria-label="Udhaar Home">
+        UDHAAR <span>WEB</span>
       </a>
+      <div class="top-controls">
+        <select id="lang-select" class="lang-select" aria-label="Select Language">
+          <option value="en">English</option>
+          <option value="hi">हिंदी (Hindi)</option>
+          <option value="bn">বাংলা (Bengali)</option>
+          <option value="as">অসমীয়া (Assamese)</option>
+          <option value="ne">नेपाली (Nepali)</option>
+        </select>
+        <button id="theme-btn" class="theme-btn" aria-label="Toggle Theme" title="Toggle theme">🌙</button>
+      </div>
+    </header>
+
+    <!-- Offline Alert -->
+    <div id="offline-banner" class="notice-box notice-amber" style="display: none;">
+      <span>⚠️</span>
+      <span id="text-offline">You are currently offline. Check your internet connection.</span>
     </div>
-  </main>
+
+    <!-- Main View Container -->
+    <main id="main-content">
+      <!-- Loading Skeleton State -->
+      <div id="loading-view" class="card">
+        <div class="skeleton" style="height: 24px; width: 40%;"></div>
+        <div class="skeleton" style="height: 120px; width: 100%;"></div>
+        <div class="skeleton" style="height: 80px; width: 100%;"></div>
+        <div class="skeleton" style="height: 48px; width: 100%;"></div>
+      </div>
+
+      <!-- State View: Summary & Initial Confirmation -->
+      <div id="summary-view" class="card" style="display: none;">
+        <div class="badge-bar">
+          <span id="trust-badge" class="badge badge-green">✓ Link Verified</span>
+          <span id="due-status-badge" class="badge badge-amber">Due in 3 days</span>
+        </div>
+
+        <div class="amount-display">
+          <div class="amount-subtext" id="amount-label">Principal Amount</div>
+          <div class="amount-number" id="display-amount">₹0</div>
+          <div class="amount-sentence" id="display-sentence">Loading...</div>
+        </div>
+
+        <!-- Optional Installment Progress -->
+        <div id="installment-progress-box" class="progress-box" style="display: none;">
+          <div class="progress-header">
+            <span id="inst-progress-label">Installments: 0 of 0 Paid</span>
+            <span id="inst-next-due" class="badge badge-slate">Next: ₹0</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div id="inst-progress-fill" class="progress-bar-fill" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <!-- Data Grid -->
+        <div class="data-grid">
+          <div class="data-row">
+            <span class="data-label" id="label-from">From</span>
+            <span class="data-value" id="val-from">—</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label" id="label-to">To</span>
+            <span class="data-value" id="val-to">—</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label" id="label-date">Start Date</span>
+            <span class="data-value" id="val-start-date">—</span>
+          </div>
+          <div class="data-row">
+            <span class="data-label" id="label-due-date">Due Date</span>
+            <span class="data-value" id="val-due-date">—</span>
+          </div>
+          <div id="row-interest" class="data-row" style="display: none;">
+            <span class="data-label" id="label-interest">Interest</span>
+            <span class="data-value" id="val-interest">—</span>
+          </div>
+          <div id="row-note" class="data-row" style="display: none;">
+            <span class="data-label" id="label-note">Note</span>
+            <span class="data-value" id="val-note">—</span>
+          </div>
+        </div>
+
+        <!-- Action Buttons (Before Confirmation) -->
+        <div id="unconfirmed-actions" style="display: flex; flex-direction: column; gap: 10px;">
+          <button id="btn-confirm-yes" class="btn btn-primary">
+            <span id="text-btn-yes">✓ Yes, this is correct</span>
+          </button>
+          <button id="btn-dispute" class="btn btn-danger">
+            <span id="text-btn-wrong">✕ Something is wrong</span>
+          </button>
+        </div>
+
+        <!-- Success Actions (After Confirmation) -->
+        <div id="confirmed-actions" style="display: none; flex-direction: column; gap: 12px;">
+          <div class="notice-box notice-green">
+            <span>✓</span>
+            <span id="text-confirmed-msg">This record has been confirmed by both parties.</span>
+          </div>
+
+          <div class="action-grid">
+            <button id="btn-open-paid-sheet" class="action-card-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              <span id="act-paid">I have paid</span>
+            </button>
+            <button id="btn-open-date-sheet" class="action-card-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span id="act-date">Choose return date</span>
+            </button>
+            <button id="btn-open-reminder-sheet" class="action-card-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              <span id="act-reminder">Add reminder</span>
+            </button>
+            <button id="btn-open-pay-sheet" class="action-card-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M7 7h3v3H7zM14 7h3v3h-3zM7 14h3v3H7z"/></svg>
+              <span id="act-pay-now">Pay now (UPI)</span>
+            </button>
+            <button id="btn-print-receipt" class="action-card-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              <span id="act-receipt">Download receipt</span>
+            </button>
+            <a href="https://udhaar.jyotirmoyb.com" target="_blank" class="action-card-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span id="act-get-app">Get Udhaar app</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Disputed Notice -->
+        <div id="disputed-box" class="notice-box notice-red" style="display: none;">
+          <span>✕</span>
+          <div>
+            <strong id="title-disputed">Record Disputed</strong>
+            <p id="desc-disputed" style="font-size: 13px; margin-top: 2px;">This record has been disputed.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- State View: Expired / Revoked / Error -->
+      <div id="error-view" class="card" style="display: none; text-align: center; padding: 36px 20px;">
+        <div style="font-size: 48px; margin-bottom: 12px;">🔒</div>
+        <h2 id="error-title" style="font-size: 20px; font-weight: 700; margin-bottom: 8px;">Link Inactive</h2>
+        <p id="error-desc" style="color: var(--text-muted); font-size: 14px; margin-bottom: 24px;">This verification link is no longer valid or has expired.</p>
+        <a href="https://udhaar.jyotirmoyb.com" class="btn btn-secondary">Get Udhaar App</a>
+      </div>
+    </main>
+
+    <!-- WhatsApp OTP Sheet (Zero-Cost Verification) -->
+    <div id="otp-modal" class="modal-overlay">
+      <div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <h3 class="sheet-title" id="title-otp-sheet">WhatsApp Verification</h3>
+          <button class="close-btn" data-close="otp-modal">×</button>
+        </div>
+
+        <div class="wa-banner">
+          <span>💬</span>
+          <span id="text-wa-banner">Zero-cost verification via WhatsApp code.</span>
+        </div>
+
+        <p id="text-otp-instruction" style="font-size: 14px; color: var(--text-muted);">
+          Enter the 6-digit verification code sent by <strong id="wa-sender-name">the sender</strong> in your WhatsApp message.
+        </p>
+
+        <div class="otp-inputs">
+          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" />
+          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" />
+          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" />
+          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" />
+          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" />
+          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" />
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
+          <span id="otp-timer" style="color: var(--text-muted);">Code valid</span>
+          <a id="btn-ask-wa" href="#" target="_blank" style="color: var(--emerald-600); font-weight: 600; text-decoration: none;">
+            Ask on WhatsApp 💬
+          </a>
+        </div>
+
+        <label style="display: flex; gap: 8px; font-size: 12px; color: var(--text-muted); align-items: flex-start; cursor: pointer;">
+          <input type="checkbox" id="otp-consent-checkbox" style="margin-top: 2px;" checked />
+          <span id="text-otp-consent">I confirm my identity and consent to recording this verification.</span>
+        </label>
+
+        <button id="btn-submit-otp" class="btn btn-primary" style="margin-top: 8px;">
+          <span id="text-btn-verify">Verify &amp; Confirm</span>
+        </button>
+
+        <button id="btn-report-not-me" class="btn btn-outline" style="border: none; font-size: 12px; color: var(--red-600);">
+          This is not me (Report &amp; Revoke)
+        </button>
+      </div>
+    </div>
+
+    <!-- Dispute Sheet ("Something is wrong") -->
+    <div id="dispute-modal" class="modal-overlay">
+      <div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <h3 class="sheet-title" id="title-dispute-sheet">Report an Issue</h3>
+          <button class="close-btn" data-close="dispute-modal">×</button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" id="label-dispute-reason">Reason for dispute</label>
+          <div style="display: flex; flex-direction: column; gap: 8px; font-size: 14px;">
+            <label style="display: flex; gap: 8px; align-items: center; cursor: pointer;">
+              <input type="radio" name="dispute-reason" value="WRONG_AMOUNT" checked />
+              <span id="opt-reason-amount">Wrong amount</span>
+            </label>
+            <label style="display: flex; gap: 8px; align-items: center; cursor: pointer;">
+              <input type="radio" name="dispute-reason" value="WRONG_DATE" />
+              <span id="opt-reason-date">Wrong due date</span>
+            </label>
+            <label style="display: flex; gap: 8px; align-items: center; cursor: pointer;">
+              <input type="radio" name="dispute-reason" value="NEVER_TOOK" />
+              <span id="opt-reason-never">I never took this money</span>
+            </label>
+            <label style="display: flex; gap: 8px; align-items: center; cursor: pointer;">
+              <input type="radio" name="dispute-reason" value="OTHER" />
+              <span id="opt-reason-other">Other reason</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" id="label-dispute-note">Explanation (optional)</label>
+          <textarea id="dispute-note" class="form-textarea" maxlength="300" placeholder="Tell what is incorrect..."></textarea>
+          <span style="font-size: 11px; color: var(--text-muted); text-align: right;"><span id="dispute-char-count">0</span>/300</span>
+        </div>
+
+        <button id="btn-submit-dispute" class="btn btn-danger">
+          <span id="text-btn-submit-dispute">Submit Dispute</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- I Have Paid Sheet -->
+    <div id="paid-modal" class="modal-overlay">
+      <div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <h3 class="sheet-title" id="title-paid-sheet">Report Repayment</h3>
+          <button class="close-btn" data-close="paid-modal">×</button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" id="label-paid-amount">Amount paid (₹)</label>
+          <input type="number" id="paid-amount-input" class="form-input" min="1" step="any" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" id="label-paid-date">Payment date</label>
+          <input type="date" id="paid-date-input" class="form-input" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" id="label-paid-mode">Payment mode</label>
+          <select id="paid-mode-select" class="form-select">
+            <option value="UPI">UPI (Google Pay, PhonePe, Paytm)</option>
+            <option value="CASH">Cash</option>
+            <option value="ONLINE">Bank Transfer (NEFT/IMPS)</option>
+            <option value="PARTY_ACCOUNT">Other</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" id="label-paid-ref">Reference / UTR number (optional)</label>
+          <input type="text" id="paid-ref-input" class="form-input" placeholder="e.g. 439812739102" maxlength="100" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" id="label-paid-proof">Attach proof screenshot / PDF (optional, max 5 MB)</label>
+          <input type="file" id="paid-proof-file" class="form-input" accept="image/jpeg,image/png,image/webp,application/pdf" />
+        </div>
+
+        <button id="btn-submit-paid-claim" class="btn btn-primary">
+          <span id="text-btn-submit-paid">Submit Repayment Claim</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Return Date Proposal Sheet -->
+    <div id="date-modal" class="modal-overlay">
+      <div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <h3 class="sheet-title" id="title-date-sheet">Propose Return Date</h3>
+          <button class="close-btn" data-close="date-modal">×</button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" id="label-quick-chips">Quick pick</label>
+          <div class="chips-row">
+            <button class="chip" data-days="7">+1 Week</button>
+            <button class="chip" data-days="14">+2 Weeks</button>
+            <button class="chip" data-days="30">+1 Month</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" id="label-custom-date">Or choose date</label>
+          <input type="date" id="prop-date-input" class="form-input" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" id="label-prop-message">Polite note for sender (optional)</label>
+          <input type="text" id="prop-message-input" class="form-input" maxlength="300" placeholder="e.g. Salary expected on this date" />
+        </div>
+
+        <button id="btn-submit-prop-date" class="btn btn-primary">
+          <span id="text-btn-submit-date">Send Proposed Date</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Calendar & Notification Reminder Sheet -->
+    <div id="reminder-modal" class="modal-overlay">
+      <div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <h3 class="sheet-title" id="title-reminder-sheet">Personal Reminder</h3>
+          <button class="close-btn" data-close="reminder-modal">×</button>
+        </div>
+
+        <p style="font-size: 13px; color: var(--text-muted);" id="desc-reminder">
+          Save this repayment deadline in your phone calendar so you never miss it.
+        </p>
+
+        <a id="btn-download-ics" href="#" class="btn btn-primary">
+          📅 <span id="text-btn-ics">Download Calendar Event (.ics)</span>
+        </a>
+
+        <a id="btn-google-cal" href="#" target="_blank" class="btn btn-secondary">
+          🌐 <span id="text-btn-gcal">Add to Google Calendar</span>
+        </a>
+
+        <div class="form-group" style="margin-top: 10px;">
+          <label style="display: flex; gap: 10px; align-items: flex-start; cursor: pointer; font-size: 13px;">
+            <input type="checkbox" id="browser-notif-toggle" style="margin-top: 3px;" />
+            <div>
+              <strong id="label-browser-notif">Browser Notification Alert</strong>
+              <p style="font-size: 11px; color: var(--text-muted); margin-top: 2px;" id="desc-browser-notif">
+                Notifies you before the due date when this browser is open.
+              </p>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pay by UPI Sheet -->
+    <div id="pay-modal" class="modal-overlay">
+      <div class="sheet-card" style="text-align: center;">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <h3 class="sheet-title" id="title-pay-sheet">Pay via UPI</h3>
+          <button class="close-btn" data-close="pay-modal">×</button>
+        </div>
+
+        <div class="qr-container">
+          <div id="qrcode-canvas"></div>
+          <p style="font-size: 12px; color: var(--text-muted);" id="desc-scan-qr">Scan with GPay, PhonePe, Paytm, or BHIM</p>
+        </div>
+
+        <div style="font-size: 14px; margin: 10px 0;">
+          <div style="color: var(--text-muted); font-size: 12px;" id="label-payee-name">Payee Name</div>
+          <strong id="val-payee-name" style="font-size: 16px;">—</strong>
+          <div style="color: var(--text-muted); font-size: 12px; margin-top: 6px;" id="label-payee-upi">UPI ID</div>
+          <div style="display: flex; justify-content: center; align-items: center; gap: 8px;">
+            <code id="val-payee-upi" style="font-size: 14px; font-weight: 700;">—</code>
+            <button id="btn-toggle-upi" style="background: none; border: none; color: var(--emerald-600); cursor: pointer; font-size: 12px;">Show</button>
+          </div>
+        </div>
+
+        <div class="notice-box notice-amber" style="text-align: left; font-size: 12px;">
+          <span>⚠️</span>
+          <span id="text-upi-warning">Always verify the recipient name in your UPI app before completing payment.</span>
+        </div>
+
+        <a id="btn-upi-pay-now" href="#" class="btn btn-primary" style="margin-top: 8px;">
+          ⚡ <span id="text-btn-pay-now">Open UPI App (Pay Now)</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Footer Privacy & Security -->
+    <footer>
+      <p id="text-privacy-notice">We only store what you confirm here, linked to this record.</p>
+      <div>
+        <a href="../privacy.html" id="link-privacy">Privacy Policy &amp; Data Deletion</a>
+      </div>
+      <p style="font-size: 11px; margin-top: 4px; color: var(--slate-400);">UDHAAR v9.0 • Zero-Cost WhatsApp Verification</p>
+    </footer>
+  </div>
 
   <script>
-    (function () {
-      const params = new URLSearchParams(window.location.search);
-      const hashParams = new URLSearchParams(
-        window.location.hash.startsWith("#") ? window.location.hash.slice(1) : ""
-      );
-      const pathname = window.location.pathname || "";
-      const isProfileLink = pathname.indexOf("/u/p/") !== -1;
-      const ua = navigator.userAgent || "";
-      const isAndroid = /Android/i.test(ua);
+    // =========================================================================
+    // 1. Translations & Localization Dictionary (5 Languages)
+    // =========================================================================
+    const I18N = {
+      en: {
+        amount_label: "Principal Amount",
+        lent_you: "{name} says they lent you {amt}",
+        borrowed_from: "{name} says they borrowed {amt} from you",
+        due_in: "Due in {days} days",
+        due_today: "Due today",
+        overdue: "Overdue by {days} days",
+        btn_yes: "✓ Yes, this is correct",
+        btn_wrong: "✕ Something is wrong",
+        btn_verify: "Verify & Confirm",
+        act_paid: "I have paid",
+        act_date: "Choose return date",
+        act_reminder: "Add reminder",
+        act_pay_now: "Pay now (UPI)",
+        act_receipt: "Download receipt",
+        act_get_app: "Get Udhaar app",
+        confirmed_msg: "This record has been confirmed by both parties.",
+        wa_banner: "Zero-cost verification via WhatsApp code.",
+        wa_instruction: "Enter the 6-digit verification code sent by {name} in your WhatsApp message.",
+        upi_warning: "Always check the recipient name in your UPI app before paying.",
+        privacy_notice: "We only store what you confirm here, linked to this record."
+      },
+      hi: {
+        amount_label: "मूल राशि",
+        lent_you: "{name} ने आपको {amt} दिए हैं",
+        borrowed_from: "{name} ने आपसे {amt} लिए हैं",
+        due_in: "{days} दिन में देय",
+        due_today: "आज देय है",
+        overdue: "{days} दिन से बकाया",
+        btn_yes: "✓ हाँ, यह सही है",
+        btn_wrong: "✕ कुछ गलत है",
+        btn_verify: "सत्यापित और पुष्टि करें",
+        act_paid: "मैंने भुगतान कर दिया",
+        act_date: "वापसी की तारीख चुनें",
+        act_reminder: "याद दिलाएं",
+        act_pay_now: "अभी भुगतान करें (UPI)",
+        act_receipt: "रसीद डाउनलोड करें",
+        act_get_app: "Udhaar ऐप प्राप्त करें",
+        confirmed_msg: "इस रिकॉर्ड की दोनों पक्षों द्वारा पुष्टि की गई है।",
+        wa_banner: "WhatsApp कोड के माध्यम से नि:शुल्क सत्यापन।",
+        wa_instruction: "अपने WhatsApp संदेश में {name} द्वारा भेजा गया 6-अंकीय कोड दर्ज करें।",
+        upi_warning: "भुगतान करने से पहले अपने UPI ऐप में प्राप्तकर्ता का नाम अवश्य जांचें।",
+        privacy_notice: "हम केवल वही सुरक्षित रखते हैं जिसकी आप यहाँ पुष्टि करते हैं।"
+      },
+      bn: {
+        amount_label: "মূল পরিমাণ",
+        lent_you: "{name} আপনাকে {amt} দিয়েছেন",
+        borrowed_from: "{name} আপনার থেকে {amt} নিয়েছেন",
+        due_in: "{days} দিনের মধ্যে প্রদেয়",
+        due_today: "আজই প্রদেয়",
+        overdue: "{days} দিন মেয়াদোত্তীর্ণ",
+        btn_yes: "✓ হ্যাঁ, এটি সঠিক",
+        btn_wrong: "✕ কিছু ভুল আছে",
+        btn_verify: "যাচাই ও নিশ্চিত করুন",
+        act_paid: "আমি পরিশোধ করেছি",
+        act_date: "ফেরতের তারিখ বাছুন",
+        act_reminder: "অনুস্মারক যোগ করুন",
+        act_pay_now: "এখনই পরিশোধ করুন (UPI)",
+        act_receipt: "রসিদ ডাউনলোড করুন",
+        act_get_app: "Udhaar অ্যাপ ইনস্টল করুন",
+        confirmed_msg: "উভয় পক্ষ এই লেনদেন নিশ্চিত করেছেন।",
+        wa_banner: "WhatsApp কোডের মাধ্যমে সম্পূর্ণ বিনামূল্যে যাচাই।",
+        wa_instruction: "আপনার WhatsApp মেসেজে {name} এর পাঠানো ৬-সংখ্যার কোডটি লিখুন।",
+        upi_warning: "টাকা পাঠানোর আগে UPI অ্যাপে প্রাপকের নাম মিলিয়ে নিন।",
+        privacy_notice: "আপনি যা নিশ্চিত করছেন কেবল সেটুকুই এই রেকর্ডে সংরক্ষিত থাকে।"
+      },
+      as: {
+        amount_label: "মূল পৰিমাণ",
+        lent_you: "{name}ই আপোনাক {amt} দিছে",
+        borrowed_from: "{name}ই আপোনাৰ পৰা {amt} ধাৰলৈ লৈছে",
+        due_in: "{days} দিন বাকী আছে",
+        due_today: "আজি দিবলগীয়া",
+        overdue: "{days} দিন দেৰি হৈছে",
+        btn_yes: "✓ হয়, এইটো সঠিক",
+        btn_wrong: "✕ কিবা ভুল আছে",
+        btn_verify: "যাচাই কৰি নিশ্চিত কৰক",
+        act_paid: "মই পৰিশোধ কৰিলোঁ",
+        act_date: "উভতাই দিয়াৰ তাৰিখ বাছক",
+        act_reminder: "মনত পেলাই দিয়াৰ সংকেত",
+        act_pay_now: "এতিয়াই পৰিশোধ কৰক (UPI)",
+        act_receipt: "ৰচিদ ডাউনলোড কৰক",
+        act_get_app: "Udhaar এপ্ লওক",
+        confirmed_msg: "এই তথ্য দুয়োপক্ষই নিশ্চিত কৰিছে।",
+        wa_banner: "WhatsApp ক'ডৰ জৰিয়তে বিনামূলীয়া পৰীক্ষণ।",
+        wa_instruction: "আপোনাৰ WhatsApp মেছেজত {name}ই পঠোৱা ৬-অংকৰ ক'ডটো দিয়ক।",
+        upi_warning: "পৰিশোধ কৰাৰ আগতে UPI এপত নাম পৰীক্ষা কৰক।",
+        privacy_notice: "আপুনি ইয়াত নিশ্চিত কৰা তথ্যখিনিহে সুৰক্ষিতভাৱে ৰখা হয়।"
+      },
+      ne: {
+        amount_label: "मूल रकम",
+        lent_you: "{name} ले तपाईंलाई {amt} दिनुभएको छ",
+        borrowed_from: "{name} ले तपाईंसँग {amt} लिनुभएको छ",
+        due_in: "{days} दिनमा भुक्तानी योग्य",
+        due_today: "आजै भुक्तानी योग्य",
+        overdue: "{days} दिन ढिलो भएको",
+        btn_yes: "✓ हो, यो सही छ",
+        btn_wrong: "✕ केही गल्ती छ",
+        btn_verify: "प्रमाणित र पुष्टि गर्नुहोस्",
+        act_paid: "मैले तिरिसकें",
+        act_date: "फिर्ता गर्ने मिति रोज्नुहोस्",
+        act_reminder: "रिमाइन्डर थप्नुहोस्",
+        act_pay_now: "अहिले भुक्तानी गर्नुहोस् (UPI)",
+        act_receipt: "रसिद डाउनलोड गर्नुहोस्",
+        act_get_app: "Udhaar एप डाउनलोड गर्नुहोस्",
+        confirmed_msg: "यो अभिलेख दुवै पक्षबाट पुष्टि गरिएको छ।",
+        wa_banner: "WhatsApp कोड मार्फत निःशुल्क प्रमाणीकरण।",
+        wa_instruction: "{name} ले तपाईंको WhatsApp मा पठाएको ६-अंकको कोड प्रविष्ट गर्नुहोस्।",
+        upi_warning: "भुक्तानी गर्नु अघि आफ्नो UPI एपमा प्रापकको नाम जाँच्नुहोस्।",
+        privacy_notice: "तपाईंले यहाँ पुष्टि गर्नुभएको विवरण मात्र सुरक्षित राखिन्छ।"
+      }
+    };
 
-      function extractTokenFromLocation() {
-        if (isProfileLink) {
-          return pathname.split("/u/p/")[1] || "";
-        }
-        if (pathname.indexOf("/u/") !== -1) {
-          const seg = pathname.split("/u/")[1] || "";
-          if (seg && seg !== "index.html") return seg;
-        }
-        if (pathname.indexOf("/v/") !== -1) {
-          const seg = pathname.split("/v/")[1] || "";
-          if (seg && seg !== "index.html") return seg;
-        }
-        return params.get("d") || params.get("token") || params.get("tx") || "";
+    let currentLang = localStorage.getItem("udhaar_lang") || "en";
+    let recordData = null;
+    let urlSecret = "";
+    let urlRecordId = "";
+
+    // =========================================================================
+    // 2. URL Extraction & API Helpers
+    // =========================================================================
+    function parseRouteParams() {
+      const pathname = window.location.pathname;
+      let recId = "";
+      if (pathname.includes("/u/r/")) {
+        recId = pathname.substring(pathname.indexOf("/u/r/") + 5).split("/")[0].split("?")[0].split("#")[0];
+      } else if (pathname.includes("/u/")) {
+        recId = pathname.substring(pathname.indexOf("/u/") + 3).split("/")[0].split("?")[0].split("#")[0];
       }
 
-      /**
-       * Masks a phone number to show only the first 2 and last 2 digits of the 10-digit subscriber
-       * number (e.g. "98*** ***10"). Never displays a full phone number on the web page.
-       */
-      function maskPhoneNumber(raw) {
-        if (!raw) return "—";
-        const digitsOnly = String(raw).replace(/\D+/g, "");
-        if (!digitsOnly) return "—";
-        const core = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
-        if (core.length <= 4) {
-          return core.charAt(0) + "***";
-        }
-        const firstTwo = core.slice(0, 2);
-        const lastTwo = core.slice(-2);
-        return firstTwo + "*** ***" + lastTwo;
+      const hash = window.location.hash.replace(/^#/, "").trim();
+      return { recordId: recId, secret: hash };
+    }
+
+    async function callApi(endpoint, body) {
+      const resp = await fetch("/api/" + endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        throw new Error(data.error || ("Request failed with status " + resp.status));
       }
+      return data;
+    }
 
-      /**
-       * Masks a UPI ID (VPA) so only the first 2 and last 2 characters of the handle are visible
-       * before the @domain (e.g. "ba*** ***an@okaxis"). Never displays an unmasked UPI ID.
-       */
-      function maskUpiId(raw) {
-        if (!raw) return "—";
-        const trimmed = String(raw).trim();
-        if (!trimmed) return "—";
-        const atIndex = trimmed.indexOf("@");
-        const localPart = atIndex >= 0 ? trimmed.slice(0, atIndex) : trimmed;
-        const domainSuffix = atIndex >= 0 ? trimmed.slice(atIndex) : "";
-        if (localPart.length <= 4) {
-          return localPart.charAt(0) + "***" + domainSuffix;
-        }
-        const firstTwo = localPart.slice(0, 2);
-        const lastTwo = localPart.slice(-2);
-        return firstTwo + "*** ***" + lastTwo + domainSuffix;
+    function formatCurrency(paise, currency = "INR") {
+      const val = typeof paise === "number" ? paise / 100 : 0;
+      return "₹" + val.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    }
+
+    function formatDate(millis) {
+      if (!millis || millis <= 0) return "—";
+      return new Date(millis).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    }
+
+    // =========================================================================
+    // 3. UI Renderer
+    // =========================================================================
+    function applyTranslations() {
+      const t = I18N[currentLang] || I18N.en;
+      document.getElementById("amount-label").textContent = t.amount_label;
+      document.getElementById("text-btn-yes").textContent = t.btn_yes;
+      document.getElementById("text-btn-wrong").textContent = t.btn_wrong;
+      document.getElementById("text-btn-verify").textContent = t.btn_verify;
+      document.getElementById("act-paid").textContent = t.act_paid;
+      document.getElementById("act-date").textContent = t.act_date;
+      document.getElementById("act-reminder").textContent = t.act_reminder;
+      document.getElementById("act-pay-now").textContent = t.act_pay_now;
+      document.getElementById("act-receipt").textContent = t.act_receipt;
+      document.getElementById("act-get-app").textContent = t.act_get_app;
+      document.getElementById("text-confirmed-msg").textContent = t.confirmed_msg;
+      document.getElementById("text-wa-banner").textContent = t.wa_banner;
+      document.getElementById("text-upi-warning").textContent = t.upi_warning;
+      document.getElementById("text-privacy-notice").textContent = t.privacy_notice;
+
+      if (recordData) {
+        renderRecordDetails(recordData);
       }
+    }
 
-      const rawToken = extractTokenFromLocation().split("?")[0].split("#")[0].trim();
-      const fragmentKey = hashParams.get("key") || "";
-      const playStoreUrl = "https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar";
-      const intentHref =
-        "intent://udhaar.jyotirmoyb.com" +
-        window.location.pathname +
-        window.location.search +
-        window.location.hash +
-        "#Intent;scheme=https;package=com.jyotirmoyb.udhaar;S.browser_fallback_url=" +
-        encodeURIComponent(playStoreUrl) +
-        ";end";
+    function renderRecordDetails(data) {
+      const t = I18N[currentLang] || I18N.en;
+      const isBorrower = data.creatorRole === "GIVEN";
+      const otherPerson = isBorrower ? data.lenderName : data.borrowerName;
+      const amtStr = formatCurrency(data.principalAmount, data.currency);
 
-      const targetAppHref = isAndroid ? intentHref : playStoreUrl;
-      const installBtn = document.getElementById("installBtn");
-      installBtn.textContent = isAndroid ? "Open in Udhaar" : "Get it on Google Play";
-      installBtn.href = targetAppHref;
+      document.getElementById("display-amount").textContent = amtStr;
+      document.getElementById("display-sentence").textContent = isBorrower
+        ? t.lent_you.replace("{name}", otherPerson).replace("{amt}", amtStr)
+        : t.borrowed_from.replace("{name}", otherPerson).replace("{amt}", amtStr);
 
-      function base64UrlToBytes(b64url) {
-        const pad = b64url.length % 4 === 0 ? "" : "=".repeat(4 - (b64url.length % 4));
-        const b64 = b64url.replace(/-/g, "+").replace(/_/g, "/") + pad;
-        const bin = atob(b64);
-        const bytes = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) {
-          bytes[i] = bin.charCodeAt(i);
-        }
-        return bytes;
-      }
+      document.getElementById("val-from").textContent = data.lenderName || "—";
+      document.getElementById("val-to").textContent = data.borrowerName || "—";
+      document.getElementById("val-start-date").textContent = formatDate(data.startDateMillis);
+      document.getElementById("val-due-date").textContent = formatDate(data.expiryDateMillis);
 
-      function decodeTokenString(str) {
-        if (!str) return null;
-        try {
-          const bytes = base64UrlToBytes(str);
-          const text = new TextDecoder("utf-8").decode(bytes);
-          if (text.trim().startsWith("{")) {
-            return JSON.parse(text);
-          }
-          const map = {};
-          const pairs = text.split("&");
-          for (let i = 0; i < pairs.length; i++) {
-            const idx = pairs[i].indexOf("=");
-            if (idx > 0) {
-              const k = pairs[i].slice(0, idx);
-              const v = decodeURIComponent(pairs[i].slice(idx + 1).replace(/\+/g, "%20"));
-              map[k] = v;
-            }
-          }
-          return Object.keys(map).length > 0 ? map : null;
-        } catch (e) {
-          return null;
-        }
-      }
-
-      function fmtDate(ms) {
-        const num = Number(ms);
-        if (!num || num <= 0 || isNaN(num)) return "Open-ended";
-        const d = new Date(num);
-        if (isNaN(d.getTime())) return "Open-ended";
-        const dateStr = d.toLocaleDateString("en-IN", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric"
-        });
-        if (d.getHours() !== 0 || d.getMinutes() !== 0) {
-          const timeStr = d.toLocaleTimeString("en-IN", {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true
-          });
-          return dateStr + ", " + timeStr;
-        }
-        return dateStr;
-      }
-
-      async function decryptE2eeNote(cipherB64Url, remoteId, shareToken) {
-        if (!cipherB64Url || !remoteId || !shareToken || !window.crypto || !window.crypto.subtle) {
-          return "";
-        }
-        try {
-          const combined = base64UrlToBytes(cipherB64Url);
-          if (combined.length <= 12) return "";
-          const iv = combined.slice(0, 12);
-          const ciphertext = combined.slice(12);
-          const material = new TextEncoder().encode("udhaar-e2ee-v1|" + remoteId + "|" + shareToken);
-          const keyDigest = await window.crypto.subtle.digest("SHA-256", material);
-          const aesKey = await window.crypto.subtle.importKey(
-            "raw",
-            keyDigest,
-            { name: "AES-GCM" },
-            false,
-            ["decrypt"]
-          );
-          const plainBuf = await window.crypto.subtle.decrypt(
-            { name: "AES-GCM", iv: iv, tagLength: 128 },
-            aesKey,
-            ciphertext
-          );
-          return new TextDecoder("utf-8").decode(plainBuf);
-        } catch (e) {
-          return "";
-        }
-      }
-
-      const decoded = decodeTokenString(rawToken);
-
-      if (isProfileLink && decoded && (decoded.name || decoded.upi || decoded.phone)) {
-        document.getElementById("subtitleLabel").textContent = "Verified Udhaar Payment Profile (Read-Only)";
-        document.getElementById("statusBadge").textContent = "PROFILE";
-        document.getElementById("roleLabel").textContent = "Display Name";
-        document.getElementById("amountValue").textContent = decoded.name || "Udhaar User";
-        document.getElementById("labelRow1").textContent = "UPI ID (Masked)";
-        document.getElementById("lenderVal").textContent = maskUpiId(decoded.upi);
-        document.getElementById("labelRow2").textContent = "Phone (Masked)";
-        document.getElementById("borrowerVal").textContent = maskPhoneNumber(decoded.phone);
-        document.getElementById("labelRow3").textContent = "Profile Verification";
-        document.getElementById("startVal").textContent = "End-to-End Signed";
-        document.getElementById("labelRow4").parentElement.style.display = "none";
-        document.getElementById("labelRow5").parentElement.style.display = "none";
-        document.getElementById("confirmBtn").style.display = "none";
-        document.getElementById("disputeBtn").style.display = "none";
-        document.getElementById("hashVal").textContent =
-          "Open this link inside the Udhaar Android app to import the full verified payment profile.";
-      } else if (decoded) {
-        const currency = decoded.cur || decoded.c || "INR";
-        const symbol = currency === "NPR" ? "रू " : "₹";
-        const amount = Number(decoded.amt || decoded.p || 0);
-        const lender = decoded.lender || decoded.ln || "—";
-        const borrower = decoded.borrower || decoded.bn || "—";
-        const rawPhone = decoded.phone || decoded.ph || "";
-        const rawUpi = decoded.upi || "";
-        const startMs = decoded.start || decoded.sd || 0;
-        const expMs = decoded.exp || decoded.ed || 0;
-        const ie = decoded.ie === "true" || decoded.ie === true;
-        const ir = Number(decoded.ir || 0);
-        const it = decoded.it || "SIMPLE";
-        const irp = decoded.irp || "PER_ANNUM";
-        const cf = decoded.cf || "YEARLY";
-        const contentHash = decoded.hash || decoded.h || "";
-        const remoteId = decoded.rid || params.get("tx") || "";
-        const shareToken = fragmentKey || decoded.tok || "";
-
-        document.getElementById("amountValue").textContent =
-          symbol + amount.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-        document.getElementById("lenderVal").textContent = lender;
-        document.getElementById("borrowerVal").textContent = borrower;
-
-        if (rawPhone) {
-          document.getElementById("phoneRow").style.display = "flex";
-          document.getElementById("phoneVal").textContent = maskPhoneNumber(rawPhone);
-        }
-        if (rawUpi) {
-          document.getElementById("upiRow").style.display = "flex";
-          document.getElementById("upiVal").textContent = maskUpiId(rawUpi);
-        }
-
-        document.getElementById("startVal").textContent = fmtDate(startMs);
-        document.getElementById("dueVal").textContent = fmtDate(expMs);
-        document.getElementById("interestVal").textContent = ie
-          ? ir + "% " + it + " (" + irp + (it === "COMPOUND" ? " • " + cf : "") + ")"
-          : "Interest-free (0%)";
-        document.getElementById("hashVal").textContent =
-          "SHA-256: " + (contentHash || "Unverified");
-
-        if (decoded.enote && remoteId && shareToken) {
-          decryptE2eeNote(decoded.enote, remoteId, shareToken).then(function (plainNote) {
-            if (plainNote) {
-              document.getElementById("noteRow").style.display = "flex";
-              document.getElementById("noteVal").textContent = plainNote;
-            }
-          });
+      // Due calculation
+      const now = Date.now();
+      const dueStatusEl = document.getElementById("due-status-badge");
+      if (data.expiryDateMillis && data.expiryDateMillis > 0) {
+        const diffDays = Math.round((data.expiryDateMillis - now) / 86400000);
+        if (diffDays > 0) {
+          dueStatusEl.textContent = t.due_in.replace("{days}", diffDays);
+          dueStatusEl.className = "badge badge-amber";
+        } else if (diffDays === 0) {
+          dueStatusEl.textContent = t.due_today;
+          dueStatusEl.className = "badge badge-red";
+        } else {
+          dueStatusEl.textContent = t.overdue.replace("{days}", Math.abs(diffDays));
+          dueStatusEl.className = "badge badge-red";
         }
       } else {
-        document.getElementById("hashVal").textContent =
-          "Read-only verification preview. Use the button below to open in Udhaar or get it on Google Play.";
+        dueStatusEl.textContent = "No Due Date";
+        dueStatusEl.className = "badge badge-slate";
       }
 
-      function showActionBanner(text, bg, color) {
-        const banner = document.getElementById("statusBanner");
-        banner.style.display = "block";
-        banner.style.background = bg;
-        banner.style.color = color;
-        banner.textContent = text;
+      // Trust badge
+      const trustEl = document.getElementById("trust-badge");
+      if (data.trustLevel === "PHONE_VERIFIED" || data.verifiedPhoneMasked) {
+        trustEl.textContent = "✓ WhatsApp Verified";
+        trustEl.className = "badge badge-green";
+      } else if (data.trustLevel === "APP_VERIFIED") {
+        trustEl.textContent = "🛡️ App Verified";
+        trustEl.className = "badge badge-green";
+      } else {
+        trustEl.textContent = "🔗 Link Verified";
+        trustEl.className = "badge badge-slate";
       }
 
-      document.getElementById("confirmBtn").addEventListener("click", function () {
-        document.getElementById("statusBadge").textContent = "CONFIRMED";
-        showActionBanner(
-          isAndroid
-            ? "Confirmed! Opening Udhaar to sign and sync your confirmation to the shared audit trail…"
-            : "Confirmed! Install Udhaar on Android from Google Play to sync your cryptographic confirmation.",
-          "#cde9dc",
-          "#0b3625"
-        );
-        window.location.href = targetAppHref;
-      });
+      // Notes
+      if (data.notes && data.notes.trim()) {
+        document.getElementById("row-note").style.display = "flex";
+        document.getElementById("val-note").textContent = data.notes;
+      }
 
-      document.getElementById("disputeBtn").addEventListener("click", function () {
-        const reason = window.prompt(
-          "Enter reason for disputing this record:",
-          "Amount or due date is incorrect"
-        );
-        if (reason !== null) {
-          document.getElementById("statusBadge").textContent = "DISPUTED";
-          showActionBanner(
-            isAndroid
-              ? "Dispute noted (" + reason + "). Opening Udhaar to record your dispute on the audit trail…"
-              : "Dispute noted (" + reason + "). Install Udhaar on Android from Google Play to submit your dispute.",
-            "#f89894",
-            "#5a1513"
-          );
-          window.location.href = targetAppHref;
+      // Installment Progress
+      if (data.installmentPlan && data.installmentPlan.installmentCount > 0) {
+        const p = data.installmentPlan;
+        document.getElementById("installment-progress-box").style.display = "flex";
+        document.getElementById("inst-progress-label").textContent = `Installments: ${p.paidCount || 0} of ${p.installmentCount} Paid`;
+        const pct = Math.round(((p.paidCount || 0) / p.installmentCount) * 100);
+        document.getElementById("inst-progress-fill").style.width = pct + "%";
+        if (p.nextDue) {
+          document.getElementById("inst-next-due").textContent = `Next: ${formatCurrency(p.nextDue.amountDue)}`;
+        }
+      }
+
+      // Status Views
+      if (data.verificationStatus === "CONFIRMED") {
+        document.getElementById("unconfirmed-actions").style.display = "none";
+        document.getElementById("confirmed-actions").style.display = "flex";
+      } else if (data.verificationStatus === "DISPUTED") {
+        document.getElementById("unconfirmed-actions").style.display = "none";
+        document.getElementById("disputed-box").style.display = "flex";
+        document.getElementById("desc-disputed").textContent = data.disputeReason || "Disputed by counterparty";
+      } else {
+        document.getElementById("unconfirmed-actions").style.display = "flex";
+        document.getElementById("confirmed-actions").style.display = "none";
+      }
+
+      // Pre-fill forms
+      document.getElementById("paid-amount-input").value = (data.principalAmount - (data.amountPaid || 0)) / 100;
+      document.getElementById("paid-date-input").value = new Date().toISOString().slice(0, 10);
+      document.getElementById("wa-sender-name").textContent = otherPerson;
+
+      // WhatsApp Ask Link
+      const senderPhoneClean = (data.creatorPhoneClean || "").replace(/\D+/g, "");
+      const waMsg = encodeURIComponent(`Hi ${otherPerson}, please share the 6-digit Udhaar verification code for our record.`);
+      const waUrl = senderPhoneClean ? `https://wa.me/${senderPhoneClean}?text=${waMsg}` : `https://wa.me/?text=${waMsg}`;
+      document.getElementById("btn-ask-wa").href = waUrl;
+
+      // Setup UPI details & QR Code
+      const payeeUpi = data.payeeUpiId || data.guestUpiId || "";
+      const payeeName = data.payeeName || otherPerson;
+      document.getElementById("val-payee-name").textContent = payeeName;
+      document.getElementById("val-payee-upi").textContent = payeeUpi ? payeeUpi.replace(/(.{2})(.*)(@.*)/, "$1***$3") : "Not shared";
+
+      if (payeeUpi) {
+        const upiUri = `upi://pay?pa=${encodeURIComponent(payeeUpi)}&pn=${encodeURIComponent(payeeName)}&am=${(data.principalAmount / 100).toFixed(2)}&cu=INR&tn=${encodeURIComponent("Udhaar settlement")}`;
+        document.getElementById("btn-upi-pay-now").href = upiUri;
+        renderQrCode(upiUri);
+      } else {
+        document.getElementById("btn-open-pay-sheet").style.display = "none";
+      }
+
+      // Setup Calendar links
+      setupCalendarLinks(data, otherPerson);
+
+      document.getElementById("loading-view").style.display = "none";
+      document.getElementById("summary-view").style.display = "flex";
+    }
+
+    // =========================================================================
+    // 4. QR Code & Calendar Handlers
+    // =========================================================================
+    function renderQrCode(text) {
+      const container = document.getElementById("qrcode-canvas");
+      container.innerHTML = "";
+      if (typeof qrcode !== "undefined") {
+        const qr = qrcode(0, "M");
+        qr.addData(text);
+        qr.make();
+        container.innerHTML = qr.createSvgTag(5, 0);
+      }
+    }
+
+    function setupCalendarLinks(data, otherPerson) {
+      if (!data.expiryDateMillis || data.expiryDateMillis <= 0) return;
+      const dueDate = new Date(data.expiryDateMillis);
+      const isoDate = dueDate.toISOString().replace(/-|:|\.\d+/g, "").slice(0, 8);
+
+      // Google Calendar link
+      const title = encodeURIComponent(`Udhaar Repayment: ₹${(data.principalAmount / 100).toFixed(2)} to ${otherPerson}`);
+      const details = encodeURIComponent(`Repayment reminder for Udhaar record https://udhaar.jyotirmoyb.com/u/r/${urlRecordId}`);
+      document.getElementById("btn-google-cal").href = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${isoDate}/${isoDate}&details=${details}`;
+
+      // .ics file generator
+      const icsData = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Udhaar Web App//EN",
+        "BEGIN:VEVENT",
+        `UID:udhaar-${urlRecordId}@jyotirmoyb.com`,
+        `DTSTAMP:${new Date().toISOString().replace(/-|:|\.\d+/g, "")}`,
+        `DTSTART;VALUE=DATE:${isoDate}`,
+        `DTEND;VALUE=DATE:${isoDate}`,
+        `SUMMARY:Udhaar Repayment: ₹${(data.principalAmount / 100).toFixed(2)} to ${otherPerson}`,
+        `DESCRIPTION:Repayment reminder for Udhaar record https://udhaar.jyotirmoyb.com/u/r/${urlRecordId}`,
+        "BEGIN:VALARM",
+        "TRIGGER:-P1D",
+        "ACTION:DISPLAY",
+        "DESCRIPTION:Reminder: Udhaar repayment due tomorrow",
+        "END:VALARM",
+        "END:VEVENT",
+        "END:VCALENDAR"
+      ].join("\r\n");
+
+      const blob = new Blob([icsData], { type: "text/calendar;charset=utf-8" });
+      document.getElementById("btn-download-ics").href = URL.createObjectURL(blob);
+      document.getElementById("btn-download-ics").setAttribute("download", `udhaar-reminder-${urlRecordId}.ics`);
+    }
+
+    // =========================================================================
+    // 5. Modals & Sheet Handlers
+    // =========================================================================
+    function openModal(id) {
+      document.getElementById(id).classList.add("active");
+    }
+    function closeModal(id) {
+      document.getElementById(id).classList.remove("active");
+    }
+
+    document.querySelectorAll("[data-close]").forEach(el => {
+      el.addEventListener("click", () => closeModal(el.getAttribute("data-close")));
+    });
+
+    // OTP Input auto-advancing
+    const otpBoxes = document.querySelectorAll(".otp-box");
+    otpBoxes.forEach((box, idx) => {
+      box.addEventListener("input", (e) => {
+        if (box.value && idx < otpBoxes.length - 1) {
+          otpBoxes[idx + 1].focus();
         }
       });
-    })();
+      box.addEventListener("keydown", (e) => {
+        if (e.key === "Backspace" && !box.value && idx > 0) {
+          otpBoxes[idx - 1].focus();
+        }
+      });
+    });
+
+    function getEnteredOtp() {
+      let code = "";
+      otpBoxes.forEach(b => code += b.value.trim());
+      return code;
+    }
+
+    // =========================================================================
+    // 6. Action Handlers
+    // =========================================================================
+    document.getElementById("btn-confirm-yes").addEventListener("click", async () => {
+      if (recordData && recordData.hasWhatsappOtp) {
+        openModal("otp-modal");
+        otpBoxes[0].focus();
+      } else {
+        // Direct confirmation for LINK_ONLY trust level
+        try {
+          const res = await callApi("guestConfirm", { recordId: urlRecordId, secret: urlSecret });
+          recordData.verificationStatus = "CONFIRMED";
+          renderRecordDetails(recordData);
+        } catch (err) {
+          alert("Confirmation failed: " + err.message);
+        }
+      }
+    });
+
+    document.getElementById("btn-submit-otp").addEventListener("click", async () => {
+      const code = getEnteredOtp();
+      if (!/^\d{6}$/.test(code)) {
+        alert("Please enter the complete 6-digit WhatsApp verification code.");
+        return;
+      }
+      try {
+        const btn = document.getElementById("btn-submit-otp");
+        btn.textContent = "Verifying...";
+        btn.disabled = true;
+
+        await callApi("guestConfirm", {
+          recordId: urlRecordId,
+          secret: urlSecret,
+          whatsappOtp: code
+        });
+
+        closeModal("otp-modal");
+        recordData.verificationStatus = "CONFIRMED";
+        recordData.trustLevel = "PHONE_VERIFIED";
+        renderRecordDetails(recordData);
+      } catch (err) {
+        alert("Verification failed: " + err.message);
+      } finally {
+        const btn = document.getElementById("btn-submit-otp");
+        btn.textContent = I18N[currentLang].btn_verify;
+        btn.disabled = false;
+      }
+    });
+
+    // Dispute Handlers
+    document.getElementById("btn-dispute").addEventListener("click", () => openModal("dispute-modal"));
+    document.getElementById("dispute-note").addEventListener("input", (e) => {
+      document.getElementById("dispute-char-count").textContent = e.target.value.length;
+    });
+
+    document.getElementById("btn-submit-dispute").addEventListener("click", async () => {
+      const selectedRadio = document.querySelector("input[name='dispute-reason']:checked");
+      const reasonCode = selectedRadio ? selectedRadio.value : "OTHER";
+      const note = document.getElementById("dispute-note").value.trim();
+
+      try {
+        await callApi("guestDispute", {
+          recordId: urlRecordId,
+          secret: urlSecret,
+          reasonCode,
+          reasonText: note
+        });
+        closeModal("dispute-modal");
+        recordData.verificationStatus = "DISPUTED";
+        recordData.disputeReason = note ? `${reasonCode}: ${note}` : reasonCode;
+        renderRecordDetails(recordData);
+      } catch (err) {
+        alert("Dispute submission failed: " + err.message);
+      }
+    });
+
+    // "I have paid" Form Handler
+    document.getElementById("btn-open-paid-sheet").addEventListener("click", () => openModal("paid-modal"));
+    document.getElementById("btn-submit-paid-claim").addEventListener("click", async () => {
+      const amount = parseFloat(document.getElementById("paid-amount-input").value) * 100;
+      const dateStr = document.getElementById("paid-date-input").value;
+      const paidDate = dateStr ? new Date(dateStr).getTime() : Date.now();
+      const mode = document.getElementById("paid-mode-select").value;
+      const ref = document.getElementById("paid-ref-input").value.trim();
+      const fileInput = document.getElementById("paid-proof-file");
+      const file = fileInput.files && fileInput.files[0];
+
+      if (!amount || amount <= 0) {
+        alert("Please enter a valid amount.");
+        return;
+      }
+
+      if (file && file.size > 5 * 1024 * 1024) {
+        alert("File size exceeds 5 MB. Please select a smaller file.");
+        return;
+      }
+
+      try {
+        const claimRes = await callApi("guestPaymentClaim", {
+          recordId: urlRecordId,
+          secret: urlSecret,
+          amount,
+          paidAtMillis: paidDate,
+          paymentMode: mode,
+          referenceNumber: ref,
+          hasProofFile: !!file,
+          mimeType: file ? file.type : null
+        });
+
+        if (claimRes.uploadUrl && file) {
+          await fetch(claimRes.uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": file.type },
+            body: file
+          });
+        }
+
+        closeModal("paid-modal");
+        alert("Payment claim submitted! Waiting for confirmation in the Udhaar app.");
+      } catch (err) {
+        alert("Payment submission failed: " + err.message);
+      }
+    });
+
+    // Return Date Proposal Handler
+    document.getElementById("btn-open-date-sheet").addEventListener("click", () => openModal("date-modal"));
+    document.querySelectorAll(".chip[data-days]").forEach(chip => {
+      chip.addEventListener("click", () => {
+        document.querySelectorAll(".chip").forEach(c => c.classList.remove("selected"));
+        chip.classList.add("selected");
+        const days = parseInt(chip.getAttribute("data-days"));
+        const target = new Date(Date.now() + days * 86400000);
+        document.getElementById("prop-date-input").value = target.toISOString().slice(0, 10);
+      });
+    });
+
+    document.getElementById("btn-submit-prop-date").addEventListener("click", async () => {
+      const dateVal = document.getElementById("prop-date-input").value;
+      if (!dateVal) {
+        alert("Please select a proposed return date.");
+        return;
+      }
+      const dueDateMillis = new Date(dateVal).getTime();
+      const msg = document.getElementById("prop-message-input").value.trim();
+
+      try {
+        await callApi("guestProposeDate", {
+          recordId: urlRecordId,
+          secret: urlSecret,
+          proposedDueDateMillis: dueDateMillis,
+          message: msg
+        });
+        closeModal("date-modal");
+        alert("New return date proposed! Waiting for acceptance in the app.");
+      } catch (err) {
+        alert("Date proposal failed: " + err.message);
+      }
+    });
+
+    // Reminders & Other Actions
+    document.getElementById("btn-open-reminder-sheet").addEventListener("click", () => openModal("reminder-modal"));
+    document.getElementById("btn-open-pay-sheet").addEventListener("click", () => openModal("pay-modal"));
+    document.getElementById("btn-print-receipt").addEventListener("click", () => window.print());
+
+    document.getElementById("btn-toggle-upi").addEventListener("click", () => {
+      const upiEl = document.getElementById("val-payee-upi");
+      const isMasked = upiEl.textContent.includes("***");
+      const fullUpi = (recordData && recordData.payeeUpiId) || "";
+      if (isMasked) {
+        upiEl.textContent = fullUpi;
+        document.getElementById("btn-toggle-upi").textContent = "Hide";
+      } else {
+        upiEl.textContent = fullUpi.replace(/(.{2})(.*)(@.*)/, "$1***$3");
+        document.getElementById("btn-toggle-upi").textContent = "Show";
+      }
+    });
+
+    // Browser Notification Permission
+    document.getElementById("browser-notif-toggle").addEventListener("change", async (e) => {
+      if (e.target.checked) {
+        if (!("Notification" in window)) {
+          alert("This browser does not support web notifications.");
+          e.target.checked = false;
+          return;
+        }
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          alert("Notification permission was denied.");
+          e.target.checked = false;
+        } else {
+          alert("Notifications enabled! You will be reminded when this page is open.");
+        }
+      }
+    });
+
+    // "This is not me" Report
+    document.getElementById("btn-report-not-me").addEventListener("click", async () => {
+      if (confirm("Are you sure? This will report that this transaction was sent to the wrong person.")) {
+        try {
+          await callApi("guestDispute", {
+            recordId: urlRecordId,
+            secret: urlSecret,
+            reasonCode: "NEVER_TOOK",
+            reasonText: "Recipient reported: This is not me."
+          });
+          closeModal("otp-modal");
+          recordData.verificationStatus = "DISPUTED";
+          recordData.disputeReason = "NEVER_TOOK: Recipient reported: This is not me.";
+          renderRecordDetails(recordData);
+        } catch (e) {
+          alert("Action failed: " + e.message);
+        }
+      }
+    });
+
+    // Theme & Lang Selectors
+    document.getElementById("lang-select").value = currentLang;
+    document.getElementById("lang-select").addEventListener("change", (e) => {
+      currentLang = e.target.value;
+      localStorage.setItem("udhaar_lang", currentLang);
+      applyTranslations();
+    });
+
+    document.getElementById("theme-btn").addEventListener("click", () => {
+      const current = document.documentElement.getAttribute("data-theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      const next = current === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      document.getElementById("theme-btn").textContent = next === "dark" ? "☀️" : "🌙";
+    });
+
+    window.addEventListener("online", () => document.getElementById("offline-banner").style.display = "none");
+    window.addEventListener("offline", () => document.getElementById("offline-banner").style.display = "flex");
+
+    // =========================================================================
+    // 7. Initial App Boot & Record Fetch
+    // =========================================================================
+    async function boot() {
+      // Auto-detect browser language
+      const userLang = (navigator.language || "").slice(0, 2);
+      if (!localStorage.getItem("udhaar_lang") && ["hi", "bn", "as", "ne"].includes(userLang)) {
+        currentLang = userLang;
+        document.getElementById("lang-select").value = currentLang;
+      }
+      applyTranslations();
+
+      const params = parseRouteParams();
+      urlRecordId = params.recordId;
+      urlSecret = params.secret;
+
+      if (!urlRecordId || !urlSecret) {
+        document.getElementById("loading-view").style.display = "none";
+        document.getElementById("error-view").style.display = "block";
+        document.getElementById("error-title").textContent = "Invalid or Incomplete Link";
+        document.getElementById("error-desc").textContent = "The link is missing security credentials. Please open the full link shared via WhatsApp.";
+        return;
+      }
+
+      try {
+        recordData = await callApi("getGuestRecord", {
+          recordId: urlRecordId,
+          secret: urlSecret,
+          allowNotes: true
+        });
+        renderRecordDetails(recordData);
+      } catch (err) {
+        document.getElementById("loading-view").style.display = "none";
+        document.getElementById("error-view").style.display = "block";
+        document.getElementById("error-desc").textContent = err.message || "Failed to load record details.";
+      }
+    }
+
+    boot();
   </script>
 </body>
 </html>

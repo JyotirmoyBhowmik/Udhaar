@@ -4,8 +4,10 @@ import android.content.Context
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.messaging.FirebaseMessaging
 import com.jyotirmoyb.udhaar.R
+import com.jyotirmoyb.udhaar.data.cloud.GuestWebCloudRepository
 import com.jyotirmoyb.udhaar.data.cloud.VerificationCloudRepository
 import dagger.Module
 import dagger.Provides
@@ -63,6 +65,17 @@ object FirebaseModule {
 
     @Provides
     @Singleton
+    fun provideFirebaseFunctions(app: FirebaseApp?): FirebaseFunctions? {
+        if (app == null) return null
+        return try {
+            FirebaseFunctions.getInstance(app, "asia-south1")
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    @Provides
+    @Singleton
     fun provideFirebaseMessaging(app: FirebaseApp?): FirebaseMessaging? {
         if (app == null) return null
         return try {
@@ -82,5 +95,15 @@ object FirebaseModule {
         } else {
             null
         }
+    }
+
+    @Provides
+    @Singleton
+    fun provideGuestWebCloudRepository(
+        firestore: FirebaseFirestore?,
+        functions: FirebaseFunctions?,
+        auth: FirebaseAuth?
+    ): GuestWebCloudRepository {
+        return GuestWebCloudRepository(firestore, functions, auth)
     }
 }

@@ -13,7 +13,7 @@ object AuditTrailHelper {
         actorUserId: String = "",
         actorName: String,
         summaryText: String,
-        contentHashSnapshot: String,
+        contentHashSnapshot: String = "",
         isAcknowledged: Boolean = false
     ) {
         dao.insertAuditTrailEntry(

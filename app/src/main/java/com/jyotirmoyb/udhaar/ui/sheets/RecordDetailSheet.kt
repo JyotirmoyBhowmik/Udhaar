@@ -87,6 +87,12 @@ fun RecordDetailSheet(
     onOpenAttachmentViewer: (Attachment) -> Unit = {},
     onRequestVerification: () -> Unit = {},
     onConfirmOrDisputeRecord: (confirm: Boolean, disputeReason: String) -> Unit = { _, _ -> },
+    onOpenWebShare: () -> Unit = {},
+    onRevokeWebLink: () -> Unit = {},
+    onConfirmPaymentClaim: () -> Unit = {},
+    onRejectPaymentClaim: () -> Unit = {},
+    onAcceptDateProposal: () -> Unit = {},
+    onDeclineDateProposal: () -> Unit = {},
     onToggleSettled: () -> Unit,
     onEdit: () -> Unit,
     onDeleteTransaction: () -> Unit,
@@ -208,7 +214,13 @@ fun RecordDetailSheet(
                         summary = summary,
                         tx = tx,
                         onRequestVerification = onRequestVerification,
-                        onConfirmOrDisputeRecord = onConfirmOrDisputeRecord
+                        onConfirmOrDisputeRecord = onConfirmOrDisputeRecord,
+                        onOpenWebShare = onOpenWebShare,
+                        onRevokeWebLink = onRevokeWebLink,
+                        onConfirmPaymentClaim = onConfirmPaymentClaim,
+                        onRejectPaymentClaim = onRejectPaymentClaim,
+                        onAcceptDateProposal = onAcceptDateProposal,
+                        onDeclineDateProposal = onDeclineDateProposal
                     )
 
                     // Transaction Documents & Attachments Section

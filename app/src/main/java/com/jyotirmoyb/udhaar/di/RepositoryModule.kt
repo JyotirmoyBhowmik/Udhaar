@@ -135,6 +135,26 @@ object RepositoryModule {
 
     @Provides
     @Singleton
+    fun provideGuestWebRepository(
+        dao: UdhaarDao,
+        settingsRepository: SettingsRepository,
+        paymentRepository: PaymentRepository,
+        installmentRepository: InstallmentRepository,
+        guestWebCloudRepository: com.jyotirmoyb.udhaar.data.cloud.GuestWebCloudRepository,
+        @ApplicationContext context: Context
+    ): com.jyotirmoyb.udhaar.data.repository.GuestWebRepository {
+        return com.jyotirmoyb.udhaar.data.repository.GuestWebRepository(
+            dao = dao,
+            settingsRepository = settingsRepository,
+            paymentRepository = paymentRepository,
+            installmentRepository = installmentRepository,
+            guestWebCloudRepository = guestWebCloudRepository,
+            context = context
+        )
+    }
+
+    @Provides
+    @Singleton
     fun provideUdhaarRepository(
         ledgerRepository: LedgerRepository,
         partyRepository: PartyRepository,
@@ -145,6 +165,7 @@ object RepositoryModule {
         chatRepository: ChatRepository,
         backupRepository: BackupRepository,
         settingsRepository: SettingsRepository,
+        guestWebRepository: com.jyotirmoyb.udhaar.data.repository.GuestWebRepository,
         dao: UdhaarDao
     ): UdhaarRepository {
         return UdhaarRepository(
@@ -157,6 +178,7 @@ object RepositoryModule {
             chatRepository = chatRepository,
             backupRepository = backupRepository,
             settingsRepository = settingsRepository,
+            guestWebRepository = guestWebRepository,
             dao = dao
         )
     }

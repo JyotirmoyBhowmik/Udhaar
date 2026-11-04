@@ -210,9 +210,16 @@ open class MainActivity : FragmentActivity() {
             pendingChatTransactionId = if (chatTxId > 0L) chatTxId else null
             pendingChatPartyName = intent?.getStringExtra(ChatNotificationHelper.EXTRA_CHAT_PARTY_NAME)
         }
-        val dataUrl = intent?.data?.toString()
-        if (!dataUrl.isNullOrBlank() && dataUrl.contains("/u/")) {
-            pendingDeepLinkUrl = dataUrl
+        val uri = intent?.data
+        if (uri != null) {
+            val fullUrl = if (!uri.fragment.isNullOrBlank() && !uri.toString().contains("#")) {
+                "${uri.toString()}#${uri.fragment}"
+            } else {
+                uri.toString()
+            }
+            if (fullUrl.contains("/u/")) {
+                pendingDeepLinkUrl = fullUrl
+            }
         }
     }
 }
@@ -637,7 +644,8 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                                     onDismissNeedsAttention = viewModel::dismissNeedsAttentionStrip,
                                     onDismissCoachMarks = viewModel::dismissCoachMarks,
                                     onUndoAction = viewModel::performUndoAction,
-                                    onDismissUndo = viewModel::dismissUndoSnackbar
+                                    onDismissUndo = viewModel::dismissUndoSnackbar,
+                                    onOpenUpdatesScreen = viewModel::openUpdatesScreen
                                 )
                             }
                             is UdhaarNavDestination.PartyDetail -> {
@@ -1208,6 +1216,43 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                 }
             )
         }
+    }
+
+    // Stage W3: Web Share Sheet
+    val webShareTxId = uiState.webShareTransactionId
+    if (webShareTxId != null) {
+        val txSummary = uiState.allCalculatedItems.find { it.transaction.id == webShareTxId }
+        if (txSummary != null) {
+            com.jyotirmoyb.udhaar.ui.sheets.WebShareSheet(
+                transaction = txSummary.transaction,
+                settings = uiState.userSettings,
+                existingResult = uiState.webShareResult,
+                isGenerating = uiState.isGeneratingWebLink,
+                onGenerateLink = { expiry, trust, note, att, upi, actions ->
+                    viewModel.generateWebLink(webShareTxId, expiry, trust, note, att, upi, actions)
+                },
+                onRevokeLink = {
+                    viewModel.revokeWebLink(webShareTxId)
+                },
+                onDismiss = viewModel::closeWebShareModal
+            )
+        }
+    }
+
+    // Stage W3: Updates & Inbox Sheet
+    val showUpdates = uiState.showUpdatesScreen
+    val transactionsWithUpdates by viewModel.transactionsWithUpdates.collectAsStateWithLifecycle(initialValue = emptyList())
+    if (showUpdates) {
+        com.jyotirmoyb.udhaar.ui.sheets.UpdatesScreen(
+            transactionsWithUpdates = transactionsWithUpdates,
+            onConfirmPaymentClaim = viewModel::confirmPaymentClaim,
+            onRejectPaymentClaim = viewModel::rejectPaymentClaim,
+            onAcceptDateProposal = viewModel::acceptDateProposal,
+            onDeclineDateProposal = viewModel::declineDateProposal,
+            onSuggestCounterDate = viewModel::suggestCounterDate,
+            onOpenTransactionDetail = viewModel::openTransactionDetail,
+            onDismiss = viewModel::closeUpdatesScreen
+        )
     }
 
     // Phase 3: Incoming Verification Review Sheet (Confirm / Save Mirrored Record or Dispute)

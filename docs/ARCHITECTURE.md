@@ -15,6 +15,8 @@
 │                                                                                             │
 │  • Modular Sheets & Dialogs (ui/sheets/ — all < 600 lines):                                │
 │      ├── RecordDetailSheet.kt & TransactionDetailSheet.kt                                   │
+│      ├── WebShareSheet.kt (QR Code, Expiry, WhatsApp Draft, Revocation)                    │
+│      ├── UpdatesScreen.kt (Guest Payment Claims, Return Date Proposals Inbox)               │
 │      ├── detail/ (TransactionDetailHeader, TransactionBalanceCard,                          │
 │      │            TransactionVerificationCard, TransactionAttachmentsSection,               │
 │      │            PartialPaymentSection, InstallmentHistorySection,                         │
@@ -23,7 +25,8 @@
 │      ├── settings/ (ProfileUpiSection, SecuritySection, CurrencyThemeSection,               │
 │      │              RemindersSettingsSection, BackupSection, DriveBackupCard,               │
 │      │              DriveDiagnosticsCard, LocalBackupSection, CloudVerificationCard,        │
-│      │              DriveBackupPassphraseDialog, DriveRestorePassphraseDialog, AboutSection)│
+│      │              WebLinkSettingsSection, DriveBackupPassphraseDialog,                    │
+│      │              DriveRestorePassphraseDialog, AboutSection)                             │
 │      └── ui/common/CommonUiComponents.kt (Shared buttons, cards, visual transformations)    │
 └──────────────────────────────────────────────┬──────────────────────────────────────────────┘
                                                │
@@ -65,6 +68,7 @@
 │  • PaymentRepository      (PartialPayment recordings, installment calculations, settlement) │
 │  • AttachmentRepository   (Receipt/proof attachments, local cache, byte streaming)          │
 │  • VerificationRepository (Mutual verification tokens, E2EE payloads, Firestore sync)      │
+│  • GuestWebRepository     (Web links, WhatsApp OTP, guest claim & proposal processing)      │
 │  • ChatRepository         (Room + Firestore chat messages, thread delivery status)          │
 │  • BackupRepository       (Encrypted JSON export/import, Google Drive REST API sync)        │
 │  • SettingsRepository     (DataStore preferences, MasterKey EncryptedSharedPreferences)     │
@@ -273,3 +277,14 @@ All asynchronous operations (Drive sync, backup export/import, cloud verificatio
    - Verifies encryption helpers (`DriveBackupCrypto`, `VerificationCryptoHelper`), Compose view models, and Android Keystore flows.
 3. **Firestore Security Rules Tests**:
    - Validates that participants can only read and write shared records they are explicitly party to, preventing unauthorized access or data leakage.
+
+---
+
+## 8. Guest Web Flow Architecture (`/u/`)
+
+The Guest Web Flow enables counterparties to review and verify records on the web without app installation or login:
+1. **URL Fragment Isolation:** The link secret (`#<secret>`) is maintained purely in the browser anchor and never exposed over HTTP headers.
+2. **Zero-Cost WhatsApp Verification Code:** The Udhaar app drafts the WhatsApp message with the link and 6-digit OTP, eliminating carrier SMS and Meta Cloud charges. The backend only stores the SHA-256 hash.
+3. **Immutable Audit Chaining:** All status transitions (confirmation, disputes, payment claims, return date proposals) pass through Cloud Functions and record append-only audit entries.
+4. **Automated Retention & Storage Cleanup:** Web links expire automatically after 7, 30, or 90 days. Daily scheduled Cloud Functions purge expired records and delete orphaned proof images.
+5. **Detailed Documentation:** See `docs/WEB_FLOW_SETUP.md` for deployment instructions and `docs/DATA_SAFETY_AND_PRIVACY.md` for Google Play Data Safety details.

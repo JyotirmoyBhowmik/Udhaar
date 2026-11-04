@@ -27,12 +27,100 @@
             "value": "no-cache, no-store, must-revalidate"
           }
         ]
+      },
+      {
+        "source": "/u/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "DENY"
+          },
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "no-referrer"
+          },
+          {
+            "key": "Permissions-Policy",
+            "value": "geolocation=(), microphone=(), camera=()"
+          },
+          {
+            "key": "Content-Security-Policy",
+            "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://*.cloudfunctions.net https://asia-south1-*.cloudfunctions.net https://*.firebaseio.com; frame-ancestors 'none';"
+          }
+        ]
+      },
+      {
+        "source": "/api/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
+          },
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          }
+        ]
       }
     ],
     "rewrites": [
       {
+        "source": "/u/r/**",
+        "destination": "/u/index.html"
+      },
+      {
         "source": "/u/**",
         "destination": "/u/index.html"
+      },
+      {
+        "source": "/api/getGuestRecord",
+        "function": {
+          "functionId": "getGuestRecord",
+          "region": "asia-south1"
+        }
+      },
+      {
+        "source": "/api/guestConfirm",
+        "function": {
+          "functionId": "guestConfirm",
+          "region": "asia-south1"
+        }
+      },
+      {
+        "source": "/api/guestDispute",
+        "function": {
+          "functionId": "guestDispute",
+          "region": "asia-south1"
+        }
+      },
+      {
+        "source": "/api/guestPaymentClaim",
+        "function": {
+          "functionId": "guestPaymentClaim",
+          "region": "asia-south1"
+        }
+      },
+      {
+        "source": "/api/guestProposeDate",
+        "function": {
+          "functionId": "guestProposeDate",
+          "region": "asia-south1"
+        }
+      },
+      {
+        "source": "/api/guestSetUpi",
+        "function": {
+          "functionId": "guestSetUpi",
+          "region": "asia-south1"
+        }
       },
       {
         "source": "**",

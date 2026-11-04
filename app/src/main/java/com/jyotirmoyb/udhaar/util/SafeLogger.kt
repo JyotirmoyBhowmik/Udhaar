@@ -33,6 +33,12 @@ object SafeLogger {
         }
     }
 
+    fun i(tag: String, message: String) {
+        runCatching {
+            Log.i(tag, redact(message))
+        }
+    }
+
     fun w(tag: String, message: String, throwable: Throwable? = null) {
         runCatching {
             val safeMsg = redact(message)
