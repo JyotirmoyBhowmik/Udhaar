@@ -232,7 +232,7 @@ class RecordViewModel @Inject constructor(
                     ReminderScheduler.cancelReminder(ctx, savedId)
                 }
                 if (savedTx.expiryDateMillis != null && !savedTx.isSettled) {
-                    val formatted = InterestCalculator.formatCurrency(savedTx.principalAmount, savedTx.currency)
+                    val formatted = InterestCalculator.formatPaise(savedTx.principalAmountPaise, savedTx.currency)
                     RecurringReminderScheduler.scheduleRemindersForTransaction(ctx, savedTx, formatted)
                 } else {
                     RecurringReminderScheduler.cancelRemindersForTransaction(ctx, savedId)
@@ -259,7 +259,7 @@ class RecordViewModel @Inject constructor(
                 val savedTx = tx.copy(id = savedId)
                 appContext?.let { ctx ->
                     if (savedTx.expiryDateMillis != null && !savedTx.isSettled) {
-                        val formatted = InterestCalculator.formatCurrency(savedTx.principalAmount, savedTx.currency)
+                        val formatted = InterestCalculator.formatPaise(savedTx.principalAmountPaise, savedTx.currency)
                         RecurringReminderScheduler.scheduleRemindersForTransaction(ctx, savedTx, formatted)
                     }
                 }

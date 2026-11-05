@@ -51,6 +51,8 @@ fun BackupSection(
     onRetryCloudBackup: () -> Unit,
     onOpenReceivedVerificationLink: (String) -> Unit,
     onDeleteMyCloudData: () -> Unit,
+    onGenerateRecoveryKey: ((onKeyReady: (String) -> Unit) -> Unit)? = null,
+    onTestMyBackup: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     SettingsSectionCard(
@@ -95,13 +97,16 @@ fun BackupSection(
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
 
-            // Local Offline JSON Backup & Restore
+            // Local Offline JSON Backup & Restore + Recovery Key + Test My Backup
             LocalBackupSection(
                 onExportFullLedgerSaf = onExportFullLedgerSaf,
                 onShareFullLedgerFile = onShareFullLedgerFile,
                 onExportLocalUdhaarSafClicked = onExportLocalUdhaarSafClicked,
                 onImportLedgerSaf = onImportLedgerSaf,
-                onOpenContactPicker = onOpenContactPicker
+                onOpenContactPicker = onOpenContactPicker,
+                backupRecoveryKeyId = currentSettings.backupRecoveryKeyId,
+                onGenerateRecoveryKey = onGenerateRecoveryKey,
+                onTestMyBackup = onTestMyBackup
             )
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)

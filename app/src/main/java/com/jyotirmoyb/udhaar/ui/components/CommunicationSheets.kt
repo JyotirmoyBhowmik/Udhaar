@@ -283,7 +283,7 @@ fun ChatThreadBottomSheet(
                         ) {
                             Text(
                                 text = if (scope == ChatThreadScope.TRANSACTION && tx != null) {
-                                    stringResource(R.string.ui_fmt_symbol_099c95, tx.partyName, tx.currency.symbol, InterestCalculator.formatAmount(tx.principalAmount))
+                                    stringResource(R.string.ui_fmt_symbol_099c95, tx.partyName, tx.currency.symbol, InterestCalculator.formatAmount(InterestCalculator.paiseToRupees(tx.principalAmountPaise)))
                                 } else {
                                     stringResource(R.string.ui_fmt_general_thread_6c2c74, effectivePartyName)
                                 },

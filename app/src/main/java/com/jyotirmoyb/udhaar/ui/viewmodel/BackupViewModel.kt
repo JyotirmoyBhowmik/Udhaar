@@ -626,4 +626,87 @@ class BackupViewModel @Inject constructor(
             }
         }
     }
+
+    fun generateAndSaveBackupRecoveryKey(onKeyReady: ((String) -> Unit)? = null) {
+        viewModelScope.launch {
+            val recoveryKey = com.jyotirmoyb.udhaar.util.TelemetryManager.generateBackupRecoveryKey()
+            backupRepository.saveAutoBackupPassphrase(recoveryKey)
+            backupRepository.settingsRepository.saveBackupRecoveryKey(recoveryKey)
+            _uiState.update {
+                it.copy(
+                    driveOperationStatusMessage = "Backup recovery key generated (${com.jyotirmoyb.udhaar.util.TelemetryManager.extractRecoveryKeyId(recoveryKey)})."
+                )
+            }
+            onKeyReady?.invoke(recoveryKey)
+        }
+    }
+
+    fun testMyBackup(
+        passphraseOrKey: String = "",
+        onComplete: ((Result<String>) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isDriveOperationInProgress = true,
+                    driveOperationStatusMessage = "Testing backup encryption, decryption, and paise totals...",
+                    driveOperationError = null
+                )
+            }
+            try {
+                val settings = backupRepository.userSettings.first()
+                val snapshot = backupRepository.getFullLedgerBackupSnapshot()
+                val (plainJson, preview) = prepareBackupJson(settings)
+                val effectiveKey = passphraseOrKey.trim().ifBlank {
+                    backupRepository.getAutoBackupPassphrase()
+                        ?: com.jyotirmoyb.udhaar.util.TelemetryManager.generateBackupRecoveryKey()
+                }
+                val encryptedBytes = DriveBackupCrypto.encrypt(
+                    plainBytes = plainJson.toByteArray(Charsets.UTF_8),
+                    passphrase = effectiveKey,
+                    preview = preview
+                )
+                val decryptedBytes = DriveBackupCrypto.decrypt(encryptedBytes, effectiveKey)
+                val roundTripJson = String(decryptedBytes, Charsets.UTF_8)
+                val parsed = LedgerBackupManager.parseBackupJson(roundTripJson)
+
+                check(parsed.parties.size == snapshot.parties.size) {
+                    "Backup verification mismatch: expected ${snapshot.parties.size} parties, got ${parsed.parties.size}"
+                }
+                check(parsed.transactions.size == snapshot.transactions.size) {
+                    "Backup verification mismatch: expected ${snapshot.transactions.size} records, got ${parsed.transactions.size}"
+                }
+                check(parsed.partialPayments.size == snapshot.partialPayments.size) {
+                    "Backup verification mismatch: expected ${snapshot.partialPayments.size} payments, got ${parsed.partialPayments.size}"
+                }
+                val expectedPrincipalPaise = snapshot.transactions.sumOf { it.principalAmountPaise }
+                val actualPrincipalPaise = parsed.transactions.sumOf { it.principalAmountPaise }
+                check(expectedPrincipalPaise == actualPrincipalPaise) {
+                    "Backup paise verification mismatch: expected $expectedPrincipalPaise paise, got $actualPrincipalPaise paise"
+                }
+
+                val summaryMessage =
+                    "Backup verified: ${parsed.transactions.size} records, ${parsed.parties.size} people, ${encryptedBytes.size} bytes AES-256-GCM OK."
+                _uiState.update {
+                    it.copy(
+                        isDriveOperationInProgress = false,
+                        driveOperationStatusMessage = summaryMessage,
+                        driveOperationError = null
+                    )
+                }
+                onComplete?.invoke(Result.success(summaryMessage))
+            } catch (e: Exception) {
+                SafeLogger.w("BackupViewModel", "Test my backup failed", e)
+                val errMsg = e.message ?: "Backup verification failed."
+                _uiState.update {
+                    it.copy(
+                        isDriveOperationInProgress = false,
+                        driveOperationStatusMessage = null,
+                        driveOperationError = errMsg
+                    )
+                }
+                onComplete?.invoke(Result.failure(e))
+            }
+        }
+    }
 }

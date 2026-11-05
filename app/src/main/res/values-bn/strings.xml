@@ -925,4 +925,22 @@
     <string name="group_split_empty_members_hint">ভাগের হিসাব দেখতে উপরে কমপক্ষে ১ জন সদস্য যোগ করুন।</string>
     <string name="group_split_custom_amount_label">অংশের টাকা</string>
     <string name="group_split_percent_label">অংশ %</string>
+    <string name="settings_analytics_crash_title">ক্র্যাশ রিপোর্ট ও স্ক্রিন অ্যানালিটিক্স (ঐচ্ছিক)</string>
+    <string name="settings_analytics_crash_subtitle">ডিফল্টভাবে বন্ধ। কোনো ব্যক্তিগত তথ্য ছাড়াই শুধুমাত্র বেনামী ক্র্যাশ ডায়াগনস্টিক পাঠায়।</string>
+    <string name="settings_backup_recovery_key_title">ব্যাকআপ রিকভারি কী</string>
+    <string name="settings_backup_recovery_key_subtitle">পাসফ্রেজ ভুলে গেলে এনক্রিপ্টেড ব্যাকআপ খুলতে এই রিকভারি কী নিরাপদে রাখুন।</string>
+    <string name="settings_backup_recovery_key_active_fmt">সক্রিয় কী ID: %1$s</string>
+    <string name="settings_generate_recovery_key_button">রিকভারি কী তৈরি করুন</string>
+    <string name="settings_copy_recovery_key_button">কী কপি করুন</string>
+    <string name="settings_test_my_backup_button">আমার ব্যাকআপ পরীক্ষা করুন</string>
+    <string name="adaptive_select_record_prompt">সম্পূর্ণ বিবরণ এবং পেমেন্ট ইতিহাস দেখতে বাম দিক থেকে একটি রেকর্ড নির্বাচন করুন</string>
+    <string name="adaptive_select_person_prompt">খাতার বিবরণ দেখতে বাম দিক থেকে একজন ব্যক্তিকে নির্বাচন করুন</string>
+    <string name="cd_close">বন্ধ করুন</string>
+    <string name="cd_collapse_details">বিবরণ সংক্ষিপ্ত করুন</string>
+    <string name="cd_expand_details">বিবরণ প্রসারিত করুন</string>
+    <string name="cd_back">ফিরে যান</string>
+    <string name="cd_favorite_party">প্রিয় ব্যক্তি</string>
+    <string name="cd_whatsapp_reminder">হোয়াটসঅ্যাপ রিমাইন্ডার পাঠান</string>
+    <string name="updates_screen_title">আপডেট ও রিমাইন্ডার</string>
+    <string name="ui_str_repayment_history_e95aa2">পরিশোধের ইতিহাস</string>
 </resources>

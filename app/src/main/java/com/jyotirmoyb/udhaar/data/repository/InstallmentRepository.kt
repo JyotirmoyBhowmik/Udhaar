@@ -80,7 +80,7 @@ open class InstallmentRepository @Inject constructor(
             )
         }
 
-        val existingPaidPaise = InstallmentCalculator.toPaise(tx.amountPaid)
+        val existingPaidPaise = tx.amountPaidPaise
         val allocationOnSave = if (existingPaidPaise > 0L) {
             InstallmentCalculator.allocatePayment(
                 installments = baseInstallments,
@@ -120,7 +120,7 @@ open class InstallmentRepository @Inject constructor(
         )
 
         val actor = myProfileName.trim().ifEmpty { "You" }
-        val totalFormatted = "${tx.currency.symbol}${InterestCalculator.formatAmount(InstallmentCalculator.paiseToDouble(plan.totalAmountDue))}"
+        val totalFormatted = "${tx.currency.symbol}${InterestCalculator.formatPaise(plan.totalAmountDue)}"
         AuditTrailHelper.appendLocalAuditEvent(
             dao = dao,
             transactionId = tx.id,

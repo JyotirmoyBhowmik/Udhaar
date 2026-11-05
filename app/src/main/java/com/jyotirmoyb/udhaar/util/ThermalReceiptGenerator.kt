@@ -140,7 +140,7 @@ object ThermalReceiptGenerator {
             tx.partyName
         }
 
-        val qrBitmap = if (targetUpiId.isNotEmpty() && summary.netBalanceDue > 0.0) {
+        val qrBitmap = if (targetUpiId.isNotEmpty() && summary.netBalanceDuePaise > 0L) {
             val uri = UpiQrGenerator.buildUpiUri(
                 upiId = targetUpiId,
                 payeeName = targetPayee,
@@ -288,7 +288,7 @@ object ThermalReceiptGenerator {
         y += 44f
         drawRow(
             strings.principalAmountLabel,
-            InterestCalculator.formatCurrencyPrivacy(summary.principal, currency, hideAmounts)
+            InterestCalculator.formatCurrencyPrivacyPaise(summary.principalPaise, currency, hideAmounts)
         )
         val interestDesc = if (tx.isInterestEnabled && tx.interestRate > 0.0) {
             val typeLbl = if (tx.interestType.name == "SIMPLE") "Simple" else "Comp.${tx.compoundFrequency.label}"
@@ -298,16 +298,16 @@ object ThermalReceiptGenerator {
         }
         drawRow(
             interestDesc,
-            "+ ${InterestCalculator.formatCurrencyPrivacy(summary.accruedInterest, currency, hideAmounts)}"
+            "+ ${InterestCalculator.formatCurrencyPrivacyPaise(summary.interestAccruedPaise, currency, hideAmounts)}"
         )
         drawRow(
             strings.grossTotalLabel,
-            InterestCalculator.formatCurrencyPrivacy(summary.grossTotal, currency, hideAmounts),
+            InterestCalculator.formatCurrencyPrivacyPaise(summary.totalDuePaise, currency, hideAmounts),
             boldLabel = true
         )
         drawRow(
             strings.repaidSoFarLabel,
-            "- ${InterestCalculator.formatCurrencyPrivacy(summary.amountPaid, currency, hideAmounts)}"
+            "- ${InterestCalculator.formatCurrencyPrivacyPaise(summary.amountPaidPaise, currency, hideAmounts)}"
         )
 
         drawDashedDivider()
@@ -327,7 +327,7 @@ object ThermalReceiptGenerator {
                 val leftCol = "${idx + 1}. $dateStr [${p.paymentMode.shortBadge}•$ackTag]$byPart"
                 drawRow(
                     leftCol,
-                    "- ${InterestCalculator.formatCurrencyPrivacy(p.amount, currency, hideAmounts)}"
+                    "- ${InterestCalculator.formatCurrencyPrivacyPaise(p.amountPaise, currency, hideAmounts)}"
                 )
             }
         }
@@ -346,12 +346,10 @@ object ThermalReceiptGenerator {
             y += 42f
             sortedInstallments.forEach { inst ->
                 val dueStr = InterestCalculator.fmtDate(inst.dueDate)
-                val dueDouble = InstallmentCalculator.paiseToDouble(inst.amountDue)
-                val paidDouble = InstallmentCalculator.paiseToDouble(inst.amountPaid)
                 val statusTag = inst.status.name
                 drawRow(
                     "#${inst.sequence} • Due $dueStr [$statusTag]",
-                    "${InterestCalculator.formatCurrencyPrivacy(paidDouble, currency, hideAmounts)} / ${InterestCalculator.formatCurrencyPrivacy(dueDouble, currency, hideAmounts)}"
+                    "${InterestCalculator.formatCurrencyPrivacyPaise(inst.amountPaid, currency, hideAmounts)} / ${InterestCalculator.formatCurrencyPrivacyPaise(inst.amountDue, currency, hideAmounts)}"
                 )
             }
             drawDashedDivider()
@@ -400,7 +398,7 @@ object ThermalReceiptGenerator {
             netLabelPaint
         )
         canvas.drawText(
-            InterestCalculator.formatCurrencyPrivacy(summary.netBalanceDue, currency, hideAmounts),
+            InterestCalculator.formatCurrencyPrivacyPaise(summary.netBalanceDuePaise, currency, hideAmounts),
             rightX - 24f,
             netBoxTop + 98f,
             netValuePaint
@@ -572,16 +570,16 @@ object ThermalReceiptGenerator {
         if (inrEnabled) {
             drawRow(
                 "INR (₹) ${strings.givenToReceiveValue}",
-                InterestCalculator.formatCurrencyPrivacy(khata.inrToReceive, CurrencyType.INR, hideAmounts)
+                InterestCalculator.formatCurrencyPrivacyPaise(khata.inrToReceivePaise, CurrencyType.INR, hideAmounts)
             )
             drawRow(
                 "INR (₹) ${strings.takenToPayValue}",
-                InterestCalculator.formatCurrencyPrivacy(khata.inrToPay, CurrencyType.INR, hideAmounts)
+                InterestCalculator.formatCurrencyPrivacyPaise(khata.inrToPayPaise, CurrencyType.INR, hideAmounts)
             )
             val inrStatus = when {
-                hideAmounts -> InterestCalculator.formatCurrencyPrivacy(0.0, CurrencyType.INR, true)
-                khata.inrNet > 0.01 -> "Receive ${InterestCalculator.formatCurrency(khata.inrNet, CurrencyType.INR)}"
-                khata.inrNet < -0.01 -> "Pay ${InterestCalculator.formatCurrency(-khata.inrNet, CurrencyType.INR)}"
+                hideAmounts -> InterestCalculator.formatCurrencyPrivacyPaise(0L, CurrencyType.INR, true)
+                khata.inrNetPaise > 0L -> "Receive ${InterestCalculator.formatPaise(khata.inrNetPaise, CurrencyType.INR)}"
+                khata.inrNetPaise < 0L -> "Pay ${InterestCalculator.formatPaise(-khata.inrNetPaise, CurrencyType.INR)}"
                 else -> "₹0 (Paid back)"
             }
             drawRow("INR (₹) Total balance", inrStatus)
@@ -589,16 +587,16 @@ object ThermalReceiptGenerator {
         if (nprEnabled) {
             drawRow(
                 "NPR (रू) ${strings.givenToReceiveValue}",
-                InterestCalculator.formatCurrencyPrivacy(khata.nprToReceive, CurrencyType.NPR, hideAmounts)
+                InterestCalculator.formatCurrencyPrivacyPaise(khata.nprToReceivePaise, CurrencyType.NPR, hideAmounts)
             )
             drawRow(
                 "NPR (रू) ${strings.takenToPayValue}",
-                InterestCalculator.formatCurrencyPrivacy(khata.nprToPay, CurrencyType.NPR, hideAmounts)
+                InterestCalculator.formatCurrencyPrivacyPaise(khata.nprToPayPaise, CurrencyType.NPR, hideAmounts)
             )
             val nprStatus = when {
-                hideAmounts -> InterestCalculator.formatCurrencyPrivacy(0.0, CurrencyType.NPR, true)
-                khata.nprNet > 0.01 -> "Receive ${InterestCalculator.formatCurrency(khata.nprNet, CurrencyType.NPR)}"
-                khata.nprNet < -0.01 -> "Pay ${InterestCalculator.formatCurrency(-khata.nprNet, CurrencyType.NPR)}"
+                hideAmounts -> InterestCalculator.formatCurrencyPrivacyPaise(0L, CurrencyType.NPR, true)
+                khata.nprNetPaise > 0L -> "Receive ${InterestCalculator.formatPaise(khata.nprNetPaise, CurrencyType.NPR)}"
+                khata.nprNetPaise < 0L -> "Pay ${InterestCalculator.formatPaise(-khata.nprNetPaise, CurrencyType.NPR)}"
                 else -> "रू0 (Paid back)"
             }
             drawRow("NPR (रू) Total balance", nprStatus)
@@ -622,9 +620,9 @@ object ThermalReceiptGenerator {
                 }
                 val dateStr = InterestCalculator.formatDate(t.startDateMillis)
                 val statusAmt = if (t.isSettled) {
-                    "Paid back (${InterestCalculator.formatCurrencyPrivacy(item.grossTotal, t.currency, hideAmounts)})"
+                    "Paid back (${InterestCalculator.formatCurrencyPrivacyPaise(item.totalDuePaise, t.currency, hideAmounts)})"
                 } else {
-                    InterestCalculator.formatCurrencyPrivacy(item.netBalanceDue, t.currency, hideAmounts)
+                    InterestCalculator.formatCurrencyPrivacyPaise(item.netBalanceDuePaise, t.currency, hideAmounts)
                 }
                 drawRow("${index + 1}. $dateStr [$badge • $verBadge]", statusAmt)
             }

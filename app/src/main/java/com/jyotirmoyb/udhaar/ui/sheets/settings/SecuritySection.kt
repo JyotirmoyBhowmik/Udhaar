@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -18,13 +18,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -49,7 +50,9 @@ import com.jyotirmoyb.udhaar.R
 import com.jyotirmoyb.udhaar.data.UserSettings
 import com.jyotirmoyb.udhaar.security.EncryptedStorageManager
 import com.jyotirmoyb.udhaar.ui.common.SettingsSectionCard
+import com.jyotirmoyb.udhaar.ui.components.AppIconButton
 import com.jyotirmoyb.udhaar.ui.components.UdhaarAnimatedSwitch
+import com.jyotirmoyb.udhaar.ui.components.minTouchTarget
 
 @Composable
 fun SecuritySection(
@@ -63,6 +66,8 @@ fun SecuritySection(
     onPinValidationErrorChanged: (String?) -> Unit,
     onRetryDatabaseEncryption: () -> Unit,
     onLockAppNow: () -> Unit,
+    analyticsCrashConsent: Boolean = currentSettings.analyticsCrashConsent,
+    onAnalyticsCrashConsentChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -105,6 +110,7 @@ fun SecuritySection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = 48.dp)
                 .border(1.dp, borderColor, RoundedCornerShape(12.dp))
                 .background(
                     if (isEncryptionFailed) {
@@ -213,7 +219,9 @@ fun SecuritySection(
                     checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                     checkedTrackColor = MaterialTheme.colorScheme.primary
                 ),
-                modifier = Modifier.testTag("biometric_lock_switch")
+                modifier = Modifier
+                    .minTouchTarget()
+                    .testTag("biometric_lock_switch")
             )
         }
 
@@ -250,7 +258,7 @@ fun SecuritySection(
                 PasswordVisualTransformation()
             },
             trailingIcon = {
-                IconButton(
+                AppIconButton(
                     onClick = { showSecurityPin = !showSecurityPin },
                     modifier = Modifier.testTag("toggle_settings_pin_visibility")
                 ) {
@@ -293,7 +301,7 @@ fun SecuritySection(
                 onClick = onLockAppNow,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
+                    .heightIn(min = 48.dp)
                     .testTag("lock_app_now_button"),
                 shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
@@ -302,6 +310,56 @@ fun SecuritySection(
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(stringResource(R.string.ui_str_lock_app_now_5b5570), style = MaterialTheme.typography.labelMedium)
             }
+        }
+
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
+
+        // Opt-in Crashlytics & Screen Analytics (Off by default, zero personal data)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("analytics_crash_consent_row"),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
+                Column {
+                    Text(
+                        text = stringResource(R.string.settings_analytics_crash_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_analytics_crash_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            UdhaarAnimatedSwitch(
+                checked = analyticsCrashConsent,
+                onCheckedChange = { enabled ->
+                    com.jyotirmoyb.udhaar.util.TelemetryManager.setConsent(context, enabled)
+                    onAnalyticsCrashConsentChanged(enabled)
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primary
+                ),
+                modifier = Modifier
+                    .minTouchTarget()
+                    .testTag("analytics_crash_consent_switch")
+            )
         }
     }
 }

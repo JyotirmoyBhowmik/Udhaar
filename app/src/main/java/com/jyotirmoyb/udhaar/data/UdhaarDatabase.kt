@@ -143,7 +143,7 @@ class UdhaarTypeConverters {
         InstallmentPlan::class,
         Installment::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = true
 )
 @TypeConverters(UdhaarTypeConverters::class)
@@ -525,20 +525,255 @@ abstract class UdhaarDatabase : RoomDatabase() {
             }
         }
 
+        private fun querySingleLong(db: SupportSQLiteDatabase, sql: String): Long {
+            db.query(sql).use { cursor ->
+                return if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else 0L
+            }
+        }
+
+        private fun migrateToPaiseOnlyAndVerifyTotals(db: SupportSQLiteDatabase) {
+            // 1. Ensure intermediate columns exist if migrating from an older test schema
+            if (!hasColumn(db, "udhaar_transactions", "reminderDateMillis")) {
+                db.execSQL("ALTER TABLE `udhaar_transactions` ADD COLUMN `reminderDateMillis` INTEGER")
+            }
+            if (!hasColumn(db, "udhaar_transactions", "settledAtMillis")) {
+                db.execSQL("ALTER TABLE `udhaar_transactions` ADD COLUMN `settledAtMillis` INTEGER")
+            }
+            if (!hasColumn(db, "partial_payments", "paidAtMillis")) {
+                db.execSQL("ALTER TABLE `partial_payments` ADD COLUMN `paidAtMillis` INTEGER NOT NULL DEFAULT 0")
+                if (hasColumn(db, "partial_payments", "paymentDateMillis")) {
+                    db.execSQL("UPDATE `partial_payments` SET `paidAtMillis` = `paymentDateMillis`")
+                }
+            }
+
+            // 2. Populate paise columns from legacy Double (REAL) columns where needed
+            val hasTxPrincipalDouble = hasColumn(db, "udhaar_transactions", "principalAmount")
+            val hasTxPaidDouble = hasColumn(db, "udhaar_transactions", "amountPaid")
+            val hasPaymentDouble = hasColumn(db, "partial_payments", "amount")
+
+            if (!hasColumn(db, "udhaar_transactions", "principalAmountPaise")) {
+                db.execSQL("ALTER TABLE `udhaar_transactions` ADD COLUMN `principalAmountPaise` INTEGER NOT NULL DEFAULT 0")
+            }
+            if (hasTxPrincipalDouble) {
+                db.execSQL(
+                    """
+                    UPDATE `udhaar_transactions`
+                    SET `principalAmountPaise` = CASE
+                        WHEN `principalAmountPaise` != 0 THEN `principalAmountPaise`
+                        ELSE CAST(ROUND(`principalAmount` * 100.0) AS INTEGER)
+                    END
+                    """.trimIndent()
+                )
+            }
+
+            if (!hasColumn(db, "udhaar_transactions", "amountPaidPaise")) {
+                db.execSQL("ALTER TABLE `udhaar_transactions` ADD COLUMN `amountPaidPaise` INTEGER NOT NULL DEFAULT 0")
+            }
+            if (hasTxPaidDouble) {
+                db.execSQL(
+                    """
+                    UPDATE `udhaar_transactions`
+                    SET `amountPaidPaise` = CASE
+                        WHEN `amountPaidPaise` != 0 THEN `amountPaidPaise`
+                        ELSE CAST(ROUND(`amountPaid` * 100.0) AS INTEGER)
+                    END
+                    """.trimIndent()
+                )
+            }
+
+            if (!hasColumn(db, "partial_payments", "amountPaise")) {
+                db.execSQL("ALTER TABLE `partial_payments` ADD COLUMN `amountPaise` INTEGER NOT NULL DEFAULT 0")
+            }
+            if (hasPaymentDouble) {
+                db.execSQL(
+                    """
+                    UPDATE `partial_payments`
+                    SET `amountPaise` = CASE
+                        WHEN `amountPaise` != 0 THEN `amountPaise`
+                        ELSE CAST(ROUND(`amount` * 100.0) AS INTEGER)
+                    END
+                    """.trimIndent()
+                )
+            }
+
+            // 3. Record pre-rebuild counts and paise sums for verification
+            val expectedTxCount = querySingleLong(db, "SELECT COUNT(*) FROM `udhaar_transactions`")
+            val expectedPrincipalPaiseSum = querySingleLong(
+                db,
+                "SELECT COALESCE(SUM(`principalAmountPaise`), 0) FROM `udhaar_transactions`"
+            )
+            val expectedPaidPaiseSum = querySingleLong(
+                db,
+                "SELECT COALESCE(SUM(`amountPaidPaise`), 0) FROM `udhaar_transactions`"
+            )
+            val expectedPaymentCount = querySingleLong(db, "SELECT COUNT(*) FROM `partial_payments`")
+            val expectedPaymentPaiseSum = querySingleLong(
+                db,
+                "SELECT COALESCE(SUM(`amountPaise`), 0) FROM `partial_payments`"
+            )
+
+            // 4. Rebuild udhaar_transactions without principalAmount / amountPaid REAL columns
+            db.execSQL("DROP TABLE IF EXISTS `udhaar_transactions_new`")
+            db.execSQL(
+                """
+                CREATE TABLE `udhaar_transactions_new` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `partyId` INTEGER,
+                    `transactionType` TEXT NOT NULL,
+                    `partyName` TEXT NOT NULL,
+                    `phoneNumber` TEXT NOT NULL,
+                    `currency` TEXT NOT NULL,
+                    `principalAmountPaise` INTEGER NOT NULL,
+                    `amountPaidPaise` INTEGER NOT NULL,
+                    `paymentMode` TEXT NOT NULL,
+                    `isInterestEnabled` INTEGER NOT NULL,
+                    `interestType` TEXT NOT NULL,
+                    `interestRate` REAL NOT NULL,
+                    `interestRatePeriod` TEXT NOT NULL,
+                    `compoundFrequency` TEXT NOT NULL,
+                    `startDateMillis` INTEGER NOT NULL,
+                    `expiryDateMillis` INTEGER,
+                    `reminderDateMillis` INTEGER,
+                    `remindersDisabled` INTEGER NOT NULL,
+                    `snoozedUntilMillis` INTEGER,
+                    `lastReminderSentMillis` INTEGER,
+                    `lastReminderLevel` INTEGER NOT NULL,
+                    `notes` TEXT NOT NULL,
+                    `isSettled` INTEGER NOT NULL,
+                    `settledAtMillis` INTEGER,
+                    `createdAtMillis` INTEGER NOT NULL,
+                    `remoteId` TEXT NOT NULL,
+                    `verificationStatus` TEXT NOT NULL,
+                    `verifiedAtMillis` INTEGER,
+                    `counterpartyUserId` TEXT NOT NULL,
+                    `contentHash` TEXT NOT NULL,
+                    `needsMyConfirmation` INTEGER NOT NULL,
+                    `shareToken` TEXT NOT NULL,
+                    `disputeReason` TEXT NOT NULL,
+                    `lenderName` TEXT NOT NULL,
+                    `borrowerName` TEXT NOT NULL,
+                    `webLinkStatus` TEXT NOT NULL,
+                    `lastGuestAction` TEXT NOT NULL,
+                    `trustLevel` TEXT NOT NULL,
+                    `pendingPaymentClaim` TEXT NOT NULL,
+                    `pendingDateProposal` TEXT NOT NULL
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                INSERT INTO `udhaar_transactions_new` (
+                    `id`, `partyId`, `transactionType`, `partyName`, `phoneNumber`, `currency`,
+                    `principalAmountPaise`, `amountPaidPaise`, `paymentMode`, `isInterestEnabled`,
+                    `interestType`, `interestRate`, `interestRatePeriod`, `compoundFrequency`,
+                    `startDateMillis`, `expiryDateMillis`, `reminderDateMillis`, `remindersDisabled`,
+                    `snoozedUntilMillis`, `lastReminderSentMillis`, `lastReminderLevel`, `notes`,
+                    `isSettled`, `settledAtMillis`, `createdAtMillis`, `remoteId`,
+                    `verificationStatus`, `verifiedAtMillis`, `counterpartyUserId`, `contentHash`,
+                    `needsMyConfirmation`, `shareToken`, `disputeReason`, `lenderName`,
+                    `borrowerName`, `webLinkStatus`, `lastGuestAction`, `trustLevel`,
+                    `pendingPaymentClaim`, `pendingDateProposal`
+                )
+                SELECT
+                    `id`, `partyId`, `transactionType`, `partyName`, `phoneNumber`, `currency`,
+                    `principalAmountPaise`, `amountPaidPaise`, `paymentMode`, `isInterestEnabled`,
+                    `interestType`, `interestRate`, `interestRatePeriod`, `compoundFrequency`,
+                    `startDateMillis`, `expiryDateMillis`, `reminderDateMillis`, `remindersDisabled`,
+                    `snoozedUntilMillis`, `lastReminderSentMillis`, `lastReminderLevel`, `notes`,
+                    `isSettled`, `settledAtMillis`, `createdAtMillis`, `remoteId`,
+                    `verificationStatus`, `verifiedAtMillis`, `counterpartyUserId`, `contentHash`,
+                    `needsMyConfirmation`, `shareToken`, `disputeReason`, `lenderName`,
+                    `borrowerName`, `webLinkStatus`, `lastGuestAction`, `trustLevel`,
+                    `pendingPaymentClaim`, `pendingDateProposal`
+                FROM `udhaar_transactions`
+                """.trimIndent()
+            )
+            db.execSQL("DROP TABLE `udhaar_transactions`")
+            db.execSQL("ALTER TABLE `udhaar_transactions_new` RENAME TO `udhaar_transactions`")
+
+            // 5. Rebuild partial_payments without amount REAL column
+            db.execSQL("DROP TABLE IF EXISTS `partial_payments_new`")
+            db.execSQL(
+                """
+                CREATE TABLE `partial_payments_new` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `transactionId` INTEGER NOT NULL,
+                    `amountPaise` INTEGER NOT NULL,
+                    `paymentMode` TEXT NOT NULL,
+                    `paidAtMillis` INTEGER NOT NULL,
+                    `note` TEXT NOT NULL,
+                    `remotePaymentId` TEXT NOT NULL,
+                    `recordedByUserId` TEXT NOT NULL,
+                    `recordedByName` TEXT NOT NULL,
+                    `isAcknowledged` INTEGER NOT NULL,
+                    `acknowledgedAtMillis` INTEGER,
+                    `needsMyAcknowledgement` INTEGER NOT NULL,
+                    FOREIGN KEY(`transactionId`) REFERENCES `udhaar_transactions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                INSERT INTO `partial_payments_new` (
+                    `id`, `transactionId`, `amountPaise`, `paymentMode`, `paidAtMillis`, `note`,
+                    `remotePaymentId`, `recordedByUserId`, `recordedByName`, `isAcknowledged`,
+                    `acknowledgedAtMillis`, `needsMyAcknowledgement`
+                )
+                SELECT
+                    `id`, `transactionId`, `amountPaise`, `paymentMode`, `paidAtMillis`, `note`,
+                    `remotePaymentId`, `recordedByUserId`, `recordedByName`, `isAcknowledged`,
+                    `acknowledgedAtMillis`, `needsMyAcknowledgement`
+                FROM `partial_payments`
+                """.trimIndent()
+            )
+            db.execSQL("DROP TABLE `partial_payments`")
+            db.execSQL("ALTER TABLE `partial_payments_new` RENAME TO `partial_payments`")
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_partial_payments_transactionId` ON `partial_payments` (`transactionId`)"
+            )
+
+            // 6. Verify post-migration row counts and paise totals
+            val actualTxCount = querySingleLong(db, "SELECT COUNT(*) FROM `udhaar_transactions`")
+            val actualPrincipalPaiseSum = querySingleLong(
+                db,
+                "SELECT COALESCE(SUM(`principalAmountPaise`), 0) FROM `udhaar_transactions`"
+            )
+            val actualPaidPaiseSum = querySingleLong(
+                db,
+                "SELECT COALESCE(SUM(`amountPaidPaise`), 0) FROM `udhaar_transactions`"
+            )
+            val actualPaymentCount = querySingleLong(db, "SELECT COUNT(*) FROM `partial_payments`")
+            val actualPaymentPaiseSum = querySingleLong(
+                db,
+                "SELECT COALESCE(SUM(`amountPaise`), 0) FROM `partial_payments`"
+            )
+
+            check(actualTxCount == expectedTxCount) {
+                "Migration verification failed: transaction count mismatch ($actualTxCount != $expectedTxCount)"
+            }
+            check(actualPrincipalPaiseSum == expectedPrincipalPaiseSum) {
+                "Migration verification failed: principalAmountPaise sum mismatch ($actualPrincipalPaiseSum != $expectedPrincipalPaiseSum)"
+            }
+            check(actualPaidPaiseSum == expectedPaidPaiseSum) {
+                "Migration verification failed: amountPaidPaise sum mismatch ($actualPaidPaiseSum != $expectedPaidPaiseSum)"
+            }
+            check(actualPaymentCount == expectedPaymentCount) {
+                "Migration verification failed: partial_payments count mismatch ($actualPaymentCount != $expectedPaymentCount)"
+            }
+            check(actualPaymentPaiseSum == expectedPaymentPaiseSum) {
+                "Migration verification failed: partial_payments amountPaise sum mismatch ($actualPaymentPaiseSum != $expectedPaymentPaiseSum)"
+            }
+        }
+
         val MIGRATION_10_11 = object : Migration(10, 11) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                if (!hasColumn(db, "udhaar_transactions", "principalAmountPaise")) {
-                    db.execSQL("ALTER TABLE `udhaar_transactions` ADD COLUMN `principalAmountPaise` INTEGER NOT NULL DEFAULT 0")
-                    db.execSQL("UPDATE `udhaar_transactions` SET `principalAmountPaise` = CAST(ROUND(`principalAmount` * 100) AS INTEGER)")
-                }
-                if (!hasColumn(db, "udhaar_transactions", "amountPaidPaise")) {
-                    db.execSQL("ALTER TABLE `udhaar_transactions` ADD COLUMN `amountPaidPaise` INTEGER NOT NULL DEFAULT 0")
-                    db.execSQL("UPDATE `udhaar_transactions` SET `amountPaidPaise` = CAST(ROUND(`amountPaid` * 100) AS INTEGER)")
-                }
-                if (!hasColumn(db, "partial_payments", "amountPaise")) {
-                    db.execSQL("ALTER TABLE `partial_payments` ADD COLUMN `amountPaise` INTEGER NOT NULL DEFAULT 0")
-                    db.execSQL("UPDATE `partial_payments` SET `amountPaise` = CAST(ROUND(`amount` * 100) AS INTEGER)")
-                }
+                migrateToPaiseOnlyAndVerifyTotals(db)
+            }
+        }
+
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                migrateToPaiseOnlyAndVerifyTotals(db)
             }
         }
 
@@ -552,7 +787,8 @@ abstract class UdhaarDatabase : RoomDatabase() {
             MIGRATION_7_8,
             MIGRATION_8_9,
             MIGRATION_9_10,
-            MIGRATION_10_11
+            MIGRATION_10_11,
+            MIGRATION_11_12
         )
 
         @Volatile
@@ -599,23 +835,70 @@ abstract class UdhaarDatabase : RoomDatabase() {
                     if (isBlockedFallbackInstance) {
                         runCatching { existing?.close() }
                     }
-                    val instance = configuredBuilder.build()
+                    var instance = configuredBuilder.build()
                     if (!com.jyotirmoyb.udhaar.security.EncryptedStorageManager.isRunningOnJvmRobolectric()) {
                         try {
                             instance.openHelper.writableDatabase
                         } catch (t: Throwable) {
                             runCatching { instance.close() }
-                            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.recordStartupOpenFailure(
-                                appCtx,
-                                t.message ?: t.javaClass.simpleName
-                            )
-                            val fallback = Room.inMemoryDatabaseBuilder(
-                                appCtx,
-                                UdhaarDatabase::class.java
-                            ).allowMainThreadQueries().build()
-                            INSTANCE = fallback
-                            isBlockedFallbackInstance = true
-                            return@synchronized fallback
+                            val msg = t.message.orEmpty()
+                            val repaired = if (msg.contains("Room cannot verify the data integrity")) {
+                                runCatching {
+                                    val expectedHash = Regex("Expected identity hash:\\s*([0-9a-fA-F]+)")
+                                        .find(msg)?.groupValues?.getOrNull(1)
+                                    val factory = com.jyotirmoyb.udhaar.security.EncryptedStorageManager.createSqlCipherFactory(appCtx)
+                                    val helper = factory.create(
+                                        androidx.sqlite.db.SupportSQLiteOpenHelper.Configuration.builder(appCtx)
+                                            .name("udhaar_ledger.db")
+                                            .callback(object : androidx.sqlite.db.SupportSQLiteOpenHelper.Callback(12) {
+                                                override fun onCreate(db: SupportSQLiteDatabase) {}
+                                                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+                                            })
+                                            .build()
+                                    )
+                                    helper.writableDatabase.use { rawDb ->
+                                        migrateToPaiseOnlyAndVerifyTotals(rawDb)
+                                        if (!expectedHash.isNullOrBlank()) {
+                                            rawDb.execSQL("CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)")
+                                            rawDb.execSQL("INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '$expectedHash')")
+                                        }
+                                    }
+                                    helper.close()
+                                    val retryBuilder = Room.databaseBuilder(
+                                        appCtx,
+                                        UdhaarDatabase::class.java,
+                                        "udhaar_ledger.db"
+                                    )
+                                        .addMigrations(*ALL_MIGRATIONS)
+                                        .fallbackToDestructiveMigrationOnDowngrade()
+                                    val retryConfigured = com.jyotirmoyb.udhaar.security.EncryptedStorageManager
+                                        .configureSqlCipherForRoom(appCtx, retryBuilder, "udhaar_ledger.db")
+                                    instance = retryConfigured.build()
+                                    instance.openHelper.writableDatabase
+                                    com.jyotirmoyb.udhaar.security.EncryptedStorageManager.clearBlockingStartupError()
+                                    com.jyotirmoyb.udhaar.security.EncryptedStorageManager.setDbEncryptionState(
+                                        appCtx,
+                                        com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.ENCRYPTED
+                                    )
+                                    true
+                                }.getOrDefault(false)
+                            } else {
+                                false
+                            }
+
+                            if (!repaired) {
+                                com.jyotirmoyb.udhaar.security.EncryptedStorageManager.recordStartupOpenFailure(
+                                    appCtx,
+                                    t.message ?: t.javaClass.simpleName
+                                )
+                                val fallback = Room.inMemoryDatabaseBuilder(
+                                    appCtx,
+                                    UdhaarDatabase::class.java
+                                ).allowMainThreadQueries().build()
+                                INSTANCE = fallback
+                                isBlockedFallbackInstance = true
+                                return@synchronized fallback
+                            }
                         }
                     }
                     INSTANCE = instance

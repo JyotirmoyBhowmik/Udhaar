@@ -739,6 +739,20 @@ class UdhaarViewModel(
         passphraseToSave: String? = null
     ) = backupViewModel.updateDriveAutoBackupSettings(frequency, wifiOnly, passphraseToSave)
 
+    fun setAnalyticsCrashConsent(consent: Boolean) =
+        settingsViewModel.setAnalyticsCrashConsent(consent)
+
+    fun saveBackupRecoveryKey(recoveryKey: String) =
+        settingsViewModel.saveBackupRecoveryKey(recoveryKey)
+
+    fun generateAndSaveBackupRecoveryKey(onGenerated: ((String) -> Unit)? = null) =
+        backupViewModel.generateAndSaveBackupRecoveryKey(onGenerated)
+
+    fun testMyBackup(
+        passphraseOrRecoveryKey: String? = null,
+        onResult: ((Result<String>) -> Unit)? = null
+    ) = backupViewModel.testMyBackup(passphraseOrRecoveryKey.orEmpty(), onResult)
+
     fun openInstallmentPlanBuilder(transactionId: Long) = recordViewModel.openPlanBuilder(transactionId)
     fun closeInstallmentPlanBuilder() = recordViewModel.closePlanBuilder()
     fun saveInstallmentPlan(

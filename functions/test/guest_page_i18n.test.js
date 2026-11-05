@@ -5,7 +5,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 
 const { I18N, t, formatCurrency, formatDate } = require("../../web/u/guest.js");
-const { computeCodeHmac, verifyGuestPhoneOtp } = require("../guestWebFlow");
+const { computeCodeHmac, verifyGuestPhoneOtp, setTestServerSecret } = require("../guestWebFlow");
 const endpoints = require("../guestWebFlowEndpoints");
 
 test("Part 2 — Upgrade the guest page (web/u/index.html & guest.js)", async (t) => {
@@ -92,6 +92,7 @@ test("Part 2 — Upgrade the guest page (web/u/index.html & guest.js)", async (t
   });
 
   await t.test("4. Honest Code Step: HMAC, 15-Minute Expiration, Single-Use, and Code Checked Badge", async () => {
+    setTestServerSecret("injected-i18n-test-secret-2026");
     const testCode = "729401";
     const hmac = computeCodeHmac(testCode);
     assert.strictEqual(typeof hmac, "string");

@@ -441,4 +441,33 @@ open class SettingsRepository(
             prefs[PrefKeys.DEFAULT_WEB_SHOW_UPI] = showUpi
         }
     }
+
+    suspend fun setAnalyticsCrashConsent(enabled: Boolean) {
+        com.jyotirmoyb.udhaar.util.TelemetryManager.setConsent(context, enabled)
+        inMemorySettingsFallback.value = inMemorySettingsFallback.value.copy(
+            analyticsCrashConsent = enabled
+        )
+        context?.udhaarDataStore?.edit { prefs ->
+            prefs[PrefKeys.ANALYTICS_CRASH_CONSENT] = enabled
+        }
+    }
+
+    suspend fun saveBackupRecoveryKey(recoveryKey: String): String {
+        val cleanKey = recoveryKey.trim()
+        val keyId = com.jyotirmoyb.udhaar.util.TelemetryManager.extractRecoveryKeyId(cleanKey)
+        if (cleanKey.isNotBlank()) {
+            pinSecurityManager?.saveAutoBackupPassphrase(cleanKey)
+        }
+        inMemorySettingsFallback.value = inMemorySettingsFallback.value.copy(
+            backupRecoveryKeyId = keyId,
+            driveAutoBackupPassphraseSaved = cleanKey.isNotBlank()
+        )
+        context?.udhaarDataStore?.edit { prefs ->
+            prefs[PrefKeys.BACKUP_RECOVERY_KEY_ID] = keyId
+            if (cleanKey.isNotBlank()) {
+                prefs[PrefKeys.DRIVE_AUTO_BACKUP_KEY_SAVED] = true
+            }
+        }
+        return keyId
+    }
 }

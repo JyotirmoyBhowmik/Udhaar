@@ -140,18 +140,18 @@ class PeopleViewModel @Inject constructor(
                     item.transaction.currency in enabledCurrencySet
             }
             val activePartyTxs = partyTxs.filter { !it.transaction.isSettled }
-            val inrGiven = activePartyTxs.filter {
+            val inrGivenPaise = activePartyTxs.filter {
                 it.transaction.currency == CurrencyType.INR && it.transaction.transactionType == TransactionType.GIVEN
-            }.sumOf { it.netBalanceDue }
-            val inrTaken = activePartyTxs.filter {
+            }.sumOf { it.netBalanceDuePaise }
+            val inrTakenPaise = activePartyTxs.filter {
                 it.transaction.currency == CurrencyType.INR && it.transaction.transactionType == TransactionType.TAKEN
-            }.sumOf { it.netBalanceDue }
-            val nprGiven = activePartyTxs.filter {
+            }.sumOf { it.netBalanceDuePaise }
+            val nprGivenPaise = activePartyTxs.filter {
                 it.transaction.currency == CurrencyType.NPR && it.transaction.transactionType == TransactionType.GIVEN
-            }.sumOf { it.netBalanceDue }
-            val nprTaken = activePartyTxs.filter {
+            }.sumOf { it.netBalanceDuePaise }
+            val nprTakenPaise = activePartyTxs.filter {
                 it.transaction.currency == CurrencyType.NPR && it.transaction.transactionType == TransactionType.TAKEN
-            }.sumOf { it.netBalanceDue }
+            }.sumOf { it.netBalanceDuePaise }
 
             val overdueTxs = activePartyTxs.filter { it.isOverdue }
             val oldestOverdueDays = if (overdueTxs.isNotEmpty()) {
@@ -190,10 +190,10 @@ class PeopleViewModel @Inject constructor(
             PartyKhataSummary(
                 party = party,
                 transactions = partyTxs,
-                inrToReceive = inrGiven,
-                inrToPay = inrTaken,
-                nprToReceive = nprGiven,
-                nprToPay = nprTaken,
+                inrToReceivePaise = inrGivenPaise,
+                inrToPayPaise = inrTakenPaise,
+                nprToReceivePaise = nprGivenPaise,
+                nprToPayPaise = nprTakenPaise,
                 oldestOverdueDays = oldestOverdueDays,
                 averageRepaymentDays = averageRepaymentDays,
                 trustScorePercent = trustScore,
@@ -245,7 +245,7 @@ class PeopleViewModel @Inject constructor(
             )
             PartySortOption.HIGHEST_BALANCE -> khataList.sortedWith(
                 compareByDescending<PartyKhataSummary> { it.party.isFavorite }
-                    .thenByDescending { it.maxNetBalance }
+                    .thenByDescending { it.maxNetBalancePaise }
                     .thenBy { it.party.name.lowercase() }
             )
             PartySortOption.MOST_OVERDUE -> khataList.sortedWith(

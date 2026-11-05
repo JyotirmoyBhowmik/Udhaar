@@ -37,7 +37,7 @@ object UdhaarSpacing {
     val MinTouchTarget: Dp = 48.dp
     val PrimaryButtonHeight: Dp = 52.dp
     val SecondaryButtonHeight: Dp = 48.dp
-    val ChipHeight: Dp = 40.dp
+    val ChipHeight: Dp = 48.dp
 }
 
 val LocalUdhaarSpacing = staticCompositionLocalOf { UdhaarSpacing }

@@ -211,6 +211,10 @@ fun ProfileSettingsModal(
     onRetryCloudBackup: () -> Unit = {},
     onOpenContactPicker: () -> Unit = {},
     onSaveReminderSettings: ((Boolean, Int, Int, Int, Int, Int) -> Unit)? = null,
+    onAnalyticsCrashConsentChanged: (Boolean) -> Unit = {},
+    onGenerateRecoveryKey: ((onKeyReady: (String) -> Unit) -> Unit)? = null,
+    onSaveRecoveryKey: (String) -> Unit = {},
+    onTestMyBackup: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     SettingsScreen(
@@ -252,6 +256,9 @@ fun ProfileSettingsModal(
         onRetryCloudBackup = onRetryCloudBackup,
         onOpenContactPicker = onOpenContactPicker,
         onSaveReminderSettings = onSaveReminderSettings,
+        onAnalyticsCrashConsentChanged = onAnalyticsCrashConsentChanged,
+        onGenerateRecoveryKey = onGenerateRecoveryKey,
+        onTestMyBackup = onTestMyBackup,
         onDismiss = onDismiss
     )
 }

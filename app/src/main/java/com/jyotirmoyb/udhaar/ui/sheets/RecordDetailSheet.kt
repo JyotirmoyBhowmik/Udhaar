@@ -123,7 +123,7 @@ fun RecordDetailSheet(
                     text = stringResource(
                         R.string.ui_fmt_delete_transaction_confirm_body,
                         tx.partyName,
-                        InterestCalculator.formatCurrency(tx.principalAmount, tx.currency)
+                        InterestCalculator.formatPaise(tx.principalAmountPaise, tx.currency)
                     ),
                     style = MaterialTheme.typography.bodyMedium
                 )

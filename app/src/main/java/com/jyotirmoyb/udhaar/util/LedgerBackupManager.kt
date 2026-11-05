@@ -96,8 +96,10 @@ object LedgerBackupManager {
                 put("partyName", tx.partyName)
                 put("phoneNumber", tx.phoneNumber)
                 put("currency", tx.currency.name)
-                put("principalAmount", tx.principalAmount)
-                put("amountPaid", tx.amountPaid)
+                put("principalAmountPaise", tx.principalAmountPaise)
+                put("amountPaidPaise", tx.amountPaidPaise)
+                put("principalAmount", InterestCalculator.paiseToRupees(tx.principalAmountPaise))
+                put("amountPaid", InterestCalculator.paiseToRupees(tx.amountPaidPaise))
                 put("paymentMode", tx.paymentMode.name)
                 put("isInterestEnabled", tx.isInterestEnabled)
                 put("interestType", tx.interestType.name)
@@ -136,7 +138,8 @@ object LedgerBackupManager {
             val obj = JSONObject().apply {
                 put("id", payment.id)
                 put("transactionId", payment.transactionId)
-                put("amount", payment.amount)
+                put("amountPaise", payment.amountPaise)
+                put("amount", InterestCalculator.paiseToRupees(payment.amountPaise))
                 put("paymentMode", payment.paymentMode.name)
                 put("paidAtMillis", payment.paidAtMillis)
                 put("note", payment.note)
@@ -333,6 +336,17 @@ object LedgerBackupManager {
             val settledRaw = obj.optLong("settledAtMillis", -1L)
             val verifiedRaw = obj.optLong("verifiedAtMillis", -1L)
 
+            val principalPaise = if (obj.has("principalAmountPaise")) {
+                obj.optLong("principalAmountPaise", 0L)
+            } else {
+                InterestCalculator.rupeesToPaise(obj.optDouble("principalAmount", 0.0))
+            }
+            val paidPaise = if (obj.has("amountPaidPaise")) {
+                obj.optLong("amountPaidPaise", 0L)
+            } else {
+                InterestCalculator.rupeesToPaise(obj.optDouble("amountPaid", 0.0))
+            }
+
             transactions.add(
                 UdhaarTransaction(
                     id = obj.optLong("id", 0L),
@@ -345,8 +359,8 @@ object LedgerBackupManager {
                     currency = runCatching {
                         CurrencyType.valueOf(obj.optString("currency", "INR"))
                     }.getOrDefault(CurrencyType.INR),
-                    principalAmount = obj.optDouble("principalAmount", 0.0),
-                    amountPaid = obj.optDouble("amountPaid", 0.0),
+                    principalAmountPaise = principalPaise,
+                    amountPaidPaise = paidPaise,
                     paymentMode = runCatching {
                         PaymentMode.valueOf(obj.optString("paymentMode", "CASH"))
                     }.getOrDefault(PaymentMode.CASH),
@@ -397,11 +411,16 @@ object LedgerBackupManager {
                 PaymentMode.valueOf(obj.optString("paymentMode", "CASH"))
             }.getOrDefault(PaymentMode.CASH)
             val ackAtRaw = obj.optLong("acknowledgedAtMillis", -1L)
+            val paymentPaise = if (obj.has("amountPaise")) {
+                obj.optLong("amountPaise", 0L)
+            } else {
+                InterestCalculator.rupeesToPaise(obj.optDouble("amount", 0.0))
+            }
             partialPayments.add(
                 PartialPayment(
                     id = obj.optLong("id", 0L),
                     transactionId = obj.optLong("transactionId", 0L),
-                    amount = obj.optDouble("amount", 0.0),
+                    amountPaise = paymentPaise,
                     paymentMode = mode,
                     paidAtMillis = obj.optLong("paidAtMillis", System.currentTimeMillis()),
                     note = obj.optString("note", ""),

@@ -74,8 +74,8 @@ class ExampleRobolectricTest {
             partyName = "Vikram Traders",
             phoneNumber = "+91 9876543210",
             currency = CurrencyType.INR,
-            principalAmount = 10_000.0,
-            amountPaid = 2_500.0,
+            principalAmountPaise = 1_000_000L,
+            amountPaidPaise = 250_000L,
             paymentMode = PaymentMode.UPI
         )
         val summary = InterestCalculator.calculate(tx)
@@ -83,7 +83,7 @@ class ExampleRobolectricTest {
             PartialPayment(
                 id = 1L,
                 transactionId = 42L,
-                amount = 2_500.0,
+                amountPaise = 250_000L,
                 paymentMode = PaymentMode.UPI,
                 note = "25% Partial Installment"
             )
@@ -115,13 +115,13 @@ class ExampleRobolectricTest {
             partyName = "Ramesh Suppliers",
             phoneNumber = "+91 9876543210",
             currency = CurrencyType.INR,
-            principalAmount = 15_000.0,
-            amountPaid = 5_000.0
+            principalAmountPaise = 1_500_000L,
+            amountPaidPaise = 500_000L
         )
         val payment = PartialPayment(
             id = 30L,
             transactionId = 20L,
-            amount = 5_000.0,
+            amountPaise = 500_000L,
             paymentMode = PaymentMode.UPI,
             note = "First installment"
         )
@@ -138,7 +138,7 @@ class ExampleRobolectricTest {
         assertEquals(1, parsed.parties.size)
         assertEquals("ramesh@okicici", parsed.parties.first().upiId)
         assertEquals(1, parsed.transactions.size)
-        assertEquals(15_000.0, parsed.transactions.first().principalAmount, 0.01)
+        assertEquals(1_500_000L, parsed.transactions.first().principalAmountPaise)
         assertEquals(1, parsed.partialPayments.size)
         assertEquals("First installment", parsed.partialPayments.first().note)
         assertEquals(PaymentMode.UPI, parsed.partialPayments.first().paymentMode)
@@ -346,7 +346,7 @@ class ExampleRobolectricTest {
                     partyName = "Suresh Hardware",
                     phoneNumber = "+91 9876500001",
                     currency = CurrencyType.INR,
-                    principalAmount = 12_000.0,
+                    principalAmountPaise = 1_200_000L,
                     startDateMillis = 1_740_000_000_000L,
                     expiryDateMillis = initialDue
                 )
@@ -473,13 +473,13 @@ class ExampleRobolectricTest {
         val tx = UdhaarTransaction(
             id = 100L,
             partyName = "Kishore",
-            principalAmount = 25_000.0,
+            principalAmountPaise = 2_500_000L,
             currency = CurrencyType.INR
         )
         val payment = PartialPayment(
             id = 50L,
             transactionId = 100L,
-            amount = 5_000.0
+            amountPaise = 500_000L
         )
         val thread = com.jyotirmoyb.udhaar.data.ChatThreadMetadata(
             threadKey = "tx_100",
@@ -547,13 +547,13 @@ class ExampleRobolectricTest {
 
             // Seed initial local data
             dao.insertParty(PartyEntity(partyId = 1L, name = "Local Party"))
-            dao.insertTransaction(UdhaarTransaction(id = 1L, partyName = "Local Party", principalAmount = 500.0))
+            dao.insertTransaction(UdhaarTransaction(id = 1L, partyName = "Local Party", principalAmountPaise = 50_000L))
 
             val backupToRestore = com.jyotirmoyb.udhaar.util.ParsedLedgerBackup(
                 exportType = "FULL_LEDGER",
                 schemaVersion = 5,
                 parties = listOf(PartyEntity(partyId = 99L, name = "Cloud Restored Party")),
-                transactions = listOf(UdhaarTransaction(id = 99L, partyName = "Cloud Restored Party", principalAmount = 5000.0)),
+                transactions = listOf(UdhaarTransaction(id = 99L, partyName = "Cloud Restored Party", principalAmountPaise = 500_000L)),
                 partialPayments = emptyList(),
                 chatThreads = emptyList(),
                 chatMessages = emptyList(),
@@ -625,7 +625,7 @@ class ExampleRobolectricTest {
         val v1Db = helper.writableDatabase
         v1Db.execSQL("INSERT INTO `udhaar_transactions` (`id`, `transactionType`, `partyName`, `phoneNumber`, `currency`, `principalAmount`, `amountPaid`, `paymentMode`, `isInterestEnabled`, `interestType`, `interestRate`, `interestRatePeriod`, `compoundFrequency`, `startDateMillis`, `gracePeriodDays`, `notes`, `isSettled`, `createdAtMillis`, `updatedAtMillis`) VALUES (1, 'GIVEN', 'Aarav', '9876543210', 'INR', 5000.0, 0.0, 'CASH', 0, 'SIMPLE', 0.0, 'PER_ANNUM', 'YEARLY', 1700000000, 0, '', 0, 1700000000, 1700000000)")
 
-        // Apply migrations 1->2, 2->3, 3->4, 4->5, 5->6, 6->7, 7->8
+        // Apply migrations 1->2, 2->3, 3->4, 4->5, 5->6, 6->7, 7->8, 8->9, 9->10, 10->11
         com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_1_2.migrate(v1Db)
         com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_2_3.migrate(v1Db)
         com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_3_4.migrate(v1Db)
@@ -635,9 +635,13 @@ class ExampleRobolectricTest {
         com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_7_8.migrate(v1Db)
         com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_8_9.migrate(v1Db)
         com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_9_10.migrate(v1Db)
+        com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_10_11.migrate(v1Db)
+        com.jyotirmoyb.udhaar.data.UdhaarDatabase.MIGRATION_11_12.migrate(v1Db)
 
-        val cursor = v1Db.query("SELECT partyId, remoteId, verificationStatus, contentHash, remindersDisabled, snoozedUntilMillis, lastReminderSentMillis, lastReminderLevel, webLinkStatus, lastGuestAction, trustLevel, pendingPaymentClaim, pendingDateProposal FROM udhaar_transactions WHERE id = 1")
+        val cursor = v1Db.query("SELECT partyId, principalAmountPaise, amountPaidPaise, remoteId, verificationStatus, contentHash, remindersDisabled, snoozedUntilMillis, lastReminderSentMillis, lastReminderLevel, webLinkStatus, lastGuestAction, trustLevel, pendingPaymentClaim, pendingDateProposal FROM udhaar_transactions WHERE id = 1")
         assertTrue(cursor.moveToFirst())
+        assertEquals(500000L, cursor.getLong(cursor.getColumnIndexOrThrow("principalAmountPaise")))
+        assertEquals(0L, cursor.getLong(cursor.getColumnIndexOrThrow("amountPaidPaise")))
         assertEquals("LOCAL_ONLY", cursor.getString(cursor.getColumnIndexOrThrow("verificationStatus")))
         assertEquals(0, cursor.getInt(cursor.getColumnIndexOrThrow("remindersDisabled")))
         assertTrue(cursor.isNull(cursor.getColumnIndexOrThrow("snoozedUntilMillis")))
@@ -649,6 +653,17 @@ class ExampleRobolectricTest {
         assertEquals("", cursor.getString(cursor.getColumnIndexOrThrow("pendingPaymentClaim")))
         assertEquals("", cursor.getString(cursor.getColumnIndexOrThrow("pendingDateProposal")))
         cursor.close()
+
+        // Verify legacy Double columns were removed by MIGRATION_10_11
+        v1Db.query("PRAGMA table_info(`udhaar_transactions`)").use { pragma ->
+            val colNames = mutableSetOf<String>()
+            val nameIdx = pragma.getColumnIndex("name")
+            while (pragma.moveToNext()) colNames.add(pragma.getString(nameIdx))
+            assertTrue(colNames.contains("principalAmountPaise"))
+            assertTrue(colNames.contains("amountPaidPaise"))
+            org.junit.Assert.assertFalse("principalAmount Double column must be removed", colNames.contains("principalAmount"))
+            org.junit.Assert.assertFalse("amountPaid Double column must be removed", colNames.contains("amountPaid"))
+        }
 
         // Check that new tables and columns exist
         val partyCursor = v1Db.query("SELECT language, quietHoursOverride FROM parties")
@@ -683,7 +698,7 @@ class ExampleRobolectricTest {
             id = 1L,
             transactionType = TransactionType.GIVEN,
             partyName = "Harish Traders",
-            principalAmount = 25_000.0,
+            principalAmountPaise = 2_500_000L,
             currency = CurrencyType.INR,
             startDateMillis = System.currentTimeMillis() - 86400000L * 30
         )
@@ -691,10 +706,10 @@ class ExampleRobolectricTest {
         val khata = com.jyotirmoyb.udhaar.ui.PartyKhataSummary(
             party = party,
             transactions = listOf(summary),
-            inrToReceive = 25_000.0,
-            inrToPay = 0.0,
-            nprToReceive = 0.0,
-            nprToPay = 0.0
+            inrToReceivePaise = 2_500_000L,
+            inrToPayPaise = 0L,
+            nprToReceivePaise = 0L,
+            nprToPayPaise = 0L
         )
         val file = com.jyotirmoyb.udhaar.util.PdfStatementGenerator.generatePartyStatementPdf(
             context = context,
@@ -736,7 +751,7 @@ class ExampleRobolectricTest {
                     partyName = "Bapan Saha",
                     phoneNumber = "+919876543210",
                     currency = CurrencyType.INR,
-                    principalAmount = 15_000.0,
+                    principalAmountPaise = 1_500_000L,
                     paymentMode = PaymentMode.UPI,
                     isInterestEnabled = true,
                     interestType = com.jyotirmoyb.udhaar.data.InterestType.SIMPLE,
@@ -836,15 +851,15 @@ class ExampleRobolectricTest {
                     partyName = "Gopal Kirana Store",
                     phoneNumber = "+919811122233",
                     currency = CurrencyType.INR,
-                    principalAmount = 8_500.0,
-                    amountPaid = 1_500.0,
+                    principalAmountPaise = 850_000L,
+                    amountPaidPaise = 150_000L,
                     paymentMode = PaymentMode.UPI
                 )
             )
             plainDao.insertPartialPayment(
                 PartialPayment(
                     transactionId = txId,
-                    amount = 1_500.0,
+                    amountPaise = 150_000L,
                     paymentMode = PaymentMode.UPI,
                     note = "Pre-migration installment"
                 )
@@ -902,7 +917,7 @@ class ExampleRobolectricTest {
             assertEquals(1, migratedDao.getAllPartiesSnapshot().size)
             assertEquals("Gopal Kirana Store", migratedDao.getAllPartiesSnapshot().first().name)
             assertEquals(1, migratedDao.getAllTransactionsSnapshot().size)
-            assertEquals(8_500.0, migratedDao.getAllTransactionsSnapshot().first().principalAmount, 0.01)
+            assertEquals(850_000L, migratedDao.getAllTransactionsSnapshot().first().principalAmountPaise)
             assertEquals(1, migratedDao.getAllPartialPaymentsSnapshot().size)
             assertEquals("Pre-migration installment", migratedDao.getAllPartialPaymentsSnapshot().first().note)
 
@@ -920,7 +935,7 @@ class ExampleRobolectricTest {
             val parsedFromUdhaar = LedgerBackupManager.parseBackupJson(decryptedUdhaarJson)
             val restoredFromUdhaarCount = migratedRepo.restoreFullLedgerBackup(parsedFromUdhaar, replaceExisting = true)
             assertEquals(1, restoredFromUdhaarCount)
-            assertEquals(8_500.0, migratedDao.getAllTransactionsSnapshot().first().principalAmount, 0.01)
+            assertEquals(850_000L, migratedDao.getAllTransactionsSnapshot().first().principalAmountPaise)
 
             migratedDb.close()
             dbFile.delete()
@@ -1128,7 +1143,7 @@ class ExampleRobolectricTest {
             transactionType = TransactionType.GIVEN,
             partyName = "Sita Devi",
             currency = CurrencyType.INR,
-            principalAmount = 4_000.0
+            principalAmountPaise = 400_000L
         )
         val summary = InterestCalculator.calculate(tx)
         val hiddenReceiptBitmap = ThermalReceiptGenerator.createTransactionReceiptBitmap(
@@ -1186,22 +1201,16 @@ class ExampleRobolectricTest {
     fun `room migrations 8 to 9 to 10 and installment reminders in 5 languages work end to end`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
 
-        // 1. Verify exported Room schemas 9.json and 10.json exist and include installment_plans and installments
-        val schema9Candidates = listOf(
-            java.io.File("schemas/com.jyotirmoyb.udhaar.data.UdhaarDatabase/9.json"),
-            java.io.File("app/schemas/com.jyotirmoyb.udhaar.data.UdhaarDatabase/9.json")
-        )
-        val schema9File = schema9Candidates.firstOrNull { it.exists() && it.isFile }
-        assertNotNull("Exported Room schema 9.json must exist", schema9File)
-        assertTrue(schema9File!!.readText().contains("installment_plans"))
-
-        val schema10Candidates = listOf(
-            java.io.File("schemas/com.jyotirmoyb.udhaar.data.UdhaarDatabase/10.json"),
-            java.io.File("app/schemas/com.jyotirmoyb.udhaar.data.UdhaarDatabase/10.json")
-        )
-        val schema10File = schema10Candidates.firstOrNull { it.exists() && it.isFile }
-        assertNotNull("Exported Room schema 10.json must exist", schema10File)
-        assertTrue(schema10File!!.readText().contains("\"version\": 10"))
+        // 1. Verify exported Room schemas 3.json through 12.json exist (including 4, 5, 6)
+        for (ver in 3..12) {
+            val candidates = listOf(
+                java.io.File("schemas/com.jyotirmoyb.udhaar.data.UdhaarDatabase/$ver.json"),
+                java.io.File("app/schemas/com.jyotirmoyb.udhaar.data.UdhaarDatabase/$ver.json")
+            )
+            val schemaFile = candidates.firstOrNull { it.exists() && it.isFile }
+            assertNotNull("Exported Room schema $ver.json must exist", schemaFile)
+            assertTrue("Schema $ver.json must declare version $ver", schemaFile!!.readText().contains("\"version\": $ver"))
+        }
 
         // 2. Execute MIGRATION_8_9 and MIGRATION_9_10 on an in-memory SQLite database
         val sqliteDb = android.database.sqlite.SQLiteDatabase.create(null)
@@ -1249,6 +1258,148 @@ class ExampleRobolectricTest {
             assertTrue("Rendered reminder for $lang should include installment amount", rendered.contains("₹1,000"))
             assertTrue("Rendered reminder for $lang should include total remaining", rendered.contains("₹4,000"))
         }
+    }
+
+    @Test
+    @Config(sdk = [36], qualifiers = "w411dp-h891dp-normal-long-port-xxhdpi", fontScale = 2.0f)
+    fun `composeTest_touchTargetsAndButtonsAtFontScale2_0`() {
+        composeRule.waitForIdle()
+
+        // Verify primary interactive clickables on Dashboard at fontScale = 2.0 have at least 48dp height
+        val interactiveTags = listOf(
+            "open_settings_button",
+            "open_inbox_updates_button",
+            "header_group_split_button",
+            "nav_tab_ledger",
+            "nav_tab_people_directory",
+            "nav_tab_history",
+            "privacy_hide_amounts_toggle",
+            "filter_chip_all",
+            "open_group_split_button",
+            "sort_transactions_button",
+            "add_udhaar_fab"
+        )
+        for (tag in interactiveTags) {
+            val bounds = composeRule.onNode(androidx.compose.ui.test.hasTestTag(tag)).fetchSemanticsNode().boundsInRoot
+            val heightDp = with(composeRule.density) { bounds.height.toDp() }
+            assertTrue("Node $tag height ($heightDp) must be >= 47.5.dp at fontScale 2.0", heightDp.value >= 47.5f)
+        }
+    }
+
+    @Test
+    @Config(sdk = [36], qualifiers = "w800dp-h1280dp-xlarge-port-mdpi")
+    fun `adaptiveLayout_twoPaneAt600dp_and_centeredForm560dp`() {
+        composeRule.waitForIdle()
+
+        // At 800dp width (>= 600dp), list and detail render side-by-side
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("dashboard_adaptive_two_pane")).assertExists()
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("adaptive_detail_pane")).assertExists()
+
+        // Navigate to Add/Edit form and verify centered form container has width <= 560.dp
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("add_udhaar_fab")).performClick()
+        composeRule.waitForIdle()
+
+        val formNode = composeRule.onNode(androidx.compose.ui.test.hasTestTag("adaptive_centered_form_container"))
+        formNode.assertExists()
+        val formBounds = formNode.fetchSemanticsNode().boundsInRoot
+        val formWidthDp = with(composeRule.density) { formBounds.width.toDp() }
+        assertTrue("Centered form width ($formWidthDp) must be <= 561.dp on 800dp screen", formWidthDp.value <= 561f)
+    }
+
+    @Test
+    fun `telemetryManager_offUntilConsent_noPersonalData_and_testMyBackup_roundTrip`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        com.jyotirmoyb.udhaar.util.TelemetryManager.resetForTesting()
+
+        // 1. Default OFF until user agrees
+        org.junit.Assert.assertFalse(com.jyotirmoyb.udhaar.util.TelemetryManager.isConsentGranted)
+        com.jyotirmoyb.udhaar.util.TelemetryManager.logScreenView("dashboard", context)
+        com.jyotirmoyb.udhaar.util.TelemetryManager.recordNonFatal(
+            IllegalStateException("Secret user name Rahul +919876543210"),
+            "dashboard"
+        )
+        assertTrue(com.jyotirmoyb.udhaar.util.TelemetryManager.getRecordedScreenEventsForTesting().isEmpty())
+        assertTrue(com.jyotirmoyb.udhaar.util.TelemetryManager.getRecordedCrashEventsForTesting().isEmpty())
+
+        // 2. Enable consent -> logs sanitized screen IDs and redacted crash messages ONLY (zero personal data)
+        com.jyotirmoyb.udhaar.util.TelemetryManager.setConsent(context, true)
+        assertTrue(com.jyotirmoyb.udhaar.util.TelemetryManager.isConsentGranted)
+        com.jyotirmoyb.udhaar.util.TelemetryManager.logScreenView("dashboard", context)
+        com.jyotirmoyb.udhaar.util.TelemetryManager.recordNonFatal(
+            IllegalArgumentException("Sensitive note for Ramesh +919876543210"),
+            "dashboard"
+        )
+
+        val screenEvents = com.jyotirmoyb.udhaar.util.TelemetryManager.getRecordedScreenEventsForTesting()
+        assertEquals(1, screenEvents.size)
+        assertEquals("dashboard", screenEvents.first().screenName)
+
+        val crashEvents = com.jyotirmoyb.udhaar.util.TelemetryManager.getRecordedCrashEventsForTesting()
+        assertEquals(1, crashEvents.size)
+        assertEquals("IllegalArgumentException", crashEvents.first().exceptionClass)
+        org.junit.Assert.assertFalse(crashEvents.first().redactedMessage.contains("9876543210"))
+
+        // 3. Disabling consent clears buffers immediately
+        com.jyotirmoyb.udhaar.util.TelemetryManager.setConsent(context, false)
+        assertTrue(com.jyotirmoyb.udhaar.util.TelemetryManager.getRecordedScreenEventsForTesting().isEmpty())
+        assertTrue(com.jyotirmoyb.udhaar.util.TelemetryManager.getRecordedCrashEventsForTesting().isEmpty())
+
+        // 4. Backup Recovery Key generation + "Test my backup" round-trip verification
+        val recoveryKey = com.jyotirmoyb.udhaar.util.TelemetryManager.generateBackupRecoveryKey()
+        assertTrue("Recovery key must be valid", com.jyotirmoyb.udhaar.util.TelemetryManager.isValidRecoveryKey(recoveryKey))
+        assertTrue("Recovery key ID must be non-empty", com.jyotirmoyb.udhaar.util.TelemetryManager.extractRecoveryKeyId(recoveryKey).isNotBlank())
+
+        val sampleParty = PartyEntity(partyId = 1L, name = "Test Backup Party", phoneNumber = "+919876543210")
+        val sampleTx = UdhaarTransaction(id = 10L, partyId = 1L, partyName = "Test Backup Party", principalAmountPaise = 275_050L, amountPaidPaise = 75_025L)
+        val samplePayment = PartialPayment(id = 100L, transactionId = 10L, amountPaise = 75_025L)
+        val json = LedgerBackupManager.buildBackupJson(
+            parties = listOf(sampleParty),
+            transactions = listOf(sampleTx),
+            partialPayments = listOf(samplePayment),
+            exportType = "FULL_LEDGER"
+        )
+        val encrypted = com.jyotirmoyb.udhaar.backup.DriveBackupCrypto.encrypt(
+            plainBytes = json.toByteArray(Charsets.UTF_8),
+            passphrase = recoveryKey,
+            preview = com.jyotirmoyb.udhaar.backup.BackupPreviewSummary(1, 1, 1, 0)
+        )
+        val decryptedJson = String(com.jyotirmoyb.udhaar.backup.DriveBackupCrypto.decrypt(encrypted, recoveryKey), Charsets.UTF_8)
+        val parsed = LedgerBackupManager.parseBackupJson(decryptedJson)
+        assertEquals(275_050L, parsed.transactions.sumOf { it.principalAmountPaise })
+        assertEquals(75_025L, parsed.partialPayments.sumOf { it.amountPaise })
+    }
+
+    @Test
+    fun `splitFiles_areAllStrictlyUnder600Lines_and_ciWorkflowAndSmokeChecklistExist`() {
+        val targetFiles = listOf(
+            "src/main/java/com/jyotirmoyb/udhaar/MainActivity.kt" to "app/src/main/java/com/jyotirmoyb/udhaar/MainActivity.kt",
+            "src/main/java/com/jyotirmoyb/udhaar/ui/components/DashboardScreen.kt" to "app/src/main/java/com/jyotirmoyb/udhaar/ui/components/DashboardScreen.kt",
+            "src/main/java/com/jyotirmoyb/udhaar/ui/components/PeopleDirectoryScreen.kt" to "app/src/main/java/com/jyotirmoyb/udhaar/ui/components/PeopleDirectoryScreen.kt",
+            "src/main/java/com/jyotirmoyb/udhaar/ui/components/AddEditUdhaarScreen.kt" to "app/src/main/java/com/jyotirmoyb/udhaar/ui/components/AddEditUdhaarScreen.kt"
+        )
+        for ((relA, relB) in targetFiles) {
+            val file = listOf(java.io.File(relA), java.io.File(relB)).firstOrNull { it.exists() }
+            assertNotNull("Expected file $relB to exist", file)
+            val lineCount = file!!.readLines().size
+            assertTrue("${file.name} has $lineCount lines, which must be < 600", lineCount < 600)
+        }
+
+        val ciFile = listOf(
+            java.io.File(".github/workflows/android-ci.yml"),
+            java.io.File("../.github/workflows/android-ci.yml")
+        ).firstOrNull { it.exists() }
+        assertNotNull("GitHub Actions workflow .github/workflows/android-ci.yml must exist", ciFile)
+        val ciContent = ciFile!!.readText()
+        assertTrue(ciContent.contains("testDebugUnitTest"))
+        assertTrue(ciContent.contains("lintDebug"))
+        assertTrue(ciContent.contains("ktlint"))
+        assertTrue(ciContent.contains("assembleRelease"))
+
+        val checklistFile = listOf(
+            java.io.File("docs/RELEASE_SMOKE_TEST_CHECKLIST.md"),
+            java.io.File("../docs/RELEASE_SMOKE_TEST_CHECKLIST.md")
+        ).firstOrNull { it.exists() }
+        assertNotNull("Release smoke test checklist must exist", checklistFile)
     }
 
 }

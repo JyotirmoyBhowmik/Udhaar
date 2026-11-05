@@ -181,9 +181,7 @@ open class LedgerRepository(
             borrowerName = borrowerName,
             contentHash = computedHash,
             verificationStatus = nextVerificationStatus,
-            needsMyConfirmation = if (termsChanged) false else transaction.needsMyConfirmation,
-            principalAmountPaise = Math.round(transaction.principalAmount * 100.0),
-            amountPaidPaise = Math.round(transaction.amountPaid * 100.0)
+            needsMyConfirmation = if (termsChanged) false else transaction.needsMyConfirmation
         )
 
         val savedId = dao.insertTransaction(preparedTx)
@@ -195,7 +193,7 @@ open class LedgerRepository(
                 transactionId = savedId,
                 eventType = AuditEventType.CREATED,
                 actorName = actorDisplay,
-                summaryText = "$actorDisplay created ${preparedTx.transactionType.label} record of ${preparedTx.currency.symbol}${InterestCalculator.formatAmount(preparedTx.principalAmount)} with ${preparedTx.partyName}",
+                summaryText = "$actorDisplay created ${preparedTx.transactionType.label} record of ${InterestCalculator.formatCurrencyPaise(preparedTx.principalAmountPaise, preparedTx.currency)} with ${preparedTx.partyName}",
                 contentHashSnapshot = computedHash
             )
         } else if (termsChanged) {

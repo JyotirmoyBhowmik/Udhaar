@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -370,11 +371,9 @@ fun NeedsAttentionStrip(
                     )
                 }
             }
-            IconButton(
+            AppIconButton(
                 onClick = onDismiss,
-                modifier = Modifier
-                    .size(48.dp)
-                    .testTag("dismiss_needs_attention_button")
+                modifier = Modifier.testTag("dismiss_needs_attention_button")
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
@@ -622,8 +621,8 @@ fun ShimmerLedgerPlaceholder(
 @Composable
 fun FriendlyEmptyStateCard(
     sentence: String,
-    primaryButtonLabel: String,
-    onPrimaryClick: () -> Unit,
+    primaryButtonLabel: String? = null,
+    onPrimaryClick: (() -> Unit)? = null,
     secondaryButtonLabel: String? = null,
     onSecondaryClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
@@ -642,25 +641,24 @@ fun FriendlyEmptyStateCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 28.dp),
+                .padding(horizontal = 20.dp, vertical = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(76.dp)
+                    .size(64.dp)
                     .clip(CircleShape)
                     .background(accentBg),
                 contentAlignment = Alignment.Center
             ) {
                 Canvas(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(38.dp)
                         .semantics { contentDescription = "Ledger book illustration" }
                 ) {
                     val w = size.width
                     val h = size.height
-                    // Friendly notebook + checkmark illustration
                     drawRoundRect(
                         color = primaryColor.copy(alpha = 0.18f),
                         topLeft = Offset(w * 0.15f, h * 0.1f),
@@ -706,31 +704,31 @@ fun FriendlyEmptyStateCard(
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(2.dp))
-
-            Button(
-                onClick = onPrimaryClick,
-                shape = UdhaarShapeTokens.ShapeMedium,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                modifier = Modifier
-                    .height(48.dp)
-                    .pressScaleFeedback()
-                    .testTag("empty_state_primary_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = primaryButtonLabel,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = primaryButtonLabel,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold
-                )
+            if (!primaryButtonLabel.isNullOrBlank() && onPrimaryClick != null) {
+                Button(
+                    onClick = onPrimaryClick,
+                    shape = UdhaarShapeTokens.ShapeMedium,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .pressScaleFeedback()
+                        .testTag("empty_state_primary_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = primaryButtonLabel,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = primaryButtonLabel,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
             if (secondaryButtonLabel != null && onSecondaryClick != null) {
@@ -738,7 +736,7 @@ fun FriendlyEmptyStateCard(
                     onClick = onSecondaryClick,
                     shape = UdhaarShapeTokens.ShapeMedium,
                     modifier = Modifier
-                        .height(48.dp)
+                        .heightIn(min = 48.dp)
                         .pressScaleFeedback()
                         .testTag("empty_state_secondary_button")
                 ) {

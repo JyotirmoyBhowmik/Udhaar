@@ -925,4 +925,22 @@
     <string name="group_split_empty_members_hint">ভাগৰ হিচাপ চাবলৈ ওপৰত কমেও ১ জন সদস্য যোগ কৰক।</string>
     <string name="group_split_custom_amount_label">অংশৰ ধন</string>
     <string name="group_split_percent_label">অংশ %</string>
+    <string name="settings_analytics_crash_title">ক্ৰেছ ৰিপৰ্ট আৰু স্ক্ৰীণ এনালিটিক্স (ঐচ্ছিক)</string>
+    <string name="settings_analytics_crash_subtitle">ডিফল্টভাৱে বন্ধ। কোনো ব্যক্তিগত তথ্য নোহোৱাকৈ কেৱল বেনামী ক্ৰেছ ডায়াগনষ্টিক পঠিয়ায়।</string>
+    <string name="settings_backup_recovery_key_title">বেকআপ ৰিকভাৰী চাবি</string>
+    <string name="settings_backup_recovery_key_subtitle">পাছফ্ৰেজ পাহৰিলে এনক্ৰিপ্টেড বেকআপ খুলিবলৈ এই ৰিকভাৰী চাবি সুৰক্ষিতভাৱে সংৰক্ষণ কৰক।</string>
+    <string name="settings_backup_recovery_key_active_fmt">সক্ৰিয় চাবি ID: %1$s</string>
+    <string name="settings_generate_recovery_key_button">ৰিকভাৰী চাবি তৈয়াৰ কৰক</string>
+    <string name="settings_copy_recovery_key_button">চাবি কপি কৰক</string>
+    <string name="settings_test_my_backup_button">মোৰ বেকআপ পৰীক্ষা কৰক</string>
+    <string name="adaptive_select_record_prompt">সম্পূৰ্ণ বিৱৰণ আৰু পৰিশোধ ইতিহাস চাবলৈ বাওঁফালৰ পৰা এটা ৰেকৰ্ড বাছনি কৰক</string>
+    <string name="adaptive_select_person_prompt">খাতাৰ বিৱৰণ চাবলৈ বাওঁফালৰ পৰা এজন ব্যক্তি বাছনি কৰক</string>
+    <string name="cd_close">বন্ধ কৰক</string>
+    <string name="cd_collapse_details">বিৱৰণ সংক্ষিপ্ত কৰক</string>
+    <string name="cd_expand_details">বিৱৰণ বিস্তৃত কৰক</string>
+    <string name="cd_back">উভতি যাওক</string>
+    <string name="cd_favorite_party">প্ৰিয় ব্যক্তি</string>
+    <string name="cd_whatsapp_reminder">হোৱাটছএপ ৰিমাইণ্ডাৰ পঠিয়াওক</string>
+    <string name="updates_screen_title">আপডেট আৰু ৰিমাইণ্ডাৰ</string>
+    <string name="ui_str_repayment_history_e95aa2">পৰিশোধ ইতিহাস</string>
 </resources>

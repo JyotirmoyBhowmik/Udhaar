@@ -147,16 +147,16 @@ object PdfStatementGenerator {
         y += 14f
 
         if (CurrencyType.INR in enabledCurrencies) {
-            val formatted = InterestCalculator.formatCurrency(khata.inrNet, CurrencyType.INR)
-            val direction = if (khata.inrNet >= 0) "To receive" else "To pay"
+            val formatted = InterestCalculator.formatPaise(khata.inrNetPaise, CurrencyType.INR)
+            val direction = if (khata.inrNetPaise >= 0L) "To receive" else "To pay"
             val inrBalText = context?.getString(R.string.pdf_inr_balance, formatted, direction)
                 ?: "INR balance: $formatted ($direction)"
             canvas.drawText(inrBalText, MARGIN, y, boldPaint)
             y += 12f
         }
         if (CurrencyType.NPR in enabledCurrencies) {
-            val formatted = InterestCalculator.formatCurrency(khata.nprNet, CurrencyType.NPR)
-            val direction = if (khata.nprNet >= 0) "To receive" else "To pay"
+            val formatted = InterestCalculator.formatPaise(khata.nprNetPaise, CurrencyType.NPR)
+            val direction = if (khata.nprNetPaise >= 0L) "To receive" else "To pay"
             val nprBalText = context?.getString(R.string.pdf_npr_balance, formatted, direction)
                 ?: "NPR balance: $formatted ($direction)"
             canvas.drawText(nprBalText, MARGIN, y, boldPaint)
@@ -192,7 +192,7 @@ object PdfStatementGenerator {
             val descStr = tx.notes.ifBlank { "Udhaar entry" }.take(22)
             val exp = tx.expiryDateMillis
             val dueStr = if (exp != null && exp > 0) itemDateSdf.format(Date(exp)) else "None"
-            val netStr = InterestCalculator.formatCurrency(item.netBalanceDue, tx.currency)
+            val netStr = InterestCalculator.formatPaise(item.netBalanceDuePaise, tx.currency)
 
             canvas.drawText(dateStr, MARGIN, y, textPaint)
             canvas.drawText(typeStr, MARGIN + 70f, y, boldPaint)
@@ -218,7 +218,7 @@ object PdfStatementGenerator {
                 y += 11f
                 for (inst in txInstList.take(6)) {
                     val instDueStr = itemDateSdf.format(Date(inst.dueDate))
-                    val instAmtStr = tx.currency.symbol + InterestCalculator.formatAmount(InstallmentCalculator.paiseToDouble(inst.amountDue))
+                    val instAmtStr = tx.currency.symbol + InterestCalculator.formatAmountPaise(inst.amountDue)
                     val instLine = "  #${inst.sequence} Due $instDueStr • $instAmtStr • ${inst.status.name}"
                     canvas.drawText(instLine, MARGIN + 130f, y, subtextPaint)
                     y += 10f
@@ -324,7 +324,7 @@ object PdfStatementGenerator {
         canvas.drawText(roleLabel, MARGIN + colWidth, y, headerPaint)
         y += 12f
 
-        val totalAmt = tx.currency.symbol + InterestCalculator.formatAmount(InstallmentCalculator.paiseToDouble(plan.totalAmountDue))
+        val totalAmt = tx.currency.symbol + InterestCalculator.formatAmountPaise(plan.totalAmountDue)
         val totalSched = context?.getString(R.string.pdf_total_scheduled, totalAmt) ?: "Total: $totalAmt"
         val interestMode = context?.getString(R.string.pdf_interest_mode_label, plan.interestMode.label) ?: "Type of interest: ${plan.interestMode.label}"
         canvas.drawText(totalSched, MARGIN, y, boldPaint)
@@ -352,8 +352,8 @@ object PdfStatementGenerator {
 
         for (inst in installments.sortedBy { it.sequence }) {
             val dueStr = sdf.format(Date(inst.dueDate))
-            val dueAmt = tx.currency.symbol + InterestCalculator.formatAmount(InstallmentCalculator.paiseToDouble(inst.amountDue))
-            val paidAmt = tx.currency.symbol + InterestCalculator.formatAmount(InstallmentCalculator.paiseToDouble(inst.amountPaid))
+            val dueAmt = tx.currency.symbol + InterestCalculator.formatAmountPaise(inst.amountDue)
+            val paidAmt = tx.currency.symbol + InterestCalculator.formatAmountPaise(inst.amountPaid)
 
             canvas.drawText("#${inst.sequence}", MARGIN, y, boldPaint)
             canvas.drawText(dueStr, MARGIN + 40f, y, textPaint)
@@ -447,17 +447,17 @@ object PdfStatementGenerator {
         canvas.drawLine(MARGIN, y, PAGE_WIDTH - MARGIN, y, linePaint)
         y += 16f
 
-        // Grand Totals Table
-        var grandGivenInr = 0.0
-        var grandTakenInr = 0.0
-        var grandGivenNpr = 0.0
-        var grandTakenNpr = 0.0
+        // Grand Totals Table (in Long paise)
+        var grandGivenInrPaise = 0L
+        var grandTakenInrPaise = 0L
+        var grandGivenNprPaise = 0L
+        var grandTakenNprPaise = 0L
 
         for (k in khataList) {
-            grandGivenInr += k.inrToReceive
-            grandTakenInr += k.inrToPay
-            grandGivenNpr += k.nprToReceive
-            grandTakenNpr += k.nprToPay
+            grandGivenInrPaise += k.inrToReceivePaise
+            grandTakenInrPaise += k.inrToPayPaise
+            grandGivenNprPaise += k.nprToReceivePaise
+            grandTakenNprPaise += k.nprToPayPaise
         }
 
         val overallPosHeader = context?.getString(R.string.pdf_overall_position) ?: "Total balance summary:"
@@ -465,10 +465,10 @@ object PdfStatementGenerator {
         y += 13f
 
         if (CurrencyType.INR in enabledCurrencies) {
-            val netInr = grandGivenInr - grandTakenInr
-            val dir = if (netInr >= 0) "To receive" else "To pay"
-            val inrGivenStr = "INR (₹) Given: ${InterestCalculator.formatCurrency(grandGivenInr, CurrencyType.INR)} | Taken: ${InterestCalculator.formatCurrency(grandTakenInr, CurrencyType.INR)}"
-            val inrNetStr = "INR (₹) Net Position: ${InterestCalculator.formatCurrency(netInr, CurrencyType.INR)} ($dir)"
+            val netInrPaise = grandGivenInrPaise - grandTakenInrPaise
+            val dir = if (netInrPaise >= 0L) "To receive" else "To pay"
+            val inrGivenStr = "INR (₹) Given: ${InterestCalculator.formatPaise(grandGivenInrPaise, CurrencyType.INR)} | Taken: ${InterestCalculator.formatPaise(grandTakenInrPaise, CurrencyType.INR)}"
+            val inrNetStr = "INR (₹) Net Position: ${InterestCalculator.formatPaise(netInrPaise, CurrencyType.INR)} ($dir)"
             canvas.drawText(inrGivenStr, MARGIN, y, boldPaint)
             y += 12f
             canvas.drawText(inrNetStr, MARGIN, y, boldPaint)
@@ -476,10 +476,10 @@ object PdfStatementGenerator {
         }
 
         if (CurrencyType.NPR in enabledCurrencies) {
-            val netNpr = grandGivenNpr - grandTakenNpr
-            val dir = if (netNpr >= 0) "To receive" else "To pay"
-            val nprGivenStr = "NPR (रू) Given: ${InterestCalculator.formatCurrency(grandGivenNpr, CurrencyType.NPR)} | Taken: ${InterestCalculator.formatCurrency(grandTakenNpr, CurrencyType.NPR)}"
-            val nprNetStr = "NPR (रू) Net Position: ${InterestCalculator.formatCurrency(netNpr, CurrencyType.NPR)} ($dir)"
+            val netNprPaise = grandGivenNprPaise - grandTakenNprPaise
+            val dir = if (netNprPaise >= 0L) "To receive" else "To pay"
+            val nprGivenStr = "NPR (रू) Given: ${InterestCalculator.formatPaise(grandGivenNprPaise, CurrencyType.NPR)} | Taken: ${InterestCalculator.formatPaise(grandTakenNprPaise, CurrencyType.NPR)}"
+            val nprNetStr = "NPR (रू) Net Position: ${InterestCalculator.formatPaise(netNprPaise, CurrencyType.NPR)} ($dir)"
             canvas.drawText(nprGivenStr, MARGIN, y, boldPaint)
             y += 12f
             canvas.drawText(nprNetStr, MARGIN, y, boldPaint)
@@ -512,8 +512,8 @@ object PdfStatementGenerator {
             val nameStr = party.name.take(16)
             val phoneStr = party.phoneNumber.takeIf { it.isNotBlank() }?.let { InterestCalculator.maskPhoneNumber(it) }?.take(11) ?: "—"
             val countStr = "${khata.transactions.size}"
-            val netInrStr = if (CurrencyType.INR in enabledCurrencies) InterestCalculator.formatCurrency(khata.inrNet, CurrencyType.INR) else "—"
-            val netNprStr = if (CurrencyType.NPR in enabledCurrencies) InterestCalculator.formatCurrency(khata.nprNet, CurrencyType.NPR) else "—"
+            val netInrStr = if (CurrencyType.INR in enabledCurrencies) InterestCalculator.formatPaise(khata.inrNetPaise, CurrencyType.INR) else "—"
+            val netNprStr = if (CurrencyType.NPR in enabledCurrencies) InterestCalculator.formatPaise(khata.nprNetPaise, CurrencyType.NPR) else "—"
 
             canvas.drawText(nameStr, MARGIN, y, boldPaint)
             canvas.drawText(phoneStr, MARGIN + 120f, y, textPaint)

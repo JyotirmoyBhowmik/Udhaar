@@ -6,7 +6,6 @@ import com.jyotirmoyb.udhaar.data.PartialPayment
 import com.jyotirmoyb.udhaar.data.PaymentMode
 import com.jyotirmoyb.udhaar.data.UdhaarDao
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
-import com.jyotirmoyb.udhaar.data.UserSettings
 import com.jyotirmoyb.udhaar.data.VerificationStatus
 import com.jyotirmoyb.udhaar.data.cloud.CloudPartialPayment
 import com.jyotirmoyb.udhaar.data.cloud.VerificationCloudRepository
@@ -18,8 +17,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import java.util.UUID
-import javax.inject.Inject
-import javax.inject.Singleton
 
 open class PaymentRepository(
     private val dao: UdhaarDao,
@@ -43,9 +40,27 @@ open class PaymentRepository(
         totalAccruedAmount: Double,
         actorName: String = "You",
         proofAttachment: Attachment? = null
+    ): Long = recordPartialPaymentPaise(
+        transaction = transaction,
+        paymentAmountPaise = InterestCalculator.rupeesToPaise(paymentAmount),
+        paymentMode = paymentMode,
+        note = note,
+        totalAccruedAmountPaise = InterestCalculator.rupeesToPaise(totalAccruedAmount),
+        actorName = actorName,
+        proofAttachment = proofAttachment
+    )
+
+    suspend fun recordPartialPaymentPaise(
+        transaction: UdhaarTransaction,
+        paymentAmountPaise: Long,
+        paymentMode: PaymentMode = PaymentMode.CASH,
+        note: String,
+        totalAccruedAmountPaise: Long,
+        actorName: String = "You",
+        proofAttachment: Attachment? = null
     ): Long {
-        val cleanPayment = paymentAmount.coerceAtLeast(0.0)
-        if (cleanPayment <= 0.0) return -1L
+        val cleanPaymentPaise = paymentAmountPaise.coerceAtLeast(0L)
+        if (cleanPaymentPaise <= 0L) return -1L
 
         val settings = settingsRepository.userSettings.first()
         val effectiveActor = actorName.trim().ifEmpty { settings.payeeName.ifBlank { "You" } }
@@ -56,7 +71,7 @@ open class PaymentRepository(
         val insertedPaymentId = dao.insertPartialPayment(
             PartialPayment(
                 transactionId = transaction.id,
-                amount = cleanPayment,
+                amountPaise = cleanPaymentPaise,
                 paymentMode = paymentMode,
                 paidAtMillis = nowMillis,
                 note = note.trim(),
@@ -81,10 +96,9 @@ open class PaymentRepository(
 
         val plan = dao.getInstallmentPlanForTransactionSnapshot(transaction.id)
         val planSettled = if (plan != null) {
-            val paymentPaise = com.jyotirmoyb.udhaar.util.InstallmentCalculator.toPaise(cleanPayment)
             val allocResult = installmentRepository?.applyPaymentToInstallments(
                 txId = transaction.id,
-                paymentAmountPaise = paymentPaise,
+                paymentAmountPaise = cleanPaymentPaise,
                 paymentId = insertedPaymentId,
                 paidAtMillis = nowMillis
             )
@@ -93,17 +107,16 @@ open class PaymentRepository(
             false
         }
 
-        val updatedPaid = transaction.amountPaid + cleanPayment
-        val nowSettled = planSettled || (updatedPaid >= (totalAccruedAmount - 0.01))
+        val updatedPaidPaise = transaction.amountPaidPaise + cleanPaymentPaise
+        val nowSettled = planSettled || (updatedPaidPaise >= totalAccruedAmountPaise && totalAccruedAmountPaise > 0L)
         val updatedTx = transaction.copy(
-            amountPaid = updatedPaid,
-            amountPaidPaise = Math.round(updatedPaid * 100.0),
+            amountPaidPaise = updatedPaidPaise,
             isSettled = nowSettled,
             settledAtMillis = if (nowSettled) nowMillis else transaction.settledAtMillis
         )
         dao.updateTransaction(updatedTx)
 
-        val formattedAmt = "${transaction.currency.symbol}${InterestCalculator.formatAmount(cleanPayment)}"
+        val formattedAmt = "${transaction.currency.symbol}${InterestCalculator.formatPaise(cleanPaymentPaise)}"
         AuditTrailHelper.appendLocalAuditEvent(
             dao = dao,
             transactionId = transaction.id,
@@ -147,7 +160,7 @@ open class PaymentRepository(
                         recordedByUid = settings.cloudUserId,
                         recordedByName = effectiveActor,
                         participantUids = participants,
-                        amount = cleanPayment,
+                        amount = InterestCalculator.paiseToRupees(cleanPaymentPaise),
                         paymentMode = paymentMode.name,
                         paidAtMillis = nowMillis,
                         encryptedNote = encNote,
@@ -157,7 +170,7 @@ open class PaymentRepository(
                 cloudRepository?.updateSharedRecordTermsOrStatus(
                     remoteId = transaction.remoteId,
                     updates = mapOf(
-                        "amountPaid" to updatedPaid,
+                        "amountPaid" to InterestCalculator.paiseToRupees(updatedPaidPaise),
                         "isSettled" to nowSettled
                     )
                 )
@@ -182,7 +195,7 @@ open class PaymentRepository(
         )
         dao.updatePartialPayment(updatedPayment)
 
-        val formattedAmt = "${transaction.currency.symbol}${InterestCalculator.formatAmount(payment.amount)}"
+        val formattedAmt = "${transaction.currency.symbol}${InterestCalculator.formatPaise(payment.amountPaise)}"
         AuditTrailHelper.appendLocalAuditEvent(
             dao = dao,
             transactionId = transaction.id,
@@ -214,19 +227,28 @@ open class PaymentRepository(
         transaction: UdhaarTransaction,
         payment: PartialPayment,
         totalAccruedAmount: Double
+    ) = deletePartialPaymentPaise(
+        transaction = transaction,
+        payment = payment,
+        totalAccruedAmountPaise = InterestCalculator.rupeesToPaise(totalAccruedAmount)
+    )
+
+    suspend fun deletePartialPaymentPaise(
+        transaction: UdhaarTransaction,
+        payment: PartialPayment,
+        totalAccruedAmountPaise: Long
     ) {
         dao.deletePartialPayment(payment)
-        val updatedPaid = (transaction.amountPaid - payment.amount).coerceAtLeast(0.0)
+        val updatedPaidPaise = (transaction.amountPaidPaise - payment.amountPaise).coerceAtLeast(0L)
         val planResult = installmentRepository?.recalculateInstallmentsForTotalPaid(
             txId = transaction.id,
-            totalPaidPaise = com.jyotirmoyb.udhaar.util.InstallmentCalculator.toPaise(updatedPaid)
+            totalPaidPaise = updatedPaidPaise
         )
         val nowSettled = (planResult?.isPlanFullySettled == true) ||
-            (updatedPaid >= (totalAccruedAmount - 0.01) && totalAccruedAmount > 0.0)
+            (updatedPaidPaise >= totalAccruedAmountPaise && totalAccruedAmountPaise > 0L)
         dao.updateTransaction(
             transaction.copy(
-                amountPaid = updatedPaid,
-                amountPaidPaise = Math.round(updatedPaid * 100.0),
+                amountPaidPaise = updatedPaidPaise,
                 isSettled = nowSettled,
                 settledAtMillis = if (nowSettled) transaction.settledAtMillis else null
             )

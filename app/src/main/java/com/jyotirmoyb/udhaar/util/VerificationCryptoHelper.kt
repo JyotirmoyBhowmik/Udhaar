@@ -156,7 +156,7 @@ object VerificationCryptoHelper {
         return computeContentHash(
             lenderName = lender,
             borrowerName = borrower,
-            principalAmount = tx.principalAmount,
+            principalAmount = InterestCalculator.paiseToRupees(tx.principalAmountPaise),
             currencyCode = currencyCode,
             startDateMillis = tx.startDateMillis,
             expiryDateMillis = tx.expiryDateMillis,

@@ -108,12 +108,12 @@ class LedgerRepositoryTest {
         fakeDao.updateTransaction(saved.copy(verificationStatus = VerificationStatus.CONFIRMED))
 
         // Edit terms (change principal amount)
-        val updatedTx = saved.copy(principalAmount = 2500.0)
+        val updatedTx = saved.copy(principalAmountPaise = 2500_00L)
         ledgerRepository.saveTransaction(updatedTx)
 
         val modified = ledgerRepository.getTransactionById(txId)
         assertEquals(VerificationStatus.EDITED_AFTER_CONFIRM, modified?.verificationStatus)
-        assertEquals(2500.0, modified?.principalAmount ?: 0.0, 0.01)
+        assertEquals(2500_00L, modified?.principalAmountPaise ?: 0L)
 
         val audit = ledgerRepository.getAuditTrail(txId).first()
         assertTrue(audit.any { it.eventType == AuditEventType.EDITED })

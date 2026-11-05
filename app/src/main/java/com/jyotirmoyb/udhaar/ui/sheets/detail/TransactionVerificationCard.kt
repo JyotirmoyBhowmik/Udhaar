@@ -204,7 +204,7 @@ fun TransactionVerificationCard(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Payments, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        val claimSummary = "${tx.partyName} claimed payment of ${InterestCalculator.formatCurrency(claim.amountDouble, tx.currency)}"
+                        val claimSummary = "${tx.partyName} claimed payment of ${InterestCalculator.formatPaise(claim.amountPaise, tx.currency)}"
                         Text(
                             text = claimSummary,
                             style = MaterialTheme.typography.bodySmall,

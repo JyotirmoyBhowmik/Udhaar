@@ -146,7 +146,7 @@ fun VerificationShareSheet(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = stringResource(R.string.ui_fmt_symbol_a32425, transaction.partyName, InterestCalculator.formatCurrency(transaction.principalAmount, transaction.currency)),
+                        text = stringResource(R.string.ui_fmt_symbol_a32425, transaction.partyName, InterestCalculator.formatPaise(transaction.principalAmountPaise, transaction.currency)),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -298,9 +298,9 @@ fun VerificationShareSheet(
                     val calc = InterestCalculator.calculate(transaction)
                     val myName = settings.payeeName.ifBlank { "Udhaar User" }
                     val roleDesc = if (transaction.transactionType == TransactionType.GIVEN) {
-                        "$myName lent ${InterestCalculator.formatCurrency(transaction.principalAmount, transaction.currency)} to ${transaction.partyName}"
+                        "$myName lent ${InterestCalculator.formatPaise(transaction.principalAmountPaise, transaction.currency)} to ${transaction.partyName}"
                     } else {
-                        "$myName borrowed ${InterestCalculator.formatCurrency(transaction.principalAmount, transaction.currency)} from ${transaction.partyName}"
+                        "$myName borrowed ${InterestCalculator.formatPaise(transaction.principalAmountPaise, transaction.currency)} from ${transaction.partyName}"
                     }
                     buildString {
                         append("Namaste ${transaction.partyName},\n\n")

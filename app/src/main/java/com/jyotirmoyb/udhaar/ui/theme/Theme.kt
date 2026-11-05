@@ -163,8 +163,7 @@ fun UdhaarTheme(
     }
 
     val currentDensity = LocalDensity.current
-    // Respect phone system font scale while safely bounding it so large phone font settings never break mobile cards
-    val boundedSystemFontScale = currentDensity.fontScale.coerceIn(0.85f, 1.15f)
+    val boundedSystemFontScale = currentDensity.fontScale.coerceIn(0.85f, 2.0f)
     val customDensity = remember(currentDensity.density, boundedSystemFontScale) {
         Density(
             density = currentDensity.density,

@@ -18,8 +18,10 @@ import com.jyotirmoyb.udhaar.data.UdhaarTransaction
 import com.jyotirmoyb.udhaar.data.UserSettings
 import com.jyotirmoyb.udhaar.ui.components.SuccessAnimationEvent
 import com.jyotirmoyb.udhaar.util.CalculatedUdhaarSummary
+import com.jyotirmoyb.udhaar.util.InterestCalculator
 import com.jyotirmoyb.udhaar.util.ParsedLedgerBackup
 import com.jyotirmoyb.udhaar.util.VerificationCryptoHelper
+import kotlin.math.abs
 
 enum class ActiveScreen {
     DASHBOARD,
@@ -32,19 +34,60 @@ enum class ActiveScreen {
 data class QrModalState(
     val transactionId: Long? = null,
     val partyName: String? = null,
-    val initialAmountInr: Double? = null,
+    val initialAmountPaise: Long? = null,
     val customUpiId: String? = null,
     val isPayToPartyMode: Boolean = false
-)
+) {
+    constructor(
+        transactionId: Long? = null,
+        partyName: String? = null,
+        initialAmountInr: Double?,
+        customUpiId: String? = null,
+        isPayToPartyMode: Boolean = false
+    ) : this(
+        transactionId = transactionId,
+        partyName = partyName,
+        initialAmountPaise = initialAmountInr?.let { InterestCalculator.rupeesToPaise(it) },
+        customUpiId = customUpiId,
+        isPayToPartyMode = isPayToPartyMode
+    )
+
+    val initialAmountInr: Double?
+        get() = initialAmountPaise?.let { InterestCalculator.paiseToRupees(it) }
+}
 
 data class CurrencyLedgerTotals(
     val currency: CurrencyType,
-    val totalToReceive: Double = 0.0,
-    val totalToPay: Double = 0.0,
+    val totalToReceivePaise: Long = 0L,
+    val totalToPayPaise: Long = 0L,
     val activeGivenCount: Int = 0,
     val activeTakenCount: Int = 0
 ) {
-    val netPosition: Double get() = totalToReceive - totalToPay
+    constructor(
+        currency: CurrencyType,
+        totalToReceive: Double,
+        totalToPay: Double,
+        activeGivenCount: Int = 0,
+        activeTakenCount: Int = 0
+    ) : this(
+        currency = currency,
+        totalToReceivePaise = InterestCalculator.rupeesToPaise(totalToReceive),
+        totalToPayPaise = InterestCalculator.rupeesToPaise(totalToPay),
+        activeGivenCount = activeGivenCount,
+        activeTakenCount = activeTakenCount
+    )
+
+    val netPositionPaise: Long
+        get() = totalToReceivePaise - totalToPayPaise
+
+    val totalToReceive: Double
+        get() = InterestCalculator.paiseToRupees(totalToReceivePaise)
+
+    val totalToPay: Double
+        get() = InterestCalculator.paiseToRupees(totalToPayPaise)
+
+    val netPosition: Double
+        get() = InterestCalculator.paiseToRupees(netPositionPaise)
 }
 
 enum class PartySortOption(val label: String) {
@@ -57,19 +100,51 @@ enum class PartySortOption(val label: String) {
 data class PartyKhataSummary(
     val party: PartyEntity,
     val transactions: List<CalculatedUdhaarSummary>,
-    val inrToReceive: Double,
-    val inrToPay: Double,
-    val nprToReceive: Double,
-    val nprToPay: Double,
+    val inrToReceivePaise: Long = 0L,
+    val inrToPayPaise: Long = 0L,
+    val nprToReceivePaise: Long = 0L,
+    val nprToPayPaise: Long = 0L,
     val oldestOverdueDays: Long = 0L,
     val averageRepaymentDays: Double = 0.0,
     val trustScorePercent: Int = 100, // 0 to 100 based on on-time repayments
     val trustBadge: String = "EXCELLENT" // EXCELLENT, GOOD, FAIR, CAUTION, NEW
 ) {
-    val inrNet: Double get() = inrToReceive - inrToPay
-    val nprNet: Double get() = nprToReceive - nprToPay
+    constructor(
+        party: PartyEntity,
+        transactions: List<CalculatedUdhaarSummary>,
+        inrToReceive: Double,
+        inrToPay: Double,
+        nprToReceive: Double,
+        nprToPay: Double,
+        oldestOverdueDays: Long = 0L,
+        averageRepaymentDays: Double = 0.0,
+        trustScorePercent: Int = 100,
+        trustBadge: String = "EXCELLENT"
+    ) : this(
+        party = party,
+        transactions = transactions,
+        inrToReceivePaise = InterestCalculator.rupeesToPaise(inrToReceive),
+        inrToPayPaise = InterestCalculator.rupeesToPaise(inrToPay),
+        nprToReceivePaise = InterestCalculator.rupeesToPaise(nprToReceive),
+        nprToPayPaise = InterestCalculator.rupeesToPaise(nprToPay),
+        oldestOverdueDays = oldestOverdueDays,
+        averageRepaymentDays = averageRepaymentDays,
+        trustScorePercent = trustScorePercent,
+        trustBadge = trustBadge
+    )
+
+    val inrNetPaise: Long get() = inrToReceivePaise - inrToPayPaise
+    val nprNetPaise: Long get() = nprToReceivePaise - nprToPayPaise
+    val maxNetBalancePaise: Long get() = maxOf(abs(inrNetPaise), abs(nprNetPaise))
     val activeLoanCount: Int get() = transactions.count { !it.transaction.isSettled }
-    val maxNetBalance: Double get() = maxOf(Math.abs(inrNet), Math.abs(nprNet))
+
+    val inrToReceive: Double get() = InterestCalculator.paiseToRupees(inrToReceivePaise)
+    val inrToPay: Double get() = InterestCalculator.paiseToRupees(inrToPayPaise)
+    val nprToReceive: Double get() = InterestCalculator.paiseToRupees(nprToReceivePaise)
+    val nprToPay: Double get() = InterestCalculator.paiseToRupees(nprToPayPaise)
+    val inrNet: Double get() = InterestCalculator.paiseToRupees(inrNetPaise)
+    val nprNet: Double get() = InterestCalculator.paiseToRupees(nprNetPaise)
+    val maxNetBalance: Double get() = InterestCalculator.paiseToRupees(maxNetBalancePaise)
 }
 
 data class DuplicatePartyPair(
@@ -83,6 +158,15 @@ data class PreselectedPartyDraft(
     val name: String,
     val phoneNumber: String,
     val preferredCurrency: CurrencyType
+)
+
+data class BackupSelfTestReport(
+    val passed: Boolean,
+    val summaryMessage: String,
+    val recordCountVerified: Int,
+    val totalPrincipalPaiseVerified: Long,
+    val recoveryKeyPreview: String = "",
+    val testedAtMillis: Long = System.currentTimeMillis()
 )
 
 data class UdhaarUiState(
@@ -148,6 +232,7 @@ data class UdhaarUiState(
     val driveOperationError: String? = null,
     val driveResolutionPendingIntent: PendingIntent? = null,
     val driveConnectionTestReport: DriveConnectionTestReport? = null,
+    val backupSelfTestReport: BackupSelfTestReport? = null,
     val pendingRestoreBackup: DriveRemoteBackup? = null,
     val pendingRestoreParsed: ParsedLedgerBackup? = null,
     val showRestorePreviewDialog: Boolean = false,

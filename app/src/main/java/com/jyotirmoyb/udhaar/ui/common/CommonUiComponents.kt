@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -298,7 +298,7 @@ fun SqlCipherBlockingErrorScreen(
                         onClick = onExportBackup,
                         modifier = Modifier
                             .weight(1f)
-                            .height(48.dp)
+                            .heightIn(min = 48.dp)
                             .pressScaleFeedback()
                             .testTag("sqlcipher_error_export_backup_button"),
                         shape = RoundedCornerShape(12.dp),
@@ -315,7 +315,7 @@ fun SqlCipherBlockingErrorScreen(
                         onClick = onTryAgain,
                         modifier = Modifier
                             .weight(1f)
-                            .height(48.dp)
+                            .heightIn(min = 48.dp)
                             .pressScaleFeedback()
                             .testTag("sqlcipher_error_try_again_button"),
                         shape = RoundedCornerShape(12.dp),

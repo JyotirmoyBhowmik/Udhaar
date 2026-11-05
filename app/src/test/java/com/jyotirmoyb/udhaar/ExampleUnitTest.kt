@@ -38,6 +38,17 @@ class ExampleUnitTest {
             amount = 2500.50
         )
         assertEquals(250050L, payment.amountPaise)
+
+        // Verify Double money fields are removed from entities (Long paise is the only persisted field)
+        val txDoubleMoneyFields = UdhaarTransaction::class.java.declaredFields.filter {
+            it.name in setOf("principalAmount", "amountPaid")
+        }
+        assertTrue("UdhaarTransaction must not have Double backing fields for money", txDoubleMoneyFields.isEmpty())
+
+        val paymentDoubleMoneyFields = PartialPayment::class.java.declaredFields.filter {
+            it.name == "amount"
+        }
+        assertTrue("PartialPayment must not have Double backing field for amount", paymentDoubleMoneyFields.isEmpty())
     }
 
     @Test
@@ -344,8 +355,8 @@ class ExampleUnitTest {
         )
         val originalHash = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.computeTransactionContentHash(original, "Owner")
 
-        // Tampering principalAmount changes hash
-        val tamperedAmount = original.copy(principalAmount = 10_001.0)
+        // Tampering principalAmountPaise changes hash
+        val tamperedAmount = original.copy(principalAmountPaise = 10_001_00L)
         val tamperedAmountHash = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.computeTransactionContentHash(tamperedAmount, "Owner")
         org.junit.Assert.assertNotEquals(originalHash, tamperedAmountHash)
 
@@ -1353,5 +1364,93 @@ class ExampleUnitTest {
         // 4. Extract Group Tag & Compute Active Groups
         val tagNote = com.jyotirmoyb.udhaar.util.GroupSplitCalculator.formatGroupNote("Goa Trip", "Beach Dinner")
         assertEquals("Goa Trip", com.jyotirmoyb.udhaar.util.GroupSplitCalculator.extractGroupName(tagNote))
+    }
+
+    @Test
+    fun moneyPropertyTests_paiseRoundingAndSumsHoldForAllInputs() {
+        val rng = java.util.Random(42020L)
+
+        // Property 1: Round-trip paise -> rupees -> paise is exact for all integer paise values
+        for (i in 0 until 250) {
+            val paise = if (i < 20) i.toLong() else rng.nextInt(50_00_000_00).toLong()
+            val rupees = InterestCalculator.paiseToRupees(paise)
+            val roundTripped = InterestCalculator.rupeesToPaise(rupees)
+            assertEquals("Round-trip paise -> rupees -> paise failed for $paise", paise, roundTripped)
+
+            val plainStr = InterestCalculator.formatPlainAmountPaise(paise)
+            val parsedPaise = InterestCalculator.rupeesStringToPaise(plainStr)
+            assertEquals("String round-trip failed for $plainStr", paise, parsedPaise)
+        }
+
+        // Property 2: Explicit HALF_UP rounding at half-paise boundaries (e.g. 0.005 rupees = 0.5 paise -> 1 paise)
+        assertEquals(1L, InterestCalculator.rupeesStringToPaise("0.005"))
+        assertEquals(0L, InterestCalculator.rupeesStringToPaise("0.004"))
+        assertEquals(10001L, InterestCalculator.rupeesStringToPaise("100.005"))
+        assertEquals(10000L, InterestCalculator.rupeesStringToPaise("100.0049"))
+
+        // Property 3: Installment schedule sum invariant — sum of all installment amountDuePaise equals totalExpectedPaise
+        for (i in 1..60) {
+            val principalPaise = (rng.nextInt(9_00_000_00) + 100).toLong()
+            val count = (i % 24) + 1
+            val drafts = com.jyotirmoyb.udhaar.util.InstallmentCalculator.generateEqualSplit(
+                totalPaise = principalPaise,
+                count = count,
+                startDateMillis = 1_710_000_000_000L,
+                frequency = com.jyotirmoyb.udhaar.data.InstallmentFrequency.MONTHLY
+            )
+            val sumDraftsPaise = drafts.sumOf { it.amountDuePaise }
+            assertEquals(
+                "Installment schedule sum must equal principalPaise ($principalPaise) for $count installments",
+                principalPaise,
+                sumDraftsPaise
+            )
+        }
+
+        // Property 4: Group equal split sum invariant — myShareMinor + sum(memberShares.amountMinor) == totalBillMinor
+        for (i in 1..60) {
+            val totalBillPaise = (rng.nextInt(5_00_000_00) + 1).toLong()
+            val memberCount = (i % 9) + 1
+            val members = (1..memberCount).map { idx ->
+                com.jyotirmoyb.udhaar.util.GroupMemberDraft(id = idx.toLong(), name = "M$idx")
+            }
+            val includeSelf = (i % 2 == 0)
+            val split = com.jyotirmoyb.udhaar.util.GroupSplitCalculator.calculateSplit(
+                totalBillAmount = InterestCalculator.paiseToRupees(totalBillPaise),
+                splitMode = com.jyotirmoyb.udhaar.util.GroupSplitMode.EQUAL,
+                includeMyself = includeSelf,
+                members = members
+            )
+            assertEquals(totalBillPaise, split.totalBillMinor)
+            assertEquals(
+                "Allocated paise must equal totalBillPaise ($totalBillPaise)",
+                totalBillPaise,
+                split.myShareMinor + split.memberShares.sumOf { it.amountMinor }
+            )
+            assertTrue(split.isTotalMatching)
+        }
+
+        // Property 5: Interest calculator additive & monotonic invariants in paise
+        for (i in 1..50) {
+            val principalPaise = (rng.nextInt(10_00_000_00) + 10_00L)
+            val paidPaise = (rng.nextInt(principalPaise.toInt())).toLong()
+            val startMillis = 1_700_000_000_000L
+            val daysA = (rng.nextInt(180) + 1).toLong()
+            val daysB = daysA + (rng.nextInt(180) + 1).toLong()
+            val tx = UdhaarTransaction(
+                id = i.toLong(),
+                partyName = "Test",
+                principalAmountPaise = principalPaise,
+                amountPaidPaise = paidPaise,
+                isInterestEnabled = true,
+                interestRate = 12.0,
+                interestRatePeriod = InterestRatePeriod.PER_ANNUM,
+                startDateMillis = startMillis
+            )
+            val sumA = InterestCalculator.calculate(tx, startMillis + daysA * 86_400_000L)
+            val sumB = InterestCalculator.calculate(tx, startMillis + daysB * 86_400_000L)
+            assertEquals(sumA.principalPaise + sumA.interestAccruedPaise, sumA.totalDuePaise)
+            assertEquals((sumA.totalDuePaise - sumA.amountPaidPaise).coerceAtLeast(0L), sumA.netBalanceDuePaise)
+            assertTrue("Interest must be monotonically non-decreasing with time", sumB.interestAccruedPaise >= sumA.interestAccruedPaise)
+        }
     }
 }

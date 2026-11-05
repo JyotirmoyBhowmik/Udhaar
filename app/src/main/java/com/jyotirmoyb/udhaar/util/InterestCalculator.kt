@@ -4,133 +4,232 @@ import com.jyotirmoyb.udhaar.data.CompoundFrequency
 import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.InterestRatePeriod
 import com.jyotirmoyb.udhaar.data.InterestType
+import com.jyotirmoyb.udhaar.data.TransactionType
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
+import java.math.BigDecimal
+import java.math.MathContext
+import java.math.RoundingMode
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.pow
 
 data class CalculatedUdhaarSummary(
     val transaction: UdhaarTransaction,
-    val principal: Double,
-    val accruedInterest: Double,
-    val grossTotal: Double,
-    val amountPaid: Double,
-    val netBalanceDue: Double,
-    val elapsedDays: Long,
+    val daysElapsed: Long,
+    val interestAccruedPaise: Long,
+    val totalDuePaise: Long,
+    val netBalanceDuePaise: Long,
     val isOverdue: Boolean,
-    val subtitleBreakdown: String,
+    val daysUntilOrSinceExpiry: Long?
+) {
+    val principalPaise: Long
+        get() = transaction.principalAmountPaise
+
+    val amountPaidPaise: Long
+        get() = transaction.amountPaidPaise
+
+    val grossTotalPaise: Long
+        get() = totalDuePaise
+
+    val principal: Double
+        get() = InterestCalculator.paiseToRupees(transaction.principalAmountPaise)
+
+    val accruedInterest: Double
+        get() = InterestCalculator.paiseToRupees(interestAccruedPaise)
+
+    val interestAccrued: Double
+        get() = InterestCalculator.paiseToRupees(interestAccruedPaise)
+
+    val grossTotal: Double
+        get() = InterestCalculator.paiseToRupees(totalDuePaise)
+
+    val totalDue: Double
+        get() = InterestCalculator.paiseToRupees(totalDuePaise)
+
+    val amountPaid: Double
+        get() = InterestCalculator.paiseToRupees(transaction.amountPaidPaise)
+
+    val netBalanceDue: Double
+        get() = InterestCalculator.paiseToRupees(netBalanceDuePaise)
+
+    val elapsedDays: Long
+        get() = daysElapsed
+
     val dueStatusText: String
-)
+        get() = when {
+            transaction.isSettled -> "Paid back"
+            transaction.expiryDateMillis == null -> "No due date"
+            isOverdue -> {
+                val overdueDays = abs(daysUntilOrSinceExpiry ?: 0L)
+                if (overdueDays <= 1L) "Overdue by 1 day" else "Overdue by $overdueDays days"
+            }
+            else -> {
+                val daysLeft = daysUntilOrSinceExpiry ?: 0L
+                when {
+                    daysLeft == 0L -> "Due today"
+                    daysLeft == 1L -> "Due tomorrow"
+                    else -> "Due in $daysLeft days"
+                }
+            }
+        }
+
+    val subtitleBreakdown: String
+        get() = InterestCalculator.formatSubtitleBreakdownPrivacy(this, isHidden = false)
+}
 
 object InterestCalculator {
-    private const val MILLIS_PER_DAY = 86_400_000L
-    private const val DAYS_PER_MONTH = 30.0
-    private const val DAYS_PER_YEAR = 365.25
+
+    private const val MILLIS_PER_DAY = 24L * 60L * 60L * 1000L
+    private val HUNDRED = BigDecimal(100)
+    private val DAYS_IN_YEAR = BigDecimal("365.25")
+    private val DAYS_IN_MONTH = BigDecimal("30")
+    private val MC = MathContext.DECIMAL128
+
+    fun rupeesToPaise(amount: Double): Long {
+        if (amount.isNaN() || amount.isInfinite()) return 0L
+        return BigDecimal.valueOf(amount)
+            .multiply(HUNDRED, MC)
+            .setScale(0, RoundingMode.HALF_UP)
+            .toLong()
+    }
+
+    fun rupeesStringToPaise(text: String): Long? {
+        val cleaned = text.trim().replace(",", "")
+        if (cleaned.isEmpty()) return null
+        return try {
+            val bd = BigDecimal(cleaned)
+            if (bd < BigDecimal.ZERO) null
+            else bd.multiply(HUNDRED, MC).setScale(0, RoundingMode.HALF_UP).toLong()
+        } catch (_: NumberFormatException) {
+            null
+        }
+    }
+
+    fun paiseToRupees(paise: Long): Double {
+        return BigDecimal.valueOf(paise)
+            .divide(HUNDRED, 2, RoundingMode.HALF_UP)
+            .toDouble()
+    }
 
     fun calculate(
         transaction: UdhaarTransaction,
         asOfMillis: Long = System.currentTimeMillis()
     ): CalculatedUdhaarSummary {
-        val principal = max(0.0, transaction.principalAmount)
-        val effectiveEndMillis = when {
-            transaction.isSettled && transaction.settledAtMillis != null -> transaction.settledAtMillis
-            transaction.expiryDateMillis != null && transaction.expiryDateMillis > transaction.startDateMillis ->
-                max(transaction.expiryDateMillis, asOfMillis)
-            else -> asOfMillis
+        val effectiveEndMillis = if (transaction.isSettled && transaction.settledAtMillis != null) {
+            minOf(asOfMillis, transaction.settledAtMillis)
+        } else {
+            asOfMillis
         }
 
         val elapsedMillis = max(0L, effectiveEndMillis - transaction.startDateMillis)
-        val rawElapsedDays = elapsedMillis / MILLIS_PER_DAY
+        val daysElapsed = elapsedMillis / MILLIS_PER_DAY
 
-        // When interest is enabled on a record created today (rawElapsedDays == 0L) with no future due date yet,
-        // compute 1 standard billing cycle (30 days for monthly rate, 365 days for annual rate) so interest is active immediately.
-        val effectiveCalcDays = if (transaction.isInterestEnabled && transaction.interestRate > 0.0 && rawElapsedDays <= 0L) {
-            when (transaction.interestRatePeriod) {
-                InterestRatePeriod.PER_MONTH -> 30L
-                InterestRatePeriod.PER_ANNUM -> 365L
-            }
+        val principalPaise = max(0L, transaction.principalAmountPaise)
+        val paidPaise = max(0L, transaction.amountPaidPaise)
+
+        val effectiveInterestDays = if (transaction.isInterestEnabled && transaction.interestRate > 0.0 && daysElapsed == 0L) {
+            30L
         } else {
-            rawElapsedDays
+            daysElapsed
         }
 
-        val accruedInterest = if (!transaction.isInterestEnabled || transaction.interestRate <= 0.0) {
-            0.0
-        } else if (rawElapsedDays <= 0L && transaction.interestType == InterestType.SIMPLE) {
-            principal * (transaction.interestRate / 100.0)
+        val interestAccruedPaise = if (
+            !transaction.isInterestEnabled ||
+            transaction.interestRate <= 0.0 ||
+            principalPaise <= 0L
+        ) {
+            0L
         } else {
-            computeInterestAmount(
-                principal = principal,
+            computeInterestPaise(
+                principalPaise = principalPaise,
                 rate = transaction.interestRate,
                 ratePeriod = transaction.interestRatePeriod,
                 interestType = transaction.interestType,
                 compoundFrequency = transaction.compoundFrequency,
-                elapsedDays = effectiveCalcDays
+                elapsedDays = effectiveInterestDays
             )
         }
 
-        val elapsedDays = effectiveCalcDays
-        val grossTotal = principal + accruedInterest
-        val paid = max(0.0, transaction.amountPaid)
-        val netBalanceDue = if (transaction.isSettled) {
-            0.0
+        val totalDuePaise = principalPaise + interestAccruedPaise
+        val netBalanceDuePaise = if (transaction.isSettled) {
+            0L
         } else {
-            max(0.0, grossTotal - paid)
-        }
-
-        val isOverdue = !transaction.isSettled &&
-            transaction.expiryDateMillis != null &&
-            asOfMillis > (transaction.expiryDateMillis + MILLIS_PER_DAY - 1)
-
-        val currency = transaction.currency
-        val subtitleParts = mutableListOf<String>()
-        val amountLabel = if (transaction.transactionType == com.jyotirmoyb.udhaar.data.TransactionType.GIVEN) {
-            "Amount lent"
-        } else {
-            "Amount borrowed"
-        }
-        subtitleParts.add("$amountLabel: ${formatCurrency(principal, currency)}")
-
-        if (transaction.isInterestEnabled && transaction.interestRate > 0.0) {
-            val typeShort = if (transaction.interestType == InterestType.SIMPLE) {
-                "Simple"
-            } else {
-                "Compound ${transaction.compoundFrequency.label}"
-            }
-            val rateFormatted = formatRate(transaction.interestRate)
-            subtitleParts.add(
-                "Interest: ${formatCurrency(accruedInterest, currency)} ($rateFormatted${transaction.interestRatePeriod.shortSuffix} • $typeShort • ${elapsedDays}d)"
-            )
-        } else {
-            subtitleParts.add("Interest: ${formatCurrency(0.0, currency)} (0% • Interest Free)")
-        }
-
-        if (paid > 0.0) {
-            subtitleParts.add("Paid: ${formatCurrency(paid, currency)}")
+            max(0L, totalDuePaise - paidPaise)
         }
 
         val expiryMillis = transaction.expiryDateMillis
-        val dueStatusText = when {
-            transaction.isSettled -> "SETTLED"
-            isOverdue && expiryMillis != null -> "OVERDUE • ${formatDate(expiryMillis)}"
-            expiryMillis != null -> "DUE: ${formatDate(expiryMillis)}"
-            else -> "NO EXPIRY"
+        val daysUntilOrSinceExpiry: Long? = expiryMillis?.let { exp ->
+            val diffMillis = exp - asOfMillis
+            diffMillis / MILLIS_PER_DAY
         }
+
+        val isOverdue = !transaction.isSettled &&
+            expiryMillis != null &&
+            asOfMillis > expiryMillis &&
+            netBalanceDuePaise > 0L
 
         return CalculatedUdhaarSummary(
             transaction = transaction,
-            principal = principal,
-            accruedInterest = accruedInterest,
-            grossTotal = grossTotal,
-            amountPaid = paid,
-            netBalanceDue = netBalanceDue,
-            elapsedDays = elapsedDays,
+            daysElapsed = daysElapsed,
+            interestAccruedPaise = interestAccruedPaise,
+            totalDuePaise = totalDuePaise,
+            netBalanceDuePaise = netBalanceDuePaise,
             isOverdue = isOverdue,
-            subtitleBreakdown = subtitleParts.joinToString("  |  "),
-            dueStatusText = dueStatusText
+            daysUntilOrSinceExpiry = daysUntilOrSinceExpiry
         )
+    }
+
+    fun computeInterestPaise(
+        principalPaise: Long,
+        rate: Double,
+        ratePeriod: InterestRatePeriod,
+        interestType: InterestType,
+        compoundFrequency: CompoundFrequency,
+        elapsedDays: Long
+    ): Long {
+        if (principalPaise <= 0L || rate <= 0.0 || elapsedDays <= 0L) return 0L
+        val principalBd = BigDecimal.valueOf(principalPaise)
+        val rateDecimal = BigDecimal.valueOf(rate).divide(HUNDRED, MC)
+
+        return when (interestType) {
+            InterestType.SIMPLE -> {
+                val periods = when (ratePeriod) {
+                    InterestRatePeriod.PER_MONTH -> BigDecimal.valueOf(elapsedDays).divide(DAYS_IN_MONTH, MC)
+                    InterestRatePeriod.PER_ANNUM -> BigDecimal.valueOf(elapsedDays).divide(DAYS_IN_YEAR, MC)
+                }
+                principalBd.multiply(rateDecimal, MC)
+                    .multiply(periods, MC)
+                    .setScale(0, RoundingMode.HALF_UP)
+                    .toLong()
+                    .coerceAtLeast(0L)
+            }
+            InterestType.COMPOUND -> {
+                val annualRate = when (ratePeriod) {
+                    InterestRatePeriod.PER_MONTH -> rateDecimal.multiply(BigDecimal(12), MC).toDouble()
+                    InterestRatePeriod.PER_ANNUM -> rateDecimal.toDouble()
+                }
+                val n = when (compoundFrequency) {
+                    CompoundFrequency.MONTHLY -> 12.0
+                    CompoundFrequency.QUARTERLY -> 4.0
+                    CompoundFrequency.YEARLY -> 1.0
+                }
+                val years = elapsedDays.toDouble() / 365.25
+                val factor = (1.0 + (annualRate / n)).pow(n * years) - 1.0
+                if (factor <= 0.0 || factor.isNaN() || factor.isInfinite()) {
+                    0L
+                } else {
+                    principalBd.multiply(BigDecimal.valueOf(factor), MC)
+                        .setScale(0, RoundingMode.HALF_UP)
+                        .toLong()
+                        .coerceAtLeast(0L)
+                }
+            }
+        }
     }
 
     fun computeInterestAmount(
@@ -141,333 +240,265 @@ object InterestCalculator {
         compoundFrequency: CompoundFrequency,
         elapsedDays: Long
     ): Double {
-        if (principal <= 0.0 || rate <= 0.0 || elapsedDays <= 0L) return 0.0
-
-        val annualRateDecimal = when (ratePeriod) {
-            InterestRatePeriod.PER_MONTH -> (rate * 12.0) / 100.0
-            InterestRatePeriod.PER_ANNUM -> rate / 100.0
-        }
-        val years = elapsedDays.toDouble() / DAYS_PER_YEAR
-
-        return when (interestType) {
-            InterestType.SIMPLE -> {
-                val months = elapsedDays.toDouble() / DAYS_PER_MONTH
-                when (ratePeriod) {
-                    InterestRatePeriod.PER_MONTH -> principal * (rate / 100.0) * months
-                    InterestRatePeriod.PER_ANNUM -> principal * annualRateDecimal * years
-                }
-            }
-            InterestType.COMPOUND -> {
-                val n = compoundFrequency.periodsPerYear.toDouble()
-                val totalAmount = principal * (1.0 + (annualRateDecimal / n)).pow(n * years)
-                max(0.0, totalAmount - principal)
-            }
-        }
-    }
-
-    private fun formatIndianNumber(amount: Double): String {
-        val clean = if (kotlin.math.abs(amount) < 0.005) 0.0 else amount
-        val isNegative = clean < 0.0
-        val absVal = kotlin.math.abs(clean)
-        val hasDecimals = kotlin.math.abs(absVal - kotlin.math.round(absVal)) >= 0.01
-        val roundedCents = kotlin.math.round(absVal * 100.0).toLong()
-        val integerPart = if (hasDecimals) roundedCents / 100L else kotlin.math.round(absVal).toLong()
-        val decimalPart = if (hasDecimals) (roundedCents % 100L).toString().padStart(2, '0') else null
-
-        val intStr = integerPart.toString()
-        val formattedInt = if (intStr.length <= 3) {
-            intStr
-        } else {
-            val lastThree = intStr.substring(intStr.length - 3)
-            val rest = intStr.substring(0, intStr.length - 3)
-            val groups = mutableListOf<String>()
-            var i = rest.length
-            while (i > 0) {
-                val start = max(0, i - 2)
-                groups.add(0, rest.substring(start, i))
-                i = start
-            }
-            groups.joinToString(",") + "," + lastThree
-        }
-
-        val sign = if (isNegative) "-" else ""
-        return if (decimalPart != null) {
-            "$sign$formattedInt.$decimalPart"
-        } else {
-            "$sign$formattedInt"
-        }
-    }
-
-    fun formatCurrency(amount: Double, currency: CurrencyType): String {
-        return "${currency.symbol} ${formatIndianNumber(amount)}"
-    }
-
-    fun formatCurrencyPrivacy(amount: Double, currency: CurrencyType, isHidden: Boolean): String {
-        return if (isHidden) "${currency.symbol} •••••" else formatCurrency(amount, currency)
+        val principalPaise = rupeesToPaise(principal)
+        val interestPaise = computeInterestPaise(
+            principalPaise = principalPaise,
+            rate = rate,
+            ratePeriod = ratePeriod,
+            interestType = interestType,
+            compoundFrequency = compoundFrequency,
+            elapsedDays = elapsedDays
+        )
+        return paiseToRupees(interestPaise)
     }
 
     fun formatSubtitleBreakdownPrivacy(
         summary: CalculatedUdhaarSummary,
-        isHidden: Boolean
+        isHidden: Boolean = false
     ): String {
-        if (!isHidden) return summary.subtitleBreakdown
         val tx = summary.transaction
         val currency = tx.currency
-        val maskedAmt = formatCurrencyPrivacy(0.0, currency, isHidden = true)
-        val subtitleParts = mutableListOf<String>()
-        val amountLabel = if (tx.transactionType == com.jyotirmoyb.udhaar.data.TransactionType.GIVEN) {
-            "Amount lent"
-        } else {
-            "Amount borrowed"
-        }
-        subtitleParts.add("$amountLabel: $maskedAmt")
+        val rolePrefix = if (tx.transactionType == TransactionType.GIVEN) "Amount lent" else "Amount borrowed"
+        val principalFormatted = formatCurrencyPrivacyPaise(summary.principalPaise, currency, isHidden)
+        val parts = mutableListOf("$rolePrefix: $principalFormatted")
         if (tx.isInterestEnabled && tx.interestRate > 0.0) {
-            val typeShort = if (tx.interestType == InterestType.SIMPLE) {
-                "Simple"
-            } else {
-                "Compound ${tx.compoundFrequency.label}"
-            }
-            val rateFormatted = formatRate(tx.interestRate)
-            subtitleParts.add(
-                "Interest: $maskedAmt ($rateFormatted${tx.interestRatePeriod.shortSuffix} • $typeShort • ${summary.elapsedDays}d)"
-            )
+            val interestFormatted = formatCurrencyPrivacyPaise(summary.interestAccruedPaise, currency, isHidden)
+            parts.add("Interest: $interestFormatted")
+        }
+        if (summary.amountPaidPaise > 0L) {
+            val paidFormatted = formatCurrencyPrivacyPaise(summary.amountPaidPaise, currency, isHidden)
+            parts.add("Paid: $paidFormatted")
+        }
+        return parts.joinToString("  |  ")
+    }
+
+    fun formatPaise(paise: Long, currency: CurrencyType = CurrencyType.INR): String {
+        val isNegative = paise < 0L
+        val absPaise = abs(paise)
+        val rupees = absPaise / 100L
+        val remainderPaise = absPaise % 100L
+        val formattedRupees = formatSouthAsianInteger(rupees)
+        val numberPart = if (remainderPaise == 0L) {
+            formattedRupees
         } else {
-            subtitleParts.add("Interest: $maskedAmt (0% • Interest Free)")
+            "$formattedRupees.${remainderPaise.toString().padStart(2, '0')}"
         }
-        if (summary.amountPaid > 0.0) {
-            subtitleParts.add("Paid: $maskedAmt")
+        val signPrefix = if (isNegative) "-" else ""
+        return "$signPrefix${currency.symbol} $numberPart"
+    }
+
+    fun formatCurrencyPaise(paise: Long, currency: CurrencyType = CurrencyType.INR): String {
+        return formatPaise(paise, currency)
+    }
+
+    fun formatCurrency(amount: Double, currency: CurrencyType = CurrencyType.INR): String {
+        return formatPaise(rupeesToPaise(amount), currency)
+    }
+
+    fun formatCurrencyPrivacyPaise(
+        paise: Long,
+        currency: CurrencyType = CurrencyType.INR,
+        isHidden: Boolean = false
+    ): String {
+        return if (isHidden) {
+            "${currency.symbol} •••••"
+        } else {
+            formatPaise(paise, currency)
         }
-        return subtitleParts.joinToString("  |  ")
+    }
+
+    fun formatCurrencyPaisePrivacy(
+        paise: Long,
+        currency: CurrencyType = CurrencyType.INR,
+        isHidden: Boolean = false
+    ): String = formatCurrencyPrivacyPaise(paise, currency, isHidden)
+
+    fun formatCurrencyPrivacy(
+        amount: Double,
+        currency: CurrencyType = CurrencyType.INR,
+        isHidden: Boolean = false
+    ): String {
+        return formatCurrencyPrivacyPaise(rupeesToPaise(amount), currency, isHidden)
+    }
+
+    fun formatAmountPaise(paise: Long): String {
+        val absPaise = abs(paise)
+        val rupees = absPaise / 100L
+        val remainderPaise = absPaise % 100L
+        val formattedRupees = formatSouthAsianInteger(rupees)
+        val prefix = if (paise < 0L) "-" else ""
+        return if (remainderPaise == 0L) {
+            "$prefix$formattedRupees"
+        } else {
+            "$prefix$formattedRupees.${remainderPaise.toString().padStart(2, '0')}"
+        }
     }
 
     fun formatAmount(amount: Double): String {
-        return formatIndianNumber(amount)
+        return formatAmountPaise(rupeesToPaise(amount))
+    }
+
+    fun formatPlainAmountPaise(paise: Long): String {
+        val absPaise = abs(paise)
+        val rupees = absPaise / 100L
+        val remainderPaise = absPaise % 100L
+        return if (remainderPaise == 0L) {
+            rupees.toString()
+        } else {
+            "$rupees.${remainderPaise.toString().padStart(2, '0')}"
+        }
     }
 
     fun formatPlainAmount(amount: Double): String {
-        val clean = max(0.0, amount)
-        return String.format(Locale.US, "%.2f", clean)
+        return formatPlainAmountPaise(rupeesToPaise(amount))
     }
 
     fun formatRate(rate: Double): String {
-        val hasDecimals = kotlin.math.abs(rate - kotlin.math.round(rate)) >= 0.01
-        return if (hasDecimals) {
-            String.format(Locale.US, "%.2f", rate)
-        } else {
-            String.format(Locale.US, "%.0f", rate)
-        }
+        val df = DecimalFormat("0.##")
+        return "${df.format(rate)}%"
     }
 
-    /**
-     * Formats a timestamp with date ("dd MMM yyyy"), and also includes the time ("hh:mm a")
-     * if the timestamp includes a specific non-midnight hour and minute, ensuring better precision for audit records.
-     */
-    fun fmtDate(millis: Long): String {
+    private fun formatSouthAsianInteger(value: Long): String {
+        val s = value.toString()
+        if (s.length <= 3) return s
+        val lastThree = s.substring(s.length - 3)
+        val remaining = s.substring(0, s.length - 3)
+        val groups = mutableListOf<String>()
+        var i = remaining.length
+        while (i > 0) {
+            val start = max(0, i - 2)
+            groups.add(0, remaining.substring(start, i))
+            i = start
+        }
+        return groups.joinToString(",") + "," + lastThree
+    }
+
+    fun formatDate(millis: Long): String {
         if (millis <= 0L) return "Open-ended"
-        val cal = java.util.Calendar.getInstance().apply { timeInMillis = millis }
-        val hasSpecificTime = cal.get(java.util.Calendar.HOUR_OF_DAY) != 0 ||
-            cal.get(java.util.Calendar.MINUTE) != 0
-        return if (hasSpecificTime) {
-            formatDateTime(millis)
-        } else {
-            val sdf = SimpleDateFormat("dd MMM yyyy", Locale.US)
-            sdf.format(Date(millis))
-        }
-    }
-
-    fun formatDate(millis: Long, showTimeIfPresent: Boolean = false): String {
-        if (showTimeIfPresent) return fmtDate(millis)
-        val sdf = SimpleDateFormat("dd MMM yyyy", Locale.US)
+        val sdf = SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH)
         return sdf.format(Date(millis))
     }
 
     fun formatDateTime(millis: Long): String {
-        val sdf = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.US)
+        if (millis <= 0L) return "Open-ended"
+        val sdf = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.ENGLISH)
         return sdf.format(Date(millis))
+    }
+
+    fun fmtDate(millis: Long): String {
+        if (millis <= 0L) return "Open-ended"
+        val cal = Calendar.getInstance().apply { timeInMillis = millis }
+        val hour = cal.get(Calendar.HOUR_OF_DAY)
+        val minute = cal.get(Calendar.MINUTE)
+        return if (hour == 0 && minute == 0) {
+            formatDate(millis)
+        } else {
+            formatDateTime(millis)
+        }
+    }
+
+    fun normalizeToE164(rawPhone: String, defaultCurrency: CurrencyType = CurrencyType.INR): String {
+        val trimmed = rawPhone.trim()
+        if (trimmed.isEmpty()) return ""
+        val hasPlus = trimmed.startsWith("+")
+        val digits = trimmed.filter { it.isDigit() }
+        if (digits.isEmpty()) return ""
+        if (hasPlus) {
+            return "+$digits"
+        }
+        val strippedLeadingZero = if (digits.length == 11 && digits.startsWith("0")) {
+            digits.substring(1)
+        } else {
+            digits
+        }
+        return when {
+            strippedLeadingZero.length == 10 -> {
+                val prefix = if (defaultCurrency == CurrencyType.NPR) "+977" else "+91"
+                "$prefix$strippedLeadingZero"
+            }
+            strippedLeadingZero.startsWith("91") && strippedLeadingZero.length == 12 -> "+$strippedLeadingZero"
+            strippedLeadingZero.startsWith("977") && strippedLeadingZero.length == 13 -> "+$strippedLeadingZero"
+            else -> "+$strippedLeadingZero"
+        }
+    }
+
+    fun arePhonesEquivalent(
+        phoneA: String,
+        phoneB: String,
+        defaultCurrency: CurrencyType = CurrencyType.INR
+    ): Boolean {
+        val normA = normalizeToE164(phoneA, defaultCurrency)
+        val normB = normalizeToE164(phoneB, defaultCurrency)
+        return normA.isNotEmpty() && normA == normB
+    }
+
+    fun formatPhoneWithCountryCode(rawPhone: String, currency: CurrencyType = CurrencyType.INR): String {
+        val e164 = normalizeToE164(rawPhone, currency)
+        if (e164.isEmpty()) return ""
+        return when {
+            e164.startsWith("+91") && e164.length == 13 -> "+91 ${e164.substring(3)}"
+            e164.startsWith("+977") && e164.length == 14 -> "+977 ${e164.substring(4)}"
+            else -> e164
+        }
+    }
+
+    fun sanitizePhoneForWhatsApp(rawPhone: String, currency: CurrencyType = CurrencyType.INR): String {
+        return normalizeToE164(rawPhone, currency).removePrefix("+")
+    }
+
+    fun maskPhoneNumber(rawPhone: String): String {
+        val digits = rawPhone.filter { it.isDigit() }
+        if (digits.isEmpty()) return ""
+        val coreTen = when {
+            digits.length > 10 -> digits.takeLast(10)
+            else -> digits
+        }
+        if (coreTen.length < 4) return "***"
+        return "${coreTen.take(2)}*** ***${coreTen.takeLast(2)}"
+    }
+
+    fun maskUpiId(rawUpi: String): String {
+        val trimmed = rawUpi.trim()
+        if (trimmed.isEmpty()) return ""
+        val atIndex = trimmed.indexOf('@')
+        if (atIndex <= 0) {
+            if (trimmed.length < 4) return "***"
+            return "${trimmed.take(2)}*** ***${trimmed.takeLast(2)}"
+        }
+        val handle = trimmed.substring(0, atIndex)
+        val domain = trimmed.substring(atIndex)
+        val maskedHandle = if (handle.length >= 4) {
+            "${handle.take(2)}*** ***${handle.takeLast(2)}"
+        } else {
+            "${handle.take(1)}***"
+        }
+        return "$maskedHandle$domain"
     }
 
     fun buildWhatsAppReminderMessage(
         summary: CalculatedUdhaarSummary,
-        hideExactAmount: Boolean,
-        upiId: String,
-        includeUpiId: Boolean = true,
-        verificationLink: String? = null
+        hideExactAmount: Boolean = false,
+        upiId: String = "",
+        senderName: String = ""
     ): String {
         val tx = summary.transaction
-        val partyName = tx.partyName.ifBlank { "Friend" }
-        val expiryText = tx.expiryDateMillis?.let { formatDate(it) } ?: "the earliest convenience"
-        val currency = tx.currency
-
-        val effectiveLink = verificationLink?.takeIf { it.isNotBlank() } ?: run {
-            val (lender, borrower) = VerificationCryptoHelper.resolveLenderAndBorrowerNames(
-                type = tx.transactionType,
-                partyName = tx.partyName,
-                myProfileName = "Udhaar User",
-                explicitLenderName = tx.lenderName,
-                explicitBorrowerName = tx.borrowerName
-            )
-            val hash = tx.contentHash.ifBlank {
-                VerificationCryptoHelper.computeTransactionContentHash(tx)
+        val greeting = "Hello ${tx.partyName},"
+        val amountLine = if (hideExactAmount) {
+            "This is a friendly reminder regarding our pending Udhaar record."
+        } else {
+            val formattedNet = formatPaise(summary.netBalanceDuePaise, tx.currency)
+            if (tx.transactionType == TransactionType.GIVEN) {
+                "This is a friendly reminder that $formattedNet is pending on our Udhaar record."
+            } else {
+                "Sharing an update on our Udhaar record (balance: $formattedNet)."
             }
-            val payload = VerificationCryptoHelper.SharedVerificationPayload(
-                remoteId = tx.remoteId.ifBlank { "tx_${tx.id}" },
-                shareToken = tx.shareToken,
-                creatorUserId = "",
-                creatorRole = tx.transactionType,
-                lenderName = lender,
-                borrowerName = borrower,
-                creatorPhone = "",
-                counterpartyPhone = tx.phoneNumber,
-                principalAmount = tx.principalAmount,
-                currencyCode = tx.currency.code,
-                startDateMillis = tx.startDateMillis,
-                expiryDateMillis = tx.expiryDateMillis,
-                isInterestEnabled = tx.isInterestEnabled,
-                interestType = tx.interestType,
-                interestRate = tx.interestRate,
-                interestRatePeriod = tx.interestRatePeriod,
-                compoundFrequency = tx.compoundFrequency,
-                contentHash = hash
-            )
-            VerificationCryptoHelper.buildVerificationLink(payload)
         }
-
-        if (hideExactAmount) {
-            return "Hello $partyName, hope you are doing well. This is a gentle reminder regarding our pending account settlement scheduled for $expiryText. Please check or confirm the entry here: $effectiveLink"
-        }
-
-        val totalFormatted = formatCurrency(summary.netBalanceDue, currency)
-        val principalFormatted = formatCurrency(summary.principal, currency)
-        val interestFormatted = formatCurrency(summary.accruedInterest, currency)
-        val paidPart = if (summary.amountPaid > 0.0) {
-            ", Paid: ${formatCurrency(summary.amountPaid, currency)}"
+        val upiLine = if (upiId.isNotBlank() && tx.transactionType == TransactionType.GIVEN) {
+            "\nYou can pay via UPI ID: ${upiId.trim()}"
         } else {
             ""
         }
-
-        val baseMessage = "Hello $partyName, hope you are doing well. This is a gentle reminder from Udhaar regarding the ${tx.paymentMode.label} record of $totalFormatted (Principal: $principalFormatted, Interest: $interestFormatted$paidPart) due on $expiryText."
-
-        val withUpi = if (includeUpiId && currency == CurrencyType.INR && upiId.isNotBlank() && tx.transactionType.name == "GIVEN") {
-            "$baseMessage\n\nUPI ID for settlement: ${upiId.trim()}"
-        } else {
-            baseMessage
-        }
-
-        return "$withUpi\n\nVerify or confirm this Udhaar record (Hash ${tx.contentHash.take(8).ifBlank { "verified" }}): $effectiveLink"
-    }
-
-    fun sanitizePhoneForWhatsApp(rawPhone: String, currency: CurrencyType): String {
-        val digitsOnly = rawPhone.filter { it.isDigit() }
-        if (digitsOnly.isEmpty()) return ""
-        return when {
-            rawPhone.trim().startsWith("+") -> digitsOnly
-            digitsOnly.length == 10 && currency == CurrencyType.INR -> "91$digitsOnly"
-            digitsOnly.length == 10 && currency == CurrencyType.NPR -> "977$digitsOnly"
-            else -> digitsOnly
-        }
-    }
-
-    /**
-     * Normalizes a phone number to standard E.164 string format (+[countryCode][nationalNumber]).
-     * Strips whitespace, dashes, leading zero, handles +91 / +977 or un-prefixed 10-digit numbers.
-     * E.g. "98765 43210", "+91 98765-43210" and "09876543210" with INR all normalize to "+919876543210".
-     */
-    fun normalizeToE164(rawPhone: String, currency: CurrencyType = CurrencyType.INR): String {
-        val trimmed = rawPhone.trim()
-        if (trimmed.isEmpty()) return ""
-        val digitsOnly = trimmed.filter { it.isDigit() }
-        if (digitsOnly.isEmpty()) return ""
-
-        val defaultPrefix = if (currency == CurrencyType.NPR) "977" else "91"
-
-        return when {
-            trimmed.startsWith("+") -> "+$digitsOnly"
-            // Handle leading 0 (common domestic trunk prefix like 09876543210)
-            digitsOnly.length == 11 && digitsOnly.startsWith("0") -> "+$defaultPrefix${digitsOnly.substring(1)}"
-            // 10-digit national number
-            digitsOnly.length == 10 -> "+$defaultPrefix$digitsOnly"
-            // Already includes 91 (12 digits) or 977 (13 digits) without +
-            digitsOnly.length == 12 && digitsOnly.startsWith("91") -> "+$digitsOnly"
-            digitsOnly.length == 13 && digitsOnly.startsWith("977") -> "+$digitsOnly"
-            else -> "+$digitsOnly"
-        }
-    }
-
-    /**
-     * Checks if two raw phone numbers represent the same person by comparing normalized E.164.
-     */
-    fun arePhonesEquivalent(phoneA: String, phoneB: String, currency: CurrencyType = CurrencyType.INR): Boolean {
-        val normA = normalizeToE164(phoneA, currency)
-        val normB = normalizeToE164(phoneB, currency)
-        if (normA.isEmpty() || normB.isEmpty()) return false
-        return normA == normB
-    }
-
-    /**
-     * Auto-sanitizes 10-digit phone numbers with +91 for INR or +977 for NPR.
-     */
-    fun formatPhoneWithCountryCode(rawPhone: String, currency: CurrencyType): String {
-        val trimmed = rawPhone.trim()
-        if (trimmed.isEmpty()) return ""
-        val digitsOnly = trimmed.filter { it.isDigit() }
-        if (digitsOnly.isEmpty()) return trimmed
-        return when {
-            trimmed.startsWith("+") -> "+$digitsOnly"
-            digitsOnly.length == 10 && currency == CurrencyType.INR -> "+91 $digitsOnly"
-            digitsOnly.length == 10 && currency == CurrencyType.NPR -> "+977 $digitsOnly"
-            digitsOnly.length == 12 && digitsOnly.startsWith("91") -> "+91 ${digitsOnly.substring(2)}"
-            digitsOnly.length == 13 && digitsOnly.startsWith("977") -> "+977 ${digitsOnly.substring(3)}"
-            else -> trimmed
-        }
-    }
-
-    /**
-     * Masks a phone number for privacy so full digits are never exposed on screen.
-     * Formats 10-digit subscriber numbers as "98*** ***10" (first 2 digits + "*** ***" + last 2 digits).
-     */
-    fun maskPhoneNumber(rawPhone: String): String {
-        val trimmed = rawPhone.trim()
-        if (trimmed.isEmpty()) return ""
-        val digitsOnly = trimmed.filter { it.isDigit() }
-        if (digitsOnly.isEmpty()) return trimmed
-
-        val subscriberDigits = if (digitsOnly.length >= 10) {
-            digitsOnly.takeLast(10)
-        } else {
-            digitsOnly
-        }
-        return when {
-            subscriberDigits.length >= 4 -> {
-                val firstTwo = subscriberDigits.take(2)
-                val lastTwo = subscriberDigits.takeLast(2)
-                "$firstTwo*** ***$lastTwo"
-            }
-            subscriberDigits.length >= 2 -> "${subscriberDigits.first()}*** ***${subscriberDigits.last()}"
-            else -> "***"
-        }
-    }
-
-    /**
-     * Masks a UPI ID (VPA) in the same style as phone numbers (e.g. "98*** ***10@ybl" or "me*** ***nt@okaxis").
-     */
-    fun maskUpiId(rawUpiId: String): String {
-        val trimmed = rawUpiId.trim()
-        if (trimmed.isEmpty()) return ""
-        if (trimmed.contains("@")) {
-            val userPart = trimmed.substringBefore("@")
-            val handlePart = trimmed.substringAfter("@")
-            val maskedUser = when {
-                userPart.length >= 4 -> "${userPart.take(2)}*** ***${userPart.takeLast(2)}"
-                userPart.length >= 2 -> "${userPart.first()}*** ***${userPart.last()}"
-                userPart.isNotEmpty() -> "${userPart.first()}*** ***"
-                else -> "*** ***"
-            }
-            return if (handlePart.isNotEmpty()) "$maskedUser@$handlePart" else maskedUser
-        }
-        return when {
-            trimmed.length >= 4 -> "${trimmed.take(2)}*** ***${trimmed.takeLast(2)}"
-            trimmed.length >= 2 -> "${trimmed.first()}*** ***${trimmed.last()}"
-            else -> "*** ***"
-        }
+        val signOff = if (senderName.isNotBlank()) "\n— $senderName" else "\n— Sent via Udhaar"
+        return "$greeting\n$amountLine$upiLine$signOff"
     }
 }

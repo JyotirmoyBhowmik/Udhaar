@@ -239,4 +239,24 @@ class SettingsViewModel @Inject constructor(
             settingsRepository.updateWebLinkDefaults(expiryDays, trustLevel, showUpi)
         }
     }
+
+    fun setAnalyticsCrashConsent(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setAnalyticsCrashConsent(enabled)
+        }
+    }
+
+    fun generateAndSaveRecoveryKey(onGenerated: (String) -> Unit = {}) {
+        viewModelScope.launch {
+            val newKey = com.jyotirmoyb.udhaar.util.TelemetryManager.generateBackupRecoveryKey()
+            settingsRepository.saveBackupRecoveryKey(newKey)
+            onGenerated(newKey)
+        }
+    }
+
+    fun saveBackupRecoveryKey(recoveryKey: String) {
+        viewModelScope.launch {
+            settingsRepository.saveBackupRecoveryKey(recoveryKey)
+        }
+    }
 }

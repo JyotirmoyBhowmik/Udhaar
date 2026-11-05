@@ -86,7 +86,7 @@ fun InstallmentPlanBuilderSheet(
     var flatRateText by remember { mutableStateOf(if ((existingPlan?.flatInterestRate ?: 0.0) > 0.0) existingPlan!!.flatInterestRate.toString() else "0") }
     var startDateMillis by remember { mutableStateOf(existingPlan?.startDate ?: (tx.startDateMillis.takeIf { it > 0 } ?: System.currentTimeMillis())) }
 
-    val principalPaise = remember(tx.principalAmount) { InstallmentCalculator.toPaise(tx.principalAmount) }
+    val principalPaise = remember(tx.principalAmountPaise) { tx.principalAmountPaise }
     val flatRate = flatRateText.toDoubleOrNull() ?: 0.0
 
     val totalExpectedPaise = remember(principalPaise, interestMode, flatRate) {

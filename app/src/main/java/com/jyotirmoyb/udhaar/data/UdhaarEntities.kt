@@ -6,6 +6,8 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.jyotirmoyb.udhaar.ui.theme.AppFontScale
 import com.jyotirmoyb.udhaar.ui.theme.AppThemeMode
+import java.math.BigDecimal
+import java.math.RoundingMode
 
 enum class TransactionType(val label: String, val badgeLabel: String) {
     GIVEN("Given (Lent)", "GIVEN • TO RECEIVE"),
@@ -115,6 +117,20 @@ enum class DateRangeFilter(val label: String) {
     LAST_90_DAYS("Last 90 Days")
 }
 
+internal fun rupeesDoubleToPaiseExact(rupees: Double): Long {
+    if (!rupees.isFinite()) return 0L
+    return BigDecimal.valueOf(rupees)
+        .multiply(BigDecimal(100))
+        .setScale(0, RoundingMode.HALF_UP)
+        .toLong()
+}
+
+internal fun paiseLongToRupeesDouble(paise: Long): Double {
+    return BigDecimal.valueOf(paise)
+        .divide(BigDecimal(100), 2, RoundingMode.HALF_UP)
+        .toDouble()
+}
+
 @Entity(tableName = "parties")
 data class PartyEntity(
     @PrimaryKey(autoGenerate = true)
@@ -136,6 +152,10 @@ data class PartyEntity(
     val createdAtMillis: Long = System.currentTimeMillis()
 )
 
+/**
+ * Core ledger record entity.
+ * `principalAmountPaise` and `amountPaidPaise` (Long paise/paisa) are the sole source of truth.
+ */
 @Entity(tableName = "udhaar_transactions")
 data class UdhaarTransaction(
     @PrimaryKey(autoGenerate = true)
@@ -145,8 +165,8 @@ data class UdhaarTransaction(
     val partyName: String,
     val phoneNumber: String = "",
     val currency: CurrencyType = CurrencyType.INR,
-    val principalAmount: Double,
-    val amountPaid: Double = 0.0,
+    val principalAmountPaise: Long = 0L,
+    val amountPaidPaise: Long = 0L,
     val paymentMode: PaymentMode = PaymentMode.CASH,
     val isInterestEnabled: Boolean = false,
     val interestType: InterestType = InterestType.SIMPLE,
@@ -180,12 +200,107 @@ data class UdhaarTransaction(
     val lastGuestAction: String = "",
     val trustLevel: String = "",
     val pendingPaymentClaim: String = "",
-    val pendingDateProposal: String = "",
-    // --- Phase 2: Integer Monetary Integrity (Paise) ---
-    val principalAmountPaise: Long = Math.round(principalAmount * 100.0),
-    val amountPaidPaise: Long = Math.round(amountPaid * 100.0)
+    val pendingDateProposal: String = ""
+) {
+    @get:androidx.room.Ignore
+    val principalAmount: Double
+        get() = paiseLongToRupeesDouble(principalAmountPaise)
+
+    @get:androidx.room.Ignore
+    val amountPaid: Double
+        get() = paiseLongToRupeesDouble(amountPaidPaise)
+}
+
+fun UdhaarTransaction(
+    id: Long = 0L,
+    partyId: Long? = null,
+    transactionType: TransactionType = TransactionType.GIVEN,
+    partyName: String,
+    phoneNumber: String = "",
+    currency: CurrencyType = CurrencyType.INR,
+    principalAmount: Double,
+    amountPaid: Double = 0.0,
+    paymentMode: PaymentMode = PaymentMode.CASH,
+    isInterestEnabled: Boolean = false,
+    interestType: InterestType = InterestType.SIMPLE,
+    interestRate: Double = 0.0,
+    interestRatePeriod: InterestRatePeriod = InterestRatePeriod.PER_MONTH,
+    compoundFrequency: CompoundFrequency = CompoundFrequency.MONTHLY,
+    startDateMillis: Long = System.currentTimeMillis(),
+    expiryDateMillis: Long? = null,
+    reminderDateMillis: Long? = null,
+    remindersDisabled: Boolean = false,
+    snoozedUntilMillis: Long? = null,
+    lastReminderSentMillis: Long? = null,
+    lastReminderLevel: Int = 0,
+    notes: String = "",
+    isSettled: Boolean = false,
+    settledAtMillis: Long? = null,
+    createdAtMillis: Long = System.currentTimeMillis(),
+    remoteId: String = "",
+    verificationStatus: VerificationStatus = VerificationStatus.LOCAL_ONLY,
+    verifiedAtMillis: Long? = null,
+    counterpartyUserId: String = "",
+    contentHash: String = "",
+    needsMyConfirmation: Boolean = false,
+    shareToken: String = "",
+    disputeReason: String = "",
+    lenderName: String = "",
+    borrowerName: String = "",
+    webLinkStatus: String = "",
+    lastGuestAction: String = "",
+    trustLevel: String = "",
+    pendingPaymentClaim: String = "",
+    pendingDateProposal: String = "",
+    principalAmountPaise: Long = rupeesDoubleToPaiseExact(principalAmount),
+    amountPaidPaise: Long = rupeesDoubleToPaiseExact(amountPaid)
+): UdhaarTransaction = UdhaarTransaction(
+    id = id,
+    partyId = partyId,
+    transactionType = transactionType,
+    partyName = partyName,
+    phoneNumber = phoneNumber,
+    currency = currency,
+    principalAmountPaise = principalAmountPaise,
+    amountPaidPaise = amountPaidPaise,
+    paymentMode = paymentMode,
+    isInterestEnabled = isInterestEnabled,
+    interestType = interestType,
+    interestRate = interestRate,
+    interestRatePeriod = interestRatePeriod,
+    compoundFrequency = compoundFrequency,
+    startDateMillis = startDateMillis,
+    expiryDateMillis = expiryDateMillis,
+    reminderDateMillis = reminderDateMillis,
+    remindersDisabled = remindersDisabled,
+    snoozedUntilMillis = snoozedUntilMillis,
+    lastReminderSentMillis = lastReminderSentMillis,
+    lastReminderLevel = lastReminderLevel,
+    notes = notes,
+    isSettled = isSettled,
+    settledAtMillis = settledAtMillis,
+    createdAtMillis = createdAtMillis,
+    remoteId = remoteId,
+    verificationStatus = verificationStatus,
+    verifiedAtMillis = verifiedAtMillis,
+    counterpartyUserId = counterpartyUserId,
+    contentHash = contentHash,
+    needsMyConfirmation = needsMyConfirmation,
+    shareToken = shareToken,
+    disputeReason = disputeReason,
+    lenderName = lenderName,
+    borrowerName = borrowerName,
+    webLinkStatus = webLinkStatus,
+    lastGuestAction = lastGuestAction,
+    trustLevel = trustLevel,
+    pendingPaymentClaim = pendingPaymentClaim,
+    pendingDateProposal = pendingDateProposal
 )
 
+/**
+ * Partial repayment entity.
+ * `amountPaise` (Long paise/paisa) is the sole source of truth.
+ */
 @Entity(
     tableName = "partial_payments",
     foreignKeys = [
@@ -202,7 +317,7 @@ data class PartialPayment(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0L,
     val transactionId: Long,
-    val amount: Double,
+    val amountPaise: Long = 0L,
     val paymentMode: PaymentMode = PaymentMode.CASH,
     val paidAtMillis: Long = System.currentTimeMillis(),
     val note: String = "",
@@ -212,9 +327,40 @@ data class PartialPayment(
     val recordedByName: String = "",
     val isAcknowledged: Boolean = false,
     val acknowledgedAtMillis: Long? = null,
-    val needsMyAcknowledgement: Boolean = false,
-    // --- Phase 2: Integer Monetary Integrity (Paise) ---
-    val amountPaise: Long = Math.round(amount * 100.0)
+    val needsMyAcknowledgement: Boolean = false
+) {
+    @get:androidx.room.Ignore
+    val amount: Double
+        get() = paiseLongToRupeesDouble(amountPaise)
+}
+
+fun PartialPayment(
+    id: Long = 0L,
+    transactionId: Long,
+    amount: Double,
+    paymentMode: PaymentMode = PaymentMode.CASH,
+    paidAtMillis: Long = System.currentTimeMillis(),
+    note: String = "",
+    remotePaymentId: String = "",
+    recordedByUserId: String = "",
+    recordedByName: String = "",
+    isAcknowledged: Boolean = false,
+    acknowledgedAtMillis: Long? = null,
+    needsMyAcknowledgement: Boolean = false,
+    amountPaise: Long = rupeesDoubleToPaiseExact(amount)
+): PartialPayment = PartialPayment(
+    id = id,
+    transactionId = transactionId,
+    amountPaise = amountPaise,
+    paymentMode = paymentMode,
+    paidAtMillis = paidAtMillis,
+    note = note,
+    remotePaymentId = remotePaymentId,
+    recordedByUserId = recordedByUserId,
+    recordedByName = recordedByName,
+    isAcknowledged = isAcknowledged,
+    acknowledgedAtMillis = acknowledgedAtMillis,
+    needsMyAcknowledgement = needsMyAcknowledgement
 )
 
 @Entity(
@@ -518,7 +664,10 @@ data class UserSettings(
     // --- Stage W3: Web Link Defaults ---
     val defaultWebLinkExpiryDays: Int = 30,
     val defaultWebTrustLevel: String = "WHATSAPP_OTP",
-    val defaultWebShowUpi: Boolean = true
+    val defaultWebShowUpi: Boolean = true,
+    // --- v20: Opt-in Crashlytics & Screen Analytics (Off by default, Zero PII) & Backup Recovery Key ---
+    val analyticsCrashConsent: Boolean = false,
+    val backupRecoveryKeyId: String = ""
 ) {
     val driveAccountEmail: String get() = driveUserEmail
     val driveLastBackupMillis: Long get() = driveLastBackupTimeMillis
@@ -533,13 +682,15 @@ data class UserSettings(
 
 data class GuestPaymentClaimData(
     val amountPaise: Long = 0L,
-    val amountDouble: Double = 0.0,
     val dateMillis: Long = 0L,
     val paymentMode: PaymentMode = PaymentMode.UPI,
     val reference: String = "",
     val proofUrl: String = "",
     val note: String = ""
-)
+) {
+    val amountDouble: Double
+        get() = paiseLongToRupeesDouble(amountPaise)
+}
 
 data class GuestDateProposalData(
     val proposedDateMillis: Long = 0L,
@@ -550,11 +701,15 @@ fun UdhaarTransaction.getParsedPaymentClaim(): GuestPaymentClaimData? {
     if (pendingPaymentClaim.isBlank()) return null
     return runCatching {
         val json = org.json.JSONObject(pendingPaymentClaim)
-        val paise = json.optLong("amountPaise", 0L)
-        val amt = if (paise > 0L) paise / 100.0 else json.optDouble("amount", json.optDouble("amountDouble", 0.0))
+        val explicitPaise = json.optLong("amountPaise", 0L)
+        val resolvedPaise = if (explicitPaise > 0L) {
+            explicitPaise
+        } else {
+            val legacyDouble = json.optDouble("amount", json.optDouble("amountDouble", 0.0))
+            rupeesDoubleToPaiseExact(legacyDouble)
+        }
         GuestPaymentClaimData(
-            amountPaise = if (paise > 0L) paise else (amt * 100).toLong(),
-            amountDouble = amt,
+            amountPaise = resolvedPaise,
             dateMillis = json.optLong("dateMillis", System.currentTimeMillis()),
             paymentMode = runCatching { PaymentMode.valueOf(json.optString("paymentMode", "UPI")) }.getOrDefault(PaymentMode.UPI),
             reference = json.optString("reference", ""),

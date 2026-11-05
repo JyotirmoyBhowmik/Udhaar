@@ -925,4 +925,22 @@
     <string name="group_split_empty_members_hint">बंटवारा देखने के लिए ऊपर कम से कम 1 सदस्य जोड़ें।</string>
     <string name="group_split_custom_amount_label">हिस्से की रकम</string>
     <string name="group_split_percent_label">हिस्सा %</string>
+    <string name="settings_analytics_crash_title">क्रैश रिपोर्ट और स्क्रीन एनालिटिक्स (सहमति से)</string>
+    <string name="settings_analytics_crash_subtitle">डिफ़ॉल्ट रूप से बंद। बिना किसी व्यक्तिगत डेटा के केवल अनाम क्रैश जानकारी भेजता है।</string>
+    <string name="settings_backup_recovery_key_title">बैकअप रिकवरी कुंजी</string>
+    <string name="settings_backup_recovery_key_subtitle">पासफ्रेज़ भूल जाने पर एन्क्रिप्टेड बैकअप खोलने के लिए इस रिकवरी कुंजी को सुरक्षित रखें।</string>
+    <string name="settings_backup_recovery_key_active_fmt">सक्रिय कुंजी ID: %1$s</string>
+    <string name="settings_generate_recovery_key_button">रिकवरी कुंजी बनाएं</string>
+    <string name="settings_copy_recovery_key_button">कुंजी कॉपी करें</string>
+    <string name="settings_test_my_backup_button">मेरा बैकअप जांचें</string>
+    <string name="adaptive_select_record_prompt">पूरा विवरण और भुगतान इतिहास देखने के लिए बाईं ओर से कोई रिकॉर्ड चुनें</string>
+    <string name="adaptive_select_person_prompt">खाता विवरण देखने के लिए बाईं ओर से किसी व्यक्ति को चुनें</string>
+    <string name="cd_close">बंद करें</string>
+    <string name="cd_collapse_details">विवरण संक्षिप्त करें</string>
+    <string name="cd_expand_details">विवरण विस्तृत करें</string>
+    <string name="cd_back">वापस जाएं</string>
+    <string name="cd_favorite_party">पसंदीदा व्यक्ति</string>
+    <string name="cd_whatsapp_reminder">व्हाट्सएप रिमाइंडर भेजें</string>
+    <string name="updates_screen_title">अपडेट और रिमाइंडर</string>
+    <string name="ui_str_repayment_history_e95aa2">भुगतान इतिहास</string>
 </resources>

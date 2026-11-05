@@ -84,7 +84,7 @@ fun InstallmentHistorySection(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = InterestCalculator.formatCurrency(payment.amount, tx.currency),
+                                text = InterestCalculator.formatPaise(payment.amountPaise, tx.currency),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -184,7 +184,7 @@ fun InstallmentHistorySection(
 
                 if (!payment.isAcknowledged || payment.needsMyAcknowledgement) {
                     val displayActor = payment.recordedByName.ifBlank { tx.partyName }
-                    val formattedAmt = InterestCalculator.formatCurrency(payment.amount, tx.currency)
+                    val formattedAmt = InterestCalculator.formatPaise(payment.amountPaise, tx.currency)
                     OutlinedButton(
                         onClick = { onAcknowledgePartialPayment(payment) },
                         modifier = Modifier

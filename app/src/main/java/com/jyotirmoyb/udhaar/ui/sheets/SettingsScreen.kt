@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -31,7 +31,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -58,6 +57,8 @@ import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.UserSettings
 import com.jyotirmoyb.udhaar.security.EncryptedStorageManager
 import com.jyotirmoyb.udhaar.security.SecureScreenEffect
+import com.jyotirmoyb.udhaar.ui.components.AppIconButton
+import com.jyotirmoyb.udhaar.ui.components.minTouchTarget
 import com.jyotirmoyb.udhaar.ui.components.pressScaleFeedback
 import com.jyotirmoyb.udhaar.ui.sheets.settings.AboutSection
 import com.jyotirmoyb.udhaar.ui.sheets.settings.BackupSection
@@ -125,6 +126,9 @@ fun SettingsScreen(
     onSaveReminderSettings: ((Boolean, Int, Int, Int, Int, Int) -> Unit)? = null,
     onSaveWebLinkDefaults: ((defaultExpiryDays: Int, defaultTrustLevel: String, defaultShowUpi: Boolean) -> Unit)? = null,
     onRevokeAllWebLinks: (() -> Unit)? = null,
+    onAnalyticsCrashConsentChanged: (Boolean) -> Unit = {},
+    onGenerateRecoveryKey: ((onKeyReady: (String) -> Unit) -> Unit)? = null,
+    onTestMyBackup: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     SecureScreenEffect(enabled = false)
@@ -149,6 +153,9 @@ fun SettingsScreen(
     var fontScale by rememberSaveable(currentSettings.fontScale) { mutableStateOf(currentSettings.fontScale) }
     var biometricLockEnabled by rememberSaveable(currentSettings.biometricLockEnabled) {
         mutableStateOf(currentSettings.biometricLockEnabled)
+    }
+    var analyticsCrashConsent by rememberSaveable(currentSettings.analyticsCrashConsent) {
+        mutableStateOf(currentSettings.analyticsCrashConsent)
     }
     var securityPin by rememberSaveable { mutableStateOf("") }
     var pinValidationError by rememberSaveable { mutableStateOf<String?>(null) }
@@ -267,7 +274,7 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.weight(1f)
                         ) {
-                            IconButton(
+                            AppIconButton(
                                 onClick = onDismiss,
                                 modifier = Modifier.testTag("close_settings_button")
                             ) {
@@ -318,7 +325,9 @@ fun SettingsScreen(
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                     )
                                 },
-                                modifier = Modifier.testTag("settings_cat_chip_${catKey.lowercase()}")
+                                modifier = Modifier
+                                    .minTouchTarget()
+                                    .testTag("settings_cat_chip_${catKey.lowercase()}")
                             )
                         }
                     }
@@ -346,7 +355,7 @@ fun SettingsScreen(
                             onClick = onDismiss,
                             modifier = Modifier
                                 .weight(1f)
-                                .height(44.dp)
+                                .heightIn(min = 48.dp)
                                 .pressScaleFeedback()
                                 .testTag("cancel_settings_button"),
                             shape = RoundedCornerShape(12.dp),
@@ -358,7 +367,7 @@ fun SettingsScreen(
                             onClick = { validateAndSave(true) },
                             modifier = Modifier
                                 .weight(1.6f)
-                                .height(44.dp)
+                                .heightIn(min = 48.dp)
                                 .pressScaleFeedback()
                                 .testTag("save_settings_button"),
                             shape = RoundedCornerShape(12.dp),
@@ -431,6 +440,11 @@ fun SettingsScreen(
                             onLockAppNow = {
                                 persistImmediately()
                                 onLockAppNow()
+                            },
+                            analyticsCrashConsent = analyticsCrashConsent,
+                            onAnalyticsCrashConsentChanged = { enabled ->
+                                analyticsCrashConsent = enabled
+                                onAnalyticsCrashConsentChanged(enabled)
                             }
                         )
                     }
@@ -568,7 +582,9 @@ fun SettingsScreen(
                             },
                             onRetryCloudBackup = onRetryCloudBackup,
                             onOpenReceivedVerificationLink = onOpenReceivedVerificationLink,
-                            onDeleteMyCloudData = onDeleteMyCloudData
+                            onDeleteMyCloudData = onDeleteMyCloudData,
+                            onGenerateRecoveryKey = onGenerateRecoveryKey,
+                            onTestMyBackup = onTestMyBackup
                         )
                     }
 

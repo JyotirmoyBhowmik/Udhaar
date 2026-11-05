@@ -92,8 +92,8 @@ class DashboardViewModel @Inject constructor(
         val activeInr = calculatedList.filter { !it.transaction.isSettled && it.transaction.currency == CurrencyType.INR }
         val inrTotals = CurrencyLedgerTotals(
             currency = CurrencyType.INR,
-            totalToReceive = activeInr.filter { it.transaction.transactionType == TransactionType.GIVEN }.sumOf { it.netBalanceDue },
-            totalToPay = activeInr.filter { it.transaction.transactionType == TransactionType.TAKEN }.sumOf { it.netBalanceDue },
+            totalToReceivePaise = activeInr.filter { it.transaction.transactionType == TransactionType.GIVEN }.sumOf { it.netBalanceDuePaise },
+            totalToPayPaise = activeInr.filter { it.transaction.transactionType == TransactionType.TAKEN }.sumOf { it.netBalanceDuePaise },
             activeGivenCount = activeInr.count { it.transaction.transactionType == TransactionType.GIVEN },
             activeTakenCount = activeInr.count { it.transaction.transactionType == TransactionType.TAKEN }
         )
@@ -101,8 +101,8 @@ class DashboardViewModel @Inject constructor(
         val activeNpr = calculatedList.filter { !it.transaction.isSettled && it.transaction.currency == CurrencyType.NPR }
         val nprTotals = CurrencyLedgerTotals(
             currency = CurrencyType.NPR,
-            totalToReceive = activeNpr.filter { it.transaction.transactionType == TransactionType.GIVEN }.sumOf { it.netBalanceDue },
-            totalToPay = activeNpr.filter { it.transaction.transactionType == TransactionType.TAKEN }.sumOf { it.netBalanceDue },
+            totalToReceivePaise = activeNpr.filter { it.transaction.transactionType == TransactionType.GIVEN }.sumOf { it.netBalanceDuePaise },
+            totalToPayPaise = activeNpr.filter { it.transaction.transactionType == TransactionType.TAKEN }.sumOf { it.netBalanceDuePaise },
             activeGivenCount = activeNpr.count { it.transaction.transactionType == TransactionType.GIVEN },
             activeTakenCount = activeNpr.count { it.transaction.transactionType == TransactionType.TAKEN }
         )
@@ -173,7 +173,7 @@ class DashboardViewModel @Inject constructor(
                 compareBy<CalculatedUdhaarSummary> { it.transaction.expiryDateMillis ?: Long.MAX_VALUE }
                     .thenByDescending { it.transaction.createdAtMillis }
             )
-            TransactionSortOption.AMOUNT_DESC -> filtered.sortedByDescending { it.netBalanceDue }
+            TransactionSortOption.AMOUNT_DESC -> filtered.sortedByDescending { it.netBalanceDuePaise }
             TransactionSortOption.PARTY_NAME -> filtered.sortedBy { it.transaction.partyName.lowercase() }
         }
 

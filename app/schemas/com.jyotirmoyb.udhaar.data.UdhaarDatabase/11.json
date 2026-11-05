@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 11,
-    "identityHash": "339abc005fe7bcca9e92fb27bb1214f6",
+    "identityHash": "aa6ffaf85539294e63882674d70af878",
     "entities": [
       {
         "tableName": "parties",
@@ -114,7 +114,7 @@
       },
       {
         "tableName": "udhaar_transactions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `partyId` INTEGER, `transactionType` TEXT NOT NULL, `partyName` TEXT NOT NULL, `phoneNumber` TEXT NOT NULL, `currency` TEXT NOT NULL, `principalAmount` REAL NOT NULL, `amountPaid` REAL NOT NULL, `paymentMode` TEXT NOT NULL, `isInterestEnabled` INTEGER NOT NULL, `interestType` TEXT NOT NULL, `interestRate` REAL NOT NULL, `interestRatePeriod` TEXT NOT NULL, `compoundFrequency` TEXT NOT NULL, `startDateMillis` INTEGER NOT NULL, `expiryDateMillis` INTEGER, `reminderDateMillis` INTEGER, `remindersDisabled` INTEGER NOT NULL, `snoozedUntilMillis` INTEGER, `lastReminderSentMillis` INTEGER, `lastReminderLevel` INTEGER NOT NULL, `notes` TEXT NOT NULL, `isSettled` INTEGER NOT NULL, `settledAtMillis` INTEGER, `createdAtMillis` INTEGER NOT NULL, `remoteId` TEXT NOT NULL, `verificationStatus` TEXT NOT NULL, `verifiedAtMillis` INTEGER, `counterpartyUserId` TEXT NOT NULL, `contentHash` TEXT NOT NULL, `needsMyConfirmation` INTEGER NOT NULL, `shareToken` TEXT NOT NULL, `disputeReason` TEXT NOT NULL, `lenderName` TEXT NOT NULL, `borrowerName` TEXT NOT NULL, `webLinkStatus` TEXT NOT NULL, `lastGuestAction` TEXT NOT NULL, `trustLevel` TEXT NOT NULL, `pendingPaymentClaim` TEXT NOT NULL, `pendingDateProposal` TEXT NOT NULL, `principalAmountPaise` INTEGER NOT NULL, `amountPaidPaise` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `partyId` INTEGER, `transactionType` TEXT NOT NULL, `partyName` TEXT NOT NULL, `phoneNumber` TEXT NOT NULL, `currency` TEXT NOT NULL, `principalAmountPaise` INTEGER NOT NULL, `amountPaidPaise` INTEGER NOT NULL, `paymentMode` TEXT NOT NULL, `isInterestEnabled` INTEGER NOT NULL, `interestType` TEXT NOT NULL, `interestRate` REAL NOT NULL, `interestRatePeriod` TEXT NOT NULL, `compoundFrequency` TEXT NOT NULL, `startDateMillis` INTEGER NOT NULL, `expiryDateMillis` INTEGER, `reminderDateMillis` INTEGER, `remindersDisabled` INTEGER NOT NULL, `snoozedUntilMillis` INTEGER, `lastReminderSentMillis` INTEGER, `lastReminderLevel` INTEGER NOT NULL, `notes` TEXT NOT NULL, `isSettled` INTEGER NOT NULL, `settledAtMillis` INTEGER, `createdAtMillis` INTEGER NOT NULL, `remoteId` TEXT NOT NULL, `verificationStatus` TEXT NOT NULL, `verifiedAtMillis` INTEGER, `counterpartyUserId` TEXT NOT NULL, `contentHash` TEXT NOT NULL, `needsMyConfirmation` INTEGER NOT NULL, `shareToken` TEXT NOT NULL, `disputeReason` TEXT NOT NULL, `lenderName` TEXT NOT NULL, `borrowerName` TEXT NOT NULL, `webLinkStatus` TEXT NOT NULL, `lastGuestAction` TEXT NOT NULL, `trustLevel` TEXT NOT NULL, `pendingPaymentClaim` TEXT NOT NULL, `pendingDateProposal` TEXT NOT NULL)",
         "fields": [
           {
             "fieldPath": "id",
@@ -152,15 +152,15 @@
             "notNull": true
           },
           {
-            "fieldPath": "principalAmount",
-            "columnName": "principalAmount",
-            "affinity": "REAL",
+            "fieldPath": "principalAmountPaise",
+            "columnName": "principalAmountPaise",
+            "affinity": "INTEGER",
             "notNull": true
           },
           {
-            "fieldPath": "amountPaid",
-            "columnName": "amountPaid",
-            "affinity": "REAL",
+            "fieldPath": "amountPaidPaise",
+            "columnName": "amountPaidPaise",
+            "affinity": "INTEGER",
             "notNull": true
           },
           {
@@ -348,18 +348,6 @@
             "columnName": "pendingDateProposal",
             "affinity": "TEXT",
             "notNull": true
-          },
-          {
-            "fieldPath": "principalAmountPaise",
-            "columnName": "principalAmountPaise",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "amountPaidPaise",
-            "columnName": "amountPaidPaise",
-            "affinity": "INTEGER",
-            "notNull": true
           }
         ],
         "primaryKey": {
@@ -371,7 +359,7 @@
       },
       {
         "tableName": "partial_payments",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `transactionId` INTEGER NOT NULL, `amount` REAL NOT NULL, `paymentMode` TEXT NOT NULL, `paidAtMillis` INTEGER NOT NULL, `note` TEXT NOT NULL, `remotePaymentId` TEXT NOT NULL, `recordedByUserId` TEXT NOT NULL, `recordedByName` TEXT NOT NULL, `isAcknowledged` INTEGER NOT NULL, `acknowledgedAtMillis` INTEGER, `needsMyAcknowledgement` INTEGER NOT NULL, `amountPaise` INTEGER NOT NULL, FOREIGN KEY(`transactionId`) REFERENCES `udhaar_transactions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `transactionId` INTEGER NOT NULL, `amountPaise` INTEGER NOT NULL, `paymentMode` TEXT NOT NULL, `paidAtMillis` INTEGER NOT NULL, `note` TEXT NOT NULL, `remotePaymentId` TEXT NOT NULL, `recordedByUserId` TEXT NOT NULL, `recordedByName` TEXT NOT NULL, `isAcknowledged` INTEGER NOT NULL, `acknowledgedAtMillis` INTEGER, `needsMyAcknowledgement` INTEGER NOT NULL, FOREIGN KEY(`transactionId`) REFERENCES `udhaar_transactions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -386,9 +374,9 @@
             "notNull": true
           },
           {
-            "fieldPath": "amount",
-            "columnName": "amount",
-            "affinity": "REAL",
+            "fieldPath": "amountPaise",
+            "columnName": "amountPaise",
+            "affinity": "INTEGER",
             "notNull": true
           },
           {
@@ -441,12 +429,6 @@
           {
             "fieldPath": "needsMyAcknowledgement",
             "columnName": "needsMyAcknowledgement",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "amountPaise",
-            "columnName": "amountPaise",
             "affinity": "INTEGER",
             "notNull": true
           }
@@ -1245,7 +1227,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '339abc005fe7bcca9e92fb27bb1214f6')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'aa6ffaf85539294e63882674d70af878')"
     ]
   }
 }

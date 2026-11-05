@@ -200,7 +200,7 @@ fun UpdatesScreen(
                                             fontWeight = FontWeight.Bold
                                         )
                                         Text(
-                                            text = InterestCalculator.formatCurrency(tx.principalAmount, tx.currency),
+                                            text = InterestCalculator.formatPaise(tx.principalAmountPaise, tx.currency),
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.SemiBold,
                                             color = MaterialTheme.colorScheme.primary
@@ -224,7 +224,7 @@ fun UpdatesScreen(
                                                         modifier = Modifier.size(18.dp)
                                                     )
                                                     Spacer(modifier = Modifier.width(6.dp))
-                                                    val claimTitle = "${tx.partyName} says they paid ${InterestCalculator.formatCurrency(claim.amountDouble, tx.currency)}"
+                                                    val claimTitle = "${tx.partyName} says they paid ${InterestCalculator.formatPaise(claim.amountPaise, tx.currency)}"
                                                     Text(
                                                         text = claimTitle,
                                                         style = MaterialTheme.typography.bodyMedium,

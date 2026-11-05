@@ -1,932 +1,689 @@
-const crypto = require("node:crypto");
-const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https");
-const { onSchedule } = require("firebase-functions/v2/scheduler");
-const { defineString } = require("firebase-functions/params");
-const { getFirestore, FieldValue } = require("firebase-admin/firestore");
-const { getStorage } = require("firebase-admin/storage");
+/**
+ * Udhaar Cloud Functions — Guest Web Flow HTTP Endpoints & Phone Registry Lookup
+ *
+ * Deployed endpoints:
+ * 1. `registerPhoneIdentity`: Authenticated callable function that computes a server-salted
+ *    HMAC-SHA256 (`phoneHmac`) using `UDHAAR_SERVER_SECRET` and writes `phone_registry/{phoneHmac}`.
+ * 2. `lookupPhoneIdentity`: Authenticated callable function that resolves a contact's phone number
+ *    to a registered Firebase UID using the server-salted HMAC without exposing raw numbers.
+ * 3. `guestRecordView`: HTTPS endpoint (`GET /POST`) that verifies the capability token from the
+ *    `#t=<rawToken>` fragment (sent in request header `X-Guest-Token` or body, never logged in URL query)
+ *    and returns a sanitized view of the shared Udhaar record.
+ * 4. `guestRecordAction`: HTTPS endpoint (`POST`) that verifies the capability token and applies
+ *    `CONFIRM_RECORD`, `DISPUTE_RECORD`, or `SUBMIT_PAYMENT_CLAIM` in a Firestore transaction,
+ *    plus generates a short-lived signed upload URL for payment proof images/PDFs (< 5 MB)
+ *    with `contentType` and `x-goog-content-length-range: 0,5242880`.
+ */
+
+let onCall, onRequest, HttpsError;
+try {
+  ({ onCall, onRequest, HttpsError } = require("firebase-functions/v2/https"));
+} catch (_) {
+  onCall = (_opts, handler) => handler;
+  onRequest = (_opts, handler) => handler;
+  HttpsError = class HttpsError extends Error {
+    constructor(code, message) {
+      super(message);
+      this.code = code;
+    }
+  };
+}
+
+let admin;
+try {
+  admin = require("firebase-admin");
+  if (!admin.apps.length) {
+    admin.initializeApp();
+  }
+} catch (_) {
+  admin = { apps: [] };
+}
+
+const crypto = require("crypto");
 const {
-  computeCodeHmac,
-  maskPhoneNumber,
-  maskUpiId,
-  getCoarseDeviceType,
-  computeContentHashServer,
-  writeAuditEntry,
-  writeInboxItem,
-  sendPushToCreator,
-  validateAndRateLimitWebLink,
-  verifyGuestPhoneOtp,
-  purgeExpiredGuestData,
+  UDHAAR_SERVER_SECRET,
+  ALLOWED_PROOF_MIME_TYPES,
+  MAX_PROOF_SIZE_BYTES,
+  computeSaltedPhoneHash,
+  verifyGuestCapabilityToken,
+  buildGuestActionUpdate
 } = require("./guestWebFlow");
 
-const DATABASE_ID = defineString("FIRESTORE_DATABASE_ID", {
-  default: "ai-studio-android-udhaar-42622035-52d2-4bfb-8070-8962975a82cf",
-  description: "Named Cloud Firestore database ID for Udhaar",
-});
-
-const CORS_ORIGINS = [
-  "https://udhaar.jyotirmoyb.com",
-  "http://localhost:5000",
-  "http://127.0.0.1:5000",
-  "http://localhost:8080",
-  "http://127.0.0.1:8080",
-];
+const SIGNED_UPLOAD_URL_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const PROOF_RETENTION_DAYS = 90;
 
 /**
- * 1. Callable: Creator generates a web verification link.
- * Stores only SHA-256 hash of secret in webLinks/{recordId}.
+ * 90-day GCS bucket lifecycle rule for automatic cleanup of guest & payment proof uploads.
  */
-exports.createGuestWebLink = onCall({ region: "asia-south1" }, async (request) => {
-  if (!request.auth || !request.auth.uid) {
-    throw new HttpsError("unauthenticated", "User must be authenticated to create a web link.");
+const STORAGE_LIFECYCLE_RULE_90_DAYS = Object.freeze({
+  action: { type: "Delete" },
+  condition: {
+    age: PROOF_RETENTION_DAYS,
+    matchesPrefix: ["guest_proofs/", "payment_proofs/"]
   }
-  const {
-    recordId,
-    secretHash,
-    counterpartyRole,
-    phoneSalt,
-    phoneHash,
-    expiresInDays,
-    trustLevelRequired,
-    allowedActions,
-    showPayQr,
-    showNote,
-  } = request.data || {};
+});
 
-  if (!recordId || typeof recordId !== "string" || !secretHash || typeof secretHash !== "string") {
-    throw new HttpsError("invalid-argument", "Missing required link parameters (recordId, secretHash).");
+/**
+ * Builds the options passed to `file.getSignedUrl(...)` for a guest payment proof upload.
+ * Enforces `contentType` and the `x-goog-content-length-range: 0,5242880` extension header.
+ *
+ * @param {string} contentType - Validated MIME type from ALLOWED_PROOF_MIME_TYPES
+ * @param {number} [nowMs] - Current timestamp in ms
+ * @returns {object} Signed URL configuration object
+ */
+function buildProofSignedUrlOptions(contentType, nowMs = Date.now()) {
+  if (!ALLOWED_PROOF_MIME_TYPES.includes(contentType)) {
+    throw new Error("INVALID_PROOF_TYPE: Only JPEG, PNG, WEBP, or PDF proofs are allowed.");
   }
-
-  const db = getFirestore(DATABASE_ID.value());
-  const recordRef = db.collection("shared_records").doc(recordId);
-  const recordSnap = await recordRef.get();
-  if (!recordSnap.exists) {
-    throw new HttpsError("not-found", "Shared record not found.");
-  }
-
-  const record = recordSnap.data();
-  if (record.creatorUid !== request.auth.uid) {
-    throw new HttpsError("permission-denied", "Only the record creator can generate a web verification link.");
-  }
-
-  const days = [7, 30, 90].includes(Number(expiresInDays)) ? Number(expiresInDays) : 30;
-  const now = Date.now();
-  const expiresAtMillis = now + days * 86400000;
-  const trustLevel = ["LINK_ONLY", "PHONE_OTP"].includes(trustLevelRequired) ? trustLevelRequired : "PHONE_OTP";
-  const validActions = Array.isArray(allowedActions) && allowedActions.length > 0
-    ? allowedActions.filter((a) =>
-        ["view", "confirm", "dispute", "pay_claim", "propose_date", "set_upi", "show_pay_qr"].includes(a)
-      )
-    : ["view", "confirm", "dispute", "pay_claim", "propose_date", "show_pay_qr"];
-
-  const whatsappOtp = Math.floor(100000 + Math.random() * 900000).toString();
-  const whatsappOtpHmac = computeCodeHmac(whatsappOtp);
-  const whatsappOtpHash = crypto.createHash("sha256").update(whatsappOtp).digest("hex");
-  const otpExpiresAtMillis = now + 15 * 60 * 1000; // 15-minute validity
-
-  const linkData = {
-    recordId,
-    creatorUid: request.auth.uid,
-    counterpartyRole: counterpartyRole === "LENDER" ? "LENDER" : "BORROWER",
-    secretHash: secretHash.trim(),
-    whatsappOtpHmac,
-    whatsappOtpHash,
-    whatsappOtpExpiresAtMillis: otpExpiresAtMillis,
-    whatsappOtpUsed: false,
-    phoneSalt: (phoneSalt || "").trim(),
-    phoneHash: (phoneHash || "").trim(),
-    createdAt: FieldValue.serverTimestamp(),
-    createdAtMillis: now,
-    expiresAtMillis,
-    revoked: false,
-    allowedActions: validActions,
-    trustLevelRequired: trustLevel,
-    showPayQr: !!showPayQr,
-    showNote: !!showNote,
-    attemptCounters: {
-      wrongOtpCount: 0,
-      lastOtpAttemptMillis: 0,
-      actionCountToday: 0,
-      lastActionDay: new Date(now).toISOString().slice(0, 10),
-    },
-  };
-
-  await db.collection("webLinks").doc(recordId).set(linkData);
-  await recordRef.update({
-    webLinkStatus: "ACTIVE",
-    trustLevel: trustLevel === "PHONE_OTP" ? "PHONE_VERIFIED" : "LINK_ONLY",
-    updatedAt: FieldValue.serverTimestamp(),
-  });
-
-  await writeAuditEntry(db, recordId, {
-    actorType: "creator",
-    eventType: "LINK_CREATED",
-    summaryText: `Creator generated web link with ${trustLevel} trust level (expires in ${days} days)`,
-    now,
-  });
-
   return {
-    success: true,
-    recordId,
-    whatsappOtp,
-    whatsappOtpExpiresAtMillis: otpExpiresAtMillis,
-    expiresAtMillis,
-    trustLevelRequired: trustLevel,
-  };
-});
-
-/**
- * Callable: Creator renews the 6-digit WhatsApp verification code for a record.
- * Generates a fresh 15-minute HMAC code and resets failed attempts.
- */
-exports.renewGuestCode = onCall({ region: "asia-south1" }, async (request) => {
-  if (!request.auth || !request.auth.uid) {
-    throw new HttpsError("unauthenticated", "User must be authenticated to renew code.");
-  }
-  const { recordId } = request.data || {};
-  if (!recordId || typeof recordId !== "string") {
-    throw new HttpsError("invalid-argument", "Missing recordId.");
-  }
-  const db = getFirestore(DATABASE_ID.value());
-  const linkRef = db.collection("webLinks").doc(recordId);
-  const linkSnap = await linkRef.get();
-  if (!linkSnap.exists) {
-    throw new HttpsError("not-found", "Web link not found.");
-  }
-  const linkData = linkSnap.data();
-  if (linkData.creatorUid !== request.auth.uid) {
-    throw new HttpsError("permission-denied", "Only the record creator can renew the code.");
-  }
-  if (linkData.revoked) {
-    throw new HttpsError("failed-precondition", "Cannot renew code for a revoked link.");
-  }
-
-  const newCode = Math.floor(100000 + Math.random() * 900000).toString();
-  const now = Date.now();
-  const otpExpiresAtMillis = now + 15 * 60 * 1000;
-  const whatsappOtpHmac = computeCodeHmac(newCode);
-  const whatsappOtpHash = crypto.createHash("sha256").update(newCode).digest("hex");
-
-  await linkRef.update({
-    whatsappOtpHmac,
-    whatsappOtpHash,
-    whatsappOtpExpiresAtMillis: otpExpiresAtMillis,
-    whatsappOtpUsed: false,
-    "attemptCounters.wrongOtpCount": 0,
-    updatedAt: FieldValue.serverTimestamp(),
-  });
-
-  await writeAuditEntry(db, recordId, {
-    actorType: "creator",
-    eventType: "CODE_RENEWED",
-    summaryText: "Creator renewed 6-digit verification code (valid for 15 minutes)",
-    now,
-  });
-
-  return {
-    success: true,
-    recordId,
-    whatsappOtp: newCode,
-    whatsappOtpExpiresAtMillis: otpExpiresAtMillis,
-  };
-});
-
-/**
- * 2. Callable: Creator revokes web verification link immediately (kill switch).
- */
-exports.revokeGuestWebLink = onCall({ region: "asia-south1" }, async (request) => {
-  if (!request.auth || !request.auth.uid) {
-    throw new HttpsError("unauthenticated", "User must be authenticated.");
-  }
-  const { recordId } = request.data || {};
-  if (!recordId) throw new HttpsError("invalid-argument", "Missing recordId.");
-
-  const db = getFirestore(DATABASE_ID.value());
-  const linkRef = db.collection("webLinks").doc(recordId);
-  const linkSnap = await linkRef.get();
-  if (!linkSnap.exists) throw new HttpsError("not-found", "Link does not exist.");
-
-  const link = linkSnap.data();
-  if (link.creatorUid !== request.auth.uid) {
-    throw new HttpsError("permission-denied", "Only the record creator can revoke this link.");
-  }
-
-  await linkRef.update({
-    revoked: true,
-    updatedAt: FieldValue.serverTimestamp(),
-  });
-
-  await db.collection("shared_records").doc(recordId).update({
-    webLinkStatus: "REVOKED",
-    updatedAt: FieldValue.serverTimestamp(),
-  });
-
-  await writeAuditEntry(db, recordId, {
-    actorType: "creator",
-    eventType: "LINK_REVOKED",
-    summaryText: "Creator revoked web verification link",
-  });
-
-  return { success: true };
-});
-
-/**
- * 3. HTTPS POST: Guest opens web link and fetches safe public view.
- */
-exports.getGuestRecord = onRequest({ region: "asia-south1", cors: CORS_ORIGINS }, async (req, res) => {
-  if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed. Use POST." });
-    return;
-  }
-  const { recordId, secret } = req.body || {};
-  if (!recordId || !secret) {
-    res.status(400).json({ error: "Missing recordId or secret token." });
-    return;
-  }
-
-  const db = getFirestore(DATABASE_ID.value());
-  const validation = await validateAndRateLimitWebLink(db, recordId, secret, "view");
-  if (!validation.valid) {
-    if (validation.retryAfter) res.set("Retry-After", String(validation.retryAfter));
-    res.status(validation.status).json({ error: validation.error });
-    return;
-  }
-
-  const { link } = validation;
-  const recordSnap = await db.collection("shared_records").doc(recordId).get();
-  if (!recordSnap.exists) {
-    res.status(404).json({ error: "Record not found." });
-    return;
-  }
-
-  const record = recordSnap.data();
-  let payeeUpiId = "";
-  let payeeName = record.lenderName || "Lender";
-  if (link.showPayQr && record.creatorUid) {
-    const creatorProfSnap = await db.collection("user_profiles").doc(record.creatorUid).get();
-    if (creatorProfSnap.exists) {
-      payeeUpiId = (creatorProfSnap.data().upiId || "").trim();
-      payeeName = (creatorProfSnap.data().displayName || payeeName).trim();
+    version: "v4",
+    action: "write",
+    expires: nowMs + SIGNED_UPLOAD_URL_TTL_MS,
+    contentType,
+    extensionHeaders: {
+      "x-goog-content-length-range": `0,${MAX_PROOF_SIZE_BYTES}`
     }
-  }
-
-  let planSummary = null;
-  const plansSnap = await db
-    .collection("shared_records")
-    .doc(recordId)
-    .collection("installment_plans")
-    .where("status", "==", "ACTIVE")
-    .limit(1)
-    .get();
-
-  if (!plansSnap.empty) {
-    const pDoc = plansSnap.docs[0];
-    const p = pDoc.data();
-    const instSnap = await pDoc.ref.collection("installments").get();
-    const installments = instSnap.docs.map((d) => d.data()).sort((a, b) => a.sequence - b.sequence);
-    const paidCount = installments.filter((i) => i.status === "PAID" || i.amountPaid >= i.amountDue).length;
-    const nextDue = installments.find((i) => i.status !== "PAID" && i.amountPaid < i.amountDue);
-    planSummary = {
-      planId: p.planId,
-      installmentCount: p.installmentCount,
-      frequency: p.frequency,
-      totalAmountDue: p.totalAmountDue,
-      paidCount,
-      nextDueDate: nextDue ? nextDue.dueDate : null,
-      nextDueAmount: nextDue ? nextDue.amountDue - nextDue.amountPaid : 0,
-    };
-  }
-
-  const isGiven = record.creatorRole === "GIVEN";
-  const creatorName = isGiven ? record.lenderName : record.borrowerName;
-  const counterpartyName = isGiven ? record.borrowerName : record.lenderName;
-
-  await writeAuditEntry(db, recordId, {
-    actorType: "guest_link_only",
-    eventType: "VIEWED",
-    summaryText: "Guest opened verification page",
-    deviceType: getCoarseDeviceType(req.headers["user-agent"]),
-  });
-
-  res.status(200).json({
-    recordId,
-    creatorName,
-    counterpartyName,
-    counterpartyRole: link.counterpartyRole,
-    creatorRole: record.creatorRole,
-    principalAmount: record.principalAmount,
-    amountPaid: record.amountPaid || 0,
-    currency: record.currency || "INR",
-    startDateMillis: record.startDateMillis,
-    expiryDateMillis: record.expiryDateMillis,
-    interestRate: record.interestRate || 0,
-    interestType: record.interestType || "SIMPLE",
-    isInterestEnabled: !!record.isInterestEnabled,
-    verificationStatus: record.verificationStatus,
-    trustLevelRequired: link.trustLevelRequired,
-    allowedActions: link.allowedActions || [],
-    showPayQr: !!link.showPayQr,
-    payeeUpiId: link.showPayQr ? payeeUpiId : "",
-    payeeName,
-    counterpartyPhoneMasked: maskPhoneNumber(link.phoneHash ? "" : record.counterpartyPhone || ""),
-    creatorPhoneMasked: maskPhoneNumber(record.creatorPhone || ""),
-    creatorPhoneClean: (record.creatorPhone || "").replace(/\D+/g, ""),
-    hasWhatsappOtp: !!link.whatsappOtpHash,
-    installmentPlan: planSummary,
-    allowNote: !!link.showNote,
-  });
-});
+  };
+}
 
 /**
- * 4. HTTPS POST: Guest confirms record terms.
+ * Ensures the Storage bucket has the 90-day lifecycle deletion rule configured.
+ *
+ * @param {object} bucket - `@google-cloud/storage` Bucket instance
  */
-exports.guestConfirm = onRequest({ region: "asia-south1", cors: CORS_ORIGINS }, async (req, res) => {
-  if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed. Use POST." });
+async function ensureBucketLifecycle90Days(bucket) {
+  if (!bucket || typeof bucket.setMetadata !== "function") {
     return;
   }
-  const { recordId, secret, guestIdToken, whatsappOtp } = req.body || {};
-  if (!recordId || !secret) {
-    res.status(400).json({ error: "Missing required parameters." });
-    return;
-  }
-
-  const db = getFirestore(DATABASE_ID.value());
-  const validation = await validateAndRateLimitWebLink(db, recordId, secret, "confirm");
-  if (!validation.valid) {
-    if (validation.retryAfter) res.set("Retry-After", String(validation.retryAfter));
-    res.status(validation.status).json({ error: validation.error });
-    return;
-  }
-
-  const { link, linkRef } = validation;
-  const otpResult = await verifyGuestPhoneOtp(db, linkRef, link, whatsappOtp || guestIdToken);
-  if (!otpResult.verified) {
-    res.status(otpResult.status).json({ error: otpResult.error });
-    return;
-  }
-
-  const recordRef = db.collection("shared_records").doc(recordId);
-  const recordSnap = await recordRef.get();
-  if (!recordSnap.exists) {
-    res.status(404).json({ error: "Record not found." });
-    return;
-  }
-
-  const record = recordSnap.data();
-  if (record.verificationStatus === "CONFIRMED") {
-    res.status(400).json({ error: "This record has already been confirmed." });
-    return;
-  }
-
-  const now = Date.now();
-  const newHash = computeContentHashServer(record);
-  const trustLevel = link.trustLevelRequired === "PHONE_OTP" ? "PHONE_VERIFIED" : "LINK_ONLY";
-
-  await recordRef.update({
-    verificationStatus: "CONFIRMED",
-    verifiedAtMillis: now,
-    trustLevel,
-    verifiedPhoneMasked: otpResult.maskedPhone || "",
-    contentHash: newHash,
-    lastGuestAction: "CONFIRMED",
-    updatedAt: FieldValue.serverTimestamp(),
-  });
-
-  await writeAuditEntry(db, recordId, {
-    actorType: link.trustLevelRequired === "PHONE_OTP" ? "guest_phone_verified" : "guest_link_only",
-    eventType: "CONFIRMED",
-    maskedPhone: otpResult.maskedPhone,
-    hashBefore: record.contentHash,
-    hashAfter: newHash,
-    summaryText: "Guest confirmed record terms on web",
-    deviceType: getCoarseDeviceType(req.headers["user-agent"]),
-    now,
-  });
-
-  await writeInboxItem(db, recordId, {
-    type: "CONFIRMED",
-    title: "Record Confirmed",
-    body: `Counterparty confirmed the record via web (${trustLevel})`,
-    now,
-  });
-
-  await sendPushToCreator(db, record.creatorUid, recordId, "CONFIRMED");
-
-  res.status(200).json({
-    success: true,
-    verificationStatus: "CONFIRMED",
-    trustLevel,
-  });
-});
-
-/**
- * 5. HTTPS POST: Guest disputes record terms.
- */
-exports.guestDispute = onRequest({ region: "asia-south1", cors: CORS_ORIGINS }, async (req, res) => {
-  if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed. Use POST." });
-    return;
-  }
-  const { recordId, secret, guestIdToken, reasonCode, reasonText } = req.body || {};
-  if (!recordId || !secret || !reasonCode) {
-    res.status(400).json({ error: "Missing required parameters." });
-    return;
-  }
-
-  const validReasons = ["WRONG_AMOUNT", "WRONG_DATE", "NEVER_TOOK_IT", "OTHER"];
-  if (!validReasons.includes(reasonCode)) {
-    res.status(400).json({ error: "Invalid dispute reason code." });
-    return;
-  }
-
-  const sanitizedText = (reasonText || "").replace(/[\x00-\x1F\x7F]/g, "").slice(0, 300);
-
-  const db = getFirestore(DATABASE_ID.value());
-  const validation = await validateAndRateLimitWebLink(db, recordId, secret, "dispute");
-  if (!validation.valid) {
-    if (validation.retryAfter) res.set("Retry-After", String(validation.retryAfter));
-    res.status(validation.status).json({ error: validation.error });
-    return;
-  }
-
-  const { link, linkRef } = validation;
-  const otpResult = await verifyGuestPhoneOtp(db, linkRef, link, guestIdToken);
-  if (!otpResult.verified) {
-    res.status(otpResult.status).json({ error: otpResult.error });
-    return;
-  }
-
-  const recordRef = db.collection("shared_records").doc(recordId);
-  const recordSnap = await recordRef.get();
-  if (!recordSnap.exists) {
-    res.status(404).json({ error: "Record not found." });
-    return;
-  }
-
-  const record = recordSnap.data();
-  const fullDispute = sanitizedText ? `${reasonCode}: ${sanitizedText}` : reasonCode;
-  const now = Date.now();
-
-  await recordRef.update({
-    verificationStatus: "DISPUTED",
-    disputeReason: fullDispute,
-    lastGuestAction: "DISPUTED",
-    updatedAt: FieldValue.serverTimestamp(),
-  });
-
-  await writeAuditEntry(db, recordId, {
-    actorType: link.trustLevelRequired === "PHONE_OTP" ? "guest_phone_verified" : "guest_link_only",
-    eventType: "DISPUTED",
-    maskedPhone: otpResult.maskedPhone,
-    hashBefore: record.contentHash,
-    hashAfter: record.contentHash,
-    summaryText: `Guest disputed record: ${fullDispute}`,
-    deviceType: getCoarseDeviceType(req.headers["user-agent"]),
-    now,
-  });
-
-  await writeInboxItem(db, recordId, {
-    type: "DISPUTED",
-    title: "Record Disputed",
-    body: `Counterparty disputed record: ${fullDispute}`,
-    metadata: { reasonCode, reasonText: sanitizedText },
-    now,
-  });
-
-  await sendPushToCreator(db, record.creatorUid, recordId, "DISPUTED");
-
-  res.status(200).json({
-    success: true,
-    verificationStatus: "DISPUTED",
-  });
-});
-
-/**
- * 6. HTTPS POST: Guest reports having made a repayment.
- */
-exports.guestPaymentClaim = onRequest({ region: "asia-south1", cors: CORS_ORIGINS }, async (req, res) => {
-  if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed. Use POST." });
-    return;
-  }
-  const { recordId, secret, guestIdToken, amount, dateMillis, mode, reference, proofFileName, proofMimeType } =
-    req.body || {};
-  const parsedAmount = Number(amount);
-  if (!recordId || !secret || !parsedAmount || parsedAmount <= 0) {
-    res.status(400).json({ error: "Invalid payment claim details." });
-    return;
-  }
-
-  const validModes = ["UPI", "CASH", "BANK"];
-  const paymentMode = validModes.includes(mode) ? mode : "UPI";
-
-  const db = getFirestore(DATABASE_ID.value());
-  const validation = await validateAndRateLimitWebLink(db, recordId, secret, "pay_claim");
-  if (!validation.valid) {
-    if (validation.retryAfter) res.set("Retry-After", String(validation.retryAfter));
-    res.status(validation.status).json({ error: validation.error });
-    return;
-  }
-
-  const { link, linkRef } = validation;
-  const otpResult = await verifyGuestPhoneOtp(db, linkRef, link, guestIdToken);
-  if (!otpResult.verified) {
-    res.status(otpResult.status).json({ error: otpResult.error });
-    return;
-  }
-
-  const recordRef = db.collection("shared_records").doc(recordId);
-  const recordSnap = await recordRef.get();
-  if (!recordSnap.exists) {
-    res.status(404).json({ error: "Record not found." });
-    return;
-  }
-  const record = recordSnap.data();
-
-  const claimId = "claim_" + crypto.randomBytes(8).toString("hex");
-  let proofStoragePath = "";
-  let signedUploadUrl = null;
-
-  if (proofFileName && proofMimeType) {
-    const allowedMimes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
-    if (!allowedMimes.includes(proofMimeType)) {
-      res.status(400).json({ error: "Invalid proof file type. Allowed: JPEG, PNG, WEBP, PDF." });
-      return;
+  await bucket.setMetadata({
+    lifecycle: {
+      rule: [STORAGE_LIFECYCLE_RULE_90_DAYS]
     }
-    const safeName = proofFileName.replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 100);
-    proofStoragePath = `guest_proofs/${recordId}/${claimId}_${safeName}`;
-    try {
-      const bucket = getStorage().bucket();
-      const file = bucket.file(proofStoragePath);
-      const [url] = await file.getSignedUrl({
-        version: "v4",
-        action: "write",
-        expires: Date.now() + 15 * 60 * 1000,
-        contentType: proofMimeType,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 0. Per-IP + Per-Record Rate Limiter (prevents brute-force & spam on guest endpoints)
+// ---------------------------------------------------------------------------
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const RATE_LIMIT_MAX_REQUESTS_PER_WINDOW = 25;
+
+/**
+ * Enforces a sliding-window rate limit in Firestore (`guest_rate_limits/{bucketKey}`)
+ * keyed by client IP hash and recordId. Returns `true` if allowed, `false` if throttled.
+ */
+async function checkGuestEndpointRateLimit(req, recordId) {
+  const rawIp =
+    (req.headers["x-forwarded-for"] || "").split(",")[0].trim() ||
+    req.ip ||
+    "unknown_ip";
+  const ipHash = crypto.createHash("sha256").update(rawIp).digest("hex").slice(0, 24);
+  const safeRecordKey = String(recordId || "global").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64);
+  const bucketId = `${ipHash}_${safeRecordKey}`;
+  const nowMs = Date.now();
+
+  const ref = admin.firestore().collection("guest_rate_limits").doc(bucketId);
+  return admin.firestore().runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) {
+      tx.set(ref, {
+        count: 1,
+        windowStartMs: nowMs,
+        updatedAt: nowMs
       });
-      signedUploadUrl = url;
-    } catch (err) {
-      console.warn("Storage signed URL generation unavailable, proceeding without upload URL:", err.message);
+      return true;
     }
-  }
+    const data = snap.data() || {};
+    const windowStartMs = typeof data.windowStartMs === "number" ? data.windowStartMs : 0;
+    const count = typeof data.count === "number" ? data.count : 0;
 
-  const now = Date.now();
-  const cleanRef = (reference || "").replace(/[\x00-\x1F\x7F]/g, "").slice(0, 200);
-
-  const claimDoc = {
-    claimId,
-    recordId,
-    amount: parsedAmount,
-    dateMillis: Number(dateMillis) || now,
-    mode: paymentMode,
-    reference: cleanRef,
-    proofStoragePath,
-    status: "PENDING_LENDER_CONFIRM",
-    claimedByPhoneMasked: otpResult.maskedPhone,
-    trustLevel: link.trustLevelRequired === "PHONE_OTP" ? "PHONE_VERIFIED" : "LINK_ONLY",
-    claimedAtMillis: now,
-    createdAt: FieldValue.serverTimestamp(),
-  };
-
-  await recordRef.collection("payment_claims").doc(claimId).set(claimDoc);
-  await recordRef.update({
-    pendingPaymentClaim: true,
-    lastGuestAction: "PAYMENT_CLAIM",
-    updatedAt: FieldValue.serverTimestamp(),
-  });
-
-  await writeAuditEntry(db, recordId, {
-    actorType: link.trustLevelRequired === "PHONE_OTP" ? "guest_phone_verified" : "guest_link_only",
-    eventType: "PAYMENT_RECORDED",
-    maskedPhone: otpResult.maskedPhone,
-    summaryText: `Guest reported repayment of ${record.currency || "₹"}${parsedAmount} via ${paymentMode}`,
-    now,
-  });
-
-  await writeInboxItem(db, recordId, {
-    type: "PAYMENT_CLAIM",
-    title: "Repayment Claimed",
-    body: `Counterparty reported payment of ${record.currency || "₹"}${parsedAmount} (${paymentMode})`,
-    claimId,
-    amount: parsedAmount,
-    dateMillis: Number(dateMillis) || now,
-    metadata: { mode: paymentMode, reference: cleanRef, proofStoragePath },
-    now,
-  });
-
-  await sendPushToCreator(db, record.creatorUid, recordId, "PAYMENT_CLAIM");
-
-  res.status(200).json({
-    success: true,
-    claimId,
-    uploadUrl: signedUploadUrl,
-  });
-});
-
-/**
- * 7. HTTPS POST: Guest proposes new return date.
- */
-exports.guestProposeDate = onRequest({ region: "asia-south1", cors: CORS_ORIGINS }, async (req, res) => {
-  if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed. Use POST." });
-    return;
-  }
-  const { recordId, secret, guestIdToken, proposedDueDateMillis, message } = req.body || {};
-  const parsedDate = Number(proposedDueDateMillis);
-  const now = Date.now();
-  if (!recordId || !secret || !parsedDate || parsedDate <= now || parsedDate > now + 365 * 86400000) {
-    res.status(400).json({ error: "Invalid proposed due date. Must be between tomorrow and 365 days." });
-    return;
-  }
-
-  const db = getFirestore(DATABASE_ID.value());
-  const validation = await validateAndRateLimitWebLink(db, recordId, secret, "propose_date");
-  if (!validation.valid) {
-    if (validation.retryAfter) res.set("Retry-After", String(validation.retryAfter));
-    res.status(validation.status).json({ error: validation.error });
-    return;
-  }
-
-  const { link, linkRef } = validation;
-  const otpResult = await verifyGuestPhoneOtp(db, linkRef, link, guestIdToken);
-  if (!otpResult.verified) {
-    res.status(otpResult.status).json({ error: otpResult.error });
-    return;
-  }
-
-  const recordRef = db.collection("shared_records").doc(recordId);
-  const recordSnap = await recordRef.get();
-  if (!recordSnap.exists) {
-    res.status(404).json({ error: "Record not found." });
-    return;
-  }
-  const record = recordSnap.data();
-
-  const proposalId = "prop_" + crypto.randomBytes(8).toString("hex");
-  const cleanMsg = (message || "").replace(/[\x00-\x1F\x7F]/g, "").slice(0, 300);
-
-  const proposalDoc = {
-    proposalId,
-    recordId,
-    proposedDueDateMillis: parsedDate,
-    message: cleanMsg,
-    status: "PENDING_LENDER_DECISION",
-    proposedByPhoneMasked: otpResult.maskedPhone,
-    proposedAtMillis: now,
-    createdAt: FieldValue.serverTimestamp(),
-  };
-
-  await recordRef.collection("date_proposals").doc(proposalId).set(proposalDoc);
-  await recordRef.update({
-    pendingDateProposal: true,
-    lastGuestAction: "DATE_PROPOSED",
-    updatedAt: FieldValue.serverTimestamp(),
-  });
-
-  await writeAuditEntry(db, recordId, {
-    actorType: link.trustLevelRequired === "PHONE_OTP" ? "guest_phone_verified" : "guest_link_only",
-    eventType: "EXTENSION_REQUESTED",
-    maskedPhone: otpResult.maskedPhone,
-    summaryText: `Guest requested due date extension to ${new Date(parsedDate).toISOString().slice(0, 10)}`,
-    now,
-  });
-
-  await writeInboxItem(db, recordId, {
-    type: "DATE_PROPOSAL",
-    title: "Extension Proposed",
-    body: `Counterparty proposed new return date: ${new Date(parsedDate).toISOString().slice(0, 10)}`,
-    proposalId,
-    dateMillis: parsedDate,
-    metadata: { message: cleanMsg },
-    now,
-  });
-
-  await sendPushToCreator(db, record.creatorUid, recordId, "DATE_PROPOSED");
-
-  res.status(200).json({
-    success: true,
-    proposalId,
-  });
-});
-
-/**
- * 8. HTTPS POST: Guest lender sets repayment UPI ID.
- */
-exports.guestSetUpi = onRequest({ region: "asia-south1", cors: CORS_ORIGINS }, async (req, res) => {
-  if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed. Use POST." });
-    return;
-  }
-  const { recordId, secret, guestIdToken, upiId } = req.body || {};
-  const cleanUpi = (upiId || "").trim();
-  const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
-  if (!recordId || !secret || !upiRegex.test(cleanUpi)) {
-    res.status(400).json({ error: "Invalid UPI ID format." });
-    return;
-  }
-
-  const db = getFirestore(DATABASE_ID.value());
-  const validation = await validateAndRateLimitWebLink(db, recordId, secret, "set_upi");
-  if (!validation.valid) {
-    if (validation.retryAfter) res.set("Retry-After", String(validation.retryAfter));
-    res.status(validation.status).json({ error: validation.error });
-    return;
-  }
-
-  const { link, linkRef } = validation;
-  if (link.counterpartyRole !== "LENDER") {
-    res.status(403).json({ error: "Only a guest lender can configure repayment UPI ID." });
-    return;
-  }
-
-  const otpResult = await verifyGuestPhoneOtp(db, linkRef, link, guestIdToken);
-  if (!otpResult.verified) {
-    res.status(otpResult.status).json({ error: otpResult.error });
-    return;
-  }
-
-  const recordRef = db.collection("shared_records").doc(recordId);
-  const recordSnap = await recordRef.get();
-  if (!recordSnap.exists) {
-    res.status(404).json({ error: "Record not found." });
-    return;
-  }
-  const record = recordSnap.data();
-
-  await recordRef.update({
-    guestUpiId: cleanUpi,
-    lastGuestAction: "SET_UPI",
-    updatedAt: FieldValue.serverTimestamp(),
-  });
-
-  await writeAuditEntry(db, recordId, {
-    actorType: link.trustLevelRequired === "PHONE_OTP" ? "guest_phone_verified" : "guest_link_only",
-    eventType: "EDITED",
-    maskedPhone: otpResult.maskedPhone,
-    summaryText: `Guest lender configured repayment UPI: ${maskUpiId(cleanUpi)}`,
-  });
-
-  await writeInboxItem(db, recordId, {
-    type: "GUEST_UPI",
-    title: "Repayment UPI Added",
-    body: `Guest lender provided UPI: ${maskUpiId(cleanUpi)}`,
-    metadata: { guestUpiMasked: maskUpiId(cleanUpi) },
-  });
-
-  await sendPushToCreator(db, record.creatorUid, recordId, "SET_UPI");
-
-  res.status(200).json({ success: true });
-});
-
-/**
- * 9. Callable: Link guest actions to account when user signs in or installs app.
- */
-exports.claimGuestActions = onCall({ region: "asia-south1" }, async (request) => {
-  if (!request.auth || !request.auth.uid) {
-    throw new HttpsError("unauthenticated", "User must be authenticated.");
-  }
-  const { recordId, secret, phone } = request.data || {};
-  if (!recordId) throw new HttpsError("invalid-argument", "Missing recordId.");
-
-  const db = getFirestore(DATABASE_ID.value());
-  const linkRef = db.collection("webLinks").doc(recordId);
-  const linkSnap = await linkRef.get();
-  if (!linkSnap.exists) {
-    return { success: false, linked: false, reason: "No web link associated with record." };
-  }
-  const linkData = linkSnap.data();
-
-  // Validate secret or verified phone
-  const userPhone = request.auth.token && request.auth.token.phone_number;
-  const isSecretValid = secret && safeSecretEqual(secret, linkData.secretHash);
-  const isPhoneMatch = (userPhone && linkData.phoneVerified && userPhone === linkData.phoneVerified) ||
-                        (phone && linkData.phoneVerified && phone === linkData.phoneVerified);
-
-  if (!isSecretValid && !isPhoneMatch && linkData.status !== "ACTIVE") {
-    throw new HttpsError("permission-denied", "Invalid link secret or unmatched phone number.");
-  }
-
-  const recordRef = db.collection("shared_records").doc(recordId);
-  const recordSnap = await recordRef.get();
-  if (!recordSnap.exists) throw new HttpsError("not-found", "Shared record not found.");
-
-  const record = recordSnap.data();
-  const userUid = request.auth.uid;
-
-  if (record.creatorUid === userUid) {
-    return { success: false, linked: false, reason: "User is the creator of this record." };
-  }
-
-  await linkRef.update({
-    status: "CLAIMED",
-    claimedByUid: userUid,
-    claimedAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp(),
-  });
-
-  await recordRef.update({
-    counterpartyUid: userUid,
-    participantUids: [record.creatorUid, userUid],
-    trustLevel: "APP_VERIFIED",
-    lastGuestAction: "CLAIMED_BY_APP",
-    updatedAt: FieldValue.serverTimestamp(),
-  });
-
-  await writeAuditEntry(db, recordId, {
-    actorType: "app_counterparty",
-    eventType: "CONFIRMED",
-    summaryText: "Guest claimed and linked record via installed Udhaar app",
-  });
-
-  await writeInboxItem(db, recordId, {
-    targetUid: record.creatorUid,
-    title: "Udhaar App Linked",
-    body: "The other person opened and linked this record with their Udhaar app.",
-    type: "RECORD_CLAIMED",
-  });
-
-  await sendPushToCreator(db, record.creatorUid, "Udhaar Update", "The counterparty linked this record in their Udhaar app.");
-
-  return { success: true, linked: true };
-});
-
-/**
- * 10. Callable: Creator exercises privacy control and purges guest claim attachments.
- */
-exports.deleteGuestData = onCall({ region: "asia-south1" }, async (request) => {
-  if (!request.auth || !request.auth.uid) {
-    throw new HttpsError("unauthenticated", "User must be authenticated.");
-  }
-  const { recordId } = request.data || {};
-  if (!recordId) throw new HttpsError("invalid-argument", "Missing recordId.");
-
-  const db = getFirestore(DATABASE_ID.value());
-  const recordRef = db.collection("shared_records").doc(recordId);
-  const recordSnap = await recordRef.get();
-  if (!recordSnap.exists) throw new HttpsError("not-found", "Record not found.");
-
-  const record = recordSnap.data();
-  if (record.creatorUid !== request.auth.uid) {
-    throw new HttpsError("permission-denied", "Only creator can delete guest data.");
-  }
-
-  const claims = await recordRef.collection("payment_claims").get();
-  for (const doc of claims.docs) {
-    const data = doc.data();
-    if (data.proofStoragePath) {
-      try {
-        await getStorage().bucket().file(data.proofStoragePath).delete();
-      } catch (e) {
-        // file may already be deleted
-      }
+    if (nowMs - windowStartMs > RATE_LIMIT_WINDOW_MS) {
+      tx.set(ref, {
+        count: 1,
+        windowStartMs: nowMs,
+        updatedAt: nowMs
+      });
+      return true;
     }
-    await doc.ref.delete();
-  }
 
-  const proposals = await recordRef.collection("date_proposals").get();
-  for (const doc of proposals.docs) {
-    await doc.ref.delete();
-  }
+    if (count >= RATE_LIMIT_MAX_REQUESTS_PER_WINDOW) {
+      return false;
+    }
 
-  await writeAuditEntry(db, recordId, {
-    actorType: "creator",
-    eventType: "EDITED",
-    summaryText: "Creator deleted all guest claim attachments and proposal data",
+    tx.update(ref, {
+      count: count + 1,
+      updatedAt: nowMs
+    });
+    return true;
   });
+}
 
-  return { success: true };
-});
+// ---------------------------------------------------------------------------
+// 1. Authenticated Callable: Register Salted Phone Identity
+// ---------------------------------------------------------------------------
+exports.registerPhoneIdentity = onCall(
+  { cors: true, secrets: [UDHAAR_SERVER_SECRET] },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError("unauthenticated", "Authentication is required to register phone identity.");
+    }
 
-/**
- * 11. Scheduled (24h) & Callable: Automated cleanup of expired web links and orphaned guest claim attachments.
- */
-exports.cleanupExpiredGuestDataScheduled = onSchedule(
-  {
-    schedule: "every 24 hours",
-    region: "asia-south1",
-    timeZone: "Asia/Kolkata",
-  },
-  async () => {
-    const db = getFirestore(DATABASE_ID.value());
-    let bucket = null;
+    const rawPhone = request.data && request.data.phone;
+    const displayName =
+      request.data && typeof request.data.displayName === "string"
+        ? request.data.displayName.trim().slice(0, 80)
+        : "";
+
+    let hashed;
     try {
-      bucket = getStorage().bucket();
-    } catch (_) {}
-    const result = await purgeExpiredGuestData(db, bucket, Date.now());
-    console.log(`[Scheduled Cleanup] Expired links: ${result.expiredLinksCount}, Cleaned proofs: ${result.cleanedProofsCount}`);
-    return result;
+      hashed = computeSaltedPhoneHash(rawPhone);
+    } catch (err) {
+      throw new HttpsError("invalid-argument", err.message);
+    }
+
+    const nowMs = Date.now();
+    const db = admin.firestore();
+
+    await db.collection("phone_registry").doc(hashed.phoneHmac).set(
+      {
+        uid: request.auth.uid,
+        phoneHmac: hashed.phoneHmac,
+        displayName,
+        hashVersion: "hmac-sha256-v1",
+        updatedAt: nowMs
+      },
+      { merge: true }
+    );
+
+    // Also store the user's phoneHmac on their private profile so shared records can match by phoneHmac
+    await db.collection("users").doc(request.auth.uid).set(
+      {
+        uid: request.auth.uid,
+        phoneHmac: hashed.phoneHmac,
+        updatedAt: nowMs
+      },
+      { merge: true }
+    );
+
+    return {
+      phoneHmac: hashed.phoneHmac,
+      hashVersion: "hmac-sha256-v1"
+    };
   }
 );
 
-exports.cleanupExpiredGuestData = onCall({ region: "asia-south1" }, async (request) => {
-  if (!request.auth || !request.auth.uid) {
-    throw new HttpsError("unauthenticated", "User must be authenticated to invoke cleanup.");
+// ---------------------------------------------------------------------------
+// 2. Authenticated Callable: Lookup Contact Phone Identity by Salted HMAC
+// ---------------------------------------------------------------------------
+exports.lookupPhoneIdentity = onCall(
+  { cors: true, secrets: [UDHAAR_SERVER_SECRET] },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError("unauthenticated", "Authentication is required to lookup phone identity.");
+    }
+
+    const rawPhone = request.data && request.data.phone;
+    let hashed;
+    try {
+      hashed = computeSaltedPhoneHash(rawPhone);
+    } catch (err) {
+      throw new HttpsError("invalid-argument", err.message);
+    }
+
+    const snap = await admin.firestore().collection("phone_registry").doc(hashed.phoneHmac).get();
+    if (!snap.exists) {
+      return {
+        registered: false,
+        phoneHmac: hashed.phoneHmac,
+        uid: null
+      };
+    }
+
+    const data = snap.data() || {};
+    return {
+      registered: true,
+      phoneHmac: hashed.phoneHmac,
+      uid: data.uid || null,
+      displayName: data.displayName || null
+    };
   }
-  const db = getFirestore(DATABASE_ID.value());
-  let bucket = null;
+);
+
+// ---------------------------------------------------------------------------
+// 3. Guest Web Endpoint: View Shared Record (`GET` / `POST`)
+// ---------------------------------------------------------------------------
+exports.guestRecordView = onRequest({ cors: true }, async (req, res) => {
   try {
-    bucket = getStorage().bucket();
-  } catch (_) {}
-  const result = await purgeExpiredGuestData(db, bucket, Date.now());
-  return { success: true, ...result };
+    const recordId =
+      (req.query && req.query.recordId) ||
+      (req.body && req.body.recordId) ||
+      "";
+    const rawToken =
+      req.headers["x-guest-token"] ||
+      (req.body && req.body.token) ||
+      "";
+
+    if (!recordId || typeof recordId !== "string") {
+      res.status(400).json({ error: "MISSING_RECORD_ID" });
+      return;
+    }
+
+    const allowed = await checkGuestEndpointRateLimit(req, recordId);
+    if (!allowed) {
+      res.status(429).json({ error: "RATE_LIMIT_EXCEEDED" });
+      return;
+    }
+
+    const snap = await admin.firestore().collection("shared_udhaars").doc(recordId).get();
+    if (!snap.exists) {
+      res.status(404).json({ error: "RECORD_NOT_FOUND" });
+      return;
+    }
+
+    const record = snap.data() || {};
+    const verification = verifyGuestCapabilityToken(record, rawToken, Date.now());
+    if (!verification.valid) {
+      res.status(403).json({ error: verification.reason || "FORBIDDEN" });
+      return;
+    }
+
+    const principalAmountPaise =
+      typeof record.principalAmountPaise === "number" && Number.isInteger(record.principalAmountPaise)
+        ? record.principalAmountPaise
+        : Math.round(Number(record.principalAmount || 0) * 100);
+    const amountPaidPaise =
+      typeof record.amountPaidPaise === "number" && Number.isInteger(record.amountPaidPaise)
+        ? record.amountPaidPaise
+        : Math.round(Number(record.amountPaid || 0) * 100);
+
+    // Return only sanitized fields needed by the Guest Web Flow UI (never expose internal UIDs or hashes)
+    res.status(200).json({
+      recordId: record.recordId || recordId,
+      senderName: record.senderName || "Udhaar User",
+      recipientName: record.recipientName || "Counterparty",
+      principalAmountPaise,
+      amountPaidPaise,
+      currencyCode: record.currencyCode || "INR",
+      directionForRecipient: record.senderType === "GIVEN" ? "YOU_OWE" : "OWED_TO_YOU",
+      status: record.status || "PENDING_CONFIRMATION",
+      description: record.description || "",
+      date: record.date || null,
+      dueDate: record.dueDate || null,
+      interestRate: record.interestRate || 0,
+      hasPendingPaymentClaim: Boolean(record.hasPendingPaymentClaim),
+      pendingPaymentClaims: Array.isArray(record.pendingPaymentClaims)
+        ? record.pendingPaymentClaims.map((c) => ({
+            claimId: c.claimId,
+            amountPaise:
+              typeof c.amountPaise === "number" && Number.isInteger(c.amountPaise)
+                ? c.amountPaise
+                : Math.round(Number(c.amount || 0) * 100),
+            note: c.note || "",
+            utrNumber: c.utrNumber || "",
+            status: c.status || "PENDING_LENDER_APPROVAL",
+            submittedAt: c.submittedAt || null
+          }))
+        : [],
+      disputeReason: record.disputeReason || null,
+      updatedAt: record.updatedAt || null
+    });
+  } catch (err) {
+    res.status(500).json({ error: "INTERNAL_ERROR", message: err.message });
+  }
 });
+
+// ---------------------------------------------------------------------------
+// 4. Guest Web Endpoint: Submit Action or Request Signed Proof Upload URL (`POST`)
+// ---------------------------------------------------------------------------
+exports.guestRecordAction = onRequest({ cors: true }, async (req, res) => {
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "METHOD_NOT_ALLOWED" });
+    return;
+  }
+
+  try {
+    const body = req.body || {};
+    const recordId = body.recordId || (req.query && req.query.recordId) || "";
+    const rawToken = req.headers["x-guest-token"] || body.token || "";
+    const actionPayload = body.actionPayload || {};
+
+    if (!recordId || typeof recordId !== "string") {
+      res.status(400).json({ error: "MISSING_RECORD_ID" });
+      return;
+    }
+
+    const allowed = await checkGuestEndpointRateLimit(req, recordId);
+    if (!allowed) {
+      res.status(429).json({ error: "RATE_LIMIT_EXCEEDED" });
+      return;
+    }
+
+    const db = admin.firestore();
+    const docRef = db.collection("shared_udhaars").doc(recordId);
+
+    // Optional step: Generate a short-lived signed upload URL for a payment proof image/PDF
+    if (actionPayload.action === "REQUEST_PROOF_UPLOAD_URL") {
+      const snap = await docRef.get();
+      if (!snap.exists) {
+        res.status(404).json({ error: "RECORD_NOT_FOUND" });
+        return;
+      }
+      const record = snap.data() || {};
+      const verification = verifyGuestCapabilityToken(record, rawToken, Date.now());
+      if (!verification.valid) {
+        res.status(403).json({ error: verification.reason || "FORBIDDEN" });
+        return;
+      }
+
+      const { mimeType, sizeBytes, ext } = actionPayload;
+      if (!ALLOWED_PROOF_MIME_TYPES.includes(mimeType)) {
+        res.status(400).json({ error: "INVALID_PROOF_TYPE" });
+        return;
+      }
+      if (typeof sizeBytes !== "number" || sizeBytes <= 0 || sizeBytes > MAX_PROOF_SIZE_BYTES) {
+        res.status(400).json({ error: "INVALID_PROOF_SIZE" });
+        return;
+      }
+
+      const safeExt = String(ext || "jpg").replace(/[^a-zA-Z0-9]/g, "").slice(0, 5) || "jpg";
+      const storagePath = `guest_proofs/${recordId}/proof_${Date.now()}_${crypto.randomBytes(4).toString("hex")}.${safeExt}`;
+      const bucket = admin.storage().bucket();
+      const file = bucket.file(storagePath);
+      const signedUrlOptions = buildProofSignedUrlOptions(mimeType, Date.now());
+      const [uploadUrl] = await file.getSignedUrl(signedUrlOptions);
+
+      res.status(200).json({
+        uploadUrl,
+        storagePath,
+        maxSizeBytes: MAX_PROOF_SIZE_BYTES,
+        retentionDays: PROOF_RETENTION_DAYS
+      });
+      return;
+    }
+
+    // Standard state-mutating guest actions (CONFIRM_RECORD, DISPUTE_RECORD, SUBMIT_PAYMENT_CLAIM)
+    const nowMs = Date.now();
+    const result = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(docRef);
+      if (!snap.exists) {
+        const err = new Error("RECORD_NOT_FOUND");
+        err.code = "RECORD_NOT_FOUND";
+        throw err;
+      }
+      const record = { recordId, ...(snap.data() || {}) };
+      const updateFields = buildGuestActionUpdate(record, rawToken, actionPayload, nowMs);
+      tx.update(docRef, updateFields);
+      return updateFields;
+    });
+
+    res.status(200).json({
+      ok: true,
+      status: result.status || "UPDATED",
+      hasPendingPaymentClaim: Boolean(result.hasPendingPaymentClaim),
+      updatedAt: result.updatedAt
+    });
+  } catch (err) {
+    const status =
+      err.code === "RECORD_NOT_FOUND"
+        ? 404
+        : err.code && err.code.startsWith("TOKEN_")
+          ? 403
+          : 400;
+    res.status(status).json({
+      error: err.code || "BAD_REQUEST",
+      message: err.message
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 5. Public Split Expense Link Landing Page & Guest Web Flow (`GET /split/{id}`)
+//    Serves a mobile-friendly web page with OpenGraph preview tags, deep link
+//    into the Udhaar Android app (`intent://...`), and interactive Guest Web Flow
+//    actions (Confirm, Dispute, Submit Payment Claim with UPI payment button).
+// ---------------------------------------------------------------------------
+function escapeHtml(str) {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+exports.splitWebLanding = onRequest({ cors: true }, async (req, res) => {
+  try {
+    const pathParts = (req.path || "").split("/").filter(Boolean);
+    const recordId =
+      (req.query && req.query.id) ||
+      (req.query && req.query.recordId) ||
+      (pathParts.length > 0 ? pathParts[pathParts.length - 1] : "");
+
+    const safeRecordId = escapeHtml(recordId);
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Udhaar — Shared Expense &amp; Record Confirmation</title>
+  <meta property="og:title" content="Udhaar — Shared Expense &amp; Settlement" />
+  <meta property="og:description" content="Review, confirm, or settle this shared expense in the Udhaar app or directly in your browser." />
+  <meta property="og:type" content="website" />
+  <style>
+    :root { --bg: #F6F7F4; --card: #FFFFFF; --primary: #0F5238; --text: #181D1A; --muted: #5C6660; --danger: #B3261E; }
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body { margin: 0; background: var(--bg); color: var(--text); padding: 16px; display: flex; justify-content: center; }
+    .container { width: 100%; max-width: 460px; background: var(--card); border-radius: 20px; padding: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #E3F2EA; color: var(--primary); }
+    h1 { font-size: 22px; margin: 12px 0 4px; }
+    .amount { font-size: 34px; font-weight: 800; color: var(--primary); margin: 12px 0; }
+    .meta { font-size: 14px; color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
+    .btn { display: block; width: 100%; padding: 14px 16px; border-radius: 12px; border: none; font-size: 15px; font-weight: 700; cursor: pointer; text-align: center; text-decoration: none; margin-top: 10px; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-outline { background: transparent; border: 1.5px solid var(--primary); color: var(--primary); }
+    .btn-danger { background: #FCEEEE; color: var(--danger); }
+    input, textarea { width: 100%; padding: 12px; border: 1px solid #CFD6D1; border-radius: 10px; margin-top: 8px; font-size: 14px; }
+    .hidden { display: none; }
+    .status-box { padding: 12px; border-radius: 10px; background: #EDF5F0; font-size: 13px; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <span class="badge" id="statusBadge">Shared Udhaar Record</span>
+    <h1 id="titleText">Loading shared record…</h1>
+    <div class="amount" id="amountText">₹ —</div>
+    <div class="meta" id="metaText">Verifying secure link…</div>
+
+    <div id="actionsSection" class="hidden">
+      <button class="btn btn-primary" id="confirmBtn">Confirm Record</button>
+      <button class="btn btn-outline" id="claimToggleBtn">I Have Paid (Submit Proof / UTR)</button>
+      <button class="btn btn-danger" id="disputeToggleBtn">Report an Issue / Dispute</button>
+    </div>
+
+    <div id="claimForm" class="hidden">
+      <input type="number" id="claimAmount" placeholder="Amount paid" step="0.01" />
+      <input type="text" id="claimUtr" placeholder="UTR / Reference number (optional)" />
+      <input type="file" id="claimProofFile" accept="image/jpeg,image/png,image/webp,application/pdf" />
+      <textarea id="claimNote" rows="2" placeholder="Payment note (optional)"></textarea>
+      <button class="btn btn-primary" id="submitClaimBtn">Submit Payment Claim</button>
+    </div>
+
+    <div id="disputeForm" class="hidden">
+      <textarea id="disputeReason" rows="3" placeholder="Explain why this amount or record is incorrect…"></textarea>
+      <button class="btn btn-danger" id="submitDisputeBtn">Submit Dispute</button>
+    </div>
+
+    <div id="feedbackBox" class="status-box hidden"></div>
+
+    <a class="btn btn-outline" id="openAppBtn" href="intent://udhaar.app/r/${safeRecordId}#Intent;scheme=https;package=com.jyotirmoyb.udhaar;end">
+      Open in Udhaar Android App
+    </a>
+  </div>
+
+  <script>
+    (function() {
+      const recordId = "${safeRecordId}";
+      const hashParams = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
+      const rawToken = hashParams.get("t") || "";
+      if (rawToken) {
+        document.getElementById("openAppBtn").href =
+          "https://udhaar.app/r/" + encodeURIComponent(recordId) + "#t=" + encodeURIComponent(rawToken);
+      }
+
+      const feedbackBox = document.getElementById("feedbackBox");
+      function showFeedback(msg) {
+        feedbackBox.textContent = msg;
+        feedbackBox.classList.remove("hidden");
+      }
+
+      async function loadRecord() {
+        if (!recordId || !rawToken) {
+          document.getElementById("titleText").textContent = "Open in Udhaar App";
+          document.getElementById("metaText").textContent = "Tap below to view this shared record in Udhaar.";
+          return;
+        }
+        try {
+          const res = await fetch("/guestRecordView?recordId=" + encodeURIComponent(recordId), {
+            headers: { "X-Guest-Token": rawToken }
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            document.getElementById("titleText").textContent = "Link Expired or Invalid";
+            document.getElementById("metaText").textContent = data.error || "Unable to load record.";
+            return;
+          }
+          const remainingPaise = Math.max(0, (data.principalAmountPaise || 0) - (data.amountPaidPaise || 0));
+          const remainingRupees = (remainingPaise / 100).toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+          document.getElementById("statusBadge").textContent = data.status;
+          document.getElementById("titleText").textContent =
+            data.directionForRecipient === "YOU_OWE"
+              ? data.senderName + " shared an expense with you"
+              : "You lent to " + data.senderName;
+          document.getElementById("amountText").textContent = (data.currencyCode || "INR") + " " + remainingRupees;
+          document.getElementById("metaText").textContent = data.description || "Shared via Udhaar";
+          document.getElementById("claimAmount").value = (remainingPaise / 100).toFixed(2);
+          document.getElementById("actionsSection").classList.remove("hidden");
+        } catch (e) {
+          showFeedback("Network error while loading record.");
+        }
+      }
+
+      async function sendAction(actionPayload) {
+        const res = await fetch("/guestRecordAction", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Guest-Token": rawToken },
+          body: JSON.stringify({ recordId, actionPayload })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || data.error || "Action failed");
+        return data;
+      }
+
+      document.getElementById("confirmBtn").onclick = async () => {
+        try {
+          await sendAction({ action: "CONFIRM_RECORD" });
+          showFeedback("Record confirmed! Both ledgers are now synced.");
+          loadRecord();
+        } catch (e) { showFeedback(e.message); }
+      };
+
+      document.getElementById("claimToggleBtn").onclick = () => {
+        document.getElementById("claimForm").classList.toggle("hidden");
+      };
+      document.getElementById("disputeToggleBtn").onclick = () => {
+        document.getElementById("disputeForm").classList.toggle("hidden");
+      };
+
+      document.getElementById("submitClaimBtn").onclick = async () => {
+        try {
+          const amountRupees = parseFloat(document.getElementById("claimAmount").value);
+          const amountPaise = Math.round(amountRupees * 100);
+          const utrNumber = document.getElementById("claimUtr").value;
+          const note = document.getElementById("claimNote").value;
+          const fileInput = document.getElementById("claimProofFile");
+          let proof = null;
+          if (fileInput.files && fileInput.files[0]) {
+            const file = fileInput.files[0];
+            const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+            const urlData = await sendAction({
+              action: "REQUEST_PROOF_UPLOAD_URL",
+              mimeType: file.type,
+              sizeBytes: file.size,
+              ext
+            });
+            await fetch(urlData.uploadUrl, {
+              method: "PUT",
+              headers: {
+                "Content-Type": file.type,
+                "x-goog-content-length-range": "0," + urlData.maxSizeBytes
+              },
+              body: file
+            });
+            proof = {
+              mimeType: file.type,
+              sizeBytes: file.size,
+              storagePath: urlData.storagePath
+            };
+          }
+          await sendAction({ action: "SUBMIT_PAYMENT_CLAIM", amountPaise, utrNumber, note, proof });
+          showFeedback("Payment claim submitted for lender verification.");
+          document.getElementById("claimForm").classList.add("hidden");
+          loadRecord();
+        } catch (e) { showFeedback(e.message); }
+      };
+
+      document.getElementById("submitDisputeBtn").onclick = async () => {
+        try {
+          const reason = document.getElementById("disputeReason").value;
+          await sendAction({ action: "DISPUTE_RECORD", reason });
+          showFeedback("Dispute recorded. The sender has been notified.");
+          document.getElementById("disputeForm").classList.add("hidden");
+          loadRecord();
+        } catch (e) { showFeedback(e.message); }
+      };
+
+      loadRecord();
+    })();
+  </script>
+</body>
+</html>`;
+    res.set("Cache-Control", "no-store");
+    res.status(200).send(html);
+  } catch (err) {
+    res.status(500).send("Unable to load shared record.");
+  }
+});
+
+exports.renewGuestCode = onCall(
+  { cors: true, secrets: [UDHAAR_SERVER_SECRET] },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError("unauthenticated", "Authentication is required to renew a guest code.");
+    }
+    const { recordId, rawCode } = request.data || {};
+    if (!recordId || typeof recordId !== "string") {
+      throw new HttpsError("invalid-argument", "recordId is required.");
+    }
+    const { computeCodeHmac } = require("./guestWebFlow");
+    const hmac = computeCodeHmac(rawCode);
+    const nowMs = Date.now();
+    const expiresAtMillis = nowMs + 15 * 60 * 1000;
+    await admin.firestore().collection("webLinks").doc(recordId).set(
+      {
+        whatsappOtpHmac: hmac,
+        whatsappOtpExpiresAtMillis: expiresAtMillis,
+        whatsappOtpUsed: false,
+        updatedAt: nowMs
+      },
+      { merge: true }
+    );
+    return {
+      success: true,
+      expiresAtMillis
+    };
+  }
+);
+
+exports.STORAGE_LIFECYCLE_RULE_90_DAYS = STORAGE_LIFECYCLE_RULE_90_DAYS;
+exports.buildProofSignedUrlOptions = buildProofSignedUrlOptions;
+exports.ensureBucketLifecycle90Days = ensureBucketLifecycle90Days;

@@ -925,4 +925,22 @@
     <string name="group_split_empty_members_hint">बाँडफाँड हेर्न माथि कम्तीमा १ जना सदस्य थप्नुहोस्।</string>
     <string name="group_split_custom_amount_label">भागको रकम</string>
     <string name="group_split_percent_label">भाग %</string>
+    <string name="settings_analytics_crash_title">क्र्यास रिपोर्ट र स्क्रिन एनालिटिक्स (ऐच्छिक)</string>
+    <string name="settings_analytics_crash_subtitle">पूर्वनिर्धारित रूपमा बन्द। कुनै व्यक्तिगत विवरण बिना अज्ञात क्र्यास जानकारी मात्र पठाउँछ।</string>
+    <string name="settings_backup_recovery_key_title">ब्याकअप रिकभरी साँचो</string>
+    <string name="settings_backup_recovery_key_subtitle">पासफ्रेज बिर्सिएमा इन्क्रिप्टेड ब्याकअप खोल्न यो रिकभरी साँचो सुरक्षित राख्नुहोस्।</string>
+    <string name="settings_backup_recovery_key_active_fmt">सक्रिय साँचो ID: %1$s</string>
+    <string name="settings_generate_recovery_key_button">रिकभरी साँचो बनाउनुहोस्</string>
+    <string name="settings_copy_recovery_key_button">साँचो कपी गर्नुहोस्</string>
+    <string name="settings_test_my_backup_button">मेरो ब्याकअप जाँच्नुहोस्</string>
+    <string name="adaptive_select_record_prompt">पूरा विवरण र भुक्तानी इतिहास हेर्न बायाँबाट रेकर्ड छान्नुहोस्</string>
+    <string name="adaptive_select_person_prompt">खाता विवरण हेर्न बायाँबाट व्यक्ति छान्नुहोस्</string>
+    <string name="cd_close">बन्द गर्नुहोस्</string>
+    <string name="cd_collapse_details">विवरण संक्षिप्त गर्नुहोस्</string>
+    <string name="cd_expand_details">विवरण विस्तृत गर्नुहोस्</string>
+    <string name="cd_back">पछाडि जानुहोस्</string>
+    <string name="cd_favorite_party">मनपर्ने व्यक्ति</string>
+    <string name="cd_whatsapp_reminder">ह्वाट्सएप रिमाइन्डर पठाउनुहोस्</string>
+    <string name="updates_screen_title">अपडेट र रिमाइन्डर</string>
+    <string name="ui_str_repayment_history_e95aa2">भुक्तानी इतिहास</string>
 </resources>

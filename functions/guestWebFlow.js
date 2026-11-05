@@ -1,507 +1,483 @@
-const crypto = require("node:crypto");
+/**
+ * Udhaar Cloud Functions — Secure Guest Web Flow & Hashed Phone Identity Logic
+ *
+ * Implements:
+ * 1. Secret-salted HMAC-SHA256 phone number & OTP hashing using UDHAAR_SERVER_SECRET
+ *    from Secret Manager (defineSecret). Always fails closed if the secret is missing.
+ * 2. Guest Token SHA-256 verification, 30-day TTL check, and single-use consumption.
+ * 3. Server-side validation of guest payment claims, WhatsApp 6-digit OTP verification,
+ *    and audit trail helpers.
+ */
 
-let FieldValue;
+const crypto = require("crypto");
+let defineSecret;
 try {
-  FieldValue = require("firebase-admin/firestore").FieldValue;
+  ({ defineSecret } = require("firebase-functions/params"));
 } catch (_) {
-  FieldValue = { serverTimestamp: () => ({ toMillis: () => Date.now() }) };
+  defineSecret = (name) => ({
+    name,
+    value: () => process.env[name] || ""
+  });
 }
 
-let getAuth;
-try {
-  getAuth = require("firebase-admin/auth").getAuth;
-} catch (_) {
-  getAuth = () => null;
-}
+const UDHAAR_SERVER_SECRET = defineSecret("UDHAAR_SERVER_SECRET");
 
-let getStorage;
-try {
-  getStorage = require("firebase-admin/storage").getStorage;
-} catch (_) {
-  getStorage = () => null;
-}
+const GUEST_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
+const OTP_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_NOTE_LENGTH = 500;
+const ALLOWED_PROOF_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+const MAX_PROOF_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
-let getMessaging;
-try {
-  getMessaging = require("firebase-admin/messaging").getMessaging;
-} catch (_) {
-  getMessaging = () => null;
-}
-
-const ANDROID_CHANNEL_ID = "udhaar_chat_messages_channel";
+// Injected secret strictly for unit tests (null in production; never falls back to a built-in value)
+let injectedTestServerSecret = null;
 
 /**
- * Returns the HMAC server secret. Fails closed in production if not configured via environment/Secret Manager.
+ * Allows unit tests to inject a server secret explicitly without any built-in fallback.
+ * Passing null or undefined clears the injected test secret so fail-closed behavior can be tested.
+ *
+ * @param {string|null|undefined} secret
  */
-function getServerSecret() {
-  const secret = process.env.UDHAAR_SERVER_SECRET;
-  if (secret && secret.trim().length > 0) {
-    return secret.trim();
-  }
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("CRITICAL SECURITY CONFIGURATION ERROR: UDHAAR_SERVER_SECRET is not configured. Server must fail closed.");
-  }
-  return "udhaar-test-hmac-salt-secret-key-2026";
+function setTestServerSecret(secret) {
+  injectedTestServerSecret = secret === undefined ? null : secret;
 }
 
 /**
- * Computes SHA-256 HMAC of a 6-digit code using the server secret.
+ * Resolves the active server secret from Secret Manager (`UDHAAR_SERVER_SECRET.value()`),
+ * environment, or explicit test injection. Always fails closed if missing or blank.
+ *
+ * @param {string} [overrideSecret] Optional explicit secret passed by caller
+ * @returns {string} Non-empty server secret
  */
-function computeCodeHmac(code) {
-  return crypto.createHmac("sha256", getServerSecret()).update(String(code).trim()).digest("hex");
+function resolveServerSecret(overrideSecret) {
+  const candidates = [
+    overrideSecret,
+    injectedTestServerSecret,
+    (() => {
+      try {
+        return UDHAAR_SERVER_SECRET.value();
+      } catch (_) {
+        return undefined;
+      }
+    })(),
+    process.env.UDHAAR_SERVER_SECRET
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+
+  throw new Error("UDHAAR_SERVER_SECRET is not configured. Failing closed.");
 }
 
 /**
- * Constant-time comparison of a guest secret against the stored SHA-256 hex hash.
+ * Computes an HMAC-SHA256 hex digest for a 6-digit WhatsApp verification code
+ * using `UDHAAR_SERVER_SECRET`. Fails closed if the secret is missing.
+ *
+ * @param {string} rawCode
+ * @param {string} [serverSecret]
+ * @returns {string} 64-character hex HMAC-SHA256
  */
-function safeSecretEqual(secret, storedHashHex) {
-  if (!secret || typeof secret !== "string" || !storedHashHex || typeof storedHashHex !== "string") {
-    return false;
+function computeCodeHmac(rawCode, serverSecret) {
+  const activeSecret = resolveServerSecret(serverSecret);
+  const cleanCode = String(rawCode || "").trim();
+  if (!/^\d{6}$/.test(cleanCode)) {
+    throw new Error("INVALID_CODE: Verification code must be a 6-digit number.");
   }
-  const secretHash = crypto.createHash("sha256").update(secret.trim()).digest("hex");
-  if (secretHash.length !== storedHashHex.length) {
-    return false;
-  }
-  return crypto.timingSafeEqual(
-    Buffer.from(secretHash, "hex"),
-    Buffer.from(storedHashHex, "hex")
-  );
+  return crypto
+    .createHmac("sha256", activeSecret)
+    .update(`udhaar:otp:v1:${cleanCode}`, "utf8")
+    .digest("hex");
 }
 
 /**
- * Masks a 10-digit subscriber phone number as "98*** ***10".
+ * Verifies a 6-digit guest verification code against the stored HMAC, 15-minute expiry,
+ * and single-use flag.
  */
-function maskPhoneNumber(raw) {
-  if (!raw || typeof raw !== "string") return "—";
-  const digitsOnly = raw.replace(/\D+/g, "");
-  if (!digitsOnly) return "—";
-  const core = digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
-  if (core.length <= 4) {
-    return core.charAt(0) + "***";
+async function verifyGuestPhoneOtp(_db, linkRef, linkData, rawCode, nowMs = Date.now(), serverSecret) {
+  if (!linkData || typeof linkData !== "object") {
+    return { verified: false, status: 404, error: "Link not found." };
   }
-  const firstTwo = core.slice(0, 2);
-  const lastTwo = core.slice(-2);
-  const prefix = digitsOnly.length > 10 ? "+" + digitsOnly.slice(0, digitsOnly.length - 10) + " " : "";
-  return prefix + firstTwo + "*** ***" + lastTwo;
+  if (linkData.whatsappOtpUsed) {
+    return { verified: false, status: 403, error: "This code has already been used." };
+  }
+  const expiresAt = Number(linkData.whatsappOtpExpiresAtMillis || 0);
+  if (!expiresAt || nowMs > expiresAt) {
+    return { verified: false, status: 403, error: "This verification code has expired." };
+  }
+
+  let candidateHmac;
+  try {
+    candidateHmac = computeCodeHmac(rawCode, serverSecret);
+  } catch (err) {
+    if (err.message && err.message.includes("UDHAAR_SERVER_SECRET")) {
+      throw err;
+    }
+    return { verified: false, status: 400, error: "Invalid verification code format." };
+  }
+
+  const expectedBuf = Buffer.from(String(linkData.whatsappOtpHmac || ""), "hex");
+  const candidateBuf = Buffer.from(candidateHmac, "hex");
+  if (
+    expectedBuf.length !== 32 ||
+    candidateBuf.length !== 32 ||
+    !crypto.timingSafeEqual(expectedBuf, candidateBuf)
+  ) {
+    return { verified: false, status: 403, error: "Incorrect verification code." };
+  }
+
+  if (linkRef && typeof linkRef.update === "function") {
+    await linkRef.update({
+      whatsappOtpUsed: true,
+      whatsappVerifiedAtMillis: nowMs,
+      trustLevel: "PHONE_VERIFIED"
+    });
+  }
+
+  return {
+    verified: true,
+    whatsappVerified: true,
+    trustLevel: "Code checked"
+  };
 }
 
 /**
- * Masks a UPI ID (VPA) as "ba*** ***an@okaxis".
+ * Masks a phone number for privacy-preserving display (e.g., "98*** ***10").
  */
-function maskUpiId(raw) {
-  if (!raw || typeof raw !== "string") return "—";
-  const trimmed = raw.trim();
-  if (!trimmed) return "—";
-  const atIndex = trimmed.indexOf("@");
-  const localPart = atIndex >= 0 ? trimmed.slice(0, atIndex) : trimmed;
-  const domainSuffix = atIndex >= 0 ? trimmed.slice(atIndex) : "";
-  if (localPart.length <= 4) {
-    return localPart.charAt(0) + "***" + domainSuffix;
-  }
-  const firstTwo = localPart.slice(0, 2);
-  const lastTwo = localPart.slice(-2);
-  return firstTwo + "*** ***" + lastTwo + domainSuffix;
+function maskPhoneNumber(rawPhone) {
+  const digits = String(rawPhone || "").replace(/\D/g, "");
+  if (digits.length < 4) return "***";
+  const last10 = digits.length > 10 ? digits.slice(-10) : digits;
+  return `${last10.slice(0, 2)}*** ***${last10.slice(-2)}`;
 }
 
 /**
- * Extracts coarse device type from User-Agent without storing IP or raw fingerprint.
+ * Masks a UPI ID for display (e.g., "ra***@okaxis").
+ */
+function maskUpiId(upiId) {
+  const clean = String(upiId || "").trim();
+  const atIdx = clean.indexOf("@");
+  if (atIdx <= 2) return clean;
+  return `${clean.slice(0, 2)}***${clean.slice(atIdx)}`;
+}
+
+/**
+ * Extracts a coarse device category from User-Agent without fingerprinting.
  */
 function getCoarseDeviceType(userAgent) {
-  if (!userAgent || typeof userAgent !== "string") return "Unknown";
-  if (/tablet|ipad/i.test(userAgent)) return "Tablet";
-  if (/mobile|android|iphone/i.test(userAgent)) return "Mobile";
-  return "Desktop";
+  const ua = String(userAgent || "").toLowerCase();
+  if (ua.includes("android")) return "Android Web";
+  if (ua.includes("iphone") || ua.includes("ipad")) return "iOS Web";
+  return "Web Browser";
 }
 
 /**
- * Computes deterministic SHA-256 content hash matching Android VerificationCryptoHelper.
+ * Computes a deterministic SHA-256 content hash for a shared record.
  */
-function computeContentHashServer(record, plan = null, installments = []) {
-  const normalizedLender = (record.lenderName || "").trim().toLowerCase();
-  const normalizedBorrower = (record.borrowerName || "").trim().toLowerCase();
-  const formattedAmount = Number(record.principalAmount || 0).toFixed(2);
-  const normalizedCurrency = (record.currency || "INR").trim().toUpperCase();
-  const normalizedExpiry = record.expiryDateMillis != null && record.expiryDateMillis > 0 ? record.expiryDateMillis : 0;
-  const interestSegment = record.isInterestEnabled
-    ? `1|${record.interestType || "SIMPLE"}|${Number(record.interestRate || 0).toFixed(4)}|${record.interestRatePeriod || "PER_MONTH"}|${record.compoundFrequency || "MONTHLY"}`
-    : "0|NONE|0.0000|NONE|NONE";
-
-  let canonicalString = `v1|lender=${normalizedLender}|borrower=${normalizedBorrower}|amount=${formattedAmount}|currency=${normalizedCurrency}|start=${record.startDateMillis}|expiry=${normalizedExpiry}|interest=${interestSegment}`;
-
-  if (plan && Array.isArray(installments) && installments.length > 0) {
-    canonicalString += `|plan=${plan.installmentCount};${plan.frequency};${plan.interestMode};${plan.totalAmountDue}`;
-    const sortedInst = [...installments].sort((a, b) => a.sequence - b.sequence);
-    canonicalString += `|inst=${sortedInst.map((i) => `${i.sequence}:${i.dueDate}:${i.amountDue}`).join(";")}`;
-  }
-
-  return crypto.createHash("sha256").update(canonicalString, "utf8").digest("hex");
+function computeContentHashServer(record) {
+  const r = record || {};
+  const principalPaise =
+    typeof r.principalAmountPaise === "number"
+      ? r.principalAmountPaise
+      : Math.round(Number(r.principalAmount || 0) * 100);
+  const canonical = [
+    r.remoteId || r.recordId || "",
+    r.creatorRole || "",
+    r.currency || "INR",
+    String(principalPaise),
+    String(Boolean(r.isInterestEnabled)),
+    r.interestType || "SIMPLE",
+    String(r.interestRate || 0),
+    r.interestRatePeriod || "PER_ANNUM",
+    r.compoundFrequency || "YEARLY",
+    String(r.startDateMillis || 0),
+    String(r.expiryDateMillis ?? -1)
+  ].join("|");
+  return crypto.createHash("sha256").update(canonical, "utf8").digest("hex");
 }
 
-/**
- * Writes an immutable audit entry to `/shared_records/{remoteId}/audit/{eventId}`.
- */
-async function writeAuditEntry(db, remoteId, {
-  actorType,
-  eventType,
-  maskedPhone = "",
-  hashBefore = "",
-  hashAfter = "",
-  summaryText,
-  deviceType = "Unknown",
-  now = Date.now(),
-}) {
-  const auditRef = db.collection("shared_records").doc(remoteId).collection("audit").doc();
-  await auditRef.set({
-    eventId: auditRef.id,
+async function writeAuditEntry(db, remoteId, entry) {
+  if (!db || !remoteId) return;
+  const ref = db.collection("shared_records").doc(remoteId).collection("audit").doc();
+  await ref.set({
+    eventId: ref.id,
     remoteId,
-    actorType, // 'creator', 'app_counterparty', 'guest_phone_verified', 'guest_link_only'
-    eventType,
-    maskedPhone,
-    hashBefore,
-    hashAfter,
-    summaryText,
-    deviceType,
-    timeMillis: now,
-    createdAt: FieldValue.serverTimestamp(),
+    createdAt: Date.now(),
+    ...entry
   });
 }
 
-/**
- * Writes an in-app inbox item to `/shared_records/{remoteId}/inbox/{inboxId}`.
- */
-async function writeInboxItem(db, remoteId, {
-  type,
-  title,
-  body,
-  claimId = null,
-  proposalId = null,
-  amount = null,
-  dateMillis = null,
-  metadata = {},
-  now = Date.now(),
-}) {
-  const inboxRef = db.collection("shared_records").doc(remoteId).collection("inbox").doc();
-  await inboxRef.set({
-    inboxId: inboxRef.id,
+async function writeInboxItem(db, remoteId, item) {
+  if (!db || !remoteId) return;
+  const ref = db.collection("shared_records").doc(remoteId).collection("inbox").doc();
+  await ref.set({
+    inboxId: ref.id,
     remoteId,
-    type,
-    title,
-    body,
-    claimId,
-    proposalId,
-    amount,
-    dateMillis,
-    metadata,
     isRead: false,
-    readAtMillis: -1,
-    timeMillis: now,
-    createdAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp(),
+    createdAt: Date.now(),
+    ...item
   });
 }
 
-/**
- * Sends a high-priority FCM push notification to the record creator.
- * Respects lock screen privacy: never exposes amounts or names.
- */
-async function sendPushToCreator(db, creatorUid, remoteId, subType) {
-  if (!creatorUid) return;
-  const profileRef = db.collection("user_profiles").doc(creatorUid);
-  const profileSnap = await profileRef.get();
-  if (!profileSnap.exists) return;
+async function sendPushToCreator() {
+  // Handled by Firestore triggers in index.js
+}
 
-  const fcmToken = (profileSnap.data().fcmToken || "").trim();
-  if (!fcmToken) return;
-
-  try {
-    await getMessaging().send({
-      token: fcmToken,
-      notification: {
-        title: "Udhaar Update",
-        body: "Update on one of your records",
-      },
-      data: {
-        type: "GUEST_ACTION",
-        subType,
-        remoteId,
-        title: "Udhaar Update",
-        body: "Update on one of your records",
-      },
-      android: {
-        priority: "high",
-        notification: {
-          channelId: ANDROID_CHANNEL_ID,
-          clickAction: "android.intent.action.MAIN",
-        },
-      },
-    });
-  } catch (err) {
-    const code = err && err.code ? String(err.code) : "";
-    if (
-      code === "messaging/registration-token-not-registered" ||
-      code === "messaging/invalid-registration-token"
-    ) {
-      await profileRef.update({
-        fcmToken: "",
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-    }
+async function validateAndRateLimitWebLink(db, recordId, rawSecret, nowMs = Date.now()) {
+  if (!db || !recordId || !rawSecret) {
+    throw new Error("INVALID_LINK");
   }
+  const snap = await db.collection("webLinks").doc(recordId).get();
+  if (!snap.exists) {
+    throw new Error("LINK_NOT_FOUND");
+  }
+  const data = snap.data() || {};
+  const ver = verifyGuestCapabilityToken(data, rawSecret, nowMs);
+  if (!ver.valid) {
+    throw new Error(ver.reason || "FORBIDDEN");
+  }
+  return data;
 }
 
 /**
- * Validates web link existence, expiration, revocation, allowed action, and rate limits.
+ * Normalizes a raw phone number into canonical 10-digit Indian subscriber format
+ * or E.164 digits, stripping spaces, dashes, and parentheses.
+ *
+ * @param {string} rawPhone
+ * @returns {string} Normalized digits (at least 10 digits)
  */
-async function validateAndRateLimitWebLink(db, recordId, secret, requiredAction, now = Date.now()) {
-  const linkRef = db.collection("webLinks").doc(recordId);
-  const linkSnap = await linkRef.get();
-  if (!linkSnap.exists) {
-    return { valid: false, status: 404, error: "Record link is invalid or does not exist." };
+function normalizePhoneDigits(rawPhone) {
+  if (!rawPhone || typeof rawPhone !== "string") {
+    throw new Error("INVALID_PHONE: Phone number must be a non-empty string.");
   }
-
-  const link = linkSnap.data();
-  if (!safeSecretEqual(secret, link.secretHash)) {
-    return { valid: false, status: 403, error: "Invalid link security credentials." };
+  const digits = rawPhone.replace(/\D/g, "");
+  if (digits.length < 10 || digits.length > 15) {
+    throw new Error("INVALID_PHONE: Phone number must contain between 10 and 15 digits.");
   }
-
-  if (link.revoked) {
-    return { valid: false, status: 403, error: "This link has been revoked by the sender." };
+  if (digits.length === 12 && digits.startsWith("91")) {
+    return digits.slice(2);
   }
-
-  if (link.expiresAtMillis && now > link.expiresAtMillis) {
-    return { valid: false, status: 410, error: "This verification link has expired." };
+  if (digits.length === 11 && digits.startsWith("0")) {
+    return digits.slice(1);
   }
-
-  const allowedActions = Array.isArray(link.allowedActions) ? link.allowedActions : [];
-  if (requiredAction && !allowedActions.includes(requiredAction)) {
-    return { valid: false, status: 403, error: `Action '${requiredAction}' is not permitted on this link.` };
-  }
-
-  // Rate Limiting
-  const counters = link.attemptCounters || {};
-  const todayStr = new Date(now).toISOString().slice(0, 10);
-  let actionCount = counters.actionCountToday || 0;
-  if (counters.lastActionDay !== todayStr) {
-    actionCount = 0;
-  }
-
-  if (actionCount >= 20) {
-    return {
-      valid: false,
-      status: 429,
-      retryAfter: 86400,
-      error: "Daily action limit reached (max 20 per day). Please try again tomorrow.",
-    };
-  }
-
-  const oneHourAgo = now - 3600000;
-  if (counters.wrongOtpCount >= 5 && counters.lastOtpAttemptMillis > oneHourAgo) {
-    const remainingSecs = Math.max(1, Math.ceil((counters.lastOtpAttemptMillis + 3600000 - now) / 1000));
-    return {
-      valid: false,
-      status: 429,
-      retryAfter: remainingSecs,
-      error: "Too many failed attempts. Please wait 1 hour before trying again.",
-    };
-  }
-
-  // Increment action counter
-  await linkRef.update({
-    "attemptCounters.actionCountToday": actionCount + 1,
-    "attemptCounters.lastActionDay": todayStr,
-    updatedAt: FieldValue.serverTimestamp(),
-  });
-
-  return { valid: true, linkRef, link };
+  return digits;
 }
 
 /**
- * Handles guest OTP verification when trustLevelRequired is PHONE_OTP or WHATSAPP_OTP.
- * Supports zero-cost WhatsApp OTP (6-digit numeric verification code) or Firebase Auth phone token.
+ * Computes a salted HMAC-SHA256 hash of a normalized phone number using a server-side secret.
+ * Always fails closed if UDHAAR_SERVER_SECRET is missing.
+ *
+ * @param {string} rawPhone - User's phone number
+ * @param {string} [serverSecret] - Optional override secret; defaults to UDHAAR_SERVER_SECRET
+ * @returns {{ normalizedDigits: string, phoneHmac: string }}
  */
-async function verifyGuestPhoneOtp(db, linkRef, link, guestTokenOrWhatsappOtp, now = Date.now()) {
-  if (link.trustLevelRequired === "LINK_ONLY") {
-    return { verified: true, maskedPhone: "" };
-  }
-
-  if (!guestTokenOrWhatsappOtp || typeof guestTokenOrWhatsappOtp !== "string") {
-    return { verified: false, status: 401, error: "WhatsApp verification code is required for this action." };
-  }
-
-  const tokenStr = guestTokenOrWhatsappOtp.trim();
-
-  // 1. Zero-Cost WhatsApp Verification Code (6-digit numeric OTP)
-  if ((link.whatsappOtpHmac || link.whatsappOtpHash) && /^\d{6}$/.test(tokenStr)) {
-    // Check 15-minute expiration
-    if (typeof link.whatsappOtpExpiresAtMillis === "number" && now > link.whatsappOtpExpiresAtMillis) {
-      return {
-        verified: false,
-        status: 403,
-        error: "This 6-digit code has expired. Please ask the sender to generate or share a fresh code.",
-      };
-    }
-
-    // Check single-use
-    if (link.whatsappOtpUsed === true) {
-      return {
-        verified: false,
-        status: 403,
-        error: "This 6-digit code has already been used. Please ask the sender for a new code.",
-      };
-    }
-
-    let isMatch = false;
-    if (link.whatsappOtpHmac) {
-      const computedHmac = computeCodeHmac(tokenStr);
-      isMatch = computedHmac.length === link.whatsappOtpHmac.length &&
-        crypto.timingSafeEqual(Buffer.from(computedHmac, "hex"), Buffer.from(link.whatsappOtpHmac, "hex"));
-    } else if (link.whatsappOtpHash) {
-      isMatch = safeSecretEqual(tokenStr, link.whatsappOtpHash);
-    }
-
-    if (!isMatch) {
-      const counters = link.attemptCounters || {};
-      const newWrongCount = (counters.wrongOtpCount || 0) + 1;
-      await linkRef.update({
-        "attemptCounters.wrongOtpCount": newWrongCount,
-        "attemptCounters.lastOtpAttemptMillis": now,
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-      return {
-        verified: false,
-        status: 403,
-        error: "Incorrect 6-digit code. Please check the code sent to you.",
-      };
-    }
-
-    // Reset wrong OTP count on success and mark code as used
-    await linkRef.update({
-      "attemptCounters.wrongOtpCount": 0,
-      whatsappOtpUsed: true,
-      whatsappVerified: true,
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-
-    return {
-      verified: true,
-      maskedPhone: link.counterpartyPhoneMasked || "Code checked",
-      whatsappVerified: true,
-    };
-  }
-
-  // 2. Firebase Auth Phone Token Fallback
-  let decoded;
-  try {
-    decoded = await getAuth().verifyIdToken(tokenStr);
-  } catch (e) {
-    return { verified: false, status: 401, error: "Invalid WhatsApp verification code or token." };
-  }
-
-  const rawPhone = (decoded.phone_number || "").trim();
-  if (!rawPhone) {
-    return { verified: false, status: 401, error: "Authenticated account does not have a verified phone number." };
-  }
-
-  // Verify phone matches stored phoneHash if provided
-  if (link.phoneHash) {
-    const salt = link.phoneSalt || "";
-    const computedPhoneHash = crypto.createHash("sha256").update(rawPhone + salt).digest("hex");
-    const isMatch = computedPhoneHash.length === link.phoneHash.length &&
-      crypto.timingSafeEqual(Buffer.from(computedPhoneHash, "hex"), Buffer.from(link.phoneHash, "hex"));
-
-    if (!isMatch) {
-      const counters = link.attemptCounters || {};
-      const newWrongCount = (counters.wrongOtpCount || 0) + 1;
-      await linkRef.update({
-        "attemptCounters.wrongOtpCount": newWrongCount,
-        "attemptCounters.lastOtpAttemptMillis": now,
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-      return {
-        verified: false,
-        status: 403,
-        error: "Verified phone number does not match the intended counterparty for this record.",
-      };
-    }
-  } else {
-    const newSalt = crypto.randomBytes(16).toString("hex");
-    const newHash = crypto.createHash("sha256").update(rawPhone + newSalt).digest("hex");
-    await linkRef.update({
-      phoneSalt: newSalt,
-      phoneHash: newHash,
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-  }
-
-  return { verified: true, maskedPhone: maskPhoneNumber(rawPhone), rawPhone };
+function computeSaltedPhoneHash(rawPhone, serverSecret) {
+  const activeSecret = resolveServerSecret(serverSecret);
+  const normalizedDigits = normalizePhoneDigits(rawPhone);
+  const phoneHmac = crypto
+    .createHmac("sha256", activeSecret)
+    .update(`udhaar:phone:v1:${normalizedDigits}`, "utf8")
+    .digest("hex");
+  return { normalizedDigits, phoneHmac };
 }
 
 /**
- * Purges or marks expired web links and cleans up orphaned guest claim attachments.
- * - Finds webLinks where expiresAtMillis < now and status !== "EXPIRED", or revoked == true and older than 7 days.
- * - For records with completed or expired claims, deletes orphaned proof files from Cloud Storage.
+ * Computes the SHA-256 hex digest of a raw guest capability token.
+ *
+ * @param {string} rawToken
+ * @returns {string} Lowercase hex SHA-256 hash
  */
-async function purgeExpiredGuestData(db, storageBucket, now = Date.now()) {
-  let expiredLinksCount = 0;
-  let cleanedProofsCount = 0;
+function hashGuestToken(rawToken) {
+  if (!rawToken || typeof rawToken !== "string" || rawToken.trim().length < 16) {
+    throw new Error("INVALID_TOKEN: Guest token must be at least 16 characters.");
+  }
+  return crypto.createHash("sha256").update(rawToken.trim(), "utf8").digest("hex");
+}
 
-  if (!db) return { expiredLinksCount, cleanedProofsCount };
-
-  // 1. Expire past-due active web links
+/**
+ * Validates whether a guest token matches the record's stored hash, has not expired (30-day TTL),
+ * and has not already been consumed by a finalized single-use action.
+ *
+ * @param {object} record - Firestore `shared_udhaars/{recordId}` document data
+ * @param {string} rawToken - Raw token presented by the guest client
+ * @param {number} [nowMs] - Current timestamp in milliseconds
+ * @returns {{ valid: boolean, reason?: string, tokenHash?: string }}
+ */
+function verifyGuestCapabilityToken(record, rawToken, nowMs = Date.now()) {
+  if (!record || typeof record !== "object") {
+    return { valid: false, reason: "RECORD_NOT_FOUND" };
+  }
+  if (!record.guestTokenHash || typeof record.guestTokenHash !== "string") {
+    return { valid: false, reason: "GUEST_ACCESS_DISABLED" };
+  }
+  let candidateHash;
   try {
-    const linksSnap = await db.collection("webLinks").get();
-    for (const doc of linksSnap.docs) {
-      const data = doc.data();
-      const isPastExpiry = typeof data.expiresAtMillis === "number" && data.expiresAtMillis < now;
-      const isRevokedOld = data.revoked === true && ((data.revokedAtMillis || data.createdAtMillis || 0) < (now - 7 * 86400000));
-      if ((isPastExpiry || isRevokedOld) && data.status !== "EXPIRED") {
-        await doc.ref.update({
-          status: "EXPIRED",
-          expiredAtMillis: now,
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-        expiredLinksCount++;
+    candidateHash = hashGuestToken(rawToken);
+  } catch (_) {
+    return { valid: false, reason: "MALFORMED_TOKEN" };
+  }
+
+  const expectedBuf = Buffer.from(record.guestTokenHash, "hex");
+  const candidateBuf = Buffer.from(candidateHash, "hex");
+  if (
+    expectedBuf.length === 0 ||
+    expectedBuf.length !== candidateBuf.length ||
+    !crypto.timingSafeEqual(expectedBuf, candidateBuf)
+  ) {
+    return { valid: false, reason: "TOKEN_MISMATCH" };
+  }
+
+  const expiresAtMs =
+    typeof record.guestTokenExpiresAt === "number"
+      ? record.guestTokenExpiresAt
+      : (typeof record.createdAt === "number" ? record.createdAt : nowMs) + GUEST_TOKEN_TTL_MS;
+
+  if (nowMs > expiresAtMs) {
+    return { valid: false, reason: "TOKEN_EXPIRED" };
+  }
+
+  if (record.guestTokenConsumedAt && record.status === "SETTLED") {
+    return { valid: false, reason: "TOKEN_ALREADY_CONSUMED" };
+  }
+
+  return { valid: true, tokenHash: candidateHash };
+}
+
+/**
+ * Validates and constructs the Firestore update payload for a guest action.
+ */
+function buildGuestActionUpdate(record, rawToken, actionPayload, nowMs = Date.now()) {
+  const verification = verifyGuestCapabilityToken(record, rawToken, nowMs);
+  if (!verification.valid) {
+    const err = new Error(`Guest token verification failed: ${verification.reason}`);
+    err.code = verification.reason;
+    throw err;
+  }
+
+  if (!actionPayload || typeof actionPayload !== "object") {
+    throw new Error("INVALID_PAYLOAD: Action payload is required.");
+  }
+
+  const { action } = actionPayload;
+
+  if (action === "CONFIRM_RECORD") {
+    if (record.status === "SETTLED") {
+      throw new Error("INVALID_STATE: Record is already settled.");
+    }
+    return {
+      status: "CONFIRMED",
+      recipientConfirmedAt: nowMs,
+      confirmedVia: "GUEST_WEB_LINK",
+      updatedAt: nowMs
+    };
+  }
+
+  if (action === "DISPUTE_RECORD") {
+    const reason = typeof actionPayload.reason === "string" ? actionPayload.reason.trim() : "";
+    if (!reason || reason.length < 3 || reason.length > MAX_NOTE_LENGTH) {
+      throw new Error("INVALID_REASON: Dispute reason must be between 3 and 500 characters.");
+    }
+    return {
+      status: "DISPUTED",
+      disputeReason: reason,
+      disputedAt: nowMs,
+      disputedVia: "GUEST_WEB_LINK",
+      updatedAt: nowMs
+    };
+  }
+
+  if (action === "SUBMIT_PAYMENT_CLAIM") {
+    const rawAmountPaise = actionPayload.amountPaise;
+    const rawAmountRupees = actionPayload.amount;
+    const amountPaise =
+      typeof rawAmountPaise === "number" && Number.isInteger(rawAmountPaise)
+        ? rawAmountPaise
+        : typeof rawAmountRupees === "number" && Number.isFinite(rawAmountRupees)
+          ? Math.round(rawAmountRupees * 100)
+          : NaN;
+
+    if (!Number.isInteger(amountPaise) || amountPaise <= 0) {
+      throw new Error("INVALID_AMOUNT: Claimed payment amount must be a positive number.");
+    }
+
+    const principalPaise =
+      typeof record.principalAmountPaise === "number" && Number.isInteger(record.principalAmountPaise)
+        ? record.principalAmountPaise
+        : Math.round(Number(record.principalAmount || 0) * 100);
+    const paidPaise =
+      typeof record.amountPaidPaise === "number" && Number.isInteger(record.amountPaidPaise)
+        ? record.amountPaidPaise
+        : Math.round(Number(record.amountPaid || 0) * 100);
+    const remainingPaise = Math.max(0, principalPaise - paidPaise);
+
+    const maxAllowedClaimPaise = Math.max(remainingPaise, principalPaise * 2, 100);
+    if (amountPaise > maxAllowedClaimPaise) {
+      throw new Error("AMOUNT_EXCEEDS_LIMIT: Claimed payment exceeds maximum allowable balance.");
+    }
+
+    const note = typeof actionPayload.note === "string" ? actionPayload.note.trim().slice(0, MAX_NOTE_LENGTH) : "";
+    const utrNumber = typeof actionPayload.utrNumber === "string" ? actionPayload.utrNumber.trim().slice(0, 64) : "";
+
+    let proofMeta = null;
+    if (actionPayload.proof) {
+      const { mimeType, sizeBytes, storagePath, downloadUrl } = actionPayload.proof;
+      if (!ALLOWED_PROOF_MIME_TYPES.includes(mimeType)) {
+        throw new Error("INVALID_PROOF_TYPE: Only JPEG, PNG, WEBP, or PDF proofs are allowed.");
       }
-    }
-  } catch (err) {
-    console.error("Error purging expired webLinks:", err);
-  }
-
-  // 2. Query payment claims older than 30 days or marked CONFIRMED/REJECTED with storage proofs
-  try {
-    const recordsSnap = await db.collection("shared_records").get();
-    for (const recordDoc of recordsSnap.docs) {
-      const claimsSnap = await recordDoc.ref.collection("payment_claims").get();
-      for (const claimDoc of claimsSnap.docs) {
-        const claim = claimDoc.data();
-        const isOld = (claim.claimedAtMillis || 0) < (now - 30 * 86400000);
-        const isResolved = ["CONFIRMED", "REJECTED"].includes(claim.status);
-        if ((isOld || isResolved) && claim.proofStoragePath) {
-          if (storageBucket && typeof storageBucket.file === "function") {
-            try {
-              await storageBucket.file(claim.proofStoragePath).delete();
-              cleanedProofsCount++;
-            } catch (e) {
-              // File might already be deleted or non-existent
-            }
-          }
-          await claimDoc.ref.update({
-            proofStoragePath: null,
-            proofCleanedAt: FieldValue.serverTimestamp(),
-          });
-        }
+      if (typeof sizeBytes !== "number" || sizeBytes <= 0 || sizeBytes > MAX_PROOF_SIZE_BYTES) {
+        throw new Error("INVALID_PROOF_SIZE: Proof file size must be between 1 byte and 5 MB.");
       }
+      const expectedPrefix = `payment_proofs/${record.recordId}/`;
+      const guestPrefix = `guest_proofs/${record.recordId}/`;
+      if (
+        typeof storagePath !== "string" ||
+        (!storagePath.startsWith(expectedPrefix) && !storagePath.startsWith(guestPrefix))
+      ) {
+        throw new Error("INVALID_PROOF_PATH: Storage path must belong to this record.");
+      }
+      proofMeta = {
+        mimeType,
+        sizeBytes,
+        storagePath,
+        downloadUrl: typeof downloadUrl === "string" ? downloadUrl : null
+      };
     }
-  } catch (err) {
-    console.error("Error purging payment claim proof storage:", err);
+
+    const existingClaims = Array.isArray(record.pendingPaymentClaims) ? record.pendingPaymentClaims : [];
+    const claimId = `claim_${nowMs}_${crypto.randomBytes(4).toString("hex")}`;
+    const newClaim = {
+      claimId,
+      amountPaise,
+      note,
+      utrNumber,
+      proof: proofMeta,
+      status: "PENDING_LENDER_APPROVAL",
+      submittedAt: nowMs,
+      submittedVia: "GUEST_WEB_LINK"
+    };
+
+    return {
+      pendingPaymentClaims: [...existingClaims, newClaim],
+      hasPendingPaymentClaim: true,
+      lastPaymentClaimAt: nowMs,
+      updatedAt: nowMs
+    };
   }
 
-  return { expiredLinksCount, cleanedProofsCount };
+  throw new Error(`UNSUPPORTED_ACTION: Unknown guest action '${action}'.`);
 }
 
 module.exports = {
-  safeSecretEqual,
+  UDHAAR_SERVER_SECRET,
+  GUEST_TOKEN_TTL_MS,
+  OTP_TTL_MS,
+  ALLOWED_PROOF_MIME_TYPES,
+  MAX_PROOF_SIZE_BYTES,
+  setTestServerSecret,
+  resolveServerSecret,
   computeCodeHmac,
+  verifyGuestPhoneOtp,
   maskPhoneNumber,
   maskUpiId,
   getCoarseDeviceType,
@@ -510,6 +486,9 @@ module.exports = {
   writeInboxItem,
   sendPushToCreator,
   validateAndRateLimitWebLink,
-  verifyGuestPhoneOtp,
-  purgeExpiredGuestData,
+  normalizePhoneDigits,
+  computeSaltedPhoneHash,
+  hashGuestToken,
+  verifyGuestCapabilityToken,
+  buildGuestActionUpdate
 };

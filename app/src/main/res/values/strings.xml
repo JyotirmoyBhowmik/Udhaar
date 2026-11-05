@@ -925,4 +925,22 @@
     <string name="group_split_empty_members_hint">Add at least 1 person above to preview the split.</string>
     <string name="group_split_custom_amount_label">Share amount</string>
     <string name="group_split_percent_label">Share %</string>
+    <string name="settings_analytics_crash_title">Crash reports &amp; screen analytics (Opt-in)</string>
+    <string name="settings_analytics_crash_subtitle">Off by default. Sends only anonymous crash diagnostics and screen names with zero personal data.</string>
+    <string name="settings_backup_recovery_key_title">Backup recovery key</string>
+    <string name="settings_backup_recovery_key_subtitle">Save this recovery key in a safe place to unlock encrypted backups if you forget your passphrase.</string>
+    <string name="settings_backup_recovery_key_active_fmt">Active key ID: %1$s</string>
+    <string name="settings_generate_recovery_key_button">Generate recovery key</string>
+    <string name="settings_copy_recovery_key_button">Copy key</string>
+    <string name="settings_test_my_backup_button">Test my backup</string>
+    <string name="adaptive_select_record_prompt">Select a record on the left to view full details, payment history, and actions</string>
+    <string name="adaptive_select_person_prompt">Select a person on the left to view their account statement and records</string>
+    <string name="cd_close">Close</string>
+    <string name="cd_collapse_details">Collapse details</string>
+    <string name="cd_expand_details">Expand details</string>
+    <string name="cd_back">Back</string>
+    <string name="cd_favorite_party">Favorite person</string>
+    <string name="cd_whatsapp_reminder">Send WhatsApp reminder</string>
+    <string name="updates_screen_title">Updates &amp; Reminders</string>
+    <string name="ui_str_repayment_history_e95aa2">Repayment History</string>
 </resources>

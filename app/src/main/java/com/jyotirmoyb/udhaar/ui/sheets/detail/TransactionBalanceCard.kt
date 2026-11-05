@@ -46,9 +46,9 @@ fun TransactionBalanceCard(
     modifier: Modifier = Modifier
 ) {
     var showFullBreakdown by rememberSaveable { mutableStateOf(false) }
-    val principalFormatted = InterestCalculator.formatCurrency(tx.principalAmount, tx.currency)
-    val interestFormatted = InterestCalculator.formatCurrency(summary.accruedInterest, tx.currency)
-    val paidFormatted = InterestCalculator.formatCurrency(tx.amountPaid, tx.currency)
+    val principalFormatted = InterestCalculator.formatPaise(tx.principalAmountPaise, tx.currency)
+    val interestFormatted = InterestCalculator.formatPaise(summary.interestAccruedPaise, tx.currency)
+    val paidFormatted = InterestCalculator.formatPaise(tx.amountPaidPaise, tx.currency)
 
     Column(
         modifier = modifier

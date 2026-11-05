@@ -1,22 +1,33 @@
 rules_version = '2';
 
+// Firebase Storage Security Rules for Udhaar Payment Proofs
+// Direct client uploads are disabled.
+// All proof uploads happen exclusively via Cloud Functions v4 signed URLs
+// (with contentType and x-goog-content-length-range: 0,5242880) or the Admin SDK.
 service firebase.storage {
   match /b/{bucket}/o {
-    // Default-deny safety net
-    match /{allPaths=**} {
-      allow read, write: if false;
+    match /payment_proofs/{recordId}/{fileName} {
+      // Clients cannot upload directly; uploads must use Admin SDK or signed URLs
+      allow create: if false;
+
+      // Signed download URLs or authenticated participants may read proof metadata/files
+      allow read: if request.auth != null;
+
+      // Never allow client-side overwrite or deletion of an uploaded payment receipt
+      allow update, delete: if false;
     }
 
-    // Payment proof uploads for guest web flow and app receipts
-    match /payment_proofs/{recordId}/{fileName} {
-      // Allow read only to authenticated users
+    match /guest_proofs/{recordId}/{fileName} {
+      // Clients cannot upload directly; uploads must use Admin SDK or signed URLs
+      allow create: if false;
+
       allow read: if request.auth != null;
-      // Allow create only if file is an image and strictly under 5MB
-      allow create: if request.resource.size < 5 * 1024 * 1024
-                    && request.resource.contentType.matches('image/(jpeg|jpg|png|webp)');
-      // Immutability: only authenticated users can delete their proofs
-      allow update: if false;
-      allow delete: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    // Default deny for all other paths
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }

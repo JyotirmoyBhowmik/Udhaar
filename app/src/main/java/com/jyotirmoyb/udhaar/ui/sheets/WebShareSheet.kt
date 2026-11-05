@@ -128,7 +128,7 @@ fun WebShareSheet(
     val draftWhatsAppMessage = remember(transaction, linkResult, settings) {
         val recipientName = transaction.partyName.ifBlank { "there" }
         val myName = settings.payeeName.ifBlank { "Udhaar" }
-        val formattedAmount = InterestCalculator.formatCurrency(transaction.principalAmount, transaction.currency)
+        val formattedAmount = InterestCalculator.formatPaise(transaction.principalAmountPaise, transaction.currency)
         val roleDesc = if (transaction.transactionType == TransactionType.GIVEN) "lent" else "borrowed"
         val otpLine = if (!linkResult?.whatsappOtp.isNullOrBlank()) {
             "\nYour WhatsApp verification code is: ${linkResult.whatsappOtp}"
@@ -173,7 +173,7 @@ fun WebShareSheet(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        val partySummary = "${transaction.partyName} • ${InterestCalculator.formatCurrency(transaction.principalAmount, transaction.currency)}"
+                        val partySummary = "${transaction.partyName} • ${InterestCalculator.formatPaise(transaction.principalAmountPaise, transaction.currency)}"
                         Text(
                             text = partySummary,
                             style = MaterialTheme.typography.labelSmall,

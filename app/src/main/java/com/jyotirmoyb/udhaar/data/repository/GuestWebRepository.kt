@@ -122,13 +122,12 @@ open class GuestWebRepository @Inject constructor(
         val claim = tx.getParsedPaymentClaim() ?: return false
         val settings = settingsRepository.userSettings.first()
 
-        val amountDouble = if (claim.amountDouble > 0.0) claim.amountDouble else (claim.amountPaise / 100.0)
-        paymentRepository.recordPartialPayment(
+        paymentRepository.recordPartialPaymentPaise(
             transaction = tx,
-            paymentAmount = amountDouble,
+            paymentAmountPaise = claim.amountPaise,
             paymentMode = claim.paymentMode,
             note = if (claim.reference.isNotBlank()) "Claim verified (Ref: ${claim.reference})" else "Payment verified",
-            totalAccruedAmount = tx.principalAmount,
+            totalAccruedAmountPaise = tx.principalAmountPaise,
             actorName = tx.partyName.ifBlank { "Guest" }
         )
 
@@ -145,7 +144,7 @@ open class GuestWebRepository @Inject constructor(
             eventType = AuditEventType.PAYMENT_ACKNOWLEDGED,
             actorUserId = settings.cloudUserId,
             actorName = settings.payeeName.ifBlank { "You" },
-            summaryText = "Payment claim of ${InterestCalculator.formatCurrency(amountDouble, tx.currency)} accepted"
+            summaryText = "Payment claim of ${InterestCalculator.formatCurrencyPaise(claim.amountPaise, tx.currency)} accepted"
         )
         return true
     }

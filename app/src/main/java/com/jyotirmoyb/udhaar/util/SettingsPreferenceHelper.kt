@@ -56,6 +56,8 @@ object SettingsPreferenceHelper {
         val DEFAULT_WEB_LINK_EXPIRY = intPreferencesKey("default_web_link_expiry_days")
         val DEFAULT_WEB_TRUST_LEVEL = stringPreferencesKey("default_web_trust_level")
         val DEFAULT_WEB_SHOW_UPI = booleanPreferencesKey("default_web_show_upi")
+        val ANALYTICS_CRASH_CONSENT = booleanPreferencesKey("analytics_crash_consent")
+        val BACKUP_RECOVERY_KEY_ID = stringPreferencesKey("backup_recovery_key_id")
     }
 
     fun mapPreferencesToUserSettings(
@@ -143,7 +145,9 @@ object SettingsPreferenceHelper {
             reminderLevel3MaxOverdueDays = prefs[PrefKeys.REMINDER_L3_MAX_OVERDUE] ?: 30,
             defaultWebLinkExpiryDays = prefs[PrefKeys.DEFAULT_WEB_LINK_EXPIRY] ?: 30,
             defaultWebTrustLevel = prefs[PrefKeys.DEFAULT_WEB_TRUST_LEVEL] ?: "WHATSAPP_OTP",
-            defaultWebShowUpi = prefs[PrefKeys.DEFAULT_WEB_SHOW_UPI] ?: true
+            defaultWebShowUpi = prefs[PrefKeys.DEFAULT_WEB_SHOW_UPI] ?: true,
+            analyticsCrashConsent = prefs[PrefKeys.ANALYTICS_CRASH_CONSENT] ?: false,
+            backupRecoveryKeyId = prefs[PrefKeys.BACKUP_RECOVERY_KEY_ID] ?: ""
         )
     }
 }

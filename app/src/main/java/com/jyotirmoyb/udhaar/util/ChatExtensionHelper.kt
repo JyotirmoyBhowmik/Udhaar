@@ -147,7 +147,7 @@ object ChatExtensionHelper {
             val recomputedHash = VerificationCryptoHelper.computeContentHash(
                 lenderName = txWithNewDate.lenderName,
                 borrowerName = txWithNewDate.borrowerName,
-                principalAmount = txWithNewDate.principalAmount,
+                principalAmount = InterestCalculator.paiseToRupees(txWithNewDate.principalAmountPaise),
                 currencyCode = txWithNewDate.currency.code,
                 startDateMillis = txWithNewDate.startDateMillis,
                 expiryDateMillis = txWithNewDate.expiryDateMillis,
