@@ -141,11 +141,11 @@ internal fun SearchAndFilterBar(
     val canScrollLeft = lazyRowState.canScrollBackward
     val canScrollRight = lazyRowState.canScrollForward
 
-    Column(verticalArrangement = Arrangement.spacedBy(UdhaarSpacing.Small)) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 48.dp)
+                .heightIn(min = 42.dp)
                 .clip(UdhaarShapeTokens.Corner12)
                 .background(CardSurfaceWhite)
                 .border(1.dp, BorderGrey, UdhaarShapeTokens.Corner12)
@@ -217,14 +217,14 @@ internal fun SearchAndFilterBar(
         LazyRow(
             state = lazyRowState,
             flingBehavior = snapFlingBehavior,
-            contentPadding = PaddingValues(start = 2.dp, end = 48.dp),
+            contentPadding = PaddingValues(horizontal = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
                 .drawWithContent {
                     drawContent()
-                    val fadeWidthPx = 28.dp.toPx()
+                    val fadeWidthPx = 18.dp.toPx()
                     if (canScrollLeft && size.width > fadeWidthPx * 2) {
                         drawRect(
                             brush = Brush.horizontalGradient(
@@ -270,26 +270,27 @@ internal fun SearchAndFilterBar(
                     modifier = udhaarAnimateItem(reducedMotion)
                         .heightIn(min = UdhaarSpacing.MinTouchTarget)
                         .pressScaleFeedback()
-                        .clip(UdhaarShapeTokens.Corner8)
-                        .background(color = chipBg, shape = UdhaarShapeTokens.Corner8)
-                        .border(
-                            width = if (isSelected) 1.5.dp else 1.dp,
-                            color = if (isSelected) PureBlack else BorderGrey,
-                            shape = UdhaarShapeTokens.Corner8
-                        )
                         .clickable { onSelectFilter(filter) }
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
                         .testTag("filter_chip_${filter.name.lowercase()}"),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(
+                        modifier = Modifier
+                            .clip(UdhaarShapeTokens.Corner8)
+                            .background(color = chipBg, shape = UdhaarShapeTokens.Corner8)
+                            .border(
+                                width = if (isSelected) 1.5.dp else 1.dp,
+                                color = if (isSelected) PureBlack else BorderGrey,
+                                shape = UdhaarShapeTokens.Corner8
+                            )
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(UdhaarSpacing.Small)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
                             text = filter.label,
                             style = MaterialTheme.typography.labelMedium.copy(
-                                fontSize = 12.sp,
+                                fontSize = 12.5.sp,
                                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
                             ),
                             color = chipContentColor,
@@ -300,9 +301,9 @@ internal fun SearchAndFilterBar(
                             modifier = Modifier
                                 .background(
                                     color = if (isSelected) CardSurfaceWhite.copy(alpha = 0.2f) else SubtleSurfaceGrey,
-                                    shape = UdhaarShapeTokens.Corner8
+                                    shape = UdhaarShapeTokens.Pill
                                 )
-                                .padding(horizontal = 5.dp, vertical = 0.5.dp)
+                                .padding(horizontal = 6.dp, vertical = 1.dp)
                                 .testTag("filter_badge_${filter.name.lowercase()}"),
                             contentAlignment = Alignment.Center
                         ) {
@@ -310,7 +311,7 @@ internal fun SearchAndFilterBar(
                                 text = count.toString(),
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontFamily = IbmPlexMonoFamily,
-                                    fontSize = 12.sp,
+                                    fontSize = 11.5.sp,
                                     fontWeight = FontWeight.SemiBold
                                 ),
                                 color = chipContentColor,
@@ -346,83 +347,92 @@ internal fun LedgerSectionHeaderRow(
         Text(
             text = stringResource(R.string.ui_fmt_ledger_records_fbeaca, recordCount),
             style = MaterialTheme.typography.labelMedium.copy(
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 0.6.sp
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium
             ),
-            color = MutedInkGrey
+            color = SecondaryInkGrey
         )
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Row(
+            Box(
                 modifier = Modifier
                     .heightIn(min = 48.dp)
                     .pressScaleFeedback()
-                    .clip(UdhaarShapeTokens.Corner8)
-                    .background(SelectedPillTint.copy(alpha = 0.55f), UdhaarShapeTokens.Corner8)
-                    .border(1.dp, PureBlack.copy(alpha = 0.4f), UdhaarShapeTokens.Corner8)
                     .clickable { onOpenGroupSplit() }
-                    .padding(horizontal = 10.dp, vertical = 6.dp)
                     .testTag("open_group_split_button"),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.PersonAdd,
-                    contentDescription = stringResource(R.string.group_split_button),
-                    tint = PureBlack,
-                    modifier = Modifier.size(14.dp)
-                )
-                Text(
-                    text = stringResource(R.string.group_split_button),
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    ),
-                    color = PureBlack,
-                    maxLines = 1,
-                    softWrap = false
-                )
-            }
-
-            Box {
                 Row(
                     modifier = Modifier
-                        .heightIn(min = 48.dp)
-                        .pressScaleFeedback()
-                        .clip(UdhaarShapeTokens.Corner8)
-                        .background(CardSurfaceWhite, UdhaarShapeTokens.Corner8)
-                        .border(1.dp, BorderGrey, UdhaarShapeTokens.Corner8)
-                        .clickable { sortMenuExpanded = true }
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                        .testTag("sort_transactions_button"),
+                        .clip(UdhaarShapeTokens.Pill)
+                        .background(SelectedPillTint.copy(alpha = 0.65f), UdhaarShapeTokens.Pill)
+                        .border(1.dp, PureBlack.copy(alpha = 0.45f), UdhaarShapeTokens.Pill)
+                        .padding(horizontal = 10.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Sort,
-                        contentDescription = stringResource(R.string.cd_sort_and_filter_date_range),
+                        imageVector = Icons.Default.PersonAdd,
+                        contentDescription = stringResource(R.string.group_split_button),
                         tint = PureBlack,
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
-                        text = if (dateRangeFilter == DateRangeFilter.ALL_TIME) {
-                            transactionSortOption.label
-                        } else {
-                            stringResource(R.string.ui_fmt_symbol_7ff20b, dateRangeFilter.label, transactionSortOption.label)
-                        },
+                        text = stringResource(R.string.group_split_button),
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         ),
                         color = PureBlack,
                         maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis
+                        softWrap = false
                     )
+                }
+            }
+
+            Box {
+                Box(
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .pressScaleFeedback()
+                        .clickable { sortMenuExpanded = true }
+                        .testTag("sort_transactions_button"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .clip(UdhaarShapeTokens.Corner8)
+                            .background(CardSurfaceWhite, UdhaarShapeTokens.Corner8)
+                            .border(1.dp, BorderGrey, UdhaarShapeTokens.Corner8)
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Sort,
+                            contentDescription = stringResource(R.string.cd_sort_and_filter_date_range),
+                            tint = PureBlack,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = if (dateRangeFilter == DateRangeFilter.ALL_TIME) {
+                                transactionSortOption.label
+                            } else {
+                                stringResource(R.string.ui_fmt_symbol_7ff20b, dateRangeFilter.label, transactionSortOption.label)
+                            },
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            ),
+                            color = PureBlack,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
 
                 DropdownMenu(

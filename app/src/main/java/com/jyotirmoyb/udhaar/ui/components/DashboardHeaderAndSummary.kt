@@ -173,68 +173,39 @@ internal fun DashboardTopHeaderBar(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        val selectedTabIndex = when (selectedPillTab) {
-            HomePillTab.ACTIVE -> 0
-            HomePillTab.PEOPLE -> 1
-            HomePillTab.HISTORY -> 2
-        }
-        BoxWithConstraints(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 48.dp)
+                .heightIn(min = 48.dp),
+            horizontalArrangement = Arrangement.spacedBy(UdhaarSpacing.Small),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            val spacing = UdhaarSpacing.Small
-            val tabWidth = (maxWidth - spacing * 2) / 3
-            val indicatorOffset by animateDpAsState(
-                targetValue = (tabWidth + spacing) * selectedTabIndex,
-                animationSpec = tween(
-                    durationMillis = if (reducedMotion) 0 else 230,
-                    easing = FastOutSlowInEasing
-                ),
-                label = "pillTabIndicatorOffset"
-            )
-
-            Box(
+            PillTabItem(
+                label = stringResource(R.string.home_tab_active_fmt, activeRecordsCount),
+                selected = selectedPillTab == HomePillTab.ACTIVE,
+                onClick = onSelectActiveTab,
                 modifier = Modifier
-                    .offset(x = indicatorOffset)
-                    .defaultMinSize(minWidth = tabWidth, minHeight = 48.dp)
-                    .clip(UdhaarShapeTokens.Pill)
-                    .background(SelectedPillTint, UdhaarShapeTokens.Pill)
-                    .border(width = 1.5.dp, color = PureBlack, shape = UdhaarShapeTokens.Pill)
+                    .weight(1f)
+                    .testTag("nav_tab_ledger")
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(spacing),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                PillTabItem(
-                    label = stringResource(R.string.home_tab_active_fmt, activeRecordsCount),
-                    selected = selectedPillTab == HomePillTab.ACTIVE,
-                    onClick = onSelectActiveTab,
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("nav_tab_ledger")
-                )
+            PillTabItem(
+                label = stringResource(R.string.home_tab_people_fmt, peopleCount),
+                selected = selectedPillTab == HomePillTab.PEOPLE,
+                onClick = onSelectPeopleTab,
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("nav_tab_people_directory")
+            )
 
-                PillTabItem(
-                    label = stringResource(R.string.home_tab_people_fmt, peopleCount),
-                    selected = selectedPillTab == HomePillTab.PEOPLE,
-                    onClick = onSelectPeopleTab,
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("nav_tab_people_directory")
-                )
-
-                PillTabItem(
-                    label = stringResource(R.string.home_tab_history),
-                    selected = selectedPillTab == HomePillTab.HISTORY,
-                    onClick = onSelectHistoryTab,
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("nav_tab_history")
-                )
-            }
+            PillTabItem(
+                label = stringResource(R.string.home_tab_history),
+                selected = selectedPillTab == HomePillTab.HISTORY,
+                onClick = onSelectHistoryTab,
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("nav_tab_history")
+            )
         }
     }
 }
@@ -247,7 +218,7 @@ internal fun PillTabItem(
     modifier: Modifier = Modifier
 ) {
     val bgColor by animateColorAsState(
-        targetValue = if (selected) SelectedPillTint.copy(alpha = 0.65f) else CardSurfaceWhite.copy(alpha = 0.85f),
+        targetValue = if (selected) SelectedPillTint else CardSurfaceWhite,
         animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
         label = "pillBgColor"
     )
@@ -266,23 +237,29 @@ internal fun PillTabItem(
         modifier = modifier
             .heightIn(min = 48.dp)
             .pressScaleFeedback()
-            .clip(UdhaarShapeTokens.Pill)
-            .background(color = bgColor, shape = UdhaarShapeTokens.Pill)
-            .border(width = borderWidth, color = borderColor, shape = UdhaarShapeTokens.Pill)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 6.dp, vertical = 6.dp),
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontSize = 14.sp,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
-            ),
-            color = PureBlack,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(UdhaarShapeTokens.Pill)
+                .background(color = bgColor, shape = UdhaarShapeTokens.Pill)
+                .border(width = borderWidth, color = borderColor, shape = UdhaarShapeTokens.Pill)
+                .padding(horizontal = 6.dp, vertical = 7.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontSize = 14.sp,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
+                ),
+                color = PureBlack,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 
@@ -301,7 +278,7 @@ internal fun TopLedgerSummaryCard(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("top_summary_card"),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
         if (enabledCurrencies.size > 1) {
             Row(
@@ -321,25 +298,30 @@ internal fun TopLedgerSummaryCard(
                         modifier = Modifier
                             .heightIn(min = 48.dp)
                             .pressScaleFeedback()
-                            .clip(UdhaarShapeTokens.Corner8)
-                            .background(chipBg, UdhaarShapeTokens.Corner8)
-                            .border(
-                                width = if (isSelected) 1.5.dp else 1.dp,
-                                color = if (isSelected) PureBlack else BorderGrey,
-                                shape = UdhaarShapeTokens.Corner8
-                            )
                             .clickable { onSelectCurrency(curr) }
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
                             .testTag("summary_currency_tab_${curr.name.lowercase()}"),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = stringResource(R.string.ui_fmt_symbol_c3451e, curr.displayName, count),
-                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
-                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                            color = PureBlack,
-                            maxLines = 1
-                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(UdhaarShapeTokens.Corner8)
+                                .background(chipBg, UdhaarShapeTokens.Corner8)
+                                .border(
+                                    width = if (isSelected) 1.5.dp else 1.dp,
+                                    color = if (isSelected) PureBlack else BorderGrey,
+                                    shape = UdhaarShapeTokens.Corner8
+                                )
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = stringResource(R.string.ui_fmt_symbol_c3451e, curr.displayName, count),
+                                style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp),
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                                color = PureBlack,
+                                maxLines = 1
+                            )
+                        }
                     }
                 }
             }
@@ -359,16 +341,16 @@ internal fun TopLedgerSummaryCard(
         )
 
         val receivableFontSize = when {
-            animatedReceivableText.length <= 8 -> 18.sp
-            animatedReceivableText.length <= 11 -> 15.sp
+            animatedReceivableText.length <= 8 -> 19.sp
+            animatedReceivableText.length <= 11 -> 16.sp
             animatedReceivableText.length <= 14 -> 14.sp
-            else -> 12.sp
+            else -> 12.5.sp
         }
         val payableFontSize = when {
-            animatedPayableText.length <= 8 -> 18.sp
-            animatedPayableText.length <= 11 -> 15.sp
+            animatedPayableText.length <= 8 -> 19.sp
+            animatedPayableText.length <= 11 -> 16.sp
             animatedPayableText.length <= 14 -> 14.sp
-            else -> 12.sp
+            else -> 12.5.sp
         }
 
         Row(
@@ -377,170 +359,170 @@ internal fun TopLedgerSummaryCard(
                 .height(IntrinsicSize.Max),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Column(
+            Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
                     .clip(UdhaarShapeTokens.Corner16)
                     .background(ReceivableCardBg, UdhaarShapeTokens.Corner16)
                     .border(1.dp, ReceivableCardInk.copy(alpha = 0.15f), UdhaarShapeTokens.Corner16)
-                    .padding(horizontal = 10.dp, vertical = 7.dp)
-                    .testTag("summary_receivable_card"),
-                verticalArrangement = Arrangement.SpaceBetween
+                    .testTag("summary_receivable_card")
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
                     Text(
                         text = stringResource(R.string.ui_str_total_receivable_6cb1b1),
                         style = MaterialTheme.typography.titleMedium.copy(
-                            fontSize = 12.sp,
-                            lineHeight = 14.sp,
-                            fontWeight = FontWeight.SemiBold
+                            fontSize = 13.sp,
+                            lineHeight = 16.sp,
+                            fontWeight = FontWeight.Medium
                         ),
                         color = ReceivableCardInk,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(end = 4.dp)
+                        modifier = Modifier.padding(end = 26.dp)
                     )
-                    Box(
-                        modifier = Modifier
-                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                            .clip(UdhaarShapeTokens.Corner8)
-                            .pressScaleFeedback()
-                            .clickable(onClick = onToggleHideAmounts)
-                            .testTag("privacy_hide_amounts_toggle"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = if (isAmountsHidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = if (isAmountsHidden) {
-                                stringResource(R.string.cd_show_amounts)
-                            } else {
-                                stringResource(R.string.cd_hide_amounts)
-                            },
-                            tint = ReceivableCardInk,
-                            modifier = Modifier.size(15.dp)
-                        )
+
+                    Text(
+                        text = animatedReceivableText,
+                        style = MaterialTheme.typography.displayMedium.copy(
+                            fontFamily = IbmPlexMonoFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = receivableFontSize,
+                            lineHeight = (receivableFontSize.value + 3f).sp
+                        ),
+                        color = ReceivableCardInk,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.testTag("summary_total_to_receive")
+                    )
+
+                    val activeRecordLabel = if (totals.activeGivenCount == 1) {
+                        stringResource(R.string.summary_one_active_record)
+                    } else {
+                        stringResource(R.string.summary_many_active_records_fmt, totals.activeGivenCount)
                     }
+                    Text(
+                        text = activeRecordLabel,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = ReceivableCardInk,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
 
-                Text(
-                    text = animatedReceivableText,
-                    style = MaterialTheme.typography.displayMedium.copy(
-                        fontFamily = IbmPlexMonoFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = receivableFontSize,
-                        lineHeight = (receivableFontSize.value + 2f).sp
-                    ),
-                    color = ReceivableCardInk,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.testTag("summary_total_to_receive")
-                )
-
-                val activeRecordLabel = if (totals.activeGivenCount == 1) {
-                    stringResource(R.string.summary_one_active_record)
-                } else {
-                    stringResource(R.string.summary_many_active_records_fmt, totals.activeGivenCount)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                        .clip(UdhaarShapeTokens.Corner8)
+                        .pressScaleFeedback()
+                        .clickable(onClick = onToggleHideAmounts)
+                        .padding(top = 10.dp, end = 12.dp)
+                        .testTag("privacy_hide_amounts_toggle"),
+                    contentAlignment = Alignment.TopEnd
+                ) {
+                    Icon(
+                        imageVector = if (isAmountsHidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        contentDescription = if (isAmountsHidden) {
+                            stringResource(R.string.cd_show_amounts)
+                        } else {
+                            stringResource(R.string.cd_hide_amounts)
+                        },
+                        tint = ReceivableCardInk,
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
-                Text(
-                    text = activeRecordLabel,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    ),
-                    color = ReceivableCardInk,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
             }
 
-            Column(
+            Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
                     .clip(UdhaarShapeTokens.Corner16)
                     .background(PayableCardBg, UdhaarShapeTokens.Corner16)
                     .border(1.dp, PayableCardInk.copy(alpha = 0.15f), UdhaarShapeTokens.Corner16)
-                    .padding(horizontal = 10.dp, vertical = 7.dp)
-                    .testTag("summary_payable_card"),
-                verticalArrangement = Arrangement.SpaceBetween
+                    .testTag("summary_payable_card")
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
                     Text(
                         text = stringResource(R.string.ui_str_total_payable_65e9b2),
                         style = MaterialTheme.typography.titleMedium.copy(
-                            fontSize = 12.sp,
-                            lineHeight = 14.sp,
-                            fontWeight = FontWeight.SemiBold
+                            fontSize = 13.sp,
+                            lineHeight = 16.sp,
+                            fontWeight = FontWeight.Medium
                         ),
                         color = PayableCardInk,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(end = 4.dp)
+                        modifier = Modifier.padding(end = 26.dp)
                     )
-                    Box(
-                        modifier = Modifier
-                            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                            .clip(UdhaarShapeTokens.Corner8)
-                            .pressScaleFeedback()
-                            .clickable(onClick = onToggleHideAmounts)
-                            .testTag("privacy_hide_amounts_toggle_payable"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = if (isAmountsHidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = if (isAmountsHidden) {
-                                stringResource(R.string.cd_show_amounts)
-                            } else {
-                                stringResource(R.string.cd_hide_amounts)
-                            },
-                            tint = PayableCardInk,
-                            modifier = Modifier.size(15.dp)
-                        )
+
+                    Text(
+                        text = animatedPayableText,
+                        style = MaterialTheme.typography.displayMedium.copy(
+                            fontFamily = IbmPlexMonoFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = payableFontSize,
+                            lineHeight = (payableFontSize.value + 3f).sp
+                        ),
+                        color = PayableCardInk,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.testTag("summary_total_to_pay")
+                    )
+
+                    val payableRecordLabel = if (totals.activeTakenCount == 1) {
+                        stringResource(R.string.summary_one_record)
+                    } else {
+                        stringResource(R.string.summary_many_records_fmt, totals.activeTakenCount)
                     }
+                    Text(
+                        text = payableRecordLabel,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        color = PayableCardInk,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
 
-                Text(
-                    text = animatedPayableText,
-                    style = MaterialTheme.typography.displayMedium.copy(
-                        fontFamily = IbmPlexMonoFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = payableFontSize,
-                        lineHeight = (payableFontSize.value + 2f).sp
-                    ),
-                    color = PayableCardInk,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.testTag("summary_total_to_pay")
-                )
-
-                val payableRecordLabel = if (totals.activeTakenCount == 1) {
-                    stringResource(R.string.summary_one_record)
-                } else {
-                    stringResource(R.string.summary_many_records_fmt, totals.activeTakenCount)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                        .clip(UdhaarShapeTokens.Corner8)
+                        .pressScaleFeedback()
+                        .clickable(onClick = onToggleHideAmounts)
+                        .padding(top = 10.dp, end = 12.dp)
+                        .testTag("privacy_hide_amounts_toggle_payable"),
+                    contentAlignment = Alignment.TopEnd
+                ) {
+                    Icon(
+                        imageVector = if (isAmountsHidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        contentDescription = if (isAmountsHidden) {
+                            stringResource(R.string.cd_show_amounts)
+                        } else {
+                            stringResource(R.string.cd_hide_amounts)
+                        },
+                        tint = PayableCardInk,
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
-                Text(
-                    text = payableRecordLabel,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    ),
-                    color = PayableCardInk,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
             }
         }
 

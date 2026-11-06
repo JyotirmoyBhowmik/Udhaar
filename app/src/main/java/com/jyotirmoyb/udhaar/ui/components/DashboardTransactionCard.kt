@@ -250,11 +250,11 @@ internal fun TransactionCardItem(
                         onCardClick()
                     }
                 }
-                .padding(horizontal = 12.dp, vertical = if (isCardExpanded) 12.dp else 10.dp),
-            verticalArrangement = Arrangement.spacedBy(if (isCardExpanded) 8.dp else 6.dp)
+                .padding(horizontal = 12.dp, vertical = if (isCardExpanded) 12.dp else 9.dp),
+            verticalArrangement = Arrangement.spacedBy(if (isCardExpanded) 8.dp else 5.dp)
         ) {
             if (!isCardExpanded) {
-                // Row 1: Person avatar + full name (up to 2 lines) with amount on right
+                // v19 Row 1: [Avatar] [Name...] [Given pill] [Payment mode pill] ... [Amount] [v]
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -263,159 +263,146 @@ internal fun TransactionCardItem(
                     Row(
                         modifier = Modifier
                             .weight(1f)
-                            .padding(end = 8.dp),
+                            .padding(end = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         PersonAvatar(
                             name = tx.partyName,
                             photoUri = partyPhotoUri,
-                            size = 36.dp,
+                            size = 32.dp,
                             modifier = Modifier.udhaarSharedElement("tx_avatar_${tx.id}")
                         )
                         Text(
                             text = tx.partyName,
                             style = MaterialTheme.typography.titleMedium.copy(
-                                fontSize = 16.sp,
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.SemiBold
                             ),
                             color = PureBlack,
-                            maxLines = 2,
+                            maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             textDecoration = if (tx.isSettled) TextDecoration.LineThrough else TextDecoration.None,
                             modifier = Modifier
                                 .weight(1f, fill = false)
                                 .udhaarSharedBounds("tx_name_${tx.id}")
                         )
-                    }
-
-                    Text(
-                        text = formattedCardAmount,
-                        style = MaterialTheme.typography.headlineLarge.copy(
-                            fontFamily = IbmPlexMonoFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = cardAmountFontSize
-                        ),
-                        color = PureBlack,
-                        maxLines = 1,
-                        textDecoration = if (tx.isSettled) TextDecoration.LineThrough else TextDecoration.None,
-                        modifier = Modifier
-                            .udhaarSharedBounds("tx_amount_${tx.id}")
-                            .testTag("tx_card_amount_${tx.id}")
-                    )
-                }
-
-                // Row 2: Chips ("Given" / "Taken", "Cash" / "Online" / "UPI" in sentence case) + due date
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                color = if (isGiven) PureBlack else PayableCardBg,
-                                shape = UdhaarShapeTokens.Corner8
-                            )
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = if (isGiven) stringResource(R.string.ui_str_given_567b49) else stringResource(R.string.ui_str_taken_7abbf5),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = if (isGiven) CardSurfaceWhite else PayableCardInk
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .background(MutedChipGrey, UdhaarShapeTokens.Corner8)
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = tx.paymentMode.shortBadge,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            ),
-                            color = PureBlack
-                        )
-                    }
-                    if (groupTag != null) {
                         Box(
                             modifier = Modifier
-                                .background(SelectedPillTint, UdhaarShapeTokens.Corner8)
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .background(
+                                    color = if (isGiven) PureBlack else PayableCardBg,
+                                    shape = UdhaarShapeTokens.Pill
+                                )
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
                         ) {
                             Text(
-                                text = groupTag,
+                                text = if (isGiven) stringResource(R.string.ui_str_given_567b49) else stringResource(R.string.ui_str_taken_7abbf5),
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = if (isGiven) CardSurfaceWhite else PayableCardInk,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .background(MutedChipGrey, UdhaarShapeTokens.Pill)
+                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = tx.paymentMode.shortBadge,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
                                 ),
                                 color = PureBlack,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                softWrap = false
                             )
+                        }
+                        if (groupTag != null) {
+                            Box(
+                                modifier = Modifier
+                                    .background(SelectedPillTint, UdhaarShapeTokens.Pill)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = groupTag,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    ),
+                                    color = PureBlack,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    Text(
-                        text = summary.dueStatusText,
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 12.sp,
-                            fontWeight = if (summary.isOverdue) FontWeight.Bold else FontWeight.Normal
-                        ),
-                        color = if (summary.isOverdue) PayableCardInk else SecondaryInkGrey,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.testTag("tx_card_due_date_${tx.id}")
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = formattedCardAmount,
+                            style = MaterialTheme.typography.headlineLarge.copy(
+                                fontFamily = IbmPlexMonoFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = cardAmountFontSize
+                            ),
+                            color = PureBlack,
+                            maxLines = 1,
+                            softWrap = false,
+                            textDecoration = if (tx.isSettled) TextDecoration.LineThrough else TextDecoration.None,
+                            modifier = Modifier
+                                .udhaarSharedBounds("tx_amount_${tx.id}")
+                                .testTag("tx_card_amount_${tx.id}")
+                        )
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = stringResource(R.string.card_expand_details),
+                            tint = PureBlack,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
 
-                // Row 3: One muted line of terms that may wrap to 2 lines, in regular body font (NOT monospace)
-                Text(
-                    text = InterestCalculator.formatSubtitleBreakdownPrivacy(summary, isAmountsHidden),
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontSize = 12.sp
-                    ),
-                    color = SecondaryInkGrey,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("tx_card_breakdown_${tx.id}")
-                )
-
-                // Row 4: Chevron and "Show details" on their own line with a 48 dp touch area
+                // v19 Row 2: [Amount lent: ₹ ... | Interest: ...] ... [Show details]
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .clip(UdhaarShapeTokens.Corner8)
-                        .clickable { isCardExpanded = true }
-                        .padding(horizontal = 4.dp, vertical = 6.dp)
-                        .testTag("tx_card_expand_toggle_${tx.id}"),
-                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowDown,
-                        contentDescription = stringResource(R.string.card_expand_details),
-                        tint = SecondaryInkGrey,
-                        modifier = Modifier.size(20.dp)
+                    Text(
+                        text = InterestCalculator.formatSubtitleBreakdownPrivacy(summary, isAmountsHidden),
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = IbmPlexMonoFamily,
+                            fontSize = 11.5.sp
+                        ),
+                        color = SecondaryInkGrey,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 8.dp)
+                            .testTag("tx_card_breakdown_${tx.id}")
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = stringResource(R.string.card_expand_details),
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Medium
                         ),
-                        color = PureBlack
+                        color = PureBlack,
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier
+                            .clickable { isCardExpanded = true }
+                            .padding(vertical = 2.dp)
+                            .testTag("tx_card_expand_toggle_${tx.id}")
                     )
                 }
             } else {
