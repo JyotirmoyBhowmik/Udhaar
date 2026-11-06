@@ -1,9 +1,9 @@
 // =========================================================================
-// Udhaar Web Service Worker — Static Shell Only (v24.0)
+// Udhaar Web Service Worker — Static Shell Only (v25.0)
 // Security Rule: NEVER cache record data, secret tokens, or /api/* endpoints
 // =========================================================================
 
-const CACHE_NAME = "udhaar-shell-v24";
+const CACHE_NAME = "udhaar-shell-v25";
 const SHELL_ASSETS = [
   "/u/",
   "/u/index.html",

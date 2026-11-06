@@ -1718,11 +1718,13 @@
     urlSecret = params.secret;
     isDemoMode = Boolean(params.isDemo);
 
-    // Apply translations & theme
+    // Apply translations & theme (default to clean Light Ledger view unless user explicitly selected dark)
     applyTranslations();
-    const savedTheme = localStorage.getItem("udhaar_theme") || "system";
-    if (savedTheme !== "system") {
-      document.documentElement.setAttribute("data-theme", savedTheme);
+    const savedTheme = localStorage.getItem("udhaar_theme") || "light";
+    document.documentElement.setAttribute("data-theme", savedTheme === "dark" ? "dark" : "light");
+    const themeBtnEl = document.getElementById("theme-btn");
+    if (themeBtnEl) {
+      themeBtnEl.textContent = savedTheme === "dark" ? "☀️" : "🌙";
     }
 
     // Language selector
@@ -2171,25 +2173,30 @@
       } else if (err.status === 403) {
         showErrorState("state_revoked_title", "state_revoked_desc", "state_revoked_action", { name: "the sender" });
       } else if (urlRecordId && urlSecret && (err.status === 503 || err.status === 404 || err.status === 502 || !err.status)) {
-        // Spark free-tier static hosting fallback for v22 links (/u/r/<uuid>#<16-char-secret>)
+        // Spark free-tier static hosting fallback for older v22 links (/u/r/<uuid>#<16-char-secret>)
         // when Cloud Functions (getGuestRecord) are not deployed on the Firebase project.
+        const qs = new URLSearchParams((typeof window !== "undefined" && window.location.search) || "");
+        const qsAmt = parseFloat(qs.get("amt") || "0") || 0;
+        const qsStart = parseInt(qs.get("start") || "0", 10) || null;
+        const qsDue = parseInt(qs.get("due") || "0", 10) || null;
+        const hasExplicitAmount = qsAmt > 0;
         const sparkFallbackRecord = {
           recordId: urlRecordId,
           secret: urlSecret,
           counterpartyRole: "BORROWER",
           creatorRole: "GIVEN",
-          lenderName: "Shared via WhatsApp",
-          borrowerName: "Verified Recipient",
-          principalAmount: 0,
-          amountPaise: 0,
-          currency: "INR",
-          startDateMillis: Date.now(),
-          expiryDateMillis: Date.now() + 30 * 86400000,
+          lenderName: qs.get("from") || "See WhatsApp message",
+          borrowerName: qs.get("to") || "See WhatsApp message",
+          principalAmount: qsAmt,
+          amountPaise: Math.round(qsAmt * 100),
+          currency: qs.get("cur") || "INR",
+          startDateMillis: qsStart,
+          expiryDateMillis: qsDue,
           contentHash: (urlRecordId.replace(/-/g, "") + urlSecret).substring(0, 32),
           trustLevelRequired: "WHATSAPP_CODE",
           status: "PENDING_CONFIRMATION",
           isSelfContainedToken: true,
-          isLegacyOfflineLink: true
+          isLegacyOfflineLink: !hasExplicitAmount
         };
         renderRecordView(sparkFallbackRecord);
       } else {

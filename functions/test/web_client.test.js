@@ -205,5 +205,11 @@ test("Stage W2 Web Client UI & Zero-Cost WhatsApp OTP Verification", async (t) =
     assert.equal(mockBoxes.map((b) => b.value).join(""), "582913", "Multi-digit input must distribute across all 6 boxes");
     assert.equal(focusedIdx, 5, "Focus must land on last box after 6-digit fill");
     assert.equal(completedCode, "582913", "onComplete callback must receive full 6-digit code");
+
+    // 4. Verify .skip-link is offscreen and dark mode contrast tokens are distinct
+    assert.match(cssContent, /\.skip-link\s*\{[^}]*top:\s*-120px/i, ".skip-link must be positioned off-screen by default");
+    assert.match(cssContent, /--amount-text:\s*#f8fafc/i, "Dark mode amount text must be high-contrast light color (#f8fafc)");
+    assert.match(cssContent, /--badge-slate-text:\s*#e2e8f0/i, "Dark mode badge text must be high-contrast light color (#e2e8f0)");
+    assert.doesNotMatch(jsContent, /expiryDateMillis:\s*Date\.now\(\)\s*\+\s*30\s*\*\s*86400000/, "Fallback record must never invent a fake +30 day due date");
   });
 });

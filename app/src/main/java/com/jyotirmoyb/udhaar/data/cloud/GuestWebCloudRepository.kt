@@ -140,12 +140,32 @@ class GuestWebCloudRepository @Inject constructor(
             if (remoteUrl.isBlank()) {
                 return buildLocalFallbackResult()
             }
+            val remoteSecret = data["secret"] as? String ?: VerificationCryptoHelper.generateShareToken()
+            val remoteOtp = data["whatsappOtp"] as? String ?: ((Math.random() * 900000).toInt() + 100000).toString()
+            val selfContainedFragment = VerificationCryptoHelper.buildSelfContainedGuestFragment(
+                recordId = data["recordId"] as? String ?: recordId,
+                secretToken = remoteSecret,
+                counterpartyRole = counterpartyRole,
+                lenderName = lenderName,
+                borrowerName = borrowerName,
+                principalAmountPaise = principalAmountPaise,
+                currency = currency,
+                startDateMillis = startDateMillis,
+                expiryDateMillis = expiryDateMillis,
+                creatorPhone = creatorPhone,
+                lenderUpiId = lenderUpiId,
+                trustLevelRequired = data["trustLevel"] as? String ?: trustLevelRequired,
+                whatsappOtp = remoteOtp,
+                contentHash = contentHash
+            )
+            val baseUrlWithoutFragment = remoteUrl.substringBefore("#")
+            val enrichedUrl = "$baseUrlWithoutFragment#$selfContainedFragment"
             GuestWebLinkCreateResult(
                 success = data["success"] as? Boolean ?: true,
                 recordId = data["recordId"] as? String ?: recordId,
-                url = remoteUrl,
-                secret = data["secret"] as? String ?: "",
-                whatsappOtp = data["whatsappOtp"] as? String ?: "",
+                url = enrichedUrl,
+                secret = remoteSecret,
+                whatsappOtp = remoteOtp,
                 expiresAt = data["expiresAt"] as? String ?: "",
                 trustLevel = data["trustLevel"] as? String ?: trustLevelRequired
             )
