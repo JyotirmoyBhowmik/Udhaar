@@ -30,7 +30,13 @@ const CRITICAL_FILES = [
   "404.html",
   "u/index.html",
   "u/guest.css",
-  "u/guest.js"
+  "u/guest.js",
+  "assets/idb-outbox.js",
+  "assets/merkle-chain.js",
+  "assets/e2ee-crypto.js",
+  "assets/image-processor.js",
+  "assets/telemetry.js",
+  "assets/webauthn-lock.js"
 ];
 
 let hasErrors = false;

@@ -1,9 +1,9 @@
 // =========================================================================
-// Udhaar Web Service Worker — Static Shell Only (v25.0)
+// Udhaar Web Service Worker — Static Shell, Web Push & Offline Sync (v27.0)
 // Security Rule: NEVER cache record data, secret tokens, or /api/* endpoints
 // =========================================================================
 
-const CACHE_NAME = "udhaar-shell-v26";
+const CACHE_NAME = "udhaar-shell-v27";
 const SHELL_ASSETS = [
   "/u/",
   "/u/index.html",
@@ -20,6 +20,12 @@ const SHELL_ASSETS = [
   "/fonts/noto-sans-devanagari.woff2",
   "/fonts/noto-sans-bengali.woff2",
   "/assets/qrcode.min.js",
+  "/assets/idb-outbox.js",
+  "/assets/merkle-chain.js",
+  "/assets/e2ee-crypto.js",
+  "/assets/image-processor.js",
+  "/assets/telemetry.js",
+  "/assets/webauthn-lock.js",
   "/assets/icon.svg",
   "/assets/icon.webp",
   "/manifest.json"
@@ -84,4 +90,77 @@ self.addEventListener("fetch", (event) => {
       });
     })
   );
+});
+
+// =========================================================================
+// Web Push Notifications Handler (VAPID / RFC 8292)
+// =========================================================================
+self.addEventListener("push", (event) => {
+  let data = {
+    title: "Udhaar",
+    body: "New update on your Udhaar record.",
+    url: "/ledger/"
+  };
+
+  try {
+    if (event.data) {
+      data = event.data.json();
+    }
+  } catch (_) {
+    if (event.data) {
+      data.body = event.data.text();
+    }
+  }
+
+  const title = data.title || "Udhaar";
+  const options = {
+    body: data.body,
+    icon: "/assets/icon.webp",
+    badge: "/assets/icon.webp",
+    vibrate: [100, 50, 100],
+    data: {
+      url: data.url || "/ledger/"
+    },
+    actions: [
+      { action: "open", title: "View Record" },
+      { action: "close", title: "Dismiss" }
+    ]
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  if (event.action === "close") return;
+
+  const targetUrl = event.notification.data?.url || "/ledger/";
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if (client.url.includes("/ledger/") && "focus" in client) {
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
+
+// =========================================================================
+// Periodic & Background Sync Handler
+// =========================================================================
+self.addEventListener("periodicsync", (event) => {
+  if (event.tag === "sync-ledger") {
+    event.waitUntil(
+      self.clients.matchAll({ type: "window" }).then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({ type: "TRIGGER_OUTBOX_SYNC" });
+        });
+      })
+    );
+  }
 });

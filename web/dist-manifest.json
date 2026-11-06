@@ -1,6 +1,6 @@
 {
   "version": "21.0.0",
-  "timestamp": "2026-11-06T20:40:45.020Z",
+  "timestamp": "2026-11-06T23:11:23.213Z",
   "budgets": {
     "landingKb": 250.3,
     "guestKb": 198.3
@@ -13,13 +13,19 @@
     "site-config.js": "7ed0685f1f",
     "design-tokens.css": "0503fa3b5b",
     "manifest.json": "7883e2a0ba",
-    "sw.js": "ec27aae798",
+    "sw.js": "1c271f9cf8",
     "privacy.html": "94abcf2f91",
     "privacy.css": "5ead74d46f",
     "privacy.js": "602c9d501e",
     "404.html": "32abe4f02c",
     "u/index.html": "13600ef064",
     "u/guest.css": "bddc2c83c7",
-    "u/guest.js": "ea14e43e2a"
+    "u/guest.js": "ea14e43e2a",
+    "assets/idb-outbox.js": "40e9410e10",
+    "assets/merkle-chain.js": "768271e6dc",
+    "assets/e2ee-crypto.js": "72b93bad7b",
+    "assets/image-processor.js": "acf683c8fb",
+    "assets/telemetry.js": "5e136cad12",
+    "assets/webauthn-lock.js": "840764efb0"
   }
 }

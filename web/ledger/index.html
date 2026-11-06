@@ -15,6 +15,12 @@
   <link rel="stylesheet" href="/ledger/ledger.css">
 
   <script src="/assets/qrcode.min.js" defer></script>
+  <script src="/assets/merkle-chain.js" defer></script>
+  <script src="/assets/e2ee-crypto.js" defer></script>
+  <script src="/assets/idb-outbox.js" defer></script>
+  <script src="/assets/image-processor.js" defer></script>
+  <script src="/assets/telemetry.js" defer></script>
+  <script src="/assets/webauthn-lock.js" defer></script>
   <script src="/ledger/ledger.js" defer></script>
 </head>
 <body>
@@ -63,6 +69,17 @@
         <!-- Soundbox Audio Chime Toggle -->
         <button id="btn-sound-toggle" class="btn-icon" aria-label="Toggle soundbox audio chime" type="button" title="Soundbox Confirmation Chime">
           <span id="sound-icon" aria-hidden="true">🔔</span>
+        </button>
+
+        <!-- Biometric Lock / WebAuthn Guard -->
+        <button id="btn-biometric-toggle" class="btn-icon" aria-label="Toggle biometric passkey lock" type="button" title="Biometric Passkey Screen Lock">
+          <span id="biometric-icon" aria-hidden="true">🔐</span>
+        </button>
+
+        <!-- Outbox Sync Status Pill -->
+        <button id="btn-outbox-status" class="btn-outbox-pill" aria-label="Offline outbox sync status" type="button" title="Outbox Sync Queue">
+          <span id="outbox-icon" class="outbox-icon" aria-hidden="true">✓</span>
+          <span id="outbox-text">Synced</span>
         </button>
 
         <!-- Account Verification / Profile Pill -->

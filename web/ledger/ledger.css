@@ -249,6 +249,37 @@ body {
 .btn-account:hover {
   background: var(--emerald-100);
 }
+
+.btn-outbox-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--surface-bg, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  color: var(--text-muted, #64748b);
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-outbox-pill.pending {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #b45309;
+}
+.btn-outbox-pill.syncing {
+  background: #e0f2fe;
+  border-color: #0ea5e9;
+  color: #0284c7;
+}
+.btn-outbox-pill:hover {
+  background: var(--surface-hover, #f1f5f9);
+}
+.outbox-icon {
+  font-size: 12px;
+}
 .account-status-dot {
   width: 8px;
   height: 8px;
