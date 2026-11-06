@@ -75,19 +75,40 @@ class GuestWebCloudRepository @Inject constructor(
         lenderUpiId: String = "",
         creatorPhone: String = ""
     ): GuestWebLinkCreateResult {
-        if (functions == null) {
-            val localSecret = VerificationCryptoHelper.generateShareToken()
+        fun buildLocalFallbackResult(errMessage: String? = null): GuestWebLinkCreateResult {
+            val baseToken = VerificationCryptoHelper.generateShareToken()
             val localOtp = ((Math.random() * 900000).toInt() + 100000).toString()
-            val localUrl = "https://udhaar.jyotirmoyb.com/u/r/$recordId#$localSecret"
+            val selfContainedFragment = VerificationCryptoHelper.buildSelfContainedGuestFragment(
+                recordId = recordId,
+                secretToken = baseToken,
+                counterpartyRole = counterpartyRole,
+                lenderName = lenderName,
+                borrowerName = borrowerName,
+                principalAmountPaise = principalAmountPaise,
+                currency = currency,
+                startDateMillis = startDateMillis,
+                expiryDateMillis = expiryDateMillis,
+                creatorPhone = creatorPhone,
+                lenderUpiId = lenderUpiId,
+                trustLevelRequired = trustLevelRequired,
+                whatsappOtp = localOtp,
+                contentHash = contentHash
+            )
+            val localUrl = "https://udhaar.jyotirmoyb.com/u/r/$recordId#$selfContainedFragment"
             return GuestWebLinkCreateResult(
                 success = true,
                 recordId = recordId,
                 url = localUrl,
-                secret = localSecret,
+                secret = selfContainedFragment,
                 whatsappOtp = localOtp,
                 expiresAt = "$expiryDays days",
-                trustLevel = trustLevelRequired
+                trustLevel = trustLevelRequired,
+                errorMessage = errMessage
             )
+        }
+
+        if (functions == null) {
+            return buildLocalFallbackResult()
         }
         return try {
             val payload = hashMapOf<String, Any?>(
@@ -115,10 +136,14 @@ class GuestWebCloudRepository @Inject constructor(
             val result = functions.getHttpsCallable("createGuestWebLink").call(payload).await()
             @Suppress("UNCHECKED_CAST")
             val data = result.getData() as? Map<String, Any> ?: emptyMap()
+            val remoteUrl = data["url"] as? String ?: ""
+            if (remoteUrl.isBlank()) {
+                return buildLocalFallbackResult()
+            }
             GuestWebLinkCreateResult(
                 success = data["success"] as? Boolean ?: true,
                 recordId = data["recordId"] as? String ?: recordId,
-                url = data["url"] as? String ?: "",
+                url = remoteUrl,
                 secret = data["secret"] as? String ?: "",
                 whatsappOtp = data["whatsappOtp"] as? String ?: "",
                 expiresAt = data["expiresAt"] as? String ?: "",
@@ -126,19 +151,7 @@ class GuestWebCloudRepository @Inject constructor(
             )
         } catch (e: Exception) {
             SafeLogger.e("GuestWebCloudRepo", "Failed creating guest web link via Cloud Functions", e)
-            val localSecret = VerificationCryptoHelper.generateShareToken()
-            val localOtp = ((Math.random() * 900000).toInt() + 100000).toString()
-            val localUrl = "https://udhaar.jyotirmoyb.com/u/r/$recordId#$localSecret"
-            GuestWebLinkCreateResult(
-                success = true,
-                recordId = recordId,
-                url = localUrl,
-                secret = localSecret,
-                whatsappOtp = localOtp,
-                expiresAt = "$expiryDays days",
-                trustLevel = trustLevelRequired,
-                errorMessage = e.message
-            )
+            buildLocalFallbackResult(e.message)
         }
     }
 

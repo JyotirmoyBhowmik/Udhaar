@@ -942,7 +942,15 @@
         const startMs = parseInt(parts[8] || "0", 36) || Date.now();
         const expMs = parts[9] ? (parseInt(parts[9], 36) || null) : null;
         const cPhone = unescapePipeField(parts[11] || "");
+        const field12 = unescapePipeField(parts[12] || "");
+        const field13 = unescapePipeField(parts[13] || "");
+        const field14 = unescapePipeField(parts[14] || "");
         const customHash = unescapePipeField(parts[15] || "");
+        const upiId = field12.includes("@") ? field12 : "";
+        const trustReq = (field13 === "W" || field13 === "WHATSAPP_OTP" || field13 === "WHATSAPP_CODE")
+          ? "WHATSAPP_CODE"
+          : "LINK_ONLY";
+        const expectedOtp = /^\d{6}$/.test(field14) ? field14 : "";
         return {
           recordId: rid,
           secret: tok,
@@ -956,8 +964,10 @@
           startDateMillis: startMs,
           expiryDateMillis: expMs,
           creatorPhone: cPhone,
+          lenderUpiId: upiId || undefined,
+          expectedOtp: expectedOtp || undefined,
           contentHash: customHash || ("v2-" + rid),
-          trustLevelRequired: "LINK_ONLY",
+          trustLevelRequired: trustReq,
           status: "PENDING_CONFIRMATION",
           isSelfContainedToken: true
         };
@@ -1007,18 +1017,20 @@
     const urlParams = new URLSearchParams(search);
     testState = urlParams.get("state") || "";
     let recId = "";
-    let embeddedRecord = null;
+    let embeddedRecord = decodeEmbeddedVerificationToken(hash);
     if (pathname.includes("/u/r/")) {
       recId = pathname.substring(pathname.indexOf("/u/r/") + 5).split("/")[0].split("?")[0].split("#")[0];
     } else if (pathname.includes("/u/") && !pathname.includes("/u/p/")) {
       const segment = pathname.substring(pathname.indexOf("/u/") + 3).split("/")[0].split("?")[0].split("#")[0];
-      embeddedRecord = decodeEmbeddedVerificationToken(segment);
+      if (!embeddedRecord) {
+        embeddedRecord = decodeEmbeddedVerificationToken(segment);
+      }
       recId = embeddedRecord ? embeddedRecord.recordId : segment;
     }
 
     // Secret token from fragment (or embedded self-contained payload when opened directly via /u/<token>)
     return {
-      recordId: recId,
+      recordId: recId || (embeddedRecord ? embeddedRecord.recordId : ""),
       secret: hash || (embeddedRecord ? embeddedRecord.secret : ""),
       isDemo,
       embeddedRecord
@@ -1045,19 +1057,31 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok) {
-        if (recordData && recordData.isSelfContainedToken && endpoint !== "getGuestRecord" && (resp.status === 404 || resp.status >= 500)) {
+      let data = null;
+      try {
+        data = await resp.json();
+      } catch (_) {
+        data = null;
+      }
+      const isValidApiJson = data && typeof data === "object" && (
+        data.success !== undefined ||
+        data.record !== undefined ||
+        data.recordId !== undefined ||
+        data.lenderName !== undefined ||
+        data.error !== undefined
+      );
+      if (!resp.ok || !isValidApiJson) {
+        if (recordData && recordData.isSelfContainedToken && endpoint !== "getGuestRecord" && (!isValidApiJson || resp.status === 404 || resp.status >= 500)) {
           return { success: true, trustLevel: "Private link" };
         }
-        const err = new Error(data.error || ("Request failed with status " + resp.status));
-        err.status = resp.status;
-        err.data = data;
+        const err = new Error((data && data.error) || ("Request failed with status " + resp.status));
+        err.status = !isValidApiJson && resp.ok ? 503 : resp.status;
+        err.data = data || {};
         throw err;
       }
       return data;
     } catch (err) {
-      if (recordData && recordData.isSelfContainedToken && endpoint !== "getGuestRecord" && !err.status) {
+      if (recordData && recordData.isSelfContainedToken && endpoint !== "getGuestRecord" && (!err.status || err.status === 404 || err.status >= 500)) {
         return { success: true, trustLevel: "Private link" };
       }
       throw err;
@@ -1399,6 +1423,13 @@
   // 9. Submit Confirmation with Code
   async function submitConfirmation(codeStr) {
     try {
+      if (recordData && recordData.isSelfContainedToken && recordData.expectedOtp) {
+        if (String(codeStr || "").trim() !== String(recordData.expectedOtp).trim()) {
+          const err = new Error("Invalid verification code");
+          err.status = 403;
+          throw err;
+        }
+      }
       announce("Confirming record...", false);
       await apiCall("guestConfirm", {
         recordId: urlRecordId,

@@ -539,6 +539,59 @@ object VerificationCryptoHelper {
     }
 
     /**
+     * Encodes a self-contained compact v2 fragment for `/u/r/<recordId>#<fragment>` so the web
+     * verification portal works 100% client-side on Firebase Hosting (Spark free tier) even when
+     * Cloud Functions are not deployed.
+     */
+    fun buildSelfContainedGuestFragment(
+        recordId: String,
+        secretToken: String,
+        counterpartyRole: String,
+        lenderName: String,
+        borrowerName: String,
+        principalAmountPaise: Long,
+        currency: String,
+        startDateMillis: Long,
+        expiryDateMillis: Long?,
+        creatorPhone: String = "",
+        lenderUpiId: String = "",
+        trustLevelRequired: String = "WHATSAPP_OTP",
+        whatsappOtp: String = "",
+        contentHash: String = ""
+    ): String {
+        val roleCode = if (counterpartyRole.equals("LENDER", ignoreCase = true)) "T" else "G"
+        val curCode = if (currency.equals("INR", ignoreCase = true)) "" else currency
+        val start36 = (if (startDateMillis > 0L) startDateMillis else System.currentTimeMillis()).toString(36)
+        val exp36 = expiryDateMillis?.takeIf { it > 0L }?.toString(36).orEmpty()
+        val trustCode = if (trustLevelRequired.equals("LINK_ONLY", ignoreCase = true)) "L" else "W"
+        val principalRupees = principalAmountPaise.toDouble() / 100.0
+        val shortHash = if (contentHash.length > 16) contentHash.take(16) else contentHash
+        val fields = mutableListOf(
+            "v2",
+            escapePipeField(recordId),
+            escapePipeField(secretToken),
+            roleCode,
+            escapePipeField(lenderName),
+            escapePipeField(borrowerName),
+            formatCompactNumber(principalRupees),
+            escapePipeField(curCode),
+            start36,
+            exp36,
+            "",
+            escapePipeField(creatorPhone),
+            escapePipeField(lenderUpiId),
+            trustCode,
+            escapePipeField(whatsappOtp),
+            escapePipeField(shortHash)
+        )
+        while (fields.size > 9 && fields.last().isEmpty()) {
+            fields.removeAt(fields.lastIndex)
+        }
+        val serialized = fields.joinToString("|")
+        return base64UrlEncode(serialized.toByteArray(StandardCharsets.UTF_8))
+    }
+
+    /**
      * Generates a compact shareable Payment Profile link (`https://udhaar.jyotirmoyb.com/u/p/<token>`)
      * for "Share my payment details" and QR scanning.
      */
