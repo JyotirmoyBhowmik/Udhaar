@@ -64,6 +64,19 @@ test("0-value confirmation rejection: ensures positive transaction amount", () =
   assert.equal(checkCanConfirm(-100, 0), false); // Rejected: negative amount
 });
 
+test("Web Ledger HTML Structure: Toast container, Audit Modal, Aspect Hint, and Sign Out button", () => {
+  const ledgerHtmlPath = path.resolve(__dirname, "../../web/ledger/index.html");
+  const html = fs.readFileSync(ledgerHtmlPath, "utf8");
+
+  assert.ok(html.includes('id="toast-container"'), "Must include #toast-container for visual alerts");
+  assert.ok(html.includes('id="modal-audit-trail"'), "Must include #modal-audit-trail for cryptographic audit log");
+  assert.ok(html.includes('id="role-aspect-hint"'), "Must include #role-aspect-hint for positive/negative aspect callouts");
+  assert.ok(html.includes('id="btn-auth-logout"'), "Must include #btn-auth-logout for multi-user session switching");
+  assert.ok(html.includes('id="err-person-name"'), "Must include inline error container #err-person-name");
+  assert.ok(html.includes('id="err-person-phone"'), "Must include inline error container #err-person-phone");
+  assert.ok(html.includes('id="err-amount"'), "Must include inline error container #err-amount");
+});
+
 test("Strict Content-Security Policy on web/ledger/index.html (zero inline scripts and styles)", () => {
   const ledgerHtmlPath = path.resolve(__dirname, "../../web/ledger/index.html");
   assert.ok(fs.existsSync(ledgerHtmlPath), "web/ledger/index.html must exist");

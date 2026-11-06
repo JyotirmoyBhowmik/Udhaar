@@ -960,3 +960,281 @@ body {
     flex-direction: column;
   }
 }
+
+/* =========================================================================
+   Toast Notification System
+   ========================================================================= */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+  max-width: 380px;
+  width: calc(100% - 40px);
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-lg);
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text-primary);
+  animation: toastSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.toast-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.toast-msg {
+  flex: 1;
+  word-break: break-word;
+}
+
+.toast-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+  line-height: 1;
+}
+.toast-close:hover {
+  color: var(--text-primary);
+}
+
+.toast-success {
+  border-left: 4px solid var(--emerald-600);
+}
+.toast-error {
+  border-left: 4px solid var(--coral-600);
+}
+.toast-info {
+  border-left: 4px solid var(--emerald-500);
+}
+
+/* =========================================================================
+   Aspect Hint Callout (Positive / Negative Asset vs Liability)
+   ========================================================================= */
+.aspect-hint-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  margin-top: 10px;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.aspect-lent {
+  background: var(--emerald-50);
+  border: 1px solid var(--emerald-200);
+  color: var(--emerald-800);
+}
+
+[data-theme="dark"] .aspect-lent {
+  background: rgba(6, 78, 59, 0.4);
+  border-color: var(--emerald-700);
+  color: var(--emerald-100);
+}
+
+.aspect-borrowed {
+  background: var(--coral-50);
+  border: 1px solid var(--coral-100);
+  color: var(--coral-700);
+}
+
+[data-theme="dark"] .aspect-borrowed {
+  background: rgba(136, 19, 55, 0.35);
+  border-color: var(--coral-700);
+  color: var(--coral-100);
+}
+
+.aspect-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+/* =========================================================================
+   Inline Validation Errors & Field Highlights
+   ========================================================================= */
+.inline-error {
+  color: var(--coral-600);
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 4px;
+  display: block;
+}
+
+.inline-error.hidden {
+  display: none;
+}
+
+[data-theme="dark"] .inline-error {
+  color: var(--coral-700);
+}
+
+.input-field.input-invalid {
+  border-color: var(--coral-500) !important;
+  background-color: var(--coral-50);
+}
+
+[data-theme="dark"] .input-field.input-invalid {
+  background-color: rgba(136, 19, 55, 0.2);
+}
+
+.input-field.input-valid {
+  border-color: var(--emerald-500) !important;
+}
+
+/* =========================================================================
+   Decorated Data & Cryptographic Audit Trail Modal
+   ========================================================================= */
+.modal-card-wide {
+  max-width: 620px;
+}
+
+.decorated-data-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 14px 0 20px;
+}
+
+.decorated-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.decorated-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.hash-copy-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.text-hash {
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--slate-100);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .text-hash {
+  background: var(--slate-800);
+}
+
+.timeline-heading {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.audit-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  padding-left: 20px;
+  border-left: 2px solid var(--border-default);
+  margin-left: 8px;
+  margin-bottom: 20px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.timeline-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.timeline-item::before {
+  content: "";
+  position: absolute;
+  left: -27px;
+  top: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  background: var(--emerald-600);
+  border: 2px solid var(--bg-card);
+}
+
+.timeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.timeline-action {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.timeline-time {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.timeline-summary {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.timeline-actor {
+  font-size: 11px;
+  color: var(--emerald-700);
+  font-weight: 600;
+}
+

@@ -19,6 +19,9 @@
 <body>
   <a href="#main-content" class="skip-link">Skip to main content</a>
 
+  <!-- Visual Toast Notifications Container -->
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
   <!-- Network Offline Banner -->
   <aside id="network-banner" class="network-banner hidden" role="status" aria-live="polite" hidden>
     <div class="banner-content">
@@ -224,6 +227,7 @@
         </div>
 
         <div class="modal-footer">
+          <button type="button" id="btn-auth-logout" class="btn btn-secondary" data-i18n="btn_logout">Sign Out</button>
           <button type="button" id="btn-auth-done" class="btn btn-primary" data-i18n="btn_continue">Continue to Ledger</button>
         </div>
       </div>
@@ -252,17 +256,24 @@
               <span class="role-pill role-pill-borrowed" data-i18n="role_borrowed_label">I Borrowed Money (Taken)</span>
             </label>
           </div>
+          <!-- Positive / Negative Aspect Callout -->
+          <div id="role-aspect-hint" class="aspect-hint-box aspect-lent" role="status" aria-live="polite">
+            <span class="aspect-icon" aria-hidden="true">📈</span>
+            <span id="role-aspect-text" data-i18n="aspect_lent_hint">Positive Asset: You will receive this money back. It adds positively to your net balance.</span>
+          </div>
         </fieldset>
 
         <!-- Person Details -->
         <div class="form-row">
           <div class="form-group flex-1">
             <label for="input-person-name" class="input-label" data-i18n="label_person_name">Person Name</label>
-            <input type="text" id="input-person-name" class="input-field" placeholder="e.g. Ravi Sharma" required autocomplete="name">
+            <input type="text" id="input-person-name" class="input-field" placeholder="e.g. Ravi Sharma" required autocomplete="name" aria-describedby="err-person-name">
+            <div id="err-person-name" class="inline-error hidden" role="alert" hidden></div>
           </div>
           <div class="form-group flex-1">
             <label for="input-person-phone" class="input-label" data-i18n="label_person_phone">Mobile Number</label>
-            <input type="tel" id="input-person-phone" class="input-field" placeholder="9876543210" required autocomplete="tel" inputmode="tel">
+            <input type="tel" id="input-person-phone" class="input-field" placeholder="9876543210" required autocomplete="tel" inputmode="tel" aria-describedby="err-person-phone">
+            <div id="err-person-phone" class="inline-error hidden" role="alert" hidden></div>
           </div>
         </div>
 
@@ -271,8 +282,9 @@
           <label for="input-amount" class="input-label" data-i18n="label_amount_rupees">Amount in Rupees (₹)</label>
           <div class="amount-input-wrap">
             <span class="currency-prefix" aria-hidden="true">₹</span>
-            <input type="number" id="input-amount" class="input-field font-mono" placeholder="5000" min="1" step="1" required inputmode="numeric">
+            <input type="number" id="input-amount" class="input-field font-mono" placeholder="5000" min="1" max="1000000" step="1" required inputmode="numeric" aria-describedby="err-amount">
           </div>
+          <div id="err-amount" class="inline-error hidden" role="alert" hidden></div>
         </div>
 
         <!-- Due Date Selection -->
@@ -284,7 +296,8 @@
             <button type="button" class="date-chip" data-days="30" data-i18n="date_chip_1m">1 Month</button>
             <button type="button" class="date-chip active" data-days="custom" data-i18n="date_chip_custom">Custom</button>
           </div>
-          <input type="date" id="input-due-date" class="input-field margin-top-sm">
+          <input type="date" id="input-due-date" class="input-field margin-top-sm" aria-describedby="err-due-date">
+          <div id="err-due-date" class="inline-error hidden" role="alert" hidden></div>
         </div>
 
         <!-- Note & UPI ID -->
@@ -295,8 +308,9 @@
 
         <div class="form-group">
           <label for="input-upi" class="input-label" data-i18n="label_upi_optional">Your UPI ID (Optional)</label>
-          <input type="text" id="input-upi" class="input-field font-mono" placeholder="username@okhdfcbank" maxlength="60">
+          <input type="text" id="input-upi" class="input-field font-mono" placeholder="username@okhdfcbank" maxlength="60" aria-describedby="err-upi">
           <span class="field-hint" data-i18n="hint_upi">Shown on receipt so counterparty can pay via QR or UPI app.</span>
+          <div id="err-upi" class="inline-error hidden" role="alert" hidden></div>
         </div>
 
         <div class="modal-footer">
@@ -344,6 +358,44 @@
             <span data-i18n="btn_share_whatsapp">Share via WhatsApp</span>
           </a>
           <button type="button" id="btn-finish-share" class="btn btn-secondary full-width margin-top-xs" data-i18n="btn_done">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 4: Decorated Data & Activity Audit Trail -->
+  <div id="modal-audit-trail" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="audit-modal-title" hidden>
+    <div class="modal-card modal-card-wide">
+      <div class="modal-header">
+        <h2 id="audit-modal-title" class="modal-title" data-i18n="audit_modal_title">Cryptographic Audit Trail</h2>
+        <button id="btn-close-audit" class="btn-close" type="button" aria-label="Close audit dialog">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-intro" data-i18n="audit_intro">Every Udhaar transaction is decorated with cryptographic verification data and an immutable audit log of all events and state changes.</p>
+
+        <!-- Cryptographic Content Hash & Trust Badge -->
+        <div class="decorated-data-card">
+          <div class="decorated-row">
+            <span class="decorated-label" data-i18n="label_trust_level">Verification Trust Level:</span>
+            <span id="audit-trust-badge" class="badge badge-green">✓ SHA-256 Verified</span>
+          </div>
+          <div class="decorated-row">
+            <span class="decorated-label" data-i18n="label_content_hash">Record SHA-256 Fingerprint:</span>
+            <div class="hash-copy-wrap">
+              <span id="audit-content-hash" class="font-mono text-hash">—</span>
+              <button type="button" id="btn-copy-hash" class="btn btn-sm btn-secondary" data-i18n="btn_copy">Copy</button>
+            </div>
+          </div>
+        </div>
+
+        <h3 class="timeline-heading" data-i18n="label_timeline">Activity Audit Timeline</h3>
+        <div id="audit-timeline-list" class="audit-timeline" role="list">
+          <!-- Dynamically populated timeline items -->
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" id="btn-finish-audit" class="btn btn-primary full-width" data-i18n="btn_close">Close</button>
         </div>
       </div>
     </div>

@@ -1518,6 +1518,31 @@ exports.syncWebRecord = onRequest(
       const lenderName = isLent ? "You" : partyName;
       const borrowerName = isLent ? partyName : "You";
 
+      // Cryptographic SHA-256 fingerprint & Immutable Activity Audit Trail
+      const contentHash = crypto
+        .createHash("sha256")
+        .update([recordId, uid, partyPhone, amountPaise, currency, nowMs].join(":"))
+        .digest("hex");
+
+      const initialAuditTrail = [
+        {
+          eventId: "ev_" + nowMs + "_1",
+          timestamp: nowMs,
+          actionType: "RECORD_CREATED",
+          actor: uid,
+          summaryText: `${isLent ? "Lent" : "Borrowed"} ₹${(amountPaise / 100).toFixed(2).replace(/\.00$/, "")} recorded with ${partyName}`,
+          contentHash
+        },
+        {
+          eventId: "ev_" + nowMs + "_2",
+          timestamp: nowMs,
+          actionType: "WHATSAPP_CODE_GENERATED",
+          actor: "SYSTEM",
+          summaryText: `Single-use 6-digit WhatsApp verification code generated for ${partyPhone}`,
+          contentHash
+        }
+      ];
+
       const personalRecord = {
         recordId,
         creatorUid: uid,
@@ -1537,6 +1562,8 @@ exports.syncWebRecord = onRequest(
         status: "PENDING_CONFIRMATION",
         whatsappOtp,
         secret,
+        contentHash,
+        auditTrail: initialAuditTrail,
         createdAt: nowMs,
         updatedAt: nowMs
       };
@@ -1567,6 +1594,8 @@ exports.syncWebRecord = onRequest(
         whatsappVerified: false,
         revoked: false,
         status: "PENDING_CONFIRMATION",
+        contentHash,
+        auditTrail: initialAuditTrail,
         createdAt: nowMs,
         updatedAt: nowMs
       };
