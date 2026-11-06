@@ -18,8 +18,8 @@ android {
     applicationId = "com.jyotirmoyb.udhaar"
     minSdk = 24
     targetSdk = 36
-    versionCode = 21
-    versionName = "21.0"
+    versionCode = 22
+    versionName = "22.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -44,9 +44,10 @@ android {
 
   buildTypes {
     release {
+      val enableR8Minify = System.getenv("CI") == "true" || System.getenv("ENABLE_R8_MINIFY") == "true"
       isCrunchPngs = false
-      isMinifyEnabled = true
-      isShrinkResources = true
+      isMinifyEnabled = enableR8Minify
+      isShrinkResources = enableR8Minify
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       // Do not remove or modify this signingConfig assignment. It is necessary for Android apps in
       // AI Studio.
