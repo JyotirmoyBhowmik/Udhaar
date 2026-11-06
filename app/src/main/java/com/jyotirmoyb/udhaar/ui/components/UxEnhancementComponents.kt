@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -366,14 +367,16 @@ fun NeedsAttentionStrip(
                         text = subtitle,
                         style = MaterialTheme.typography.bodySmall,
                         color = accentColor.copy(alpha = 0.85f),
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
             }
             AppIconButton(
                 onClick = onDismiss,
-                modifier = Modifier.testTag("dismiss_needs_attention_button")
+                modifier = Modifier
+                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    .testTag("dismiss_needs_attention_button")
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,

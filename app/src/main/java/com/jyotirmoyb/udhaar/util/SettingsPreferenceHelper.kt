@@ -58,6 +58,7 @@ object SettingsPreferenceHelper {
         val DEFAULT_WEB_SHOW_UPI = booleanPreferencesKey("default_web_show_upi")
         val ANALYTICS_CRASH_CONSENT = booleanPreferencesKey("analytics_crash_consent")
         val BACKUP_RECOVERY_KEY_ID = stringPreferencesKey("backup_recovery_key_id")
+        val GROUP_RECORDS_BY_PERSON = booleanPreferencesKey("group_records_by_person")
     }
 
     fun mapPreferencesToUserSettings(
@@ -147,7 +148,8 @@ object SettingsPreferenceHelper {
             defaultWebTrustLevel = prefs[PrefKeys.DEFAULT_WEB_TRUST_LEVEL] ?: "WHATSAPP_OTP",
             defaultWebShowUpi = prefs[PrefKeys.DEFAULT_WEB_SHOW_UPI] ?: true,
             analyticsCrashConsent = prefs[PrefKeys.ANALYTICS_CRASH_CONSENT] ?: false,
-            backupRecoveryKeyId = prefs[PrefKeys.BACKUP_RECOVERY_KEY_ID] ?: ""
+            backupRecoveryKeyId = prefs[PrefKeys.BACKUP_RECOVERY_KEY_ID] ?: "",
+            groupRecordsByPerson = prefs[PrefKeys.GROUP_RECORDS_BY_PERSON] ?: false
         )
     }
 }

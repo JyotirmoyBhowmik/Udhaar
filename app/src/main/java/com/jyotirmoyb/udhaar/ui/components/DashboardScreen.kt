@@ -176,8 +176,8 @@ fun DashboardScreen(
         }
     }
 
-    val groupedFilteredItems = remember(uiState.filteredItems, uiState.selectedFilter, nowMillis) {
-        buildGroupedFilteredItems(uiState.filteredItems, uiState.selectedFilter, endOfWeekMillis)
+    val groupedFilteredItems = remember(uiState.filteredItems, uiState.selectedFilter, uiState.userSettings.groupRecordsByPerson, nowMillis) {
+        buildGroupedFilteredItems(uiState.filteredItems, uiState.selectedFilter, endOfWeekMillis, groupByPerson = uiState.userSettings.groupRecordsByPerson)
     }
 
     val ledgerListState = rememberLazyListState()
@@ -217,7 +217,9 @@ fun DashboardScreen(
         snackbarHost = {
             SnackbarHost(
                 hostState = snackbarHostState,
-                modifier = Modifier.testTag("dashboard_snackbar_host")
+                modifier = Modifier
+                    .padding(bottom = 80.dp)
+                    .testTag("dashboard_snackbar_host")
             )
         },
         floatingActionButtonPosition = FabPosition.Center,
@@ -425,12 +427,12 @@ fun DashboardScreen(
                                 }
                             } else {
                                 val showGroupStickyHeaders = groupedFilteredItems.size > 1 ||
-                                    (groupedFilteredItems.size == 1 && groupedFilteredItems.first().isOverdueGroup)
+                                    (groupedFilteredItems.size == 1 && (groupedFilteredItems.first().isOverdueGroup || uiState.userSettings.groupRecordsByPerson))
 
                                 groupedFilteredItems.forEach { groupSection ->
                                     if (showGroupStickyHeaders) {
                                         stickyHeader(key = "group_header_${groupSection.key}") {
-                                            val groupTitle = stringResource(groupSection.titleRes)
+                                            val groupTitle = if (groupSection.titleText.isNotBlank()) groupSection.titleText else stringResource(groupSection.titleRes)
                                             Box(
                                                 modifier = udhaarAnimateItem(reducedMotion)
                                                     .fillMaxWidth()

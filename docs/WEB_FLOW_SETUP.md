@@ -156,26 +156,46 @@ Once running:
 - **Functions Emulator:** `http://127.0.0.1:5001/gen-lang-client-0216629575/asia-south1/`
 - **Emulator UI:** `http://localhost:4000`
 
-### Running the Automated Test Suites
+### Running the Automated Test Suites & Build Pipeline
 
 1. **Internationalization & Plain-Language Linter:**
    Validates that all Android string files (`values`, `values-hi`, `values-bn`, `values-as`, `values-ne`) and web dictionaries (`web/landing.js`, `web/u/guest.js`) have 100% complete coverage, zero untranslated English strings, zero banned technical jargon words, and zero disallowed ALL CAPS:
    ```bash
-   npm run check:i18n --prefix functions
+   npm run check:i18n
    ```
    Expected output: **🎉 SUCCESS: All 5 languages verified! Zero missing keys, zero untranslated text, zero jargon!**
 
-2. **Backend, Security Rules, Web Flow & Playwright E2E Suite:**
-   Runs unit tests, security rules validation, and full browser automated tests across all 5 languages at 360px mobile and desktop viewports, axe-core accessibility audits, and Lighthouse checks:
+2. **Web Production Build & Asset Integrity Pipeline:**
+   Builds, validates bundle budgets (landing page &lt;= 600 KB, guest portal &lt;= 250 KB), generates hash manifests (`web/dist-manifest.json`), and verifies CSP compliance (zero inline styles, zero inline scripts):
    ```bash
-   npm test --prefix functions
+   npm run build
    ```
-   Expected output: **62 passing tests (0 failures)**.
+   Expected output: **🎉 SUCCESS: Web production build passed all performance, security, and budget audits!**
 
-3. **Android Unit & Robolectric Suite:**
+3. **Image Optimization & Responsive WebP Generation:**
+   Optimizes web images into responsive WebP variants (480px, 800px, 1200px) with `srcset`:
+   ```bash
+   npm run optimize:images
+   ```
+
+4. **Multi-Browser E2E, Visual Regression & axe-core Accessibility Audits:**
+   Executes Playwright tests across Chromium, Firefox, and WebKit on mobile (360px), tablet (768px), and desktop (1280px) viewports across all 5 regional languages, verifying interactive flows, integer-paise calculator math, and zero critical/serious accessibility violations:
+   ```bash
+   npm run test:e2e
+   ```
+   Expected output: **12 passing tests (0 failures)**.
+
+5. **Complete Web & Cloud Functions Test Suite:**
+   Runs unit tests, security rules validation, repayment calculator math, and full browser automated tests:
+   ```bash
+   npm test
+   ```
+   Expected output: **54 passing tests (0 failures)**.
+
+6. **Android Unit & Robolectric Suite:**
    Validates database migrations, crypto operations, view models, and UI contracts:
    ```powershell
-   .\gradlew testDebugUnitTest
+   .\gradlew.bat testDebugUnitTest
    ```
    Expected output: **BUILD SUCCESSFUL (all unit and Robolectric tests passing, 0 failures)**.
 

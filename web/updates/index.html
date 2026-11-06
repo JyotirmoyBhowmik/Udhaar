@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="system">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>What's New — Udhaar Changelog</title>
+  <meta name="description" content="Recent updates, new features, and improvements to the Udhaar lending and borrowing app." />
+  <meta name="theme-color" content="#064E3B" />
+
+  <link rel="canonical" href="https://udhaar.jyotirmoyb.com/updates/" />
+  <link rel="icon" type="image/svg+xml" href="/assets/icon.svg" />
+  <link rel="alternate" hreflang="x-default" href="https://udhaar.jyotirmoyb.com/updates/" />
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/design-tokens.css" />
+  <link rel="stylesheet" href="/landing.css" />
+  <script src="/site-config.js" defer></script>
+  <script src="/updates/updates.js" defer></script>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="container nav-wrapper">
+      <a href="/" class="brand-logo" aria-label="UDHAAR - Home">
+        <span class="brand-icon">₹</span>
+        <span>UDHAAR</span>
+      </a>
+
+      <nav class="nav-links" aria-label="Primary Navigation">
+        <a href="/">Home</a>
+        <a href="/#how-it-works">How it works</a>
+        <a href="/trust/">Trust Center</a>
+        <a href="/updates/" class="nav-active">What's New</a>
+        <a href="/privacy.html">Privacy Policy</a>
+      </nav>
+
+      <div class="nav-right">
+        <select id="updates-lang-select" class="lang-select" aria-label="Select Language">
+          <option value="en">English</option>
+          <option value="hi">हिन्दी (Hindi)</option>
+          <option value="bn">বাংলা (Bengali)</option>
+          <option value="as">অসমীয়া (Assamese)</option>
+          <option value="ne">नेपाली (Nepali)</option>
+        </select>
+        <button id="theme-btn" class="theme-toggle-btn" type="button" aria-label="Toggle Dark Mode">🌙</button>
+        <a href="https://play.google.com/apps/testing/com.jyotirmoyb.udhaar" class="btn-header-play" id="header-play-btn">
+          Join early access
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="page-content container">
+    <section class="trust-hero">
+      <div class="hero-pill">
+        <span class="hero-pill-dot"></span>
+        <span id="txt-pill-version">Version 21.0 Active</span>
+      </div>
+      <h1 class="page-title" id="txt-updates-title">What's New in Udhaar</h1>
+      <p class="page-subtitle" id="txt-updates-subtitle">
+        Every version is built to keep your lending records simple, fast, and 100% private.
+      </p>
+    </section>
+
+    <!-- Changelog Container -->
+    <div id="changelog-container" class="changelog-list" aria-live="polite">
+      <!-- Generated dynamically from web/updates.json -->
+      <noscript>
+        <article class="changelog-card">
+          <h2>v21.0 — Web Repayment Calculator &amp; Interactive Demo</h2>
+          <p class="changelog-date">November 2026</p>
+          <ul>
+            <li>Plan your repayment with the integer-paise installment calculator.</li>
+            <li>Interactive guest flow walkthrough directly on the website.</li>
+            <li>Strict Content Security Policy and zero unreferenced asset footprint.</li>
+          </ul>
+        </article>
+      </noscript>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container footer-content">
+      <div class="footer-left">
+        <div class="brand-logo footer-logo">
+          <span class="brand-icon">₹</span>
+          <span>UDHAAR</span>
+        </div>
+        <p class="footer-desc">
+          Keep clear records of money you lend and borrow. Works 100% offline and stays on your phone.
+        </p>
+      </div>
+      <div class="footer-links">
+        <a href="/">Home</a>
+        <a href="/trust/">Trust Center</a>
+        <a href="/updates/">What's New</a>
+        <a href="/privacy.html">Privacy Policy</a>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      <p>© 2026 Udhaar. Free, private, and open-source.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

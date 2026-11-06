@@ -29,12 +29,16 @@
   <meta name="twitter:description" content="No more forgetting. No more arguments. Private offline lending and borrowing records with zero-cost WhatsApp confirmation." />
   <meta name="twitter:image" content="https://udhaar.jyotirmoyb.com/assets/og-image.jpg" />
 
-  <!-- Fonts from Old Theme Skin -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700;800&display=swap" rel="stylesheet" />
+  <!-- Favicon and App Icons -->
+  <link rel="icon" type="image/svg+xml" href="/assets/icon.svg" />
+  <link rel="alternate icon" type="image/webp" href="/assets/icon.webp" />
 
-  <!-- Stylesheet -->
+  <!-- Self-Hosted Subsetted Fonts Preload -->
+  <link rel="preload" href="/fonts/inter.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/space-grotesk.woff2" as="font" type="font/woff2" crossorigin />
+
+  <!-- Design System Tokens & Landing Stylesheets -->
+  <link rel="stylesheet" href="/design-tokens.css" />
   <link rel="stylesheet" href="/landing.css" />
 
   <!-- Structured Data (JSON-LD) -->
@@ -55,27 +59,36 @@
     "url": "https://udhaar.jyotirmoyb.com/"
   }
   </script>
+
+  <!-- External Site Configuration and Calculator Scripts -->
+  <script src="/site-config.js" defer></script>
+  <script src="/calculator.js" defer></script>
 </head>
 <body>
+  <!-- Accessibility Skip Link & Live Announcer -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <div id="live-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
   <!-- Sticky Navigation Header -->
-  <header class="site-header">
+  <header class="site-header" id="site-header" role="banner">
     <div class="container nav-wrapper">
-      <a href="/" class="brand-logo" aria-label="Udhaar Home">
-        <span class="brand-icon">₹</span>
+      <a href="/" class="brand-logo" aria-label="UDHAAR - Home">
+        <span class="brand-icon" aria-hidden="true">₹</span>
         <span data-i18n="brand_name">UDHAAR</span>
       </a>
 
       <nav class="nav-links" aria-label="Primary Navigation">
         <a href="#how-it-works" data-i18n="nav_how_it_works">How it works</a>
+        <a href="#calculator" data-i18n="nav_calculator">Calculator</a>
+        <a href="#interactive-demo" data-i18n="nav_demo">Try Demo</a>
         <a href="#benefits" data-i18n="nav_benefits">Benefits</a>
-        <a href="#trust" data-i18n="nav_trust">Trust &amp; Privacy</a>
+        <a href="/trust/" data-i18n="nav_trust">Trust Center</a>
         <a href="#faq" data-i18n="nav_faq">FAQ</a>
         <a href="/privacy.html" data-i18n="nav_privacy">Privacy Policy</a>
       </nav>
 
       <div class="nav-right">
-        <label for="lang-select" class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Language</label>
+        <label for="lang-select" class="sr-only">Language</label>
         <select id="lang-select" class="lang-select" aria-label="Select Language">
           <option value="en">English</option>
           <option value="hi">हिन्दी (Hindi)</option>
@@ -91,21 +104,72 @@
           target="_blank"
           rel="noopener noreferrer"
           class="btn-header-play"
+          data-store-button="header"
           data-i18n="btn_get_play"
         >
           Get on Google Play
         </a>
+
+        <!-- Mobile Hamburger Button -->
+        <button
+          id="mobile-menu-btn"
+          class="mobile-menu-btn"
+          type="button"
+          aria-label="Open navigation menu"
+          aria-expanded="false"
+          aria-controls="mobile-drawer"
+        >
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+        </button>
       </div>
     </div>
   </header>
 
-  <main>
-    <!-- Hero Section (Old Theme Emerald Radial Gradient + 3D Phone Card, New Content) -->
+  <!-- Mobile Drawer Overlay & Menu -->
+  <div class="mobile-drawer-backdrop" id="mobile-drawer-backdrop" aria-hidden="true"></div>
+  <aside class="mobile-drawer" id="mobile-drawer" role="dialog" aria-modal="true" aria-label="Mobile Navigation" inert>
+    <div class="drawer-header">
+      <div class="brand-logo">
+        <span class="brand-icon">₹</span>
+        <span data-i18n="brand_name">UDHAAR</span>
+      </div>
+      <button class="drawer-close-btn" id="drawer-close-btn" type="button" aria-label="Close navigation menu">✕</button>
+    </div>
+
+    <nav class="drawer-nav" aria-label="Mobile Navigation Links">
+      <a href="#how-it-works" class="drawer-link" data-i18n="nav_how_it_works">How it works</a>
+      <a href="#calculator" class="drawer-link" data-i18n="nav_calculator">Calculator</a>
+      <a href="#interactive-demo" class="drawer-link" data-i18n="nav_demo">Try Demo</a>
+      <a href="#benefits" class="drawer-link" data-i18n="nav_benefits">Benefits</a>
+      <a href="/trust/" class="drawer-link" data-i18n="nav_trust">Trust Center</a>
+      <a href="/updates/" class="drawer-link" data-i18n="nav_updates">What's New</a>
+      <a href="#faq" class="drawer-link" data-i18n="nav_faq">FAQ</a>
+      <a href="/privacy.html" class="drawer-link" data-i18n="nav_privacy">Privacy Policy</a>
+    </nav>
+
+    <div class="drawer-footer">
+      <a
+        href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="btn-primary drawer-cta"
+        data-store-button="drawer"
+        data-i18n="btn_get_play"
+      >
+        Get on Google Play
+      </a>
+    </div>
+  </aside>
+
+  <main id="main-content" role="main">
+    <!-- Hero Section (Emerald Radial Gradient + Real Phone Mockup & Floating Cards) -->
     <section class="hero-section">
       <div class="container hero-grid">
         <div class="hero-copy">
           <div class="hero-pill">
-            <span class="hero-pill-dot"></span>
+            <span class="hero-pill-dot" aria-hidden="true"></span>
             <span data-i18n="hero_pill">Free • Private • Works Offline</span>
           </div>
 
@@ -127,13 +191,14 @@
               target="_blank"
               rel="noopener noreferrer"
               class="btn-primary"
+              data-store-button="hero"
             >
-              <span>▶</span>
+              <span aria-hidden="true">▶</span>
               <span data-i18n="btn_get_play">Get on Google Play</span>
             </a>
 
             <a
-              href="/u/?demo=true"
+              href="#interactive-demo"
               id="btn-try-demo-hero"
               class="btn-secondary"
               data-i18n="btn_try_demo"
@@ -143,24 +208,213 @@
           </div>
         </div>
 
+        <!-- Realistic HTML/CSS Phone Mockup with Emerald Glow and Floating Live Cards -->
         <div class="hero-phone-wrap">
-          <div class="hero-phone-card">
-            <picture>
-              <source srcset="/assets/hero-3d-phone.webp" type="image/webp" />
-              <img
-                src="/assets/hero-3d-phone.png"
-                alt="Udhaar Android App showing clear lending and borrowing records"
-                width="360"
-                height="720"
-              />
-            </picture>
+          <div class="hero-phone-glow" aria-hidden="true"></div>
+
+          <div class="phone-mockup-frame">
+            <div class="phone-speaker" aria-hidden="true"></div>
+            <div class="phone-camera-dot" aria-hidden="true"></div>
+            <div class="phone-screen-viewport">
+              <picture>
+                <source srcset="/assets/screen-dashboard-480.webp 480w, /assets/screen-dashboard.webp 800w" sizes="(max-width: 600px) 300px, 340px" type="image/webp" />
+                <img
+                  src="/assets/screen-dashboard.webp"
+                  alt="Udhaar Android App showing clear lending and borrowing records"
+                  width="340"
+                  height="700"
+                  class="phone-screen-img"
+                  loading="eager"
+                />
+              </picture>
+            </div>
+          </div>
+
+          <!-- Floating Card 1: Confirmation Notification -->
+          <div class="floating-card floating-card-top" aria-hidden="true">
+            <div class="floating-card-icon card-icon-check">✓</div>
+            <div class="floating-card-text">
+              <span class="floating-card-title" data-i18n="float_ravi_title">Ravi confirmed</span>
+              <span class="floating-card-val" data-i18n="float_ravi_val">₹5,000</span>
+            </div>
+          </div>
+
+          <!-- Floating Card 2: WhatsApp Polite Reminder -->
+          <div class="floating-card floating-card-bottom" aria-hidden="true">
+            <div class="floating-card-icon card-icon-wa">💬</div>
+            <div class="floating-card-text">
+              <span class="floating-card-title" data-i18n="float_wa_title">Reminder sent</span>
+              <span class="floating-card-sub" data-i18n="float_wa_sub">on WhatsApp</span>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- How It Works in 3 Steps -->
-    <section id="how-it-works" class="section">
+    <!-- Interactive Demo Widget (Part 1 Item 2) -->
+    <section id="interactive-demo" class="section section-demo">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-badge" data-i18n="demo_widget_badge">Interactive Preview</span>
+          <h2 class="section-title" data-i18n="demo_widget_title">Try creating a record right here</h2>
+          <p class="section-subtitle" data-i18n="demo_widget_subtitle">
+            See how fast and clear it is to record an entry and share a WhatsApp confirmation link. No installation or account required.
+          </p>
+        </div>
+
+        <div class="demo-card-container">
+          <!-- Demo Step Indicator -->
+          <div class="demo-stepper-header" role="tablist" aria-label="Demo steps">
+            <button type="button" class="demo-step-tab active" data-step-tab="1" role="tab" aria-selected="true" id="tab-step-1">
+              <span class="tab-number">1</span>
+              <span class="tab-label" data-i18n="demo_tab1">Amount</span>
+            </button>
+            <span class="tab-divider" aria-hidden="true"></span>
+            <button type="button" class="demo-step-tab" data-step-tab="2" role="tab" aria-selected="false" id="tab-step-2">
+              <span class="tab-number">2</span>
+              <span class="tab-label" data-i18n="demo_tab2">Person</span>
+            </button>
+            <span class="tab-divider" aria-hidden="true"></span>
+            <button type="button" class="demo-step-tab" data-step-tab="3" role="tab" aria-selected="false" id="tab-step-3">
+              <span class="tab-number">3</span>
+              <span class="tab-label" data-i18n="demo_tab3">Installments</span>
+            </button>
+            <span class="tab-divider" aria-hidden="true"></span>
+            <button type="button" class="demo-step-tab" data-step-tab="4" role="tab" aria-selected="false" id="tab-step-4">
+              <span class="tab-number">4</span>
+              <span class="tab-label" data-i18n="demo_tab4">Confirmation</span>
+            </button>
+          </div>
+
+          <!-- Step 1: Direction & Amount -->
+          <div class="demo-panel active" id="demo-step-panel-1" role="tabpanel" aria-labelledby="tab-step-1">
+            <h3 class="demo-panel-title" data-i18n="demo_step1_title">Did you give or take money?</h3>
+            <div class="demo-type-toggle" role="radiogroup" aria-label="Transaction Direction">
+              <button type="button" class="demo-pill-btn active" id="demo-dir-gave" role="radio" aria-checked="true" data-i18n="demo_gave">You gave (Lent)</button>
+              <button type="button" class="demo-pill-btn" id="demo-dir-took" role="radio" aria-checked="false" data-i18n="demo_took">You took (Borrowed)</button>
+            </div>
+
+            <div class="demo-field-wrap">
+              <label for="demo-amount-input" class="demo-label" data-i18n="demo_amount_label">Enter Amount (₹)</label>
+              <div class="demo-input-with-symbol">
+                <span class="currency-symbol">₹</span>
+                <input type="number" id="demo-amount-input" class="demo-input" value="2500" min="1" max="1000000" step="50" />
+              </div>
+              <div class="demo-chips" role="group" aria-label="Quick amount presets">
+                <button type="button" class="amount-chip" data-amount="500">₹500</button>
+                <button type="button" class="amount-chip active" data-amount="2500">₹2,500</button>
+                <button type="button" class="amount-chip" data-amount="5000">₹5,000</button>
+                <button type="button" class="amount-chip" data-amount="10000">₹10,000</button>
+              </div>
+            </div>
+
+            <div class="demo-actions">
+              <div></div>
+              <button type="button" class="btn-primary demo-next-btn" id="demo-btn-to-2">
+                <span data-i18n="demo_next_person">Next: Person Name</span> →
+              </button>
+            </div>
+          </div>
+
+          <!-- Step 2: Person Name -->
+          <div class="demo-panel" id="demo-step-panel-2" role="tabpanel" aria-labelledby="tab-step-2" hidden>
+            <h3 class="demo-panel-title" data-i18n="demo_step2_title">Who is this record with?</h3>
+            <div class="demo-field-wrap">
+              <label for="demo-name-input" class="demo-label" data-i18n="demo_name_label">Person's Name</label>
+              <input type="text" id="demo-name-input" class="demo-input" value="Sunil" placeholder="e.g. Sunil, Ravi, Priya" />
+            </div>
+
+            <div class="demo-field-wrap">
+              <label for="demo-note-input" class="demo-label" data-i18n="demo_note_label">Optional Note</label>
+              <input type="text" id="demo-note-input" class="demo-input" value="Emergency shop repair" placeholder="e.g. Lunch split, emergency repair" />
+            </div>
+
+            <div class="demo-actions">
+              <button type="button" class="btn-secondary demo-back-btn" id="demo-btn-back-1">
+                ← <span data-i18n="demo_back">Back</span>
+              </button>
+              <button type="button" class="btn-primary demo-next-btn" id="demo-btn-to-3">
+                <span data-i18n="demo_next_installments">Next: Installments</span> →
+              </button>
+            </div>
+          </div>
+
+          <!-- Step 3: Installments & Due Date -->
+          <div class="demo-panel" id="demo-step-panel-3" role="tabpanel" aria-labelledby="tab-step-3" hidden>
+            <h3 class="demo-panel-title" data-i18n="demo_step3_title">How will it be repaid?</h3>
+            <div class="demo-field-wrap">
+              <label class="demo-label" data-i18n="demo_installments_label">Number of Installments</label>
+              <div class="demo-chips" role="radiogroup" aria-label="Installments Count">
+                <button type="button" class="amount-chip" data-inst="1">1 (Full)</button>
+                <button type="button" class="amount-chip active" data-inst="3">3 Monthly</button>
+                <button type="button" class="amount-chip" data-inst="6">6 Monthly</button>
+                <button type="button" class="amount-chip" data-inst="12">12 Monthly</button>
+              </div>
+            </div>
+
+            <div class="demo-schedule-preview" id="demo-schedule-preview" aria-live="polite">
+              <div class="demo-schedule-pill">
+                <span class="sched-seq">1/3</span>
+                <span class="sched-date">Next month</span>
+                <span class="sched-amt font-mono">₹834</span>
+              </div>
+              <div class="demo-schedule-pill">
+                <span class="sched-seq">2/3</span>
+                <span class="sched-date">2 months</span>
+                <span class="sched-amt font-mono">₹833</span>
+              </div>
+              <div class="demo-schedule-pill">
+                <span class="sched-seq">3/3</span>
+                <span class="sched-date">3 months</span>
+                <span class="sched-amt font-mono">₹833</span>
+              </div>
+            </div>
+
+            <div class="demo-actions">
+              <button type="button" class="btn-secondary demo-back-btn" id="demo-btn-back-2">
+                ← <span data-i18n="demo_back">Back</span>
+              </button>
+              <button type="button" class="btn-primary demo-next-btn" id="demo-btn-to-4">
+                <span data-i18n="demo_next_preview">Next: Preview Confirmation</span> →
+              </button>
+            </div>
+          </div>
+
+          <!-- Step 4: Preview Confirmation Link -->
+          <div class="demo-panel" id="demo-step-panel-4" role="tabpanel" aria-labelledby="tab-step-4" hidden>
+            <h3 class="demo-panel-title" data-i18n="demo_step4_title">WhatsApp confirmation ready to send</h3>
+            <p class="demo-step-desc" data-i18n="demo_step4_desc">
+              Udhaar creates a polite WhatsApp message with a link. Both of you agree on the amount and date with zero confusion.
+            </p>
+
+            <div class="demo-wa-preview-card">
+              <div class="wa-bubble-header">
+                <span class="wa-app-title">WhatsApp Message Draft</span>
+                <span class="wa-time">Just now</span>
+              </div>
+              <div class="wa-bubble-content" id="demo-wa-bubble-text">
+                Namaste Sunil ji, I added a record of ₹2,500 on Udhaar in 3 installments (₹834, ₹833, ₹833). Please check and confirm here: https://udhaar.jyotirmoyb.com/u/?demo=true
+              </div>
+            </div>
+
+            <div class="demo-actions">
+              <button type="button" class="btn-secondary" id="demo-btn-restart">
+                🔄 <span data-i18n="demo_restart">Restart Demo</span>
+              </button>
+              <button type="button" class="btn-primary" id="demo-btn-copy-wa">
+                📋 <span data-i18n="demo_copy_wa">Copy Message</span>
+              </button>
+              <a href="/u/?demo=true" class="btn-secondary" id="demo-btn-open-guest" data-i18n="demo_open_guest">
+                Open Guest Page ↗
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Visual Stepper Flow (Part 1 Item 4) -->
+    <section id="how-it-works" class="section section-alt">
       <div class="container">
         <div class="section-header">
           <span class="section-badge" data-i18n="steps_badge">Simple 3-Step Flow</span>
@@ -170,30 +424,167 @@
           </p>
         </div>
 
-        <div class="steps-grid">
-          <article class="step-card">
-            <div class="step-num-badge" data-i18n="step1_num">1</div>
-            <h3 class="step-title" data-i18n="step1_title">Add the record</h3>
-            <p class="step-desc" data-i18n="step1_desc">
-              Enter the amount, due date, and the other person's name. It takes less than 10 seconds.
-            </p>
-          </article>
+        <div class="stepper-layout">
+          <!-- Left: Stepper Cards -->
+          <div class="stepper-cards-col">
+            <article class="step-card active" data-step="1">
+              <div class="step-num-badge" data-i18n="step1_num">1</div>
+              <h3 class="step-title" data-i18n="step1_title">Add the record</h3>
+              <p class="step-desc" data-i18n="step1_desc">
+                Enter the amount, due date, and the other person's name. It takes less than 10 seconds.
+              </p>
+            </article>
 
-          <article class="step-card">
-            <div class="step-num-badge" data-i18n="step2_num">2</div>
-            <h3 class="step-title" data-i18n="step2_title">Send the link on WhatsApp</h3>
-            <p class="step-desc" data-i18n="step2_desc">
-              Udhaar prepares a polite message with a private confirmation link and 6-digit code for you to send.
-            </p>
-          </article>
+            <article class="step-card" data-step="2">
+              <div class="step-num-badge" data-i18n="step2_num">2</div>
+              <h3 class="step-title" data-i18n="step2_title">Send the link on WhatsApp</h3>
+              <p class="step-desc" data-i18n="step2_desc">
+                Udhaar prepares a polite message with a private confirmation link and 6-digit code for you to send.
+              </p>
+            </article>
 
-          <article class="step-card">
-            <div class="step-num-badge" data-i18n="step3_num">3</div>
-            <h3 class="step-title" data-i18n="step3_title">The other person confirms</h3>
-            <p class="step-desc" data-i18n="step3_desc">
-              They open the link in any mobile browser, check the details, and confirm. They do not need to install the app.
-            </p>
-          </article>
+            <article class="step-card" data-step="3">
+              <div class="step-num-badge" data-i18n="step3_num">3</div>
+              <h3 class="step-title" data-i18n="step3_title">The other person confirms</h3>
+              <p class="step-desc" data-i18n="step3_desc">
+                They open the link in any mobile browser, check the details, and confirm. They do not need to install the app.
+              </p>
+            </article>
+          </div>
+
+          <!-- Right: Live Sticky Phone Preview Updating with Active Step -->
+          <div class="stepper-phone-sticky" aria-hidden="true">
+            <div class="stepper-phone-frame">
+              <div class="phone-speaker"></div>
+              <div class="stepper-phone-screen">
+                <picture id="stepper-picture">
+                  <source id="stepper-source" srcset="/assets/screen-new-record-480.webp 480w, /assets/screen-new-record.webp 800w" type="image/webp" />
+                  <img
+                    id="stepper-img"
+                    src="/assets/screen-new-record.webp"
+                    alt="Current step preview"
+                    width="280"
+                    height="580"
+                    class="stepper-screen-img"
+                    loading="lazy"
+                  />
+                </picture>
+              </div>
+            </div>
+            <div class="stepper-step-indicator" id="stepper-indicator">
+              <span data-i18n="stepper_showing">Showing:</span> <strong id="stepper-indicator-text">Step 1 — Add the record</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Repayment Calculator Widget (Part 1 Item 3) -->
+    <section id="calculator" class="section">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-badge" data-i18n="calc_badge">Smart Planning</span>
+          <h2 class="section-title" data-i18n="calc_title">Plan your repayment schedule</h2>
+          <p class="section-subtitle" data-i18n="calc_subtitle">
+            Calculate installments with exact integer paise precision. The last installment absorbs any remainder so balances match to the paisa.
+          </p>
+        </div>
+
+        <div class="calc-box">
+          <div class="calc-grid">
+            <!-- Left Form Controls -->
+            <div class="calc-inputs">
+              <div class="calc-field">
+                <label for="calc-principal" class="calc-label" data-i18n="calc_amount_label">Principal Amount (₹)</label>
+                <div class="demo-input-with-symbol">
+                  <span class="currency-symbol">₹</span>
+                  <input type="number" id="calc-principal" class="demo-input" value="10000" min="100" max="10000000" step="500" />
+                </div>
+                <div class="demo-chips calc-quick-chips">
+                  <button type="button" class="amount-chip" data-calc-amt="5000">₹5,000</button>
+                  <button type="button" class="amount-chip active" data-calc-amt="10000">₹10,000</button>
+                  <button type="button" class="amount-chip" data-calc-amt="25000">₹25,000</button>
+                  <button type="button" class="amount-chip" data-calc-amt="50000">₹50,000</button>
+                </div>
+              </div>
+
+              <div class="calc-field">
+                <label class="calc-label" data-i18n="calc_interest_mode_label">Interest Mode</label>
+                <div class="calc-pill-group" role="radiogroup" aria-label="Interest Calculation Mode">
+                  <button type="button" class="demo-pill-btn active" id="calc-int-none" role="radio" aria-checked="true" data-i18n="calc_int_none">0% No Interest</button>
+                  <button type="button" class="demo-pill-btn" id="calc-int-simple" role="radio" aria-checked="false" data-i18n="calc_int_simple">Simple Flat</button>
+                  <button type="button" class="demo-pill-btn" id="calc-int-compound" role="radio" aria-checked="false" data-i18n="calc_int_compound">Reducing</button>
+                </div>
+              </div>
+
+              <div class="calc-field" id="calc-rate-wrap" style="display: none;">
+                <label for="calc-rate" class="calc-label" data-i18n="calc_rate_label">Annual Interest Rate (%)</label>
+                <input type="number" id="calc-rate" class="demo-input" value="12" min="1" max="100" step="0.5" />
+              </div>
+
+              <div class="calc-field">
+                <div class="calc-label-row">
+                  <label for="calc-installments" class="calc-label" data-i18n="calc_inst_count_label">Number of Installments:</label>
+                  <span id="calc-inst-count-val" class="calc-label-val font-mono">3</span>
+                </div>
+                <input type="range" id="calc-installments" class="calc-range" value="3" min="1" max="24" step="1" />
+              </div>
+
+              <div class="calc-field">
+                <label class="calc-label" data-i18n="calc_freq_label">Frequency</label>
+                <div class="calc-pill-group" role="radiogroup" aria-label="Installment Frequency">
+                  <button type="button" class="demo-pill-btn active" id="calc-freq-monthly" role="radio" aria-checked="true" data-i18n="calc_freq_monthly">Monthly</button>
+                  <button type="button" class="demo-pill-btn" id="calc-freq-weekly" role="radio" aria-checked="false" data-i18n="calc_freq_weekly">Weekly</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Results & Summary -->
+            <div class="calc-results-wrap">
+              <div class="calc-kpi-grid">
+                <div class="calc-kpi-card">
+                  <span class="calc-kpi-label" data-i18n="calc_kpi_per_inst">Per Installment</span>
+                  <span class="calc-kpi-val font-mono" id="calc-kpi-installment">₹3,334</span>
+                </div>
+                <div class="calc-kpi-card">
+                  <span class="calc-kpi-label" data-i18n="calc_kpi_interest">Total Interest</span>
+                  <span class="calc-kpi-val font-mono" id="calc-kpi-interest">₹0</span>
+                </div>
+                <div class="calc-kpi-card">
+                  <span class="calc-kpi-label" data-i18n="calc_kpi_total">Total Repayment</span>
+                  <span class="calc-kpi-val font-mono" id="calc-kpi-total">₹10,000</span>
+                </div>
+                <div class="calc-kpi-card">
+                  <span class="calc-kpi-label" data-i18n="calc_kpi_duration">Duration</span>
+                  <span class="calc-kpi-val" id="calc-kpi-duration">3 Months</span>
+                </div>
+              </div>
+
+              <!-- Schedule Table -->
+              <div class="calc-schedule-wrap" tabindex="0" role="region" aria-label="Repayment schedule breakdown">
+                <table class="calc-schedule-table">
+                  <thead>
+                    <tr>
+                      <th data-i18n="calc_th_num">#</th>
+                      <th data-i18n="calc_th_date">Due Date</th>
+                      <th data-i18n="calc_th_amount">Installment</th>
+                      <th data-i18n="calc_th_balance">Remaining</th>
+                    </tr>
+                  </thead>
+                  <tbody id="calc-schedule-body">
+                    <!-- Populated by JS -->
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="calc-action-row">
+                <button type="button" class="btn-primary" id="calc-copy-summary-btn">
+                  📋 <span data-i18n="calc_btn_copy">Copy Schedule Summary</span>
+                </button>
+                <span id="calc-copy-status" class="calc-copy-status" aria-live="polite"></span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -210,7 +601,7 @@
         </div>
 
         <div class="benefits-grid">
-          <article class="benefit-card">
+          <article class="benefit-card reveal-on-scroll">
             <div class="benefit-icon">🔒</div>
             <h3 class="benefit-title" data-i18n="benefit1_title">Locked on your phone</h3>
             <p class="benefit-desc" data-i18n="benefit1_desc">
@@ -218,7 +609,7 @@
             </p>
           </article>
 
-          <article class="benefit-card">
+          <article class="benefit-card reveal-on-scroll">
             <div class="benefit-icon">⚡</div>
             <h3 class="benefit-title" data-i18n="benefit2_title">Works without internet</h3>
             <p class="benefit-desc" data-i18n="benefit2_desc">
@@ -226,7 +617,7 @@
             </p>
           </article>
 
-          <article class="benefit-card">
+          <article class="benefit-card reveal-on-scroll">
             <div class="benefit-icon">💬</div>
             <h3 class="benefit-title" data-i18n="benefit3_title">Polite reminders</h3>
             <p class="benefit-desc" data-i18n="benefit3_desc">
@@ -234,7 +625,7 @@
             </p>
           </article>
 
-          <article class="benefit-card">
+          <article class="benefit-card reveal-on-scroll">
             <div class="benefit-icon">📲</div>
             <h3 class="benefit-title" data-i18n="benefit4_title">Pay easily by UPI</h3>
             <p class="benefit-desc" data-i18n="benefit4_desc">
@@ -242,7 +633,7 @@
             </p>
           </article>
 
-          <article class="benefit-card">
+          <article class="benefit-card reveal-on-scroll">
             <div class="benefit-icon">☁️</div>
             <h3 class="benefit-title" data-i18n="benefit5_title">Backup to your Google Drive</h3>
             <p class="benefit-desc" data-i18n="benefit5_desc">
@@ -250,7 +641,7 @@
             </p>
           </article>
 
-          <article class="benefit-card">
+          <article class="benefit-card reveal-on-scroll">
             <div class="benefit-icon">🌐</div>
             <h3 class="benefit-title" data-i18n="benefit6_title">Works in 5 languages</h3>
             <p class="benefit-desc" data-i18n="benefit6_desc">
@@ -261,7 +652,7 @@
       </div>
     </section>
 
-    <!-- App Interface Showcase -->
+    <!-- App Interface Showcase with Responsive WebP Images -->
     <section class="section">
       <div class="container">
         <div class="section-header">
@@ -275,32 +666,32 @@
         <div class="screens-grid">
           <div class="screen-card">
             <picture>
-              <source srcset="/assets/screen-dashboard.webp" type="image/webp" />
-              <img src="/assets/screen-dashboard.png" alt="Udhaar Dashboard Screen" width="270" height="600" loading="lazy" />
+              <source srcset="/assets/screen-dashboard-480.webp 480w, /assets/screen-dashboard.webp 800w" type="image/webp" />
+              <img src="/assets/screen-dashboard.webp" alt="Udhaar Dashboard Screen" width="270" height="600" loading="lazy" />
             </picture>
             <div class="screen-card-caption">Clear Receivable &amp; Payable Totals</div>
           </div>
 
           <div class="screen-card">
             <picture>
-              <source srcset="/assets/screen-new-record.webp" type="image/webp" />
-              <img src="/assets/screen-new-record.png" alt="Add New Record Screen" width="270" height="600" loading="lazy" />
+              <source srcset="/assets/screen-new-record-480.webp 480w, /assets/screen-new-record.webp 800w" type="image/webp" />
+              <img src="/assets/screen-new-record.webp" alt="Add New Record Screen" width="270" height="600" loading="lazy" />
             </picture>
             <div class="screen-card-caption">Quick 3-Step Record Entry</div>
           </div>
 
           <div class="screen-card">
             <picture>
-              <source srcset="/assets/screen-details.webp" type="image/webp" />
-              <img src="/assets/screen-details.png" alt="Record Detail and Installment Timeline" width="270" height="600" loading="lazy" />
+              <source srcset="/assets/screen-details-480.webp 480w, /assets/screen-details.webp 800w" type="image/webp" />
+              <img src="/assets/screen-details.webp" alt="Record Detail and Installment Timeline" width="270" height="600" loading="lazy" />
             </picture>
             <div class="screen-card-caption">Installments &amp; Payment History</div>
           </div>
 
           <div class="screen-card">
             <picture>
-              <source srcset="/assets/screen-whatsapp.webp" type="image/webp" />
-              <img src="/assets/screen-whatsapp.png" alt="Polite WhatsApp Reminder Sheet" width="270" height="600" loading="lazy" />
+              <source srcset="/assets/screen-whatsapp-480.webp 480w, /assets/screen-whatsapp.webp 800w" type="image/webp" />
+              <img src="/assets/screen-whatsapp.webp" alt="Polite WhatsApp Reminder Sheet" width="270" height="600" loading="lazy" />
             </picture>
             <div class="screen-card-caption">Polite Multi-Language Reminders</div>
           </div>
@@ -308,7 +699,7 @@
       </div>
     </section>
 
-    <!-- Trust & Privacy Section -->
+    <!-- Trust & Privacy Section with Link to Trust Center -->
     <section id="trust" class="section section-alt">
       <div class="container">
         <div class="section-header">
@@ -379,10 +770,15 @@
             </div>
           </div>
         </div>
+
+        <div class="trust-center-callout">
+          <p data-i18n="trust_callout_text">Want to inspect verified proof of our privacy claims?</p>
+          <a href="/trust/" class="btn-secondary" data-i18n="trust_callout_link">Visit the Udhaar Trust Center →</a>
+        </div>
       </div>
     </section>
 
-    <!-- FAQ Section -->
+    <!-- FAQ Section with Instant Search & Category Chips (Part 1 Item 5) -->
     <section id="faq" class="section">
       <div class="container">
         <div class="section-header">
@@ -390,8 +786,31 @@
           <h2 class="section-title" data-i18n="faq_title">Frequently asked questions</h2>
         </div>
 
-        <div class="faq-wrap">
-          <div class="faq-item active">
+        <!-- FAQ Instant Search Box -->
+        <div class="faq-search-wrap">
+          <span class="search-icon" aria-hidden="true">🔍</span>
+          <input
+            type="search"
+            id="faq-search"
+            class="faq-search-input"
+            placeholder="Search questions (e.g. free, privacy, backup, whatsapp)..."
+            aria-label="Search frequently asked questions"
+          />
+          <button type="button" id="faq-search-clear" class="faq-search-clear-btn" aria-label="Clear search" style="display: none;">✕</button>
+        </div>
+
+        <!-- FAQ Category Filter Chips -->
+        <div class="faq-filter-chips" role="tablist" aria-label="Filter questions by category">
+          <button type="button" class="faq-chip active" data-category="all" role="tab" aria-selected="true" data-i18n="faq_cat_all">All</button>
+          <button type="button" class="faq-chip" data-category="basics" role="tab" aria-selected="false" data-i18n="faq_cat_basics">Basics</button>
+          <button type="button" class="faq-chip" data-category="privacy" role="tab" aria-selected="false" data-i18n="faq_cat_privacy">Privacy</button>
+          <button type="button" class="faq-chip" data-category="reminders" role="tab" aria-selected="false" data-i18n="faq_cat_reminders">Reminders</button>
+          <button type="button" class="faq-chip" data-category="backup" role="tab" aria-selected="false" data-i18n="faq_cat_backup">Backup</button>
+          <button type="button" class="faq-chip" data-category="weblink" role="tab" aria-selected="false" data-i18n="faq_cat_weblink">Web link</button>
+        </div>
+
+        <div class="faq-wrap" id="faq-list">
+          <div class="faq-item active" data-category="basics">
             <button class="faq-question" type="button">
               <span data-i18n="faq1_q">Is Udhaar completely free?</span>
               <span class="faq-toggle-icon">+</span>
@@ -401,7 +820,7 @@
             </div>
           </div>
 
-          <div class="faq-item">
+          <div class="faq-item" data-category="basics privacy">
             <button class="faq-question" type="button">
               <span data-i18n="faq2_q">Do I need to give my phone number to use the app?</span>
               <span class="faq-toggle-icon">+</span>
@@ -411,7 +830,7 @@
             </div>
           </div>
 
-          <div class="faq-item">
+          <div class="faq-item" data-category="backup">
             <button class="faq-question" type="button">
               <span data-i18n="faq3_q">What happens if I lose or change my phone?</span>
               <span class="faq-toggle-icon">+</span>
@@ -421,7 +840,7 @@
             </div>
           </div>
 
-          <div class="faq-item">
+          <div class="faq-item" data-category="privacy weblink">
             <button class="faq-question" type="button">
               <span data-i18n="faq4_q">Can the other person see all my other records?</span>
               <span class="faq-toggle-icon">+</span>
@@ -431,7 +850,7 @@
             </div>
           </div>
 
-          <div class="faq-item">
+          <div class="faq-item" data-category="privacy">
             <button class="faq-question" type="button">
               <span data-i18n="faq5_q">How do I delete my data?</span>
               <span class="faq-toggle-icon">+</span>
@@ -440,6 +859,41 @@
               You can delete any record in the app anytime. Deleting the app removes all local records. To remove a shared web link, use our instant deletion form.
             </div>
           </div>
+
+          <div class="faq-item" data-category="reminders">
+            <button class="faq-question" type="button">
+              <span data-i18n="faq6_q">How do polite WhatsApp reminders work?</span>
+              <span class="faq-toggle-icon">+</span>
+            </button>
+            <div class="faq-answer" data-i18n="faq6_a">
+              Udhaar composes a kind, respectful reminder message in your chosen language. The app opens your WhatsApp with the text already filled in, so you remain in complete control before sending.
+            </div>
+          </div>
+
+          <div class="faq-item" data-category="weblink basics">
+            <button class="faq-question" type="button">
+              <span data-i18n="faq7_q">Does the other person need an app to open a web confirmation link?</span>
+              <span class="faq-toggle-icon">+</span>
+            </button>
+            <div class="faq-answer" data-i18n="faq7_a">
+              No. The confirmation link opens directly in any standard mobile web browser (Chrome, Safari, Firefox). They do not need to install anything or register an account.
+            </div>
+          </div>
+
+          <div class="faq-item" data-category="backup privacy">
+            <button class="faq-question" type="button">
+              <span data-i18n="faq8_q">Is my Google Drive backup encrypted?</span>
+              <span class="faq-toggle-icon">+</span>
+            </button>
+            <div class="faq-answer" data-i18n="faq8_a">
+              Yes. Backups are encrypted with a password that only you choose before they leave your phone. Nobody, not even Google, can read your ledger without your backup password.
+            </div>
+          </div>
+        </div>
+
+        <div id="faq-no-results" class="faq-empty-state" style="display: none;">
+          <p data-i18n="faq_no_match">No matching questions found.</p>
+          <button type="button" id="faq-reset-filter-btn" class="btn-secondary" data-i18n="faq_reset_search">Reset Search</button>
         </div>
 
         <!-- Interactive Demo CTA Box -->
@@ -449,13 +903,33 @@
             See exactly what the other person experiences when they tap your WhatsApp link. Test confirming, installments, and payment proof.
           </p>
           <a href="/u/?demo=true" id="btn-try-demo" class="btn-primary">
-            <span>✨</span>
+            <span aria-hidden="true">✨</span>
             <span data-i18n="btn_launch_demo">Try Interactive Demo</span>
           </a>
         </div>
       </div>
     </section>
   </main>
+
+  <!-- Sticky Mobile Bottom Bar (Part 1 Item 6) -->
+  <aside class="mobile-sticky-bottom-bar" id="mobile-sticky-bar" aria-label="Mobile download bar">
+    <div class="mobile-sticky-inner">
+      <div class="mobile-sticky-info">
+        <span class="mobile-sticky-brand">Udhaar</span>
+        <span class="mobile-sticky-tagline" data-i18n="mobile_bar_tag">100% Free &amp; Offline</span>
+      </div>
+      <a
+        href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="btn-primary btn-sm"
+        data-store-button="mobile-bottom"
+        data-i18n="btn_get_play"
+      >
+        Get on Google Play
+      </a>
+    </div>
+  </aside>
 
   <!-- Footer -->
   <footer class="site-footer">
@@ -475,15 +949,29 @@
           <h4 data-i18n="footer_product">Product</h4>
           <ul>
             <li><a href="#how-it-works" data-i18n="nav_how_it_works">How it works</a></li>
+            <li><a href="#calculator" data-i18n="nav_calculator">Calculator</a></li>
+            <li><a href="#interactive-demo" data-i18n="nav_demo">Interactive Demo</a></li>
             <li><a href="#benefits" data-i18n="nav_benefits">Benefits</a></li>
-            <li><a href="/u/?demo=true" data-i18n="btn_launch_demo">Try Interactive Demo</a></li>
-            <li><a href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar" target="_blank" rel="noopener noreferrer" data-i18n="btn_get_play">Get on Google Play</a></li>
+            <li><a href="/updates/" data-i18n="nav_updates">What's New</a></li>
+            <li><a href="/u/?demo=true" data-i18n="btn_launch_demo">Guest Flow Preview</a></li>
+            <li>
+              <a
+                href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar"
+                target="_blank"
+                rel="noopener noreferrer"
+                data-store-button="footer"
+                data-i18n="btn_get_play"
+              >
+                Get on Google Play
+              </a>
+            </li>
           </ul>
         </div>
 
         <div class="footer-col">
-          <h4 data-i18n="footer_legal">Legal</h4>
+          <h4 data-i18n="footer_legal">Trust &amp; Privacy</h4>
           <ul>
+            <li><a href="/trust/" data-i18n="nav_trust">Trust Center</a></li>
             <li><a href="/privacy.html" data-i18n="nav_privacy">Privacy Policy</a></li>
             <li><a href="/privacy.html#delete-request-form">Data Deletion Request</a></li>
             <li><a href="mailto:admin@jyotirmoyb.com">Contact Support</a></li>

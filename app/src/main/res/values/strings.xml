@@ -943,4 +943,6 @@
     <string name="cd_whatsapp_reminder">Send WhatsApp reminder</string>
     <string name="updates_screen_title">Updates &amp; Reminders</string>
     <string name="ui_str_repayment_history_e95aa2">Repayment History</string>
+    <string name="settings_group_records_by_person_title">Group by contact</string>
+    <string name="settings_group_records_by_person_subtitle">Group records on the home screen by person</string>
 </resources>

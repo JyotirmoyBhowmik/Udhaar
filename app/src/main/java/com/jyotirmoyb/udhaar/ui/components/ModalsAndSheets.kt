@@ -212,6 +212,7 @@ fun ProfileSettingsModal(
     onOpenContactPicker: () -> Unit = {},
     onSaveReminderSettings: ((Boolean, Int, Int, Int, Int, Int) -> Unit)? = null,
     onAnalyticsCrashConsentChanged: (Boolean) -> Unit = {},
+    onGroupRecordsByPersonChange: (Boolean) -> Unit = {},
     onGenerateRecoveryKey: ((onKeyReady: (String) -> Unit) -> Unit)? = null,
     onSaveRecoveryKey: (String) -> Unit = {},
     onTestMyBackup: (() -> Unit)? = null,
@@ -257,6 +258,7 @@ fun ProfileSettingsModal(
         onOpenContactPicker = onOpenContactPicker,
         onSaveReminderSettings = onSaveReminderSettings,
         onAnalyticsCrashConsentChanged = onAnalyticsCrashConsentChanged,
+        onGroupRecordsByPersonChange = onGroupRecordsByPersonChange,
         onGenerateRecoveryKey = onGenerateRecoveryKey,
         onTestMyBackup = onTestMyBackup,
         onDismiss = onDismiss

@@ -164,6 +164,7 @@ class SettingsViewModel @Inject constructor(
         phoneNumber: String? = null,
         profilePhotoUri: String? = null,
         cloudVerificationConsent: Boolean? = null,
+        groupRecordsByPerson: Boolean? = null,
         closeModal: Boolean = true
     ) {
         viewModelScope.launch {
@@ -179,7 +180,8 @@ class SettingsViewModel @Inject constructor(
                 securityPin = securityPin,
                 phoneNumber = phoneNumber,
                 profilePhotoUri = profilePhotoUri,
-                cloudVerificationConsent = cloudVerificationConsent
+                cloudVerificationConsent = cloudVerificationConsent,
+                groupRecordsByPerson = groupRecordsByPerson
             )
             if (closeModal) {
                 closeSettingsModal()
@@ -257,6 +259,12 @@ class SettingsViewModel @Inject constructor(
     fun saveBackupRecoveryKey(recoveryKey: String) {
         viewModelScope.launch {
             settingsRepository.saveBackupRecoveryKey(recoveryKey)
+        }
+    }
+
+    fun setGroupRecordsByPerson(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setGroupRecordsByPerson(enabled)
         }
     }
 }

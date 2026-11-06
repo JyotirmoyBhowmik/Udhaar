@@ -586,12 +586,15 @@ class UdhaarViewModel(
         phoneNumber: String? = null,
         profilePhotoUri: String? = null,
         cloudVerificationConsent: Boolean? = null,
+        groupRecordsByPerson: Boolean? = null,
         closeModal: Boolean = true
     ) = settingsViewModel.saveUserSettings(
         upiId, payeeName, defaultCurrency, inrEnabled, nprEnabled, themeMode,
         fontScale, biometricLockEnabled, securityPin, phoneNumber, profilePhotoUri,
-        cloudVerificationConsent, closeModal
+        cloudVerificationConsent, groupRecordsByPerson, closeModal
     )
+
+    fun setGroupRecordsByPerson(enabled: Boolean) = settingsViewModel.setGroupRecordsByPerson(enabled)
 
     fun openTransactionChat(transactionId: Long) {
         val tx = uiState.value.allCalculatedItems.firstOrNull { it.transaction.id == transactionId }?.transaction

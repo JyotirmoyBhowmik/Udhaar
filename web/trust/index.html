@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="system">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trust &amp; Privacy Center — Udhaar</title>
+  <meta name="description" content="Clear, honest facts on how Udhaar protects your lending and borrowing records. No trackers, no selling data, no surprises." />
+  <meta name="theme-color" content="#064E3B" />
+
+  <link rel="canonical" href="https://udhaar.jyotirmoyb.com/trust/" />
+  <link rel="icon" type="image/svg+xml" href="/assets/icon.svg" />
+  <link rel="alternate" hreflang="x-default" href="https://udhaar.jyotirmoyb.com/trust/" />
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/design-tokens.css" />
+  <link rel="stylesheet" href="/landing.css" />
+  <script src="/site-config.js" defer></script>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="container nav-wrapper">
+      <a href="/" class="brand-logo" aria-label="UDHAAR - Home">
+        <span class="brand-icon">₹</span>
+        <span>UDHAAR</span>
+      </a>
+
+      <nav class="nav-links" aria-label="Primary Navigation">
+        <a href="/">Home</a>
+        <a href="/#how-it-works">How it works</a>
+        <a href="/trust/" class="nav-active">Trust Center</a>
+        <a href="/updates/">What's New</a>
+        <a href="/privacy.html">Privacy Policy</a>
+      </nav>
+
+      <div class="nav-right">
+        <button id="theme-btn" class="theme-toggle-btn" type="button" aria-label="Toggle Dark Mode">🌙</button>
+        <a href="https://play.google.com/apps/testing/com.jyotirmoyb.udhaar" class="btn-header-play" id="header-play-btn">
+          Join early access
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="page-content container">
+    <section class="trust-hero">
+      <div class="hero-pill">
+        <span class="hero-pill-dot"></span>
+        <span>Honest &amp; Checkable</span>
+      </div>
+      <h1 class="page-title">Trust &amp; Privacy Center</h1>
+      <p class="page-subtitle">
+        We believe you should know exactly where your records live, how they are protected, and what we never touch.
+      </p>
+    </section>
+
+    <!-- Core Guarantees Grid -->
+    <section class="trust-cards-grid">
+      <article class="trust-fact-card">
+        <div class="trust-card-icon">📱</div>
+        <h2>1. Records stay locked on your phone</h2>
+        <p>
+          Your records are stored only in your phone's memory using SQLCipher encryption. We do not have a central database of your loans, transactions, or contacts.
+        </p>
+        <div class="proof-badge">Verified in code: <code>UdhaarDatabase.kt</code></div>
+      </article>
+
+      <article class="trust-fact-card">
+        <div class="trust-card-icon">🔑</div>
+        <h2>2. Backup password never leaves your phone</h2>
+        <p>
+          When you make a backup to your Google Drive, your phone locks it with your personal password using 600,000 rounds of PBKDF2 and AES-256-GCM. We cannot read or unlock your backup.
+        </p>
+        <div class="proof-badge">Verified in code: <code>DriveBackupCrypto.kt</code></div>
+      </article>
+
+      <article class="trust-fact-card">
+        <div class="trust-card-icon">🌐</div>
+        <h2>3. What a guest web link stores</h2>
+        <p>
+          When you share a confirmation link, our server temporarily holds only that single record and a salted phone number hash. It cannot see your other records or contacts.
+        </p>
+        <div class="proof-badge">Verified in code: <code>guestWebFlow.js</code></div>
+      </article>
+
+      <article class="trust-fact-card">
+        <div class="trust-card-icon">⏱️</div>
+        <h2>4. How long things are kept</h2>
+        <p>
+          WhatsApp verification codes expire in 15 minutes. Shared web links expire in 7 to 30 days. Uploaded receipt photos on the server are automatically purged after 90 days.
+        </p>
+        <div class="proof-badge">Verified in rules: <code>storage.lifecycle.json</code></div>
+      </article>
+
+      <article class="trust-fact-card">
+        <div class="trust-card-icon">🗑️</div>
+        <h2>5. How you delete your data</h2>
+        <p>
+          Deleting a record in the app removes it permanently. Deleting the app wipes all local records. To remove a shared web link instantly, tap "Revoke" in the app or use our deletion form.
+        </p>
+        <div class="proof-badge">Instant removal: <code>/privacy.html#delete</code></div>
+      </article>
+
+      <article class="trust-fact-card">
+        <div class="trust-card-icon">💡</div>
+        <h2>6. What Udhaar does NOT do</h2>
+        <p>
+          Udhaar does not move or hold your money, is not a bank, and does not provide legal loan agreements. All payments are done directly between parties using standard UPI apps or cash.
+        </p>
+        <div class="proof-badge">Record-keeping notebook only</div>
+      </article>
+    </section>
+
+    <!-- Source Code Reference -->
+    <section class="trust-proof-section">
+      <h2>Check our technical claims</h2>
+      <p>
+        Every security promise on this page is documented with line-by-line verification in our public documentation.
+      </p>
+      <a href="https://github.com/JyotirmoyBhowmik/Udhaar/blob/main/docs/TRUST_CLAIMS.md" target="_blank" rel="noopener noreferrer" class="btn-secondary">
+        Read docs/TRUST_CLAIMS.md on GitHub
+      </a>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container footer-content">
+      <div class="footer-left">
+        <div class="brand-logo footer-logo">
+          <span class="brand-icon">₹</span>
+          <span>UDHAAR</span>
+        </div>
+        <p class="footer-desc">
+          Keep clear records of money you lend and borrow. Works 100% offline and stays on your phone.
+        </p>
+      </div>
+      <div class="footer-links">
+        <a href="/">Home</a>
+        <a href="/trust/">Trust Center</a>
+        <a href="/updates/">What's New</a>
+        <a href="/privacy.html">Privacy Policy</a>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      <p>© 2026 Udhaar. Free, private, and open-source.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -20,10 +20,10 @@ enum class CurrencyType(val code: String, val symbol: String, val displayName: S
 }
 
 enum class PaymentMode(val label: String, val shortBadge: String) {
-    CASH("Cash", "CASH"),
-    ONLINE("Online", "ONLINE"),
+    CASH("Cash", "Cash"),
+    ONLINE("Online", "Online"),
     UPI("UPI", "UPI"),
-    PARTY_ACCOUNT("Party Account", "PARTY ACC")
+    PARTY_ACCOUNT("Party Account", "Party Acc")
 }
 
 enum class InterestType(val label: String) {
@@ -667,7 +667,8 @@ data class UserSettings(
     val defaultWebShowUpi: Boolean = true,
     // --- v20: Opt-in Crashlytics & Screen Analytics (Off by default, Zero PII) & Backup Recovery Key ---
     val analyticsCrashConsent: Boolean = false,
-    val backupRecoveryKeyId: String = ""
+    val backupRecoveryKeyId: String = "",
+    val groupRecordsByPerson: Boolean = false
 ) {
     val driveAccountEmail: String get() = driveUserEmail
     val driveLastBackupMillis: Long get() = driveLastBackupTimeMillis

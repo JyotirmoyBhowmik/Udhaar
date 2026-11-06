@@ -87,7 +87,7 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", sans-serif;
+  font-family: var(--font-body, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif);
   background: var(--body-bg);
   color: var(--text-main);
   min-height: 100vh;
@@ -124,7 +124,7 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 4px 4px 10px;
+  padding: 4px 4px 6px;
 }
 
 .brand-logo {
@@ -149,53 +149,122 @@ header {
 
 .top-controls {
   display: flex;
-  gap: 8px;
   align-items: center;
+  gap: 10px;
 }
 
-.lang-select,
-.theme-btn {
-  padding: 8px 12px;
-  background: var(--card-bg);
-  border: 1.5px solid var(--border-color);
+.lang-select {
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
   color: var(--text-main);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  min-height: 48px;
-}
-
-.theme-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 48px;
-  font-size: 18px;
+  min-height: 38px;
 }
 
 .lang-select:focus-visible,
 .theme-btn:focus-visible,
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: 3px solid var(--focus-ring);
+.btn:focus-visible,
+.form-input:focus-visible,
+.form-select:focus-visible,
+.form-textarea:focus-visible,
+.otp-box:focus-visible {
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
-/* Cards */
+.theme-btn {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  width: 38px;
+  height: 38px;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-main);
+  transition: transform 0.1s ease;
+}
+
+.theme-btn:active {
+  transform: scale(0.95);
+}
+
+/* Stepper and Progress Bar Header */
+.stepper-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.stepper-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stepper-pill {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  background: var(--emerald-600);
+  padding: 4px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+
+.stepper-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.stepper-track {
+  height: 6px;
+  background: var(--slate-100);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.stepper-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--emerald-500), var(--emerald-600));
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.step-fill-1 {
+  width: 33.33%;
+}
+
+.step-fill-2 {
+  width: 66.66%;
+}
+
+.step-fill-3 {
+  width: 100%;
+}
+
+/* Card Container */
 .card {
   background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  padding: 22px;
-  box-shadow: var(--shadow-sm);
+  padding: 20px;
+  box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
   gap: 16px;
-  position: relative;
 }
 
 /* Badges */
@@ -247,8 +316,8 @@ textarea:focus-visible {
 }
 
 .amount-sentence {
-  margin-top: 8px;
-  font-size: 16px;
+  margin-top: 10px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--text-main);
   line-height: 1.4;
@@ -336,6 +405,14 @@ textarea:focus-visible {
   letter-spacing: 0.04em;
 }
 
+/* Bottom Safe Area Action Bar */
+.action-bar-safe {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
 /* Buttons */
 .btn {
   display: inline-flex;
@@ -394,6 +471,68 @@ textarea:focus-visible {
   min-height: 48px;
   font-weight: 600;
   text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Share Back Button */
+.share-confirmation-box {
+  margin-top: 4px;
+}
+
+.share-wa-btn {
+  background: #25D366;
+  color: #ffffff;
+  border: none;
+  font-weight: 700;
+  min-height: 50px;
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 6px rgba(37, 211, 102, 0.35);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.share-wa-btn:hover {
+  background: #20ba5a;
+}
+
+/* PWA Install Prompt Cards */
+.install-prompt-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--emerald-50);
+  border: 1.5px solid var(--emerald-500);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.install-icon {
+  font-size: 26px;
+  flex-shrink: 0;
+}
+
+.install-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-main);
+}
+
+.install-text strong {
+  font-size: 14px;
+  color: var(--emerald-900);
+}
+
+.btn-sm {
+  width: auto;
+  min-height: 38px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
 /* Action Grid (After Confirmation) */
@@ -432,6 +571,87 @@ textarea:focus-visible {
   width: 26px;
   height: 26px;
   color: var(--emerald-600);
+}
+
+/* Receipt Details Accordion */
+.receipt-section {
+  margin-top: 4px;
+}
+
+.advanced-details-box {
+  background: var(--slate-50);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-size: 13px;
+}
+
+.advanced-details-box summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.advanced-details-box .details-content {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 8px;
+}
+
+/* Support Link Row */
+.support-link-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.support-email-link {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.support-email-link:hover {
+  color: var(--emerald-600);
+}
+
+/* Quick Date Chips */
+.quick-chips-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.date-chip {
+  min-height: 48px;
+  min-width: 48px;
+  padding: 8px 14px;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--slate-50);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.date-chip:hover,
+.date-chip.active {
+  background: var(--emerald-600);
+  color: #ffffff;
+  border-color: var(--emerald-600);
+}
+
+.date-chip:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 /* Modal Bottom Sheets */
@@ -502,7 +722,7 @@ textarea:focus-visible {
   justify-content: center;
 }
 
-/* Forms */
+/* Forms - Strictly >= 16px to prevent iOS auto-zoom */
 .form-group {
   display: flex;
   flex-direction: column;
@@ -525,7 +745,7 @@ textarea:focus-visible {
   border: 1.5px solid var(--border-color);
   background: var(--card-bg);
   color: var(--text-main);
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .form-textarea {
@@ -533,7 +753,7 @@ textarea:focus-visible {
   resize: vertical;
 }
 
-/* OTP 6-Digit Code Inputs */
+/* OTP 6-Digit Code Inputs - >= 16px */
 .otp-inputs {
   display: flex;
   gap: 8px;
@@ -544,7 +764,7 @@ textarea:focus-visible {
 .otp-box {
   width: 48px;
   height: 56px;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 800;
   text-align: center;
   border: 2px solid var(--border-color);
@@ -604,9 +824,9 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   padding: 16px;
-  background: #ffffff;
+  background: var(--card-bg);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
   width: fit-content;
@@ -616,6 +836,21 @@ textarea:focus-visible {
 #qrcode-canvas {
   display: flex;
   justify-content: center;
+  align-items: center;
+  padding: 12px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  min-width: 200px;
+  min-height: 200px;
+  box-shadow: var(--shadow-sm);
+}
+
+#qrcode-canvas img,
+#qrcode-canvas svg {
+  display: block;
+  width: 180px;
+  height: 180px;
 }
 
 /* App Install Bottom Banner */
@@ -671,20 +906,40 @@ footer a {
 }
 
 /* Print Styling */
+.receipt-header-print {
+  display: none;
+}
+
+.receipt-print-watermark {
+  display: none;
+}
+
 @media print {
   body {
     background: #ffffff !important;
-    color: #000000 !important;
+    color: #0f172a !important;
     padding: 0 !important;
+    margin: 0 !important;
   }
   header,
   footer,
   .btn,
   .top-controls,
+  #stepper-indicator,
+  #demo-banner,
+  #offline-banner,
+  .action-bar-safe,
   .action-grid,
   .modal-overlay,
   .bottom-app-note,
-  .why-box {
+  .why-box,
+  .share-confirmation-box,
+  #pwa-install-card,
+  #ios-install-guide,
+  .support-link-row,
+  .badge-bar,
+  #live-announcer,
+  #error-announcer {
     display: none !important;
   }
   .app-wrapper,
@@ -693,10 +948,53 @@ footer a {
     border: none !important;
     box-shadow: none !important;
     padding: 0 !important;
+    background: #ffffff !important;
+  }
+  .receipt-header-print {
+    display: block !important;
+    margin-bottom: 24px;
+    border-bottom: 2px solid #064e3b;
+    padding-bottom: 12px;
+  }
+  .receipt-brand {
+    font-size: 24px;
+    font-weight: 800;
+    color: #064e3b;
+    letter-spacing: 0.04em;
+  }
+  .receipt-tagline {
+    font-size: 13px;
+    color: #475569;
+    margin-top: 4px;
+  }
+  .receipt-badge {
+    display: inline-block;
+    margin-top: 8px;
+    background: #ecfdf5;
+    color: #064e3b;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #10b981;
   }
   .amount-display {
     background: #f0fdf4 !important;
-    border: 1px solid #000000 !important;
+    border: 1px solid #10b981 !important;
+    padding: 16px !important;
+  }
+  .receipt-print-watermark {
+    display: block !important;
+    margin-top: 36px;
+    font-size: 11px;
+    color: #64748b;
+    text-align: center;
+    border-top: 1px dashed #cbd5e1;
+    padding-top: 12px;
+  }
+  .advanced-details-box {
+    display: block !important;
+    border: 1px solid #cbd5e1 !important;
   }
 }
 
@@ -726,8 +1024,8 @@ footer a {
   width: 0%;
 }
 .font-mono-sm {
-  font-family: monospace;
-  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+  font-size: 14px;
 }
 .col-gap-12 {
   display: flex;
@@ -838,7 +1136,8 @@ footer a {
   border-radius: var(--radius-sm);
 }
 .upi-mono {
-  font-family: monospace;
+  font-family: var(--font-mono, monospace);
+  font-size: 15px;
 }
 .upi-actions-col {
   display: flex;

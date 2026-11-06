@@ -943,4 +943,6 @@
     <string name="cd_whatsapp_reminder">হোৱাটছএপ ৰিমাইণ্ডাৰ পঠিয়াওক</string>
     <string name="updates_screen_title">আপডেট আৰু ৰিমাইণ্ডাৰ</string>
     <string name="ui_str_repayment_history_e95aa2">পৰিশোধ ইতিহাস</string>
+    <string name="settings_group_records_by_person_title">ব্যক্তি অনুসৰি দলবদ্ধ কৰক</string>
+    <string name="settings_group_records_by_person_subtitle">ঘৰৰ পৰ্দাত ব্যক্তিৰ নাম অনুসৰি ৰেকৰ্ডবোৰ সজাওক</string>
 </resources>

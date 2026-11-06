@@ -51,6 +51,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jyotirmoyb.udhaar.R
@@ -206,10 +207,17 @@ internal fun SearchAndFilterBar(
             }
         }
 
+        LaunchedEffect(selectedFilter) {
+            val index = visibleFilters.indexOf(selectedFilter)
+            if (index >= 0) {
+                lazyRowState.animateScrollToItem(index)
+            }
+        }
+
         LazyRow(
             state = lazyRowState,
             flingBehavior = snapFlingBehavior,
-            contentPadding = PaddingValues(start = 2.dp, end = 24.dp),
+            contentPadding = PaddingValues(start = 2.dp, end = 48.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier
                 .fillMaxWidth()

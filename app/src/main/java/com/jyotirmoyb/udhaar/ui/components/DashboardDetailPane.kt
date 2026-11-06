@@ -79,16 +79,31 @@ import java.util.Locale
 
 internal data class LedgerGroupSection(
     val key: String,
-    val titleRes: Int,
-    val isOverdueGroup: Boolean,
-    val items: List<CalculatedUdhaarSummary>
+    val titleRes: Int = 0,
+    val isOverdueGroup: Boolean = false,
+    val items: List<CalculatedUdhaarSummary>,
+    val titleText: String = ""
 )
 
 internal fun buildGroupedFilteredItems(
     filteredItems: List<CalculatedUdhaarSummary>,
     selectedFilter: LedgerFilter,
-    endOfWeekMillis: Long
+    endOfWeekMillis: Long,
+    groupByPerson: Boolean = false
 ): List<LedgerGroupSection> {
+    if (groupByPerson) {
+        val grouped = filteredItems.groupBy { it.transaction.partyName.trim() }
+        return grouped.map { (personName, items) ->
+            val isOverdue = items.any { it.isOverdue && !it.transaction.isSettled }
+            LedgerGroupSection(
+                key = "person_${personName.lowercase()}",
+                titleRes = 0,
+                isOverdueGroup = isOverdue,
+                items = items,
+                titleText = personName
+            )
+        }
+    }
     if (selectedFilter == LedgerFilter.SETTLED) {
         return listOf(
             LedgerGroupSection(

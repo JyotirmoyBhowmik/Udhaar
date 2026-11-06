@@ -55,6 +55,8 @@ fun CurrencyThemeSection(
     onFontScaleChange: (AppFontScale) -> Unit,
     themeMode: AppThemeMode,
     onThemeModeChange: (AppThemeMode) -> Unit,
+    groupRecordsByPerson: Boolean = false,
+    onGroupRecordsByPersonChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -200,6 +202,37 @@ fun CurrencyThemeSection(
                     )
                 }
             }
+        }
+
+        // Group records by person toggle
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.settings_group_records_by_person_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = stringResource(R.string.settings_group_records_by_person_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            UdhaarAnimatedSwitch(
+                checked = groupRecordsByPerson,
+                onCheckedChange = { checked ->
+                    onGroupRecordsByPersonChange(checked)
+                },
+                modifier = Modifier.testTag("group_records_by_person_switch")
+            )
         }
 
         HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)

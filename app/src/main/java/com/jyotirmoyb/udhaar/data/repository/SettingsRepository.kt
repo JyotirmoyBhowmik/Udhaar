@@ -65,7 +65,8 @@ open class SettingsRepository(
         securityPin: String? = null,
         phoneNumber: String? = null,
         profilePhotoUri: String? = null,
-        cloudVerificationConsent: Boolean? = null
+        cloudVerificationConsent: Boolean? = null,
+        groupRecordsByPerson: Boolean? = null
     ) {
         if (!securityPin.isNullOrBlank()) {
             pinSecurityManager?.setPin(securityPin.trim())
@@ -109,6 +110,9 @@ open class SettingsRepository(
             }
             if (!securityPin.isNullOrBlank()) {
                 prefs[PrefKeys.PIN_CONFIGURED_REVISION] = System.currentTimeMillis().toString()
+            }
+            if (groupRecordsByPerson != null) {
+                prefs[PrefKeys.GROUP_RECORDS_BY_PERSON] = groupRecordsByPerson
             }
         }
 
@@ -469,5 +473,12 @@ open class SettingsRepository(
             }
         }
         return keyId
+    }
+
+    suspend fun setGroupRecordsByPerson(enabled: Boolean) {
+        inMemorySettingsFallback.value = inMemorySettingsFallback.value.copy(groupRecordsByPerson = enabled)
+        context?.udhaarDataStore?.edit { prefs ->
+            prefs[PrefKeys.GROUP_RECORDS_BY_PERSON] = enabled
+        }
     }
 }

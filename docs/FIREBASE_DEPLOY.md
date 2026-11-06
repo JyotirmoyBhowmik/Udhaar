@@ -1,6 +1,6 @@
-# Firebase Deployment Runbook — Udhaar Production (v17.0)
+# Firebase Deployment Runbook — Udhaar Production (v21.0)
 
-This document provides complete, production-grade deployment instructions for the **Udhaar** backend infrastructure: Cloud Firestore Security Rules, Cloud Functions (v2), Firebase Hosting, and Security Headers.
+This document provides complete, production-grade deployment instructions for the **Udhaar** web platform and backend infrastructure: Single-source static Firebase Hosting (`web/`), Cloud Firestore Security Rules, Cloud Functions (v2), and Enterprise Security Headers.
 
 ---
 
@@ -15,6 +15,7 @@ This document provides complete, production-grade deployment instructions for th
 | **Production Domain** | `https://udhaar.jyotirmoyb.com` |
 | **Guest Verification Portal** | `https://udhaar.jyotirmoyb.com/u/` |
 | **Digital Asset Links** | `https://udhaar.jyotirmoyb.com/.well-known/assetlinks.json` |
+| **Google Play Early Access Switch** | `web/site-config.js` (`PLAY_STORE_LIVE: false`) |
 
 ---
 
@@ -22,15 +23,15 @@ This document provides complete, production-grade deployment instructions for th
 
 All web resources deployed via Firebase Hosting enforce enterprise-grade security headers configured in `firebase.json`.
 
-### 2.1 Security Headers on `/u/**` (Guest Portal)
+### 2.1 Security Headers on `/` and `/u/**`
 - **`Strict-Transport-Security`**: `max-age=31536000; includeSubDomains`
   - Enforces HTTPS for a minimum of 1 year and protects against SSL stripping attacks.
 - **`Content-Security-Policy`**:
   ```text
-  default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; connect-src 'self' https://*.cloudfunctions.net https://asia-south1-*.cloudfunctions.net https://*.firebaseio.com; frame-ancestors 'none';
+  default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://*.cloudfunctions.net https://asia-south1-*.cloudfunctions.net https://*.firebaseio.com; frame-ancestors 'none';
   ```
   > [!IMPORTANT]
-  > Notice that `'unsafe-inline'` and `'unsafe-eval'` are **strictly forbidden**. All scripts are external (`guest.js`, `qrcode.min.js`), and styles are external (`guest.css`).
+  > Notice that `'unsafe-inline'` and `'unsafe-eval'` are **strictly forbidden**. All scripts are external (`landing.js`, `calculator.js`, `guest.js`, `privacy.js`, `site-config.js`), and styles are external (`design-tokens.css`, `landing.css`, `privacy.css`, `guest.css`). Zero inline `<script>` and zero inline `<style>` blocks.
 - **`X-Frame-Options`**: `DENY`
   - Prevents clickjacking and embedding inside iframe containers.
 - **`X-Content-Type-Options`**: `nosniff`
@@ -39,28 +40,55 @@ All web resources deployed via Firebase Hosting enforce enterprise-grade securit
   - Guarantees that sensitive URL fragment tokens (`#<secret>`) are never leaked in referrer headers to external sites.
 - **`Permissions-Policy`**: `geolocation=(), microphone=(), camera=()`
   - Restricts browser device hardware access.
-- **`Cache-Control`**: `no-store, no-cache, must-revalidate, proxy-revalidate`
+- **`Cache-Control`**: `no-store, no-cache, must-revalidate, proxy-revalidate` (on guest flow `/u/**`)
   - Ensures transaction amounts and sensitive party details are never stored in intermediate CDN or browser caches.
 
 ---
 
-## 3. Pre-Deployment Verification Checklist
+## 3. Play Store Release State Configuration
+
+Udhaar provides a single source of truth for the Google Play Store public availability status in `web/site-config.js`:
+
+```javascript
+window.UDHAAR_CONFIG = {
+  // When false: CTA buttons show "Join early access" / waitlist link.
+  // When true: CTA buttons link to the public Google Play Store page.
+  PLAY_STORE_LIVE: false,
+  PLAY_STORE_URL: "https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar",
+  EARLY_ACCESS_URL: "https://play.google.com/apps/testing/com.jyotirmoyb.udhaar",
+  SUPPORT_EMAIL: "support@jyotirmoyb.com"
+};
+```
+
+This configuration dynamically updates all header, hero, footer CTAs, and JSON-LD structured metadata without requiring code rewrites.
+
+---
+
+## 4. Pre-Deployment Verification Checklist
 
 Before deploying any changes to production, execute the automated validation suite locally:
 
 ```bash
-# 1. Validate complete localization (5 regional languages: EN, HI, BN, AS, NE)
-# Fails if any missing keys, untranslated strings, banned jargon, or ALL CAPS exist:
-npm run check:i18n --prefix functions
+# 1. Validate complete localization (5 regional languages: EN, HI, BN, AS, NE):
+npm run check:i18n
 
-# 2. Run Cloud Functions unit tests, security rules tests & Playwright E2E suite:
-npm test --prefix functions
+# 2. Build production assets and verify performance budgets & CSP:
+npm run build
 
-# 3. Run Android unit & Robolectric test suite:
-.\gradlew testDebugUnitTest
+# 3. Optimize images into responsive WebP & AVIF variants:
+npm run optimize:images
+
+# 4. Run real-browser Playwright E2E suite across Chromium, Firefox & WebKit:
+npm run test:e2e
+
+# 5. Run full Cloud Functions unit tests and security rules tests:
+npm test
+
+# 6. Run Android unit & Robolectric test suite:
+.\gradlew.bat testDebugUnitTest
 ```
 
-All 3 commands must complete with **0 errors and 0 failures**.
+All commands must complete with **0 errors and 0 failures**.
 
 ---
 

@@ -6,19 +6,30 @@
   <meta name="theme-color" content="#064e3b" />
   <meta name="color-scheme" content="light dark" />
   <title>Udhaar — Record Verification</title>
-  <link rel="icon" type="image/png" href="../assets/hero-3d-phone.png" />
+  <link rel="icon" type="image/svg+xml" href="../assets/icon.svg" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Udhaar" />
+  <link rel="apple-touch-icon" href="../assets/icon.webp" />
+  <link rel="preload" href="/fonts/inter.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/ibm-plex-mono.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/design-tokens.css" />
   <link rel="stylesheet" href="guest.css" />
   <script src="../assets/qrcode.min.js"></script>
   <script src="guest.js" defer></script>
 </head>
 <body>
+  <!-- Accessibility Skip Link -->
+  <a href="#main-content" class="skip-link">Skip to verification content</a>
+
   <!-- Accessibility Live Announcements -->
   <div id="live-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
   <div id="error-announcer" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
 
   <div class="app-wrapper">
     <!-- Top Header -->
-    <header>
+    <header role="banner">
       <a href="/" class="brand-logo">
         <span data-i18n="brand_name">UDHAAR</span> <span data-i18n="brand_sub">WEB</span>
       </a>
@@ -33,6 +44,17 @@
         <button id="theme-btn" class="theme-btn" aria-label="Toggle Theme" title="Toggle theme">🌙</button>
       </div>
     </header>
+
+    <!-- Stepper & Progress Indicator -->
+    <nav id="stepper-indicator" class="stepper-container" aria-label="Verification Steps">
+      <div class="stepper-header-row">
+        <span id="stepper-step-indicator" class="stepper-pill" data-i18n="step_1_badge">Step 1 of 3</span>
+        <span id="stepper-step-label" class="stepper-title" data-i18n="step_1_label">Review details</span>
+      </div>
+      <div class="stepper-track" aria-hidden="true">
+        <div id="stepper-progress" class="stepper-fill step-fill-1"></div>
+      </div>
+    </nav>
 
     <!-- Demo Mode Alert Banner -->
     <div id="demo-banner" class="notice-box notice-blue hidden" role="alert">
@@ -66,7 +88,7 @@
         <div class="amount-display">
           <div class="amount-subtext" id="step1-amount-label" data-i18n="amount_generic_label">Amount</div>
           <div class="amount-number" id="step1-amount-number">₹0</div>
-          <div class="amount-sentence" id="step1-question">Loading question...</div>
+          <h1 class="amount-sentence" id="step1-question">Loading question...</h1>
         </div>
 
         <!-- Installment Progress Bar (Shown only if installments exist) -->
@@ -105,7 +127,7 @@
         </div>
 
         <!-- Action Buttons (Screen 1) -->
-        <div class="col-gap-12">
+        <div class="action-bar-safe">
           <button id="btn-confirm-yes" class="btn btn-primary" data-i18n="btn_yes_correct">
             ✓ Yes, this is correct
           </button>
@@ -118,6 +140,11 @@
         <div class="why-box">
           <strong data-i18n="why_title">Why we ask this</strong>
           <span data-i18n="why_screen1">Confirming this lets both of you see the exact same record, so there are no misunderstandings or forgotten amounts later.</span>
+        </div>
+
+        <!-- Support Link -->
+        <div class="support-link-row">
+          <a id="report-link-step1" href="mailto:admin@jyotirmoyb.com" class="support-email-link" data-i18n="report_problem_link">Report a problem</a>
         </div>
 
         <!-- Bottom App Note -->
@@ -134,19 +161,19 @@
           <span id="code-timer-text" class="badge badge-slate" data-i18n="code_expires_in">Code valid for 15 minutes</span>
         </div>
 
-        <h2 id="step2-title" class="step2-title-style">Enter the code sent to you</h2>
+        <h1 id="step2-title" class="step2-title-style">Enter the code sent to you</h1>
         <p id="step2-desc" class="step2-desc-style">
           This 6-digit code was sent by the sender in your WhatsApp message. It proves you received the message and keeps this record secure.
         </p>
 
         <!-- 6 OTP Boxes -->
         <div class="otp-inputs" role="group" aria-label="6-digit verification code">
-          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" aria-label="Digit 1" />
-          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" aria-label="Digit 2" />
-          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" aria-label="Digit 3" />
-          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" aria-label="Digit 4" />
-          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" aria-label="Digit 5" />
-          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" aria-label="Digit 6" />
+          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" autocomplete="one-time-code" aria-label="Digit 1" />
+          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" autocomplete="one-time-code" aria-label="Digit 2" />
+          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" autocomplete="one-time-code" aria-label="Digit 3" />
+          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" autocomplete="one-time-code" aria-label="Digit 4" />
+          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" autocomplete="one-time-code" aria-label="Digit 5" />
+          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" autocomplete="one-time-code" aria-label="Digit 6" />
         </div>
 
         <div class="step2-row">
@@ -158,17 +185,24 @@
           </button>
         </div>
 
-        <button id="btn-submit-code" class="btn btn-primary" data-i18n="btn_submit_code">
-          Confirm code
-        </button>
-        <button id="btn-check-later" class="btn btn-secondary" data-i18n="btn_check_later">
-          I will check later
-        </button>
+        <div class="action-bar-safe">
+          <button id="btn-submit-code" class="btn btn-primary" data-i18n="btn_submit_code">
+            Confirm code
+          </button>
+          <button id="btn-check-later" class="btn btn-secondary" data-i18n="btn_check_later">
+            I will check later
+          </button>
+        </div>
 
         <!-- Why we ask this (Screen 2) -->
         <div class="why-box">
           <strong data-i18n="why_title">Why we ask this</strong>
           <span data-i18n="why_screen2">This code proves that you received the message and ensures nobody else can confirm in your name.</span>
+        </div>
+
+        <!-- Support Link -->
+        <div class="support-link-row">
+          <a id="report-link-step2" href="mailto:admin@jyotirmoyb.com" class="support-email-link" data-i18n="report_problem_link">Report a problem</a>
         </div>
 
         <!-- Bottom App Note -->
@@ -180,6 +214,13 @@
 
       <!-- SCREEN 3: Next Steps (After Confirmation) -->
       <div id="screen-step3" class="card hidden">
+        <!-- Print Receipt Header (visible only during window.print()) -->
+        <div class="receipt-header-print">
+          <div class="receipt-brand">UDHAAR • Official Confirmation Receipt</div>
+          <p class="receipt-tagline" data-i18n="receipt_subtitle">Private, on-device verified transaction record</p>
+          <div class="receipt-badge" data-i18n="receipt_status_verified">✓ Verified & Confirmed</div>
+        </div>
+
         <div class="notice-box notice-green">
           <span>✓</span>
           <div>
@@ -193,6 +234,35 @@
         <div class="step3-center-box">
           <div class="step3-other-label"><span id="step3-other-name">The other person</span></div>
           <div id="step3-amount-number" class="step3-amount-text">₹0</div>
+        </div>
+
+        <!-- Share Back WhatsApp Button -->
+        <div class="share-confirmation-box">
+          <button id="btn-share-confirmation" class="btn btn-primary share-wa-btn">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+              <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zM17.47 14.38c-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.01-.37-1.93-1.19-.71-.63-1.19-1.41-1.33-1.65-.14-.24-.02-.37.1-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.2-.48-.4-.41-.54-.42h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.7 2.6 4.12 3.64.58.25 1.03.4 1.38.51.58.18 1.11.16 1.53.1.47-.07 1.42-.58 1.62-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28z"/>
+            </svg>
+            <span data-i18n="btn_share_confirmation">Share confirmation on WhatsApp</span>
+          </button>
+        </div>
+
+        <!-- PWA Install Prompt (Chrome/Android) -->
+        <div id="pwa-install-card" class="install-prompt-card hidden" role="region" aria-label="Install App">
+          <div class="install-icon" aria-hidden="true">📱</div>
+          <div class="install-text">
+            <strong data-i18n="pwa_install_title">Add Udhaar to your home screen</strong>
+            <span id="pwa-install-subtitle" data-i18n="pwa_install_subtitle">Access your confirmed records anytime, even offline.</span>
+          </div>
+          <button id="btn-install-pwa" class="btn btn-secondary btn-sm" data-i18n="btn_add_to_home">Add</button>
+        </div>
+
+        <!-- iOS Safari Install Instructions -->
+        <div id="ios-install-guide" class="install-prompt-card hidden" role="region" aria-label="iOS Install Instructions">
+          <div class="install-icon" aria-hidden="true">📲</div>
+          <div class="install-text">
+            <strong data-i18n="ios_install_title">Install on your iPhone</strong>
+            <span data-i18n="ios_install_desc">Tap Share 📤 in Safari, then select 'Add to Home Screen'.</span>
+          </div>
         </div>
 
         <!-- Action Cards Grid -->
@@ -219,10 +289,37 @@
           </button>
         </div>
 
+        <!-- Advanced Details Accordion (Record Fingerprint & Change History) -->
+        <div id="receipt-details-box" class="receipt-section">
+          <details id="advanced-details-accordion" class="advanced-details-box">
+            <summary data-i18n="advanced_details">Advanced details</summary>
+            <div class="details-content">
+              <div class="data-row">
+                <span class="data-label" data-i18n="label_fingerprint">Record fingerprint</span>
+                <span class="data-value font-mono-sm" id="receipt-fingerprint">—</span>
+              </div>
+              <div class="data-row">
+                <span class="data-label" data-i18n="change_history_title">History of changes</span>
+                <span class="data-value" id="receipt-history">—</span>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <!-- Receipt Print Watermark -->
+        <div class="receipt-print-watermark" data-i18n="receipt_disclaimer">
+          Udhaar is a private record-keeping system. This receipt verifies mutual agreement between parties.
+        </div>
+
         <!-- Why we ask this (Screen 3) -->
         <div class="why-box">
           <strong data-i18n="why_title">Why we ask this</strong>
           <span data-i18n="why_screen3">Setting a return date or reminder helps you stay organized without awkward follow-ups.</span>
+        </div>
+
+        <!-- Support Link -->
+        <div class="support-link-row">
+          <a id="report-link-step3" href="mailto:admin@jyotirmoyb.com" class="support-email-link" data-i18n="report_problem_link">Report a problem</a>
         </div>
 
         <!-- Bottom App Note -->
@@ -242,6 +339,9 @@
         <div class="notice-box notice-amber error-action-box">
           <span>👉</span>
           <span id="error-action" class="error-action-text">Ask the sender to send a new link.</span>
+        </div>
+        <div class="support-link-row">
+          <a id="report-link-error" href="mailto:admin@jyotirmoyb.com" class="support-email-link" data-i18n="report_problem_link">Report a problem</a>
         </div>
         <a href="https://udhaar.jyotirmoyb.com" class="btn btn-secondary" data-i18n="get_the_app">Get the app</a>
       </div>
@@ -282,7 +382,7 @@
         </div>
         <div class="form-group">
           <label class="form-label" for="input-paid-amount" data-i18n="paid_amount_label">Amount paid (₹)</label>
-          <input type="number" id="input-paid-amount" class="form-input" min="1" step="any" placeholder="0" />
+          <input type="number" id="input-paid-amount" class="form-input" min="1" step="any" inputmode="decimal" placeholder="0" />
         </div>
         <div class="form-group">
           <label class="form-label" for="select-paid-mode" data-i18n="paid_mode_label">How did you pay?</label>
@@ -309,6 +409,15 @@
           <h3 id="title-date-sheet" class="sheet-title" data-i18n="date_sheet_title">Tell when you will return it</h3>
           <button class="close-btn" id="close-date-modal" data-close="date-modal" aria-label="Close">×</button>
         </div>
+
+        <!-- Quick Date Chips -->
+        <div class="quick-chips-group" role="group" aria-label="Quick date options">
+          <button type="button" class="date-chip" data-days="7" data-i18n="chip_in_1_week">In 1 week</button>
+          <button type="button" class="date-chip" data-days="14" data-i18n="chip_in_2_weeks">In 2 weeks</button>
+          <button type="button" class="date-chip" data-days="30" data-i18n="chip_in_1_month">In 1 month</button>
+          <button type="button" class="date-chip" data-custom="true" data-i18n="chip_custom">Custom</button>
+        </div>
+
         <div class="form-group">
           <label class="form-label" for="input-return-date" data-i18n="date_label">Return date</label>
           <input type="date" id="input-return-date" class="form-input" />
@@ -359,13 +468,13 @@
         </div>
         <div class="qr-container">
           <div id="qrcode-canvas" aria-label="UPI Payment QR Code"></div>
-          <span class="upi-scan-label" data-i18n="upi_scan_qr">
-            Scan QR with GPay, PhonePe, Paytm, or BHIM
+          <span class="upi-scan-label" data-i18n="scan_with_phone">
+            Scan with your phone
           </span>
         </div>
-        <div class="data-row upi-row-box">
+        <div class="data-row upi-row-box" id="upi-display-container">
           <span class="data-label" data-i18n="upi_id_label">UPI ID</span>
-          <span id="display-upi-id" class="data-value upi-mono">—</span>
+          <span id="display-upi-id" class="data-value upi-mono" role="button" tabindex="0" title="Tap to reveal">—</span>
         </div>
         <div class="upi-actions-col">
           <div class="upi-actions-row">

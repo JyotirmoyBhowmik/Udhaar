@@ -511,6 +511,7 @@ internal fun UdhaarScreenRouter(
                                     onOpenContactPicker = requestContactsFlow,
                                     onSaveReminderSettings = viewModel::updateReminderSettings,
                                     onAnalyticsCrashConsentChanged = viewModel::setAnalyticsCrashConsent,
+                                    onGroupRecordsByPersonChange = viewModel::setGroupRecordsByPerson,
                                     onGenerateRecoveryKey = viewModel::generateAndSaveBackupRecoveryKey,
                                     onSaveRecoveryKey = viewModel::saveBackupRecoveryKey,
                                     onTestMyBackup = viewModel::testMyBackup,

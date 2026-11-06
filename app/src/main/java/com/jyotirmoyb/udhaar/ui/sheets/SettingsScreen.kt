@@ -127,6 +127,7 @@ fun SettingsScreen(
     onSaveWebLinkDefaults: ((defaultExpiryDays: Int, defaultTrustLevel: String, defaultShowUpi: Boolean) -> Unit)? = null,
     onRevokeAllWebLinks: (() -> Unit)? = null,
     onAnalyticsCrashConsentChanged: (Boolean) -> Unit = {},
+    onGroupRecordsByPersonChange: (Boolean) -> Unit = {},
     onGenerateRecoveryKey: ((onKeyReady: (String) -> Unit) -> Unit)? = null,
     onTestMyBackup: (() -> Unit)? = null,
     onDismiss: () -> Unit
@@ -156,6 +157,9 @@ fun SettingsScreen(
     }
     var analyticsCrashConsent by rememberSaveable(currentSettings.analyticsCrashConsent) {
         mutableStateOf(currentSettings.analyticsCrashConsent)
+    }
+    var groupRecordsByPerson by rememberSaveable(currentSettings.groupRecordsByPerson) {
+        mutableStateOf(currentSettings.groupRecordsByPerson)
     }
     var securityPin by rememberSaveable { mutableStateOf("") }
     var pinValidationError by rememberSaveable { mutableStateOf<String?>(null) }
@@ -492,6 +496,11 @@ fun SettingsScreen(
                             onThemeModeChange = { mode ->
                                 themeMode = mode
                                 persistImmediately()
+                            },
+                            groupRecordsByPerson = groupRecordsByPerson,
+                            onGroupRecordsByPersonChange = { checked ->
+                                groupRecordsByPerson = checked
+                                onGroupRecordsByPersonChange(checked)
                             }
                         )
                     }

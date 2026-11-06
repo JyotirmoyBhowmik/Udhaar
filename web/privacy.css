@@ -1,0 +1,152 @@
+/* =========================================================================
+   UDHAAR PRIVACY PAGE STYLES (web/privacy.css)
+   ========================================================================= */
+
+.privacy-container {
+  max-width: 900px;
+  margin: 40px auto;
+  padding: 0 20px 80px;
+}
+
+.in-short-box {
+  background: var(--primary-surface);
+  border: 2px solid var(--primary-accent);
+  border-radius: var(--radius-lg);
+  padding: 24px 28px;
+  margin-bottom: 36px;
+  box-shadow: var(--shadow-sm);
+}
+
+.in-short-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--primary);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.in-short-text {
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--text-main);
+}
+
+.section-card {
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  margin-bottom: 36px;
+  box-shadow: var(--shadow-sm);
+}
+
+.section-card h2 {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 16px;
+}
+
+/* Delete Data Form */
+.delete-form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+@media (min-width: 600px) {
+  .delete-form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .grid-span-2 {
+    grid-column: span 2;
+  }
+}
+
+.form-submit-row {
+  margin-top: 8px;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.privacy-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 16px;
+}
+
+.privacy-table th,
+.privacy-table td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.95rem;
+}
+
+.privacy-table th {
+  background-color: var(--bg-subtle);
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.privacy-table td {
+  color: var(--text-muted);
+}
+
+.legal-content {
+  border-top: 2px solid var(--border-subtle);
+  padding-top: 36px;
+  margin-top: 48px;
+}
+
+.legal-content h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 28px 0 12px;
+  color: var(--text-main);
+}
+
+.legal-content h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 20px 0 8px;
+  color: var(--text-main);
+}
+
+.legal-content p, .legal-content li {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  line-height: 1.65;
+  margin-bottom: 10px;
+}
+
+.legal-content ul, .legal-content ol {
+  padding-left: 24px;
+  margin-bottom: 14px;
+}
+
+.legal-content code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--bg-subtle);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.status-alert {
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+  margin-top: 16px;
+}
+
+.status-alert-success {
+  background: #d1fae5;
+  border: 1.5px solid #10b981;
+  color: #065f46;
+}
