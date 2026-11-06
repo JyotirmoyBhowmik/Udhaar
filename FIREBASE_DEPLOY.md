@@ -64,16 +64,45 @@ All commands must complete with **0 errors and 0 failures**.
 
 ---
 
-## 4. Deploy Hosting, Firestore Rules & Cloud Functions
+## 4. Deploy Hosting, Firestore Rules & Cloud Functions (Google Cloud Shell)
 
-### Deploy Web Hosting Only
-```bash
-firebase deploy --only hosting
-```
+### Why `Error: Not in a Firebase app directory (could not locate firebase.json)` Happens
+Google Cloud Shell starts in your empty home directory (`~`), which does not contain your AI Studio project files until you push to GitHub (or export the ZIP) and `cd` into the project folder.
 
-### Full Combined Production Deployment
+### Step-by-Step Deployment in Google Cloud Shell
+
+1. **Sync your latest code from AI Studio to GitHub** (click the **GitHub** icon in the top-right of AI Studio to push the latest changes to `JyotirmoyBhowmik/Udhaar`), or export the project as a **ZIP** and upload it to Cloud Shell.
+
+2. **In Google Cloud Shell, clone (or pull) your repository and enter the folder:**
+   ```bash
+   # First time in Cloud Shell:
+   git clone https://github.com/JyotirmoyBhowmik/Udhaar.git
+   cd Udhaar
+
+   # Or if ~/Udhaar already exists in Cloud Shell:
+   cd ~/Udhaar && git pull
+   ```
+   *(If you uploaded an exported ZIP file instead: `unzip udhaar.zip -d ~/Udhaar && cd ~/Udhaar`)*
+
+3. **How to complete `firebase login --reauth` properly:**
+   - When `firebase login --reauth` prints:
+     1. `Take note of your session ID: BA9A9`
+     2. `Visit the URL below on any device... https://auth.firebase.tools/login?...`
+     3. `Enter authorization code:`
+   - **Do NOT type the 5-character session ID (`BA9A9` or `DBF03`) into the prompt!**
+   - Instead, **click the `https://auth.firebase.tools/login?...` link**, sign in with your Google account in the browser, verify that the browser shows session ID `BA9A9`, click **Allow**, and copy the **long authorization code** shown in the browser. Paste that long code into Cloud Shell.
+
+4. **Deploy Hosting, Functions & Rules from inside `~/Udhaar`:**
+   ```bash
+   cd ~/Udhaar
+   npm --prefix functions install
+   firebase deploy --only hosting,functions,firestore:rules --project gen-lang-client-0216629575
+   ```
+
+### Deploy Web Hosting Only (Fastest — updates `/u/` verification page immediately)
 ```bash
-firebase deploy --only firestore:rules,hosting,functions
+cd ~/Udhaar
+firebase deploy --only hosting --project gen-lang-client-0216629575
 ```
 
 ---
