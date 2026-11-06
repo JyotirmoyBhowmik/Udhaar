@@ -553,12 +553,12 @@ header {
 }
 
 .btn-primary {
-  background: var(--emerald-600);
+  background: var(--emerald-700);
   color: #ffffff;
 }
 
 .btn-primary:hover {
-  background: var(--emerald-700);
+  background: var(--emerald-800);
 }
 
 .btn-secondary {
@@ -760,9 +760,9 @@ header {
 
 .date-chip:hover,
 .date-chip.active {
-  background: var(--emerald-600);
+  background: var(--emerald-700);
   color: #ffffff;
-  border-color: var(--emerald-600);
+  border-color: var(--emerald-700);
 }
 
 .date-chip:focus-visible {

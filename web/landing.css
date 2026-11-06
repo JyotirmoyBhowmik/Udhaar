@@ -25,7 +25,7 @@
 
   --text-main: #0F172A;
   --text-muted: #334155;
-  --text-subtle: #64748B;
+  --text-subtle: #475569;
   --text-inverse: #FFFFFF;
 
   --border-subtle: #DCE2DD;
@@ -2303,7 +2303,7 @@ header.site-header.scrolled {
   justify-content: space-between;
   gap: 12px;
   font-size: 0.85rem;
-  color: var(--text-subtle);
+  color: var(--text-muted);
 }
 
 /* =========================================================
