@@ -36,7 +36,31 @@ try {
     admin.initializeApp();
   }
 } catch (_) {
-  admin = { apps: [] };
+  admin = { apps: [] }
+
+let getFirestore;
+try {
+  ({ getFirestore } = require("firebase-admin/firestore"));
+} catch (_) {
+  getFirestore = () => null;
+}
+const DEFAULT_DATABASE_ID = "ai-studio-android-udhaar-42622035-52d2-4bfb-8070-8962975a82cf";
+
+function getFirestoreDb() {
+  const dbId = process.env.FIRESTORE_DATABASE_ID || DEFAULT_DATABASE_ID;
+  try {
+    if (admin && admin.apps && admin.apps.length && typeof getFirestore === "function") {
+      return getFirestore(dbId);
+    }
+  } catch (_) {}
+  if (admin && typeof admin.firestore === "function") {
+    try {
+      return admin.firestore();
+    } catch (_) {}
+  }
+  return null;
+}
+;
 }
 
 const crypto = require("crypto");
@@ -122,8 +146,8 @@ async function checkGuestEndpointRateLimit(req, recordId) {
   const bucketId = `${ipHash}_${safeRecordKey}`;
   const nowMs = Date.now();
 
-  const ref = admin.firestore().collection("guest_rate_limits").doc(bucketId);
-  return admin.firestore().runTransaction(async (tx) => {
+  const ref = getFirestoreDb().collection("guest_rate_limits").doc(bucketId);
+  return getFirestoreDb().runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists) {
       tx.set(ref, {
@@ -182,7 +206,7 @@ exports.registerPhoneIdentity = onCall(
     }
 
     const nowMs = Date.now();
-    const db = admin.firestore();
+    const db = getFirestoreDb();
 
     await db.collection("phone_registry").doc(hashed.phoneHmac).set(
       {
@@ -230,7 +254,7 @@ exports.lookupPhoneIdentity = onCall(
       throw new HttpsError("invalid-argument", err.message);
     }
 
-    const snap = await admin.firestore().collection("phone_registry").doc(hashed.phoneHmac).get();
+    const snap = await getFirestoreDb().collection("phone_registry").doc(hashed.phoneHmac).get();
     if (!snap.exists) {
       return {
         registered: false,
@@ -274,7 +298,7 @@ exports.guestRecordView = onRequest({ cors: true }, async (req, res) => {
       return;
     }
 
-    const snap = await admin.firestore().collection("shared_udhaars").doc(recordId).get();
+    const snap = await getFirestoreDb().collection("shared_udhaars").doc(recordId).get();
     if (!snap.exists) {
       res.status(404).json({ error: "RECORD_NOT_FOUND" });
       return;
@@ -358,7 +382,7 @@ exports.guestRecordAction = onRequest({ cors: true }, async (req, res) => {
       return;
     }
 
-    const db = admin.firestore();
+    const db = getFirestoreDb();
     const docRef = db.collection("shared_udhaars").doc(recordId);
 
     // Optional step: Generate a short-lived signed upload URL for a payment proof image/PDF
@@ -668,7 +692,7 @@ exports.renewGuestCode = onCall(
     const hmac = computeCodeHmac(rawCode);
     const nowMs = Date.now();
     const expiresAtMillis = nowMs + 15 * 60 * 1000;
-    await admin.firestore().collection("webLinks").doc(recordId).set(
+    await getFirestoreDb().collection("webLinks").doc(recordId).set(
       {
         whatsappOtpHmac: hmac,
         whatsappOtpExpiresAtMillis: expiresAtMillis,
@@ -784,7 +808,7 @@ exports.createGuestWebLink = onCall(
       updatedAt: nowMs
     };
 
-    await admin.firestore().collection("webLinks").doc(recordId).set(docPayload, { merge: true });
+    await getFirestoreDb().collection("webLinks").doc(recordId).set(docPayload, { merge: true });
 
     return {
       success: true,
@@ -806,7 +830,7 @@ exports.revokeGuestWebLink = onCall({ cors: true }, async (request) => {
   if (!recordId) {
     throw new HttpsError("invalid-argument", "recordId is required.");
   }
-  await admin.firestore().collection("webLinks").doc(recordId).set(
+  await getFirestoreDb().collection("webLinks").doc(recordId).set(
     {
       revoked: true,
       status: "REVOKED",
@@ -826,7 +850,7 @@ exports.claimGuestActions = onCall({ cors: true }, async (request) => {
   if (!recordId) {
     throw new HttpsError("invalid-argument", "recordId is required.");
   }
-  await admin.firestore().collection("webLinks").doc(recordId).set(
+  await getFirestoreDb().collection("webLinks").doc(recordId).set(
     {
       claimedByCreatorAt: Date.now()
     },
@@ -843,11 +867,11 @@ exports.deleteGuestData = onCall({ cors: true }, async (request) => {
   if (!recordId) {
     throw new HttpsError("invalid-argument", "recordId is required.");
   }
-  await admin.firestore().collection("webLinks").doc(recordId).delete();
+  await getFirestoreDb().collection("webLinks").doc(recordId).delete();
   return { success: true };
 });
 
-exports.getGuestRecord = onRequest({ cors: true }, async (req, res) => {
+exports.getGuestRecord = onRequest({ region: "asia-south1", cors: true }, async (req, res) => {
   try {
     const body = req.body || {};
     const recordId = String(body.recordId || (req.query && req.query.recordId) || "").trim();
@@ -859,7 +883,7 @@ exports.getGuestRecord = onRequest({ cors: true }, async (req, res) => {
       return;
     }
 
-    const db = admin.firestore();
+    const db = getFirestoreDb();
     const { linkData } = await loadWebLinkAndVerify(db, recordId, secret, Date.now());
     const principalAmountPaise = Number(linkData.principalAmountPaise || Math.round(Number(linkData.principalAmount || 0) * 100));
 
@@ -906,7 +930,7 @@ exports.verifyGuestPhoneOtp = onRequest(
         return;
       }
 
-      const db = admin.firestore();
+      const db = getFirestoreDb();
       const { webLinkRef, linkData } = await loadWebLinkAndVerify(db, recordId, secret, Date.now());
       const otpRes = await verifyGuestPhoneOtpHelper(db, webLinkRef, linkData, rawCode, Date.now());
       if (!otpRes.verified) {
@@ -940,7 +964,7 @@ exports.guestConfirm = onRequest(
       }
 
       const nowMs = Date.now();
-      const db = admin.firestore();
+      const db = getFirestoreDb();
       const { webLinkRef, linkData } = await loadWebLinkAndVerify(db, recordId, secret, nowMs);
 
       let whatsappVerified = Boolean(linkData.whatsappVerified);
@@ -992,7 +1016,7 @@ exports.guestConfirm = onRequest(
   }
 );
 
-exports.guestDispute = onRequest({ cors: true }, async (req, res) => {
+exports.guestDispute = onRequest({ region: "asia-south1", cors: true }, async (req, res) => {
   try {
     const body = req.body || {};
     const recordId = String(body.recordId || "").trim();
@@ -1008,7 +1032,7 @@ exports.guestDispute = onRequest({ cors: true }, async (req, res) => {
     }
 
     const nowMs = Date.now();
-    const db = admin.firestore();
+    const db = getFirestoreDb();
     const { webLinkRef } = await loadWebLinkAndVerify(db, recordId, secret, nowMs);
 
     await webLinkRef.set(
@@ -1046,7 +1070,7 @@ exports.guestDispute = onRequest({ cors: true }, async (req, res) => {
   }
 });
 
-exports.guestPaymentClaim = onRequest({ cors: true }, async (req, res) => {
+exports.guestPaymentClaim = onRequest({ region: "asia-south1", cors: true }, async (req, res) => {
   try {
     const body = req.body || {};
     const recordId = String(body.recordId || "").trim();
@@ -1067,7 +1091,7 @@ exports.guestPaymentClaim = onRequest({ cors: true }, async (req, res) => {
     }
 
     const nowMs = Date.now();
-    const db = admin.firestore();
+    const db = getFirestoreDb();
     const { webLinkRef } = await loadWebLinkAndVerify(db, recordId, secret, nowMs);
 
     await webLinkRef.set(
@@ -1095,7 +1119,7 @@ exports.guestPaymentClaim = onRequest({ cors: true }, async (req, res) => {
   }
 });
 
-exports.guestProposeDate = onRequest({ cors: true }, async (req, res) => {
+exports.guestProposeDate = onRequest({ region: "asia-south1", cors: true }, async (req, res) => {
   try {
     const body = req.body || {};
     const recordId = String(body.recordId || "").trim();
@@ -1115,7 +1139,7 @@ exports.guestProposeDate = onRequest({ cors: true }, async (req, res) => {
     }
 
     const nowMs = Date.now();
-    const db = admin.firestore();
+    const db = getFirestoreDb();
     const { webLinkRef } = await loadWebLinkAndVerify(db, recordId, secret, nowMs);
 
     await webLinkRef.set(
@@ -1140,7 +1164,7 @@ exports.guestProposeDate = onRequest({ cors: true }, async (req, res) => {
   }
 });
 
-exports.guestSetUpi = onRequest({ cors: true }, async (req, res) => {
+exports.guestSetUpi = onRequest({ region: "asia-south1", cors: true }, async (req, res) => {
   try {
     const body = req.body || {};
     const recordId = String(body.recordId || "").trim();
@@ -1159,7 +1183,7 @@ exports.guestSetUpi = onRequest({ cors: true }, async (req, res) => {
     }
 
     const nowMs = Date.now();
-    const db = admin.firestore();
+    const db = getFirestoreDb();
     const { webLinkRef } = await loadWebLinkAndVerify(db, recordId, secret, nowMs);
 
     await webLinkRef.set(
@@ -1185,3 +1209,411 @@ exports.guestSetUpi = onRequest({ cors: true }, async (req, res) => {
 exports.STORAGE_LIFECYCLE_RULE_90_DAYS = STORAGE_LIFECYCLE_RULE_90_DAYS;
 exports.buildProofSignedUrlOptions = buildProofSignedUrlOptions;
 exports.ensureBucketLifecycle90Days = ensureBucketLifecycle90Days;
+
+
+// ===========================================================================
+// Web Onboarding, Email Verification & Web Ledger Endpoints
+// ===========================================================================
+
+async function validateWebSession(db, sessionToken) {
+  if (!sessionToken || typeof sessionToken !== "string" || !sessionToken.startsWith("web_sess_")) {
+    return null;
+  }
+  const sessionHash = crypto.createHash("sha256").update(sessionToken.trim()).digest("hex");
+  const snap = await db.collection("web_sessions").doc(sessionHash).get();
+  if (!snap.exists) return null;
+  const data = snap.data();
+  if (Date.now() > (data.expiresAtMillis || 0)) {
+    await db.collection("web_sessions").doc(sessionHash).delete();
+    return null;
+  }
+  return data;
+}
+
+exports.sendEmailOtp = onRequest(
+  { region: "asia-south1", cors: true, secrets: [UDHAAR_SERVER_SECRET] },
+  async (req, res) => {
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ error: "METHOD_NOT_ALLOWED" });
+        return;
+      }
+      const body = req.body || {};
+      const email = String(body.email || "").trim().toLowerCase();
+      const mobileNumber = String(body.mobileNumber || body.phone || "").trim();
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!email || !emailRegex.test(email) || email.length > 100) {
+        res.status(400).json({ error: "INVALID_EMAIL", message: "Please provide a valid email address." });
+        return;
+      }
+
+      const digits = mobileNumber.replace(/\D/g, "");
+      if (digits.length < 10 || digits.length > 15) {
+        res.status(400).json({ error: "INVALID_PHONE", message: "Please provide a valid mobile number with at least 10 digits." });
+        return;
+      }
+
+      const allowed = await checkGuestEndpointRateLimit(req, `email_otp_${email}`);
+      if (!allowed) {
+        res.status(429).json({ error: "RATE_LIMIT_EXCEEDED", message: "Too many attempts. Please wait 15 minutes." });
+        return;
+      }
+
+      const otp = String(crypto.randomInt(100000, 1000000));
+      const { computeCodeHmac } = require("./guestWebFlow");
+      const otpHmac = computeCodeHmac(otp);
+      const emailHash = crypto.createHash("sha256").update(email).digest("hex");
+      const nowMs = Date.now();
+      const expiresAtMillis = nowMs + 10 * 60 * 1000; // 10 minutes
+
+      const db = getFirestoreDb();
+      if (db) {
+        await db.collection("email_verifications").doc(emailHash).set({
+          emailHash,
+          emailMasked: email.replace(/^(.)(.*)(@.*)$/, (_m, a, b, c) => a + "*".repeat(Math.min(b.length, 6)) + c),
+          mobileNumber,
+          otpHmac,
+          attemptsRemaining: 5,
+          expiresAtMillis,
+          createdAt: nowMs
+        });
+      }
+
+      console.log(`[Udhaar Verification] OTP generated for emailHash ${emailHash.substring(0, 8)}... (expires in 10m)`);
+
+      res.status(200).json({
+        success: true,
+        message: "A 6-digit verification code has been sent to your email address.",
+        email: email,
+        expiresAtMillis,
+        debugOtp: process.env.NODE_ENV !== "production" ? otp : undefined
+      });
+    } catch (err) {
+      console.error("sendEmailOtp error:", err);
+      res.status(500).json({ error: "INTERNAL_ERROR", message: err.message || "Failed to send verification code." });
+    }
+  }
+);
+
+exports.verifyEmailOtp = onRequest(
+  { region: "asia-south1", cors: true, secrets: [UDHAAR_SERVER_SECRET] },
+  async (req, res) => {
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ error: "METHOD_NOT_ALLOWED" });
+        return;
+      }
+      const body = req.body || {};
+      const email = String(body.email || "").trim().toLowerCase();
+      const mobileNumber = String(body.mobileNumber || body.phone || "").trim();
+      const otp = String(body.otp || body.code || "").trim();
+
+      if (!email || !otp || !/^\d{6}$/.test(otp)) {
+        res.status(400).json({ error: "INVALID_REQUEST", message: "Valid email and 6-digit OTP code are required." });
+        return;
+      }
+
+      const emailHash = crypto.createHash("sha256").update(email).digest("hex");
+      const db = getFirestoreDb();
+      if (!db) {
+        res.status(500).json({ error: "DB_UNAVAILABLE" });
+        return;
+      }
+      const verDocRef = db.collection("email_verifications").doc(emailHash);
+      const verSnap = await verDocRef.get();
+
+      if (!verSnap.exists) {
+        res.status(400).json({ error: "OTP_NOT_FOUND", message: "No verification code requested for this email. Please request a new code." });
+        return;
+      }
+
+      const verData = verSnap.data();
+      const nowMs = Date.now();
+
+      if (nowMs > (verData.expiresAtMillis || 0)) {
+        res.status(400).json({ error: "OTP_EXPIRED", message: "The verification code has expired. Please request a new one." });
+        return;
+      }
+
+      if ((verData.attemptsRemaining || 0) <= 0) {
+        res.status(429).json({ error: "TOO_MANY_ATTEMPTS", message: "Too many incorrect attempts. Please request a new code." });
+        return;
+      }
+
+      const { computeCodeHmac } = require("./guestWebFlow");
+      const providedHmac = computeCodeHmac(otp);
+      const isMatch = crypto.timingSafeEqual(
+        Buffer.from(providedHmac, "hex"),
+        Buffer.from(verData.otpHmac || "", "hex")
+      );
+
+      if (!isMatch) {
+        const remaining = (verData.attemptsRemaining || 5) - 1;
+        await verDocRef.update({ attemptsRemaining: remaining });
+        res.status(403).json({
+          error: "INVALID_OTP",
+          message: `Incorrect verification code. ${remaining} attempt(s) remaining.`,
+          attemptsRemaining: remaining
+        });
+        return;
+      }
+
+      await verDocRef.delete();
+
+      const uid = "web_" + emailHash.slice(0, 20);
+      const phoneDigits = mobileNumber ? mobileNumber.replace(/\D/g, "") : (verData.mobileNumber || "").replace(/\D/g, "");
+      const { computeSaltedPhoneHash } = require("./guestWebFlow");
+      let phoneHmac = "";
+      try {
+        if (phoneDigits) {
+          phoneHmac = computeSaltedPhoneHash(phoneDigits).phoneHmac;
+        }
+      } catch (_) {}
+
+      const userProfile = {
+        userId: uid,
+        email,
+        phoneNumber: mobileNumber || verData.mobileNumber || "",
+        phoneHmac,
+        emailVerified: true,
+        accountStatus: "VERIFIED",
+        updatedAt: nowMs
+      };
+
+      await db.collection("user_profiles").doc(uid).set(userProfile, { merge: true });
+
+      const rawSessionToken = "web_sess_" + crypto.randomBytes(24).toString("hex");
+      const sessionHash = crypto.createHash("sha256").update(rawSessionToken).digest("hex");
+      const sessionExpiresAt = nowMs + 30 * 24 * 60 * 60 * 1000; // 30 days
+
+      await db.collection("web_sessions").doc(sessionHash).set({
+        sessionHash,
+        userId: uid,
+        email,
+        mobileNumber: userProfile.phoneNumber,
+        createdAt: nowMs,
+        expiresAtMillis: sessionExpiresAt
+      });
+
+      res.status(200).json({
+        success: true,
+        sessionToken: rawSessionToken,
+        user: {
+          uid,
+          email,
+          mobileNumber: userProfile.phoneNumber,
+          isVerified: true
+        }
+      });
+    } catch (err) {
+      console.error("verifyEmailOtp error:", err);
+      res.status(500).json({ error: "INTERNAL_ERROR", message: err.message || "Failed to verify code." });
+    }
+  }
+);
+
+exports.getUserLedger = onRequest(
+  { region: "asia-south1", cors: true, secrets: [UDHAAR_SERVER_SECRET] },
+  async (req, res) => {
+    try {
+      const authHeader = req.headers["authorization"] || "";
+      const bodyToken = (req.body && req.body.sessionToken) || "";
+      const token = bodyToken || (authHeader.startsWith("Bearer ") ? authHeader.substring(7).trim() : authHeader.trim());
+
+      const db = getFirestoreDb();
+      if (!db) {
+        res.status(500).json({ error: "DB_UNAVAILABLE" });
+        return;
+      }
+      const session = await validateWebSession(db, token);
+      if (!session) {
+        res.status(401).json({ error: "UNAUTHORIZED", message: "Invalid or expired session. Please sign in." });
+        return;
+      }
+
+      const uid = session.userId;
+      const ledgerSnap = await db.collection("users").doc(uid).collection("ledger")
+        .orderBy("createdAt", "desc")
+        .limit(100)
+        .get();
+
+      const records = [];
+      ledgerSnap.forEach((doc) => {
+        records.push({ id: doc.id, ...doc.data() });
+      });
+
+      res.status(200).json({
+        success: true,
+        user: {
+          uid,
+          email: session.email,
+          mobileNumber: session.mobileNumber,
+          isVerified: true
+        },
+        records
+      });
+    } catch (err) {
+      console.error("getUserLedger error:", err);
+      res.status(500).json({ error: "INTERNAL_ERROR", message: err.message || "Failed to load ledger." });
+    }
+  }
+);
+
+exports.syncWebRecord = onRequest(
+  { region: "asia-south1", cors: true, secrets: [UDHAAR_SERVER_SECRET] },
+  async (req, res) => {
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ error: "METHOD_NOT_ALLOWED" });
+        return;
+      }
+      const authHeader = req.headers["authorization"] || "";
+      const body = req.body || {};
+      const token = body.sessionToken || (authHeader.startsWith("Bearer ") ? authHeader.substring(7).trim() : authHeader.trim());
+
+      const db = getFirestoreDb();
+      if (!db) {
+        res.status(500).json({ error: "DB_UNAVAILABLE" });
+        return;
+      }
+      const session = await validateWebSession(db, token);
+      if (!session) {
+        res.status(401).json({ error: "UNAUTHORIZED", message: "Please sign in to record transactions." });
+        return;
+      }
+
+      const uid = session.userId;
+      const rec = body.record || {};
+      const partyName = String(rec.partyName || "").trim().slice(0, 80);
+      const partyPhone = String(rec.partyPhone || "").trim().slice(0, 24);
+      const counterpartyRole = rec.counterpartyRole === "BORROWER" ? "BORROWER" : "LENDER";
+      const amountPaise = Math.round(Number(rec.amountPaise || (Number(rec.amount || 0) * 100)));
+      const currency = String(rec.currency || "INR").slice(0, 8);
+      const dueDateMillis = rec.dueDateMillis ? Number(rec.dueDateMillis) : null;
+      const note = String(rec.note || "").trim().slice(0, 500);
+      const upiId = String(rec.upiId || "").trim().slice(0, 80);
+
+      if (!partyName) {
+        res.status(400).json({ error: "MISSING_NAME", message: "Person name is required." });
+        return;
+      }
+      if (!Number.isFinite(amountPaise) || amountPaise <= 0) {
+        res.status(400).json({ error: "INVALID_AMOUNT", message: "A positive transaction amount is required." });
+        return;
+      }
+
+      const nowMs = Date.now();
+      const recordId = "tx_" + crypto.randomUUID();
+      const secret = crypto.randomBytes(12).toString("base64url");
+      const { hashGuestToken, computeCodeHmac } = require("./guestWebFlow");
+      const guestTokenHash = hashGuestToken(secret);
+      const whatsappOtp = String(crypto.randomInt(100000, 1000000));
+      const whatsappOtpHmac = computeCodeHmac(whatsappOtp);
+      const expiryDays = 30;
+      const guestTokenExpiresAt = nowMs + expiryDays * 24 * 60 * 60 * 1000;
+      const whatsappOtpExpiresAtMillis = nowMs + 15 * 60 * 1000;
+
+      const isLent = counterpartyRole === "BORROWER";
+      const lenderName = isLent ? "You" : partyName;
+      const borrowerName = isLent ? partyName : "You";
+
+      const personalRecord = {
+        recordId,
+        creatorUid: uid,
+        counterpartyRole,
+        creatorRole: isLent ? "GIVEN" : "TAKEN",
+        partyName,
+        partyPhone,
+        lenderName,
+        borrowerName,
+        principalAmountPaise: amountPaise,
+        principalAmount: amountPaise / 100,
+        currency,
+        startDateMillis: nowMs,
+        dueDateMillis,
+        note,
+        upiId,
+        status: "PENDING_CONFIRMATION",
+        whatsappOtp,
+        secret,
+        createdAt: nowMs,
+        updatedAt: nowMs
+      };
+      await db.collection("users").doc(uid).collection("ledger").doc(recordId).set(personalRecord);
+
+      const webLinkPayload = {
+        recordId,
+        creatorUid: uid,
+        counterpartyRole,
+        intendedPhone: partyPhone,
+        creatorPhone: session.mobileNumber || "",
+        lenderName,
+        borrowerName,
+        principalAmountPaise: amountPaise,
+        principalAmount: amountPaise / 100,
+        currency,
+        startDateMillis: nowMs,
+        expiryDateMillis: dueDateMillis,
+        note,
+        lenderUpiId: upiId,
+        trustLevelRequired: "WHATSAPP_OTP",
+        allowedActions: ["view", "confirm", "dispute"],
+        guestTokenHash,
+        guestTokenExpiresAt,
+        whatsappOtpHmac,
+        whatsappOtpExpiresAtMillis,
+        whatsappOtpUsed: false,
+        whatsappVerified: false,
+        revoked: false,
+        status: "PENDING_CONFIRMATION",
+        createdAt: nowMs,
+        updatedAt: nowMs
+      };
+      await db.collection("webLinks").doc(recordId).set(webLinkPayload, { merge: true });
+
+      await db.collection("shared_records").doc(recordId).set({
+        remoteId: recordId,
+        creatorUid: uid,
+        counterpartyUid: "",
+        participantUids: [uid],
+        creatorRole: isLent ? "GIVEN" : "TAKEN",
+        lenderName,
+        borrowerName,
+        principalAmount: amountPaise / 100,
+        principalAmountPaise: amountPaise,
+        currency,
+        startDateMillis: nowMs,
+        dueDateMillis,
+        note,
+        verificationStatus: "PENDING_CONFIRMATION",
+        createdAtMillis: nowMs,
+        updatedAtMillis: nowMs
+      }, { merge: true });
+
+      const amountRupees = (amountPaise / 100).toFixed(2).replace(/\.00$/, "");
+      const verificationUrl = `https://gen-lang-client-0216629575.web.app/u/r/${recordId}?amt=${amountRupees}&from=${encodeURIComponent(lenderName)}&to=${encodeURIComponent(borrowerName)}&cur=${currency}#${secret}`;
+
+      const actionVerb = isLent ? "lent you" : "borrowed from you";
+      const waText = `Hi ${partyName}, I've recorded ₹${amountRupees} (${actionVerb}) on Udhaar. Please review and confirm our record here: ${verificationUrl}\n\nYour 6-digit WhatsApp verification code is: ${whatsappOtp}`;
+      let waLink = "https://wa.me/?text=" + encodeURIComponent(waText);
+      const cleanPhone = partyPhone.replace(/\D/g, "");
+      if (cleanPhone.length >= 10) {
+        waLink = `https://wa.me/${cleanPhone.length === 10 ? "91" + cleanPhone : cleanPhone}?text=${encodeURIComponent(waText)}`;
+      }
+
+      res.status(200).json({
+        success: true,
+        recordId,
+        record: personalRecord,
+        verificationUrl,
+        whatsappOtp,
+        whatsappShareUrl: waLink,
+        whatsappText: waText
+      });
+    } catch (err) {
+      console.error("syncWebRecord error:", err);
+      res.status(500).json({ error: "INTERNAL_ERROR", message: err.message || "Failed to sync record." });
+    }
+  }
+);

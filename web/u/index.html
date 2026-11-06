@@ -100,6 +100,13 @@
           <h1 class="amount-sentence" id="step1-question">Loading question...</h1>
         </div>
 
+        <!-- Manual Amount Input Card (Shown only if link does not specify amount to prevent 0-value confirmation) -->
+        <div id="manual-amount-container" class="manual-amount-box hidden" hidden>
+          <label for="input-manual-amount" class="input-label" data-i18n="label_enter_amount">Enter agreed transaction amount (₹)</label>
+          <input type="number" id="input-manual-amount" class="input-field" placeholder="e.g. 5000" min="1" step="1" inputmode="numeric">
+          <p class="field-hint" data-i18n="hint_enter_amount">Enter the exact amount agreed on WhatsApp before confirming.</p>
+        </div>
+
         <!-- Installment Progress Bar (Shown only if installments exist) -->
         <div id="installment-progress-box" class="progress-box hidden" hidden>
           <div class="progress-header">

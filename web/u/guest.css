@@ -1282,3 +1282,27 @@ footer a {
   padding: 8px 12px;
   border-radius: var(--radius-sm);
 }
+
+
+/* Manual Amount Entry Card (0-amount prevention) */
+.manual-amount-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  margin-top: var(--space-3, 12px);
+  padding: var(--space-3, 12px);
+  background: var(--bg-secondary, #F8FAFC);
+  border: 1px solid var(--border-default, #E2E8F0);
+  border-radius: var(--radius-md, 12px);
+  text-align: left;
+}
+.manual-amount-box .input-label {
+  font-size: var(--text-sm, 14px);
+  font-weight: 600;
+  color: var(--text-primary, #0F172A);
+}
+.manual-amount-box .field-hint {
+  font-size: var(--text-xs, 12px);
+  color: var(--text-muted, #475569);
+  margin: 0;
+}

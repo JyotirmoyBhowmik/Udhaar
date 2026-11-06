@@ -88,7 +88,7 @@ if (totalGuestBytes <= GUEST_LIMIT) {
 }
 
 console.log("\n▶ [3/4] Verifying Strict Content-Security Policy & Zero Inline Code...");
-const htmlFiles = ["index.html", "privacy.html", "404.html", "u/index.html", "trust/index.html", "updates/index.html"];
+const htmlFiles = ["index.html", "privacy.html", "404.html", "u/index.html", "trust/index.html", "updates/index.html", "ledger/index.html"];
 
 for (const relHtml of htmlFiles) {
   const fullHtmlPath = path.join(WEB_DIR, relHtml);

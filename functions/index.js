@@ -3,6 +3,7 @@ const {
   onDocumentUpdated,
   onDocumentWritten,
 } = require("firebase-functions/v2/firestore");
+const { setGlobalOptions } = require("firebase-functions/v2");
 const { defineString } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
@@ -22,6 +23,9 @@ const {
 } = require("./guestWebFlow");
 
 initializeApp();
+
+// Enforce asia-south1 region across all Cloud Functions v2 triggers and HTTP handlers
+setGlobalOptions({ region: "asia-south1", maxInstances: 10 });
 
 /**
  * Environment parameter for the named Cloud Firestore database ID.

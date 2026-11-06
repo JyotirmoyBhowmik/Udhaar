@@ -3,12 +3,16 @@
 // Security Rule: NEVER cache record data, secret tokens, or /api/* endpoints
 // =========================================================================
 
-const CACHE_NAME = "udhaar-shell-v25";
+const CACHE_NAME = "udhaar-shell-v26";
 const SHELL_ASSETS = [
   "/u/",
   "/u/index.html",
   "/u/guest.css",
   "/u/guest.js",
+  "/ledger/",
+  "/ledger/index.html",
+  "/ledger/ledger.css",
+  "/ledger/ledger.js",
   "/design-tokens.css",
   "/fonts/inter.woff2",
   "/fonts/space-grotesk.woff2",

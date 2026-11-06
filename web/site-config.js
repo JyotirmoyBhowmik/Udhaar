@@ -24,7 +24,8 @@ const SITE_CONFIG = {
 
   // Navigation Links
   TRUST_CENTER_URL: "/trust/",
-  UPDATES_URL: "/updates/"
+  UPDATES_URL: "/updates/",
+  WEB_LEDGER_URL: "/ledger/"
 };
 
 // CommonJS support for Node.js test runners

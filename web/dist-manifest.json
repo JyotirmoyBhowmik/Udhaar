@@ -1,25 +1,25 @@
 {
   "version": "21.0.0",
-  "timestamp": "2026-11-06T14:36:05.563Z",
+  "timestamp": "2026-11-06T15:25:36.566Z",
   "budgets": {
-    "landingKb": 249.9,
-    "guestKb": 194.6
+    "landingKb": 250.3,
+    "guestKb": 198.3
   },
   "hashes": {
-    "index.html": "8dbc377268",
-    "landing.css": "5b6ce4c6d0",
-    "landing.js": "86db219e16",
+    "index.html": "ae27fd3b6d",
+    "landing.css": "284531a35e",
+    "landing.js": "f3630bb843",
     "calculator.js": "0af822d14f",
-    "site-config.js": "ac25f73ada",
+    "site-config.js": "7ed0685f1f",
     "design-tokens.css": "0503fa3b5b",
     "manifest.json": "7883e2a0ba",
-    "sw.js": "e0f1140f3e",
+    "sw.js": "ec27aae798",
     "privacy.html": "94abcf2f91",
     "privacy.css": "5ead74d46f",
     "privacy.js": "602c9d501e",
     "404.html": "32abe4f02c",
-    "u/index.html": "95be341b44",
-    "u/guest.css": "6060258d91",
-    "u/guest.js": "58333502a3"
+    "u/index.html": "13600ef064",
+    "u/guest.css": "bddc2c83c7",
+    "u/guest.js": "ea14e43e2a"
   }
 }

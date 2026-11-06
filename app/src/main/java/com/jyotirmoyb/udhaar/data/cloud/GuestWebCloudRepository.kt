@@ -94,7 +94,13 @@ class GuestWebCloudRepository @Inject constructor(
                 whatsappOtp = localOtp,
                 contentHash = contentHash
             )
-            val localUrl = "https://udhaar.jyotirmoyb.com/u/r/$recordId#$selfContainedFragment"
+            val principalRupees = principalAmountPaise.toDouble() / 100.0
+            val amountParam = if (principalRupees % 1.0 == 0.0) principalRupees.toLong().toString() else "%.2f".format(java.util.Locale.US, principalRupees)
+            val encFrom = java.net.URLEncoder.encode(lenderName, "UTF-8")
+            val encTo = java.net.URLEncoder.encode(borrowerName, "UTF-8")
+            val encCur = java.net.URLEncoder.encode(currency, "UTF-8")
+            val queryStr = "?amt=$amountParam&from=$encFrom&to=$encTo&cur=$encCur"
+            val localUrl = "https://udhaar.jyotirmoyb.com/u/r/$recordId$queryStr#$selfContainedFragment"
             return GuestWebLinkCreateResult(
                 success = true,
                 recordId = recordId,
