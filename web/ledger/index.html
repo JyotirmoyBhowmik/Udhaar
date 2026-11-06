@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="/design-tokens.css">
   <link rel="stylesheet" href="/ledger/ledger.css">
 
+  <script src="/assets/qrcode.min.js" defer></script>
   <script src="/ledger/ledger.js" defer></script>
 </head>
 <body>
@@ -57,6 +58,11 @@
         <!-- Theme Toggle -->
         <button id="btn-theme-toggle" class="btn-icon" aria-label="Toggle dark/light theme" type="button">
           <span id="theme-icon" aria-hidden="true">🌙</span>
+        </button>
+
+        <!-- Soundbox Audio Chime Toggle -->
+        <button id="btn-sound-toggle" class="btn-icon" aria-label="Toggle soundbox audio chime" type="button" title="Soundbox Confirmation Chime">
+          <span id="sound-icon" aria-hidden="true">🔔</span>
         </button>
 
         <!-- Account Verification / Profile Pill -->
@@ -126,10 +132,16 @@
         <button class="filter-chip" data-filter="confirmed" role="radio" aria-checked="false" type="button" data-i18n="filter_confirmed">Confirmed</button>
       </div>
 
-      <button id="btn-open-create" class="btn btn-primary btn-create" type="button" aria-haspopup="dialog">
-        <span aria-hidden="true">+</span>
-        <span data-i18n="btn_record_udhaar">Record Udhaar</span>
-      </button>
+      <div class="toolbar-actions">
+        <button id="btn-export-csv" class="btn btn-secondary btn-export" type="button" aria-label="Export Hisab statement as CSV">
+          <span aria-hidden="true">📥</span>
+          <span data-i18n="btn_export_hisab">Download Hisab</span>
+        </button>
+        <button id="btn-open-create" class="btn btn-primary btn-create" type="button" aria-haspopup="dialog">
+          <span aria-hidden="true">+</span>
+          <span data-i18n="btn_record_udhaar">Record Udhaar</span>
+        </button>
+      </div>
     </section>
 
     <!-- Ledger Transaction List -->
@@ -285,6 +297,16 @@
             <input type="number" id="input-amount" class="input-field font-mono" placeholder="5000" min="1" max="1000000" step="1" required inputmode="numeric" aria-describedby="err-amount">
           </div>
           <div id="err-amount" class="inline-error hidden" role="alert" hidden></div>
+          <!-- Quick Amount Shortcut Chips -->
+          <div class="quick-amt-chips" aria-label="Quick amount shortcuts">
+            <button type="button" class="btn-amt-chip" data-amt="500">+₹500</button>
+            <button type="button" class="btn-amt-chip" data-amt="1000">+₹1,000</button>
+            <button type="button" class="btn-amt-chip" data-amt="2000">+₹2,000</button>
+            <button type="button" class="btn-amt-chip" data-amt="5000">+₹5,000</button>
+            <button type="button" class="btn-amt-chip" data-amt="10000">+₹10,000</button>
+          </div>
+          <!-- Amount in Words (Indian numbering) -->
+          <div id="amount-in-words" class="amount-in-words hidden" aria-live="polite" hidden></div>
         </div>
 
         <!-- Due Date Selection -->
@@ -310,6 +332,14 @@
           <label for="input-upi" class="input-label" data-i18n="label_upi_optional">Your UPI ID (Optional)</label>
           <input type="text" id="input-upi" class="input-field font-mono" placeholder="username@okhdfcbank" maxlength="60" aria-describedby="err-upi">
           <span class="field-hint" data-i18n="hint_upi">Shown on receipt so counterparty can pay via QR or UPI app.</span>
+          <div class="upi-bank-handles" aria-label="Popular UPI handles">
+            <span class="handle-hint">Popular:</span>
+            <button type="button" class="btn-handle-chip" data-handle="@okhdfcbank">@okhdfcbank</button>
+            <button type="button" class="btn-handle-chip" data-handle="@oksbi">@oksbi</button>
+            <button type="button" class="btn-handle-chip" data-handle="@okicici">@okicici</button>
+            <button type="button" class="btn-handle-chip" data-handle="@paytm">@paytm</button>
+            <button type="button" class="btn-handle-chip" data-handle="@ybl">@ybl</button>
+          </div>
           <div id="err-upi" class="inline-error hidden" role="alert" hidden></div>
         </div>
 
@@ -396,6 +426,204 @@
 
         <div class="modal-footer">
           <button type="button" id="btn-finish-audit" class="btn btn-primary full-width" data-i18n="btn_close">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 5: Partial Repayment / Payment Recording -->
+  <div id="modal-payment" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title" hidden>
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="payment-modal-title" class="modal-title" data-i18n="payment_modal_title">Record Payment Received</h2>
+        <button id="btn-close-payment" class="btn-close" type="button" aria-label="Close payment modal">✕</button>
+      </div>
+
+      <form id="form-record-payment" class="modal-body">
+        <div class="payment-party-banner">
+          <div class="payment-party-name" id="payment-party-name">Ravi Sharma</div>
+          <div class="payment-balance-info">
+            <span data-i18n="label_remaining_balance">Remaining:</span>
+            <span id="payment-remaining-amt" class="font-mono text-bold">₹5,000</span>
+          </div>
+        </div>
+
+        <div class="form-group margin-top-md">
+          <label for="input-payment-amount" class="input-label" data-i18n="label_payment_amount">Payment Amount (₹)</label>
+          <div class="amount-input-wrap">
+            <span class="currency-prefix" aria-hidden="true">₹</span>
+            <input type="number" id="input-payment-amount" class="input-field font-mono" placeholder="1000" min="1" step="1" required inputmode="numeric">
+          </div>
+          <div id="err-payment-amount" class="inline-error hidden" role="alert" hidden></div>
+          <div class="quick-amt-chips" aria-label="Quick payment amount shortcuts">
+            <button type="button" class="btn-pay-chip" data-amt="500">+₹500</button>
+            <button type="button" class="btn-pay-chip" data-amt="1000">+₹1,000</button>
+            <button type="button" class="btn-pay-chip" data-amt="2000">+₹2,000</button>
+            <button type="button" class="btn-pay-full" id="btn-pay-full" data-i18n="btn_full_balance">Pay Full</button>
+          </div>
+          <div id="payment-amount-in-words" class="amount-in-words hidden" aria-live="polite" hidden></div>
+        </div>
+
+        <!-- Payment Mode Selection -->
+        <fieldset class="form-group">
+          <legend class="input-label" data-i18n="label_payment_mode">Payment Mode</legend>
+          <div class="payment-mode-group" role="radiogroup">
+            <label class="mode-option">
+              <input type="radio" name="paymentMode" value="UPI" checked>
+              <span class="mode-pill">📱 UPI (GPay/PhonePe/Paytm)</span>
+            </label>
+            <label class="mode-option">
+              <input type="radio" name="paymentMode" value="CASH">
+              <span class="mode-pill" data-i18n="mode_cash">💵 Cash (नकद)</span>
+            </label>
+            <label class="mode-option">
+              <input type="radio" name="paymentMode" value="BANK">
+              <span class="mode-pill" data-i18n="mode_bank">🏦 Bank Transfer</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <div class="form-group">
+          <label for="input-payment-note" class="input-label" data-i18n="label_payment_note">Payment Note (Optional)</label>
+          <input type="text" id="input-payment-note" class="input-field" placeholder="e.g. UPI Ref: 3123456789 or Part payment" maxlength="150">
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" id="btn-cancel-payment" class="btn btn-secondary" data-i18n="btn_cancel">Cancel</button>
+          <button type="submit" id="btn-save-payment" class="btn btn-primary" data-i18n="btn_confirm_payment">Save Payment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 6: Digital Parchi / Hisab Slip Receipt -->
+  <div id="modal-parchi" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="parchi-modal-title" hidden>
+    <div class="modal-card modal-card-parchi">
+      <div class="modal-header">
+        <h2 id="parchi-modal-title" class="modal-title" data-i18n="parchi_modal_title">Udhaar Hisab Parchi</h2>
+        <button id="btn-close-parchi" class="btn-close" type="button" aria-label="Close parchi modal">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div id="parchi-printable" class="parchi-slip">
+          <!-- Parchi Header -->
+          <div class="parchi-top">
+            <div class="parchi-brand">
+              <span class="parchi-logo" aria-hidden="true">📒</span>
+              <span class="parchi-title">Udhaar Hisab Parchi</span>
+            </div>
+            <div class="parchi-date font-mono" id="parchi-date">07 Nov 2026</div>
+          </div>
+
+          <div class="parchi-divider"></div>
+
+          <!-- Parties & Type -->
+          <div class="parchi-row">
+            <span class="parchi-label" data-i18n="label_from">From (Lender):</span>
+            <span class="parchi-val text-bold" id="parchi-lender-val">You</span>
+          </div>
+          <div class="parchi-row">
+            <span class="parchi-label" data-i18n="label_to">To (Borrower):</span>
+            <span class="parchi-val text-bold" id="parchi-borrower-val">Ravi Sharma</span>
+          </div>
+          <div class="parchi-row">
+            <span class="parchi-label" data-i18n="label_phone">Mobile Number:</span>
+            <span class="parchi-val font-mono" id="parchi-phone-val">9876543210</span>
+          </div>
+
+          <div class="parchi-divider"></div>
+
+          <!-- Financial Breakdown -->
+          <div class="parchi-row">
+            <span class="parchi-label" data-i18n="label_original_amt">Original Amount:</span>
+            <span class="parchi-val font-mono" id="parchi-orig-val">₹5,000</span>
+          </div>
+          <div class="parchi-row">
+            <span class="parchi-label" data-i18n="label_total_paid">Total Paid So Far:</span>
+            <span class="parchi-val font-mono text-emerald" id="parchi-paid-val">₹1,000</span>
+          </div>
+          <div class="parchi-row parchi-highlight-row">
+            <span class="parchi-label-large" data-i18n="label_balance_due">Net Balance Due:</span>
+            <span class="parchi-val-large font-mono text-bold" id="parchi-balance-val">₹4,000</span>
+          </div>
+          <div class="parchi-words" id="parchi-words-val">Four Thousand Rupees Only</div>
+
+          <!-- QR Code section if UPI ID exists -->
+          <div id="parchi-qr-section" class="parchi-qr-box hidden" hidden>
+            <span class="parchi-qr-title" data-i18n="label_scan_pay">Scan & Pay via any UPI App</span>
+            <div id="parchi-qr-container" class="parchi-qr-img"></div>
+            <span id="parchi-upi-text" class="parchi-upi-id font-mono">user@okhdfcbank</span>
+          </div>
+
+          <div class="parchi-divider"></div>
+
+          <!-- Trust & Fingerprint -->
+          <div class="parchi-footer">
+            <div class="parchi-seal">✓ 100% Private & Verified Two-Party Record</div>
+            <div class="parchi-hash font-mono" id="parchi-hash-val">SHA-256: a1b2...c3d4</div>
+          </div>
+        </div>
+
+        <div class="modal-footer flex-column margin-top-md">
+          <div class="parchi-actions-row">
+            <button type="button" id="btn-print-parchi" class="btn btn-secondary flex-1">
+              <span aria-hidden="true">🖨️</span>
+              <span data-i18n="btn_print_pdf">Print / Save PDF</span>
+            </button>
+            <a id="btn-whatsapp-parchi" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp flex-1">
+              <span aria-hidden="true">💬</span>
+              <span data-i18n="btn_share_whatsapp">Share on WhatsApp</span>
+            </a>
+          </div>
+          <button type="button" id="btn-finish-parchi" class="btn btn-secondary full-width margin-top-xs" data-i18n="btn_done">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 7: Respectful Indian WhatsApp Reminder Selector -->
+  <div id="modal-reminder-tone" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="reminder-modal-title" hidden>
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="reminder-modal-title" class="modal-title" data-i18n="reminder_modal_title">Send WhatsApp Reminder</h2>
+        <button id="btn-close-reminder" class="btn-close" type="button" aria-label="Close reminder modal">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-intro" data-i18n="reminder_intro">Choose a tone that suits your relationship. A polite and respectful message helps maintain good relationships while tracking finances.</p>
+
+        <div class="tone-cards-list" role="radiogroup" aria-label="Reminder message tone">
+          <label class="tone-card active">
+            <input type="radio" name="reminderTone" value="polite" checked>
+            <div class="tone-header">
+              <span class="tone-badge badge-green" data-i18n="tone_gentle_badge">🌸 Gentle & Polite (विनम्र)</span>
+            </div>
+            <p class="tone-preview" id="tone-preview-polite"></p>
+          </label>
+
+          <label class="tone-card">
+            <input type="radio" name="reminderTone" value="standard">
+            <div class="tone-header">
+              <span class="tone-badge badge-slate" data-i18n="tone_standard_badge">📋 Standard Record (सामान्य हिसाब)</span>
+            </div>
+            <p class="tone-preview" id="tone-preview-standard"></p>
+          </label>
+
+          <label class="tone-card">
+            <input type="radio" name="reminderTone" value="due">
+            <div class="tone-header">
+              <span class="tone-badge badge-amber" data-i18n="tone_due_badge">📅 Due Date Notice (तारीख अनुस्मारक)</span>
+            </div>
+            <p class="tone-preview" id="tone-preview-due"></p>
+          </label>
+        </div>
+
+        <div class="modal-footer flex-column margin-top-md">
+          <a id="btn-send-whatsapp-tone" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-whatsapp full-width">
+            <span aria-hidden="true">💬</span>
+            <span data-i18n="btn_open_whatsapp">Open in WhatsApp</span>
+          </a>
+          <button type="button" id="btn-cancel-reminder" class="btn btn-secondary full-width margin-top-xs" data-i18n="btn_cancel">Cancel</button>
         </div>
       </div>
     </div>

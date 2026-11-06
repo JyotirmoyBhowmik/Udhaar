@@ -221,7 +221,7 @@ if (!guestI18n || !guestI18n.en) {
 }
 
 // --- SECTION 3: LANDING PAGE WEB DICTIONARY ---
-console.log("\n▶ [3/3] Validating Landing Page Dictionary (web/landing.js)...");
+console.log("\n▶ [3/4] Validating Landing Page Dictionary (web/landing.js)...");
 const landingJsPath = path.join(WEB_DIR, "landing.js");
 const landingModule = require(landingJsPath);
 const landingI18n = landingModule.I18N;
@@ -257,6 +257,47 @@ if (!landingI18n || !landingI18n.en) {
     }
     if (missing === 0 && untranslated === 0) {
       console.log(`  ✓ Landing dictionary '${loc}' complete and translated (0 missing, 0 untranslated)`);
+    }
+  }
+}
+
+// --- SECTION 4: WEB LEDGER & INDIAN WORKFLOWS DICTIONARY ---
+console.log("\n▶ [4/4] Validating Web Ledger & Indian UX Dictionary (web/ledger/ledger.js)...");
+const ledgerJsPath = path.join(WEB_DIR, "ledger/ledger.js");
+const ledgerModule = require(ledgerJsPath);
+const ledgerI18n = ledgerModule.I18N;
+
+if (!ledgerI18n || !ledgerI18n.en) {
+  console.error("  ❌ Missing I18N.en in web/ledger/ledger.js");
+  totalErrors++;
+} else {
+  const ledgerEnKeys = Object.keys(ledgerI18n.en);
+  console.log(`  Web Ledger English dictionary has ${ledgerEnKeys.length} keys`);
+
+  for (const loc of ["hi", "bn", "as", "ne"]) {
+    const locDict = ledgerI18n[loc] || {};
+    let missing = 0;
+    let untranslated = 0;
+
+    for (const key of ledgerEnKeys) {
+      if (!locDict[key]) {
+        console.error(`  ❌ Ledger '${loc}' missing key: ${key}`);
+        missing++;
+        totalErrors++;
+      } else {
+        const enVal = ledgerI18n.en[key].trim();
+        const locVal = locDict[key].trim();
+        if (enVal === locVal && enVal.length > 3 && !/^[0-9%₹रू\s\.\:\,\-\_\/]+$/.test(enVal)) {
+          if (!["UDHAAR", "UPI", "UPI ID", "GPay", "PhonePe", "Paytm", "BHIM", "CSV", "WhatsApp", "SMS"].includes(enVal)) {
+            console.error(`  ❌ Ledger '${loc}' untranslated string for '${key}': "${locVal}"`);
+            untranslated++;
+            totalErrors++;
+          }
+        }
+      }
+    }
+    if (missing === 0 && untranslated === 0) {
+      console.log(`  ✓ Ledger dictionary '${loc}' complete and translated (0 missing, 0 untranslated)`);
     }
   }
 }

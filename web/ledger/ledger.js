@@ -2,6 +2,8 @@
  * Udhaar Web Ledger & Two-Party Record Hub (web/ledger/ledger.js)
  * Full-scale production client with offline-first caching, email OTP account verification,
  * and WhatsApp 6-digit verification code generation.
+ * Built for India: Indian numbering with Amount in Words, Quick Chips, UPI Handle integration,
+ * Partial Repayments (किश्त), Digital Parchi (रसीद), Polite Reminders, Soundbox Chimes & CSV Statement Export.
  * Multi-user isolation, decorated data, cryptographic audit trail, and WCAG 2.1 AA announcements.
  * Strict CSP: Zero inline scripts, zero inline styles.
  */
@@ -31,6 +33,7 @@
       filter_confirmed: "Confirmed",
       btn_record_udhaar: "Record Udhaar",
       btn_record_first: "Record First Udhaar",
+      btn_export_hisab: "Download Hisab",
       empty_title: "No transactions found",
       empty_desc: "Start by recording your first transaction. A private capability link and WhatsApp verification code will be generated automatically.",
       auth_modal_title: "Account Verification",
@@ -85,6 +88,9 @@
       action_share: "WhatsApp",
       action_copy: "Copy Link",
       action_settle: "Mark Settled",
+      action_payment: "Payment",
+      action_parchi: "Parchi",
+      action_audit: "Activity",
       toast_copied: "Link copied to clipboard!",
       even_balance: "Even balance",
       net_positive: "You are owed net {amt}",
@@ -96,6 +102,10 @@
       toast_auth_otp_sent: "Verification code sent to your email.",
       toast_error_validation: "Please correct the highlighted errors before saving.",
       toast_logged_out: "Signed out. Switched to guest mode.",
+      toast_payment_saved: "Payment recorded successfully! Balance updated.",
+      toast_hisab_exported: "Hisab statement downloaded (CSV)!",
+      sound_enabled_msg: "Soundbox audio chime turned ON.",
+      sound_disabled_msg: "Soundbox audio chime turned OFF.",
       err_name_invalid: "Please enter a valid person name (2 to 80 characters).",
       err_phone_invalid: "Please enter a valid 10-digit Indian mobile number.",
       err_amount_min: "Amount must be at least ₹1.",
@@ -112,11 +122,35 @@
       label_timeline: "Activity Timeline",
       btn_close: "Close",
       btn_logout: "Sign Out",
-      action_audit: "Activity",
       status_event_created: "Record Created",
       status_event_wa_code: "WhatsApp Code Generated",
       status_event_verified: "Confirmed by Counterparty",
-      status_event_settled: "Record Settled"
+      status_event_settled: "Record Settled",
+      status_event_payment: "Payment Received",
+      payment_modal_title: "Record Payment Received",
+      label_remaining_balance: "Remaining Balance:",
+      label_payment_amount: "Payment Amount (₹)",
+      btn_full_balance: "Pay Full",
+      label_payment_mode: "Payment Mode",
+      mode_cash: "💵 Cash",
+      mode_bank: "🏦 Bank Transfer",
+      label_payment_note: "Payment Note (Optional)",
+      btn_confirm_payment: "Save Payment",
+      parchi_modal_title: "Udhaar Hisab Parchi",
+      label_from: "From (Lender):",
+      label_to: "To (Borrower):",
+      label_phone: "Mobile Number:",
+      label_original_amt: "Original Amount:",
+      label_total_paid: "Total Paid So Far:",
+      label_balance_due: "Net Balance Due:",
+      label_scan_pay: "Scan & Pay via any UPI App",
+      btn_print_pdf: "Print / Save PDF",
+      reminder_modal_title: "Send WhatsApp Reminder",
+      reminder_intro: "Choose a tone that suits your relationship. A polite and respectful message helps maintain good relationships while tracking finances.",
+      tone_gentle_badge: "🌸 Gentle & Polite",
+      tone_standard_badge: "📋 Standard Record",
+      tone_due_badge: "📅 Due Date Notice",
+      btn_open_whatsapp: "Open in WhatsApp"
     },
     hi: {
       badge_web_ledger: "वेब बहीखाता",
@@ -138,6 +172,7 @@
       filter_confirmed: "सत्यापित",
       btn_record_udhaar: "उधार दर्ज करें",
       btn_record_first: "पहला उधार दर्ज करें",
+      btn_export_hisab: "हिसाब डाउनलोड करें",
       empty_title: "कोई लेन-देन नहीं मिला",
       empty_desc: "अपना पहला लेन-देन दर्ज करके शुरुआत करें। एक निजी लिंक और ह्वाट्सएप सत्यापन कोड अपने आप तैयार हो जाएगा।",
       auth_modal_title: "खाता सत्यापन",
@@ -192,6 +227,9 @@
       action_share: "ह्वाट्सएप",
       action_copy: "लिंक कॉपी",
       action_settle: "चुकता चिह्नित करें",
+      action_payment: "जमा करें",
+      action_parchi: "पर्ची",
+      action_audit: "गतिविधि",
       toast_copied: "लिंक क्लिपबोर्ड पर कॉपी हो गया!",
       even_balance: "बराबर शेष",
       net_positive: "आपको शुद्ध {amt} मिलने हैं",
@@ -203,6 +241,10 @@
       toast_auth_otp_sent: "सत्यापन कोड आपके ईमेल पर भेजा गया है।",
       toast_error_validation: "कृपया सहेजने से पहले चिह्नित त्रुटियों को ठीक करें।",
       toast_logged_out: "साइन आउट किया गया। अतिथि मोड में स्विच किया गया।",
+      toast_payment_saved: "भुगतान दर्ज हो गया! शेष राशि अपडेट हुई।",
+      toast_hisab_exported: "हिसाब स्टेटमेंट डाउनलोड हो गया (CSV)!",
+      sound_enabled_msg: "साउंडबॉक्स ध्वनि चालू की गई।",
+      sound_disabled_msg: "साउंडबॉक्स ध्वनि बंद की गई।",
       err_name_invalid: "कृपया एक मान्य व्यक्ति का नाम दर्ज करें (२ से ८० अक्षर)।",
       err_phone_invalid: "कृपया एक मान्य १० अंकों का भारतीय मोबाइल नंबर दर्ज करें।",
       err_amount_min: "रकम कम से कम ₹१ होनी चाहिए।",
@@ -219,11 +261,35 @@
       label_timeline: "गतिविधि समयरेखा",
       btn_close: "बंद करें",
       btn_logout: "साइन आउट",
-      action_audit: "गतिविधि",
       status_event_created: "रिकॉर्ड बनाया गया",
       status_event_wa_code: "ह्वाट्सएप कोड जनरेट हुआ",
       status_event_verified: "दूसरे पक्ष द्वारा पुष्टि",
-      status_event_settled: "लेन-देन चुकता हुआ"
+      status_event_settled: "लेन-देन चुकता हुआ",
+      status_event_payment: "भुगतान प्राप्त हुआ",
+      payment_modal_title: "भुगतान प्राप्त दर्ज करें",
+      label_remaining_balance: "बकाया राशि:",
+      label_payment_amount: "भुगतान राशि (₹)",
+      btn_full_balance: "पूरा चुकता",
+      label_payment_mode: "भुगतान का माध्यम",
+      mode_cash: "💵 नकद (कैश)",
+      mode_bank: "🏦 बैंक ट्रांसफर",
+      label_payment_note: "टिप्पणी (वैकल्पिक)",
+      btn_confirm_payment: "भुगतान सहेजें",
+      parchi_modal_title: "उधार हिसाब पर्ची",
+      label_from: "देने वाला (लेनदार):",
+      label_to: "लेने वाला (देनदार):",
+      label_phone: "मोबाइल नंबर:",
+      label_original_amt: "मूल राशि:",
+      label_total_paid: "अब तक प्राप्त:",
+      label_balance_due: "कुल बकाया राशि:",
+      label_scan_pay: "किसी भी UPI ऐप से स्कैन करें",
+      btn_print_pdf: "प्रिंट / PDF सहेजें",
+      reminder_modal_title: "ह्वाट्सएप अनुस्मारक भेजें",
+      reminder_intro: "अपने संबंध के अनुसार संदेश का लहज़ा चुनें। विनम्र संदेश संबंध मधुर रखते हुए हिसाब साफ़ रखता है।",
+      tone_gentle_badge: "🌸 विनम्र व आदरणीय",
+      tone_standard_badge: "📋 सामान्य हिसाब",
+      tone_due_badge: "📅 वापसी तारीख सूचना",
+      btn_open_whatsapp: "ह्वाट्सएप पर खोलें"
     },
     bn: {
       badge_web_ledger: "ওয়েব খাতা",
@@ -245,6 +311,7 @@
       filter_confirmed: "যাচাইকৃত",
       btn_record_udhaar: "ধার যোগ করুন",
       btn_record_first: "প্রথম ধার যোগ করুন",
+      btn_export_hisab: "হিসাব ডাউনলোড করুন",
       empty_title: "কোনো লেনদেন পাওয়া যায়নি",
       empty_desc: "আপনার প্রথম লেনদেন লিখে শুরু করুন। একটি ব্যক্তিগত লিঙ্ক এবং হোয়াটসঅ্যাপ কোড স্বয়ংক্রিয়ভাবে তৈরি হবে।",
       auth_modal_title: "অ্যাকাউন্ট যাচাইকরণ",
@@ -299,6 +366,9 @@
       action_share: "হোয়াটসঅ্যাপ",
       action_copy: "লিঙ্ক কপি",
       action_settle: "পরিশোধিত করুন",
+      action_payment: "জমা নথি",
+      action_parchi: "রসিদ",
+      action_audit: "কার্যকলাপ",
       toast_copied: "লিঙ্ক ক্লিপবোর্ডে কপি হয়েছে!",
       even_balance: "সমান সমান ব্যালেন্স",
       net_positive: "আপনি মোট {amt} পাবেন",
@@ -310,6 +380,10 @@
       toast_auth_otp_sent: "যাচাইকরণ কোড আপনার ইমেলে পাঠানো হয়েছে।",
       toast_error_validation: "সংরক্ষণ করার আগে চিহ্নিত ত্রুটিগুলি সংশোধন করুন।",
       toast_logged_out: "সাইন আউট করা হয়েছে। অতিথি মোডে প্রবেশ করা হয়েছে।",
+      toast_payment_saved: "পরিশোধ সংরক্ষিত হয়েছে! বাকি টাকা আপডেট হলো।",
+      toast_hisab_exported: "হিসাব স্টেটমেন্ট ডাউনলোড হয়েছে (CSV)!",
+      sound_enabled_msg: "সাউন্ডবক্স ধ্বনি চালু করা হলো।",
+      sound_disabled_msg: "সাউন্ডবক্স ধ্বনি বন্ধ করা হলো।",
       err_name_invalid: "অনুগ্রহ করে একটি সঠিক ব্যক্তির নাম লিখুন (২ থেকে ৮০ অক্ষর)।",
       err_phone_invalid: "অনুগ্রহ করে একটি সঠিক ১০ সংখ্যার ভারতীয় মোবাইল নম্বর লিখুন।",
       err_amount_min: "পরিমাণ কমপক্ষে ₹১ হতে হবে।",
@@ -326,11 +400,35 @@
       label_timeline: "কার্যকলাপ সময়রেখা",
       btn_close: "বন্ধ করুন",
       btn_logout: "সাইন আউট",
-      action_audit: "কার্যকলাপ",
       status_event_created: "রেকর্ড তৈরি করা হয়েছে",
       status_event_wa_code: "হোয়াটসঅ্যাপ কোড তৈরি হয়েছে",
       status_event_verified: "অপর পক্ষ দ্বারা নিশ্চিত",
-      status_event_settled: "লেনদেন পরিশোধিত"
+      status_event_settled: "লেনদেন পরিশোধিত",
+      status_event_payment: "টাকা জমা হয়েছে",
+      payment_modal_title: "জমা টাকা নথিভুক্ত করুন",
+      label_remaining_balance: "বকেয়া টাকা:",
+      label_payment_amount: "পরিশোধের পরিমাণ (₹)",
+      btn_full_balance: "সম্পূর্ণ পরিশোধ",
+      label_payment_mode: "পরিশোধের মাধ্যম",
+      mode_cash: "💵 নগদ (ক্যাশ)",
+      mode_bank: "🏦 ব্যাংক ট্রান্সফার",
+      label_payment_note: "নোট (ঐচ্ছিক)",
+      btn_confirm_payment: "জমা সংরক্ষণ করুন",
+      parchi_modal_title: "ধার হিসাব রসিদ",
+      label_from: "প্রদানকারী (ঋণদাতা):",
+      label_to: "গ্রহণকারী (ঋণগ্রহীতা):",
+      label_phone: "মোবাইল নম্বর:",
+      label_original_amt: "আসল টাকা:",
+      label_total_paid: "পরিশোধিত টাকা:",
+      label_balance_due: "মোট বাকি টাকা:",
+      label_scan_pay: "যেকোনো UPI অ্যাপ দিয়ে স্ক্যান করুন",
+      btn_print_pdf: "প্রিন্ট / PDF সংরক্ষণ",
+      reminder_modal_title: "হোয়াটসঅ্যাপ বার্তা পাঠান",
+      reminder_intro: "সম্পর্কের ধরন অনুযায়ী বার্তার ধরন বেছে নিন। মার্জিত ভাষা সম্পর্ক বজায় রেখে হিসাব স্বচ্ছ রাখে।",
+      tone_gentle_badge: "🌸 মার্জিত ও বিনম্র",
+      tone_standard_badge: "📋 সাধারণ হিসাব",
+      tone_due_badge: "📅 শেষ তারিখের তাগিদ",
+      btn_open_whatsapp: "হোয়াটসঅ্যাপে খুলুন"
     },
     as: {
       badge_web_ledger: "ৱেব খাতা",
@@ -352,6 +450,7 @@
       filter_confirmed: "পৰীক্ষিত",
       btn_record_udhaar: "ধাৰ যোগ কৰক",
       btn_record_first: "প্ৰথম ধাৰ যোগ কৰক",
+      btn_export_hisab: "হিচাপ ডাউনলোড কৰক",
       empty_title: "কোনো লেনদেন পোৱা নগ’ল",
       empty_desc: "আপোনাৰ প্ৰথমটো লেনদেন লিখি আৰম্ভ কৰক। এটা ব্যক্তিগত লিংক আৰু হোৱাটছএপ ক’ড স্বয়ংক্ৰিয়ভাৱে সৃষ্টি হ’ব।",
       auth_modal_title: "একাউণ্ট পৰীক্ষা",
@@ -406,6 +505,9 @@
       action_share: "হোৱাটছএপ",
       action_copy: "লিংক কপি",
       action_settle: "পৰিশোধিত কৰক",
+      action_payment: "ধন জমা",
+      action_parchi: "ৰছিদ",
+      action_audit: "কাৰ্যকলাপ",
       toast_copied: "লিংক ক্লিপব’ৰ্ডত কপি হ’ল!",
       even_balance: "সমান সমান বাকী",
       net_positive: "আপুনি মুঠ {amt} পাব",
@@ -417,6 +519,10 @@
       toast_auth_otp_sent: "পৰীক্ষাকৰণ ক’ড আপোনাৰ ইমেইললৈ প্ৰেৰণ কৰা হৈছে।",
       toast_error_validation: "সংৰক্ষণ কৰাৰ আগতে চিহ্নিত ত্ৰুটিসমূহ ঠিক কৰক।",
       toast_logged_out: "ছাইন আউট কৰা হ’ল। অতিথি ম’ডলৈ সলনি কৰা হ’ল।",
+      toast_payment_saved: "পৰিশোধ সংৰক্ষিত হ’ল! বাকী ধন আপডেট হ’ল।",
+      toast_hisab_exported: "হিচাপ ষ্টেটমেণ্ট ডাউনলোড হ’ল (CSV)!",
+      sound_enabled_msg: "সাউণ্ডবক্স ধ্বনি অন কৰা হ’ল।",
+      sound_disabled_msg: "সাউণ্ডবক্স ধ্বনি অফ কৰা হ’ল।",
       err_name_invalid: "অনুগ্ৰহ কৰি এগৰাকী ব্যক্তিৰ সঠিক নাম লিখক (২ৰ পৰা ৮০টা আখৰ)।",
       err_phone_invalid: "অনুগ্ৰহ কৰি এটা সঠিক ১০টা সংখ্যাৰ ভাৰতীয় ম’বাইল নম্বৰ দিয়ক।",
       err_amount_min: "টকাৰ পৰিমাণ কমেও ₹১ হ’ব লাগিব।",
@@ -433,11 +539,35 @@
       label_timeline: "কাৰ্যকলাপ সময়ৰেখা",
       btn_close: "বন্ধ কৰক",
       btn_logout: "ছাইন আউট",
-      action_audit: "কাৰ্যকলাপ",
       status_event_created: "ৰেকৰ্ড সৃষ্টি কৰা হ’ল",
       status_event_wa_code: "হোৱাটছএপ ক’ড সৃষ্টি হ’ল",
       status_event_verified: "আন পক্ষৰ দ্বাৰা নিশ্চিত",
-      status_event_settled: "লেনদেন পৰিশোধ কৰা হ’ল"
+      status_event_settled: "লেনদেন পৰিশোধ কৰা হ’ল",
+      status_event_payment: "ধন গ্ৰহণ কৰা হ’ল",
+      payment_modal_title: "পৰিশোধিত ধন নথিভুক্ত কৰক",
+      label_remaining_balance: "বাকী ধন:",
+      label_payment_amount: "পৰিশোধৰ পৰিমাণ (₹)",
+      btn_full_balance: "সম্পূৰ্ণ পৰিশোধ",
+      label_payment_mode: "পৰিশোধৰ মাধ্যম",
+      mode_cash: "💵 নগদ (কেশ্ব)",
+      mode_bank: "🏦 বেংক ট্ৰান্সফাৰ",
+      label_payment_note: "টোকা (ঐচ্ছিক)",
+      btn_confirm_payment: "পৰিশোধ সংৰক্ষণ কৰক",
+      parchi_modal_title: "ধাৰ হিচাপ ৰছিদ",
+      label_from: "প্ৰদানকাৰী:",
+      label_to: "গ্ৰহণকাৰী:",
+      label_phone: "ম’বাইল নম্বৰ:",
+      label_original_amt: "মূল ধন:",
+      label_total_paid: "মুঠ পৰিশোধিত:",
+      label_balance_due: "মুঠ বাকী ধন:",
+      label_scan_pay: "যিকোনো UPI এপেৰে স্কেন কৰক",
+      btn_print_pdf: "প্ৰিন্ট / PDF সংৰক্ষণ",
+      reminder_modal_title: "হোৱাটছএপ বাৰ্তা প্ৰেৰণ",
+      reminder_intro: "সম্পৰ্ক অনুসৰি বাৰ্তাৰ সুৰ বাছক। বিনম্ৰ বাৰ্তাই সম্পৰ্ক মধুৰ ৰাখি হিচাপ পৰিষ্কাৰ ৰাখে।",
+      tone_gentle_badge: "🌸 বিনম্ৰ আৰু সন্মানীয়",
+      tone_standard_badge: "📋 সাধাৰণ হিচাপ",
+      tone_due_badge: "📅 পৰিশোধ তাৰিখ বাৰ্তা",
+      btn_open_whatsapp: "হোৱাটছএপত খোলক"
     },
     ne: {
       badge_web_ledger: "वेब खाता",
@@ -459,6 +589,7 @@
       filter_confirmed: "प्रमाणित",
       btn_record_udhaar: "उधारो थप्नुहोस्",
       btn_record_first: "पहिलो उधारो थप्नुहोस्",
+      btn_export_hisab: "हिसाब डाउनलोड गर्नुहोस्",
       empty_title: "कुनै कारोबार भेटिएन",
       empty_desc: "पहिलो कारोबार दर्ता गरेर सुरु गर्नुहोस्। एक निजी लिङ्क र ह्वाट्सएप कोड स्वतः सिर्जना हुनेछ।",
       auth_modal_title: "खाता प्रमाणीकरण",
@@ -513,6 +644,9 @@
       action_share: "ह्वाट्सएप",
       action_copy: "लिंक कपी",
       action_settle: "चुक्ता जनाउनुहोस्",
+      action_payment: "जम्मा दर्ता",
+      action_parchi: "पर्ची",
+      action_audit: "गतिविधि",
       toast_copied: "लिंक कपी भयो!",
       even_balance: "बराबर रकम",
       net_positive: "तपाईंले कुल {amt} पाउनुहुनेछ",
@@ -524,6 +658,10 @@
       toast_auth_otp_sent: "प्रमाणीकरण कोड तपाईंको इमेलमा पठाइएको छ।",
       toast_error_validation: "कृपया बचत गर्नुअघि देखाइएका त्रुटिहरू सच्याउनुहोस्।",
       toast_logged_out: "साइन आउट गरियो। पाहुना मोडमा स्विच भयो।",
+      toast_payment_saved: "भुक्तानी सुरक्षित भयो! बाँकी रकम अपडेट भयो।",
+      toast_hisab_exported: "हिसाब स्टेटमेन्ट डाउनलोड भयो (CSV)!",
+      sound_enabled_msg: "साउन्डबक्स आवाज चालु भयो।",
+      sound_disabled_msg: "साउन्डबक्स आवाज बन्द भयो।",
       err_name_invalid: "कृपया व्यक्तिको सही नाम लेख्नुहोस् (२ देखि ८० अक्षर)।",
       err_phone_invalid: "कृपया १० अंकको मान्य भारतीय मोबाइल नम्बर लेख्नुहोस्।",
       err_amount_min: "रकम कम्तिमा ₹१ हुनुपर्छ।",
@@ -540,11 +678,35 @@
       label_timeline: "गतिविधि समयरेखा",
       btn_close: "बन्द गर्नुहोस्",
       btn_logout: "साइन आउट",
-      action_audit: "गतिविधि",
       status_event_created: "रेकर्ड सिर्जना गरियो",
       status_event_wa_code: "ह्वाट्सएप कोड जारी गरियो",
       status_event_verified: "दोस्रो पक्षद्वारा पुष्टि",
-      status_event_settled: "कारोबार चुक्ता भयो"
+      status_event_settled: "कारोबार चुक्ता भयो",
+      status_event_payment: "रकम प्राप्त भयो",
+      payment_modal_title: "प्राप्त रकम दर्ता गर्नुहोस्",
+      label_remaining_balance: "बाँकी रकम:",
+      label_payment_amount: "भुक्तानी रकम (₹)",
+      btn_full_balance: "सबै चुक्ता",
+      label_payment_mode: "भुक्तानी माध्यम",
+      mode_cash: "💵 नगद (क्यास)",
+      mode_bank: "🏦 बैंक ट्रान्सफर",
+      label_payment_note: "टिप्पणी (ऐच्छिक)",
+      btn_confirm_payment: "भुक्तानी सुरक्षित गर्नुहोस्",
+      parchi_modal_title: "उधारो हिसाब पर्ची",
+      label_from: "दिने व्यक्ति:",
+      label_to: "लिने व्यक्ति:",
+      label_phone: "मोबाइल नम्बर:",
+      label_original_amt: "सुरुको रकम:",
+      label_total_paid: "हालसम्म चुक्ता:",
+      label_balance_due: "कुल बाँकी रकम:",
+      label_scan_pay: "कुनै पनि UPI एपबाट स्क्यान गर्नुहोस्",
+      btn_print_pdf: "प्रिन्ट / PDF सेभ गर्नुहोस्",
+      reminder_modal_title: "ह्वाट्सएप सम्झौता पठाउनुहोस्",
+      reminder_intro: "आफ्नो सम्बन्ध अनुसार सन्देशको शैली छान्नुहोस्। विनम्र सन्देशले सम्बन्ध बचाउँदै हिसाब सफा राख्छ।",
+      tone_gentle_badge: "🌸 विनम्र तथा आदरणीय",
+      tone_standard_badge: "📋 सामान्य हिसाब",
+      tone_due_badge: "📅 फिर्ता मितिको सूचना",
+      btn_open_whatsapp: "ह्वाट्सएपमा खोल्नुहोस्"
     }
   };
 
@@ -553,7 +715,8 @@
     SESSION: "udhaar_web_session",
     USER: "udhaar_web_user",
     THEME: "udhaar_theme",
-    LANG: "udhaar_lang"
+    LANG: "udhaar_lang",
+    SOUND: "udhaar_sound_enabled"
   };
 
   function getRecordsStorageKey(uid) {
@@ -569,8 +732,71 @@
   let authPendingEmail = "";
   let authPendingMobile = "";
   let authTimerInterval = null;
+  let activePaymentRecord = null;
+  let activeParchiRecord = null;
+  let activeReminderRecord = null;
 
-  // 3. Mathematical & Formatting Utilities
+  // 3. Indian Numbering & Amount In Words Utilities
+  const NUM_WORDS = {
+    en: {
+      units: ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"],
+      tens: ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"],
+      crore: "Crore", lakh: "Lakh", thousand: "Thousand", hundred: "Hundred", currency: "Rupees Only"
+    },
+    hi: {
+      units: ["", "एक", "दो", "तीन", "चार", "पाँच", "छह", "सात", "आठ", "नौ", "दस", "ग्यारह", "बारह", "तेरह", "चौदह", "पंद्रह", "सोलह", "सत्रह", "अठारह", "उन्नीस"],
+      tens: ["", "", "बीस", "तीस", "चालीस", "पचास", "साठ", "सत्तर", "अस्सी", "नब्बे"],
+      crore: "करोड़", lakh: "लाख", thousand: "हज़ार", hundred: "सौ", currency: "रुपये मात्र"
+    },
+    bn: {
+      units: ["", "এক", "দুই", "তিন", "চার", "পাঁচ", "ছয়", "সাত", "আট", "নয়", "দশ", "এগারো", "বারো", "তেরো", "চোদ্দ", "পনেরো", "ষোলো", "সতেরো", "আঠারো", "উনিশ"],
+      tens: ["", "", "কুড়ি", "তিরিশ", "চল্লিশ", "পঞ্চাশ", "ষাট", "সত্তর", "আশি", "নব্বই"],
+      crore: "কোটি", lakh: "লাখ", thousand: "হাজার", hundred: "শত", currency: "টাকা মাত্র"
+    },
+    as: {
+      units: ["", "এক", "দুই", "তিনি", "চাৰি", "পাঁচ", "ছয়", "সাত", "আঠ", "ন", "দহ", "এঘাৰ", "বাৰ", "তেৰ", "চৈধ্য", "পোন্ধৰ", "ষোল্ল", "সোতৰ", " ওঠৰ", "ঊনৈশ"],
+      tens: ["", "", "বিছ", "ত্ৰিছ", "চল্লিছ", "পঞ্চাশ", "ষাঠি", "সত্তৰ", "আশী", "নব্বৈ"],
+      crore: "কোটি", lakh: "লাখ", thousand: "হাজাৰ", hundred: "শ", currency: "টকা মাত্ৰ"
+    },
+    ne: {
+      units: ["", "एक", "दुई", "तीन", "चार", "पाँच", "छ", "सात", "आठ", "नौ", "दस", "एघार", "बाह्र", "तेह्र", "चौध", "पन्ध्र", "सोध्र", "सत्र", "अठार", "उन्नाइस"],
+      tens: ["", "", "बीस", "तीस", "चालीस", "पचास", "साठी", "सत्तरी", "असी", "नब्बे"],
+      crore: "करोड", lakh: "लाख", thousand: "हजार", hundred: "सय", currency: "रुपैयाँ मात्र"
+    }
+  };
+
+  function formatTwoDigits(n, lang) {
+    const dict = NUM_WORDS[lang] || NUM_WORDS.en;
+    if (n < 20) return dict.units[n];
+    const t = Math.floor(n / 10);
+    const u = n % 10;
+    return dict.tens[t] + (u ? " " + dict.units[u] : "");
+  }
+
+  function numberToIndianWords(num, lang = "en") {
+    num = Math.floor(Number(num) || 0);
+    if (num <= 0) return "";
+    const dict = NUM_WORDS[lang] || NUM_WORDS.en;
+
+    let crore = Math.floor(num / 10000000);
+    let rem = num % 10000000;
+    let lakh = Math.floor(rem / 100000);
+    rem = rem % 100000;
+    let thousand = Math.floor(rem / 1000);
+    rem = rem % 1000;
+    let hundred = Math.floor(rem / 100);
+    let tens = rem % 100;
+
+    const parts = [];
+    if (crore) parts.push(formatTwoDigits(crore, lang) + " " + dict.crore);
+    if (lakh) parts.push(formatTwoDigits(lakh, lang) + " " + dict.lakh);
+    if (thousand) parts.push(formatTwoDigits(thousand, lang) + " " + dict.thousand);
+    if (hundred) parts.push(dict.units[hundred] + " " + dict.hundred);
+    if (tens) parts.push(formatTwoDigits(tens, lang));
+
+    return parts.join(" ") + " " + dict.currency;
+  }
+
   function formatRupees(rupees, currency = "INR") {
     const num = Number(rupees) || 0;
     const isNegative = num < 0;
@@ -599,15 +825,18 @@
     let activeBorrowedCount = 0;
 
     for (const r of recordList) {
-      const paise = Number(r.principalAmountPaise || Math.round(Number(r.principalAmount || 0) * 100));
+      const origPaise = Number(r.principalAmountPaise || Math.round(Number(r.principalAmount || 0) * 100));
+      const totalPaidPaise = (r.payments || []).reduce((acc, p) => acc + (p.paise || Math.round(Number(p.amount || 0) * 100)), 0);
+      const remainingPaise = Math.max(0, origPaise - totalPaidPaise);
+
       const isLent = r.counterpartyRole === "BORROWER" || r.creatorRole === "GIVEN";
 
-      if (r.status !== "SETTLED") {
+      if (r.status !== "SETTLED" && remainingPaise > 0) {
         if (isLent) {
-          totalLentPaise += paise;
+          totalLentPaise += remainingPaise;
           activeLentCount++;
         } else {
-          totalBorrowedPaise += paise;
+          totalBorrowedPaise += remainingPaise;
           activeBorrowedCount++;
         }
         if (r.status === "PENDING_CONFIRMATION" || !r.status) {
@@ -698,7 +927,42 @@
     return /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(trimmed);
   }
 
-  // 5. Toast Notification System & Accessibility Announcements
+  // 5. Soundbox Audio Chime & Visual Toast Announcements
+  function playSoundboxChime() {
+    if (typeof window === "undefined") return;
+    if (localStorage.getItem(STORAGE_KEYS.SOUND) === "false") return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+
+      // Tone 1: 587.33 Hz (D5)
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(587.33, now);
+      gain1.gain.setValueAtTime(0.12, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.18);
+
+      // Tone 2: 880.00 Hz (A5)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(880.00, now + 0.10);
+      gain2.gain.setValueAtTime(0.15, now + 0.10);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.10);
+      osc2.stop(now + 0.35);
+    } catch (_) {}
+  }
+
   function showToast(message, type = "success") {
     announce(message, type === "error");
     if (typeof document === "undefined") return;
@@ -743,7 +1007,7 @@
     }
   }
 
-  // 6. Cryptographic Hash Calculation (Browser SubtleCrypto or Node fallback)
+  // 6. Cryptographic Hash Calculation
   async function computeRecordHash(dataString) {
     if (typeof crypto !== "undefined" && crypto.subtle) {
       try {
@@ -782,7 +1046,71 @@
     } catch (_) {}
   }
 
-  // 8. DOM Rendering
+  // 8. Export Hisab Statement (CSV Format with Excel UTF-8 BOM)
+  function exportHisabCsv() {
+    if (records.length === 0) {
+      showToast(t("empty_title"), "info");
+      return;
+    }
+
+    const headers = [
+      "Date",
+      "Party Name",
+      "Phone",
+      "Type",
+      "Original Amount (INR)",
+      "Paid Amount (INR)",
+      "Remaining Balance (INR)",
+      "Status",
+      "Due Date",
+      "Note",
+      "Verification Hash"
+    ];
+
+    const rows = records.map((r) => {
+      const dateStr = new Date(r.createdAt || r.startDateMillis || Date.now()).toISOString().split("T")[0];
+      const isLent = r.counterpartyRole === "BORROWER" || r.creatorRole === "GIVEN";
+      const typeStr = isLent ? "LENT" : "BORROWED";
+      const origRupees = ((r.principalAmountPaise || 0) / 100).toFixed(2);
+      const totalPaidPaise = (r.payments || []).reduce((acc, p) => acc + (p.paise || Math.round(Number(p.amount || 0) * 100)), 0);
+      const paidRupees = (totalPaidPaise / 100).toFixed(2);
+      const remainingRupees = (Math.max(0, (r.principalAmountPaise || 0) - totalPaidPaise) / 100).toFixed(2);
+      const dueDateStr = r.dueDateMillis ? new Date(r.dueDateMillis).toISOString().split("T")[0] : "None";
+      const safeNote = (r.note || "").replace(/"/g, '""');
+      const safeParty = (r.partyName || (isLent ? r.borrowerName : r.lenderName) || "Contact").replace(/"/g, '""');
+
+      return [
+        dateStr,
+        `"${safeParty}"`,
+        `"${r.partyPhone || ""}"`,
+        typeStr,
+        origRupees,
+        paidRupees,
+        remainingRupees,
+        r.status || "PENDING",
+        dueDateStr,
+        `"${safeNote}"`,
+        r.contentHash || "verified"
+      ].join(",");
+    });
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const today = new Date().toISOString().split("T")[0];
+    link.href = url;
+    link.download = `Udhaar_Hisab_${today}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    playSoundboxChime();
+    showToast(t("toast_hisab_exported"), "success");
+  }
+
+  // 9. DOM Rendering
   function renderAll() {
     applyLanguage(currentLang);
     renderKPIs();
@@ -806,8 +1134,8 @@
     const langSelect = document.getElementById("ledger-lang-select");
     if (langSelect) langSelect.value = currentLang;
 
-    // Update active aspect hint text
     updateRoleAspectHint();
+    updateAmountInWords();
   }
 
   function updateRoleAspectHint() {
@@ -823,6 +1151,42 @@
     } else {
       container.className = "aspect-hint-box aspect-borrowed";
       hintEl.textContent = t("aspect_borrowed_hint");
+    }
+  }
+
+  function updateAmountInWords() {
+    const amtInput = document.getElementById("input-amount");
+    const wordsEl = document.getElementById("amount-in-words");
+    if (!amtInput || !wordsEl) return;
+
+    const num = Math.floor(Number(amtInput.value) || 0);
+    if (num > 0) {
+      const words = numberToIndianWords(num, currentLang);
+      wordsEl.textContent = words;
+      wordsEl.hidden = false;
+      wordsEl.classList.remove("hidden");
+    } else {
+      wordsEl.textContent = "";
+      wordsEl.hidden = true;
+      wordsEl.classList.add("hidden");
+    }
+  }
+
+  function updatePaymentAmountInWords() {
+    const payInput = document.getElementById("input-payment-amount");
+    const wordsEl = document.getElementById("payment-amount-in-words");
+    if (!payInput || !wordsEl) return;
+
+    const num = Math.floor(Number(payInput.value) || 0);
+    if (num > 0) {
+      const words = numberToIndianWords(num, currentLang);
+      wordsEl.textContent = words;
+      wordsEl.hidden = false;
+      wordsEl.classList.remove("hidden");
+    } else {
+      wordsEl.textContent = "";
+      wordsEl.hidden = true;
+      wordsEl.classList.add("hidden");
     }
   }
 
@@ -884,8 +1248,12 @@
       card.className = "record-card";
       card.setAttribute("role", "listitem");
 
-      const rawPaise = Number(r.principalAmountPaise || Math.round(Number(r.principalAmount || 0) * 100));
-      const amountStr = formatRupees(rawPaise / 100, r.currency || "INR");
+      const origPaise = Number(r.principalAmountPaise || Math.round(Number(r.principalAmount || 0) * 100));
+      const totalPaidPaise = (r.payments || []).reduce((acc, p) => acc + (p.paise || Math.round(Number(p.amount || 0) * 100)), 0);
+      const remainingPaise = Math.max(0, origPaise - totalPaidPaise);
+
+      const isSettled = r.status === "SETTLED" || remainingPaise === 0;
+      const amountStr = formatRupees(remainingPaise / 100, r.currency || "INR");
 
       // Due date calculation
       let dueText = t("no_due_date");
@@ -903,16 +1271,34 @@
 
       // Status badge
       let statusBadgeHtml = "";
-      if (r.status === "CONFIRMED") {
-        statusBadgeHtml = `<span class="status-badge badge-green">${t("status_confirmed")}</span>`;
-      } else if (r.status === "SETTLED") {
+      if (isSettled) {
         statusBadgeHtml = `<span class="status-badge badge-green">${t("status_settled")}</span>`;
+      } else if (r.status === "CONFIRMED") {
+        statusBadgeHtml = `<span class="status-badge badge-green">${t("status_confirmed")}</span>`;
       } else {
         statusBadgeHtml = `<span class="status-badge badge-amber">${t("status_pending")}</span>`;
       }
 
-      const roleBadgeText = isLent ? t("role_lent_label").split(" ")[1] || "Lent" : t("role_borrowed_label").split(" ")[1] || "Borrowed";
+      // Indian Colloquial Badges (दिया vs लिया)
+      const roleText = isLent ? (currentLang === "hi" ? "दिया (+)" : "Lent (+)") : (currentLang === "hi" ? "लिया (-)" : "Borrowed (-)");
       const roleClass = isLent ? "lent" : "borrowed";
+
+      // Progress bar if partial payments exist
+      let progressHtml = "";
+      if (totalPaidPaise > 0) {
+        const percent = Math.min(100, Math.round((totalPaidPaise / origPaise) * 100));
+        progressHtml = `
+          <div class="record-progress-wrap" aria-label="Repayment progress">
+            <div class="record-progress-bar">
+              <div class="record-progress-fill" style="width: ${percent}%;"></div>
+            </div>
+            <div class="record-balance-sub">
+              <span>Paid: ${formatRupees(totalPaidPaise / 100)} (${percent}%)</span>
+              <span>Orig: ${formatRupees(origPaise / 100)}</span>
+            </div>
+          </div>
+        `;
+      }
 
       card.innerHTML = `
         <div class="card-top">
@@ -920,13 +1306,17 @@
             <div class="card-party-name">${escapeHtml(r.partyName || (isLent ? r.borrowerName : r.lenderName) || "Contact")}</div>
             <div class="card-party-phone font-mono">${escapeHtml(r.partyPhone || "")}</div>
           </div>
-          <span class="role-badge ${roleClass}">${roleBadgeText}</span>
+          <span class="role-badge ${roleClass}">${roleText}</span>
         </div>
 
         <div class="card-amount-row">
-          <div class="card-amount ${roleClass}">${amountStr}</div>
+          <div>
+            <div class="card-amount ${roleClass}">${amountStr}</div>
+          </div>
           ${statusBadgeHtml}
         </div>
+
+        ${progressHtml}
 
         <div class="card-meta-row">
           <span>${dueText}</span>
@@ -934,44 +1324,48 @@
         </div>
 
         <div class="card-actions-row">
-          <button type="button" class="btn btn-secondary card-btn btn-card-share" data-id="${escapeHtml(r.recordId || r.id)}">
+          <button type="button" class="btn btn-secondary card-btn btn-card-remind" data-id="${escapeHtml(r.recordId || r.id)}">
             💬 ${t("action_share")}
           </button>
-          <button type="button" class="btn btn-secondary card-btn btn-card-copy" data-id="${escapeHtml(r.recordId || r.id)}">
-            📋 ${t("action_copy")}
+          ${!isSettled ? `
+            <button type="button" class="btn btn-secondary card-btn btn-card-pay" data-id="${escapeHtml(r.recordId || r.id)}">
+              ➕ ${t("action_payment")}
+            </button>
+          ` : ""}
+          <button type="button" class="btn btn-secondary card-btn btn-card-parchi" data-id="${escapeHtml(r.recordId || r.id)}">
+            🧾 ${t("action_parchi")}
           </button>
           <button type="button" class="btn btn-secondary card-btn btn-card-audit" data-id="${escapeHtml(r.recordId || r.id)}">
             📜 ${t("action_audit")}
           </button>
-          ${r.status !== "SETTLED" ? `
-            <button type="button" class="btn btn-secondary card-btn btn-card-settle" data-id="${escapeHtml(r.recordId || r.id)}">
-              ✓ ${t("action_settle")}
-            </button>
-          ` : ""}
         </div>
       `;
 
       grid.appendChild(card);
     });
 
-    // Bind action buttons on cards
-    grid.querySelectorAll(".btn-card-share").forEach((btn) => {
+    // Wire Card Actions
+    grid.querySelectorAll(".btn-card-remind").forEach((btn) => {
       btn.addEventListener("click", () => {
         const id = btn.getAttribute("data-id");
         const rec = records.find((x) => (x.recordId || x.id) === id);
-        if (rec) openShareSuccessModal(rec);
+        if (rec) openReminderToneModal(rec);
       });
     });
 
-    grid.querySelectorAll(".btn-card-copy").forEach((btn) => {
-      btn.addEventListener("click", async () => {
+    grid.querySelectorAll(".btn-card-pay").forEach((btn) => {
+      btn.addEventListener("click", () => {
         const id = btn.getAttribute("data-id");
         const rec = records.find((x) => (x.recordId || x.id) === id);
-        if (rec) {
-          const url = getRecordShareUrl(rec);
-          await copyToClipboard(url);
-          showToast(t("toast_copied"), "info");
-        }
+        if (rec) openPaymentModal(rec);
+      });
+    });
+
+    grid.querySelectorAll(".btn-card-parchi").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-id");
+        const rec = records.find((x) => (x.recordId || x.id) === id);
+        if (rec) openParchiModal(rec);
       });
     });
 
@@ -982,28 +1376,194 @@
         if (rec) openAuditModal(rec);
       });
     });
+  }
 
-    grid.querySelectorAll(".btn-card-settle").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-id");
-        const rec = records.find((x) => (x.recordId || x.id) === id);
-        if (rec && confirm(`Mark record with ${rec.partyName || "contact"} as settled?`)) {
-          rec.status = "SETTLED";
-          if (!rec.auditTrail) rec.auditTrail = [];
-          rec.auditTrail.push({
-            eventId: "ev_" + Date.now(),
-            timestamp: Date.now(),
-            actionType: "RECORD_SETTLED",
-            actor: currentUser ? currentUser.mobileNumber || "User" : "Device Owner",
-            summaryText: "Transaction marked as settled and closed.",
-            contentHash: rec.contentHash || "verified"
-          });
-          saveLocalRecords(records);
-          renderAll();
-          showToast(t("toast_record_settled"), "success");
-        }
-      });
-    });
+  // 10. Modals Management (Partial Payment, Parchi, Reminder Tone, Auth, Create)
+  let lastFocusedElement = null;
+
+  function showModal(modalId) {
+    const el = document.getElementById(modalId);
+    if (!el) return;
+    lastFocusedElement = document.activeElement;
+    el.hidden = false;
+    el.style.display = "flex";
+    el.classList.remove("hidden");
+
+    const focusables = el.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (focusables.length > 0) {
+      focusables[0].focus();
+    }
+  }
+
+  function hideModal(modalId) {
+    const el = document.getElementById(modalId);
+    if (!el) return;
+    el.hidden = true;
+    el.style.display = "none";
+    el.classList.add("hidden");
+    if (lastFocusedElement) {
+      lastFocusedElement.focus();
+    }
+  }
+
+  // MODAL 5: Partial Repayment
+  function openPaymentModal(record) {
+    activePaymentRecord = record;
+    const nameEl = document.getElementById("payment-party-name");
+    const remEl = document.getElementById("payment-remaining-amt");
+    const payInput = document.getElementById("input-payment-amount");
+
+    const origPaise = Number(record.principalAmountPaise || Math.round(Number(record.principalAmount || 0) * 100));
+    const paidPaise = (record.payments || []).reduce((acc, p) => acc + (p.paise || Math.round(Number(p.amount || 0) * 100)), 0);
+    const remPaise = Math.max(0, origPaise - paidPaise);
+
+    if (nameEl) nameEl.textContent = record.partyName || "Contact";
+    if (remEl) remEl.textContent = formatRupees(remPaise / 100);
+    if (payInput) {
+      payInput.value = "";
+      payInput.max = String(remPaise / 100);
+    }
+
+    updatePaymentAmountInWords();
+    showModal("modal-payment");
+    announce("Record payment dialog opened.");
+  }
+
+  // MODAL 6: Digital Parchi
+  function openParchiModal(record) {
+    activeParchiRecord = record;
+    const isLent = record.counterpartyRole === "BORROWER" || record.creatorRole === "GIVEN";
+    const dateEl = document.getElementById("parchi-date");
+    const lenderEl = document.getElementById("parchi-lender-val");
+    const borrowerEl = document.getElementById("parchi-borrower-val");
+    const phoneEl = document.getElementById("parchi-phone-val");
+    const origEl = document.getElementById("parchi-orig-val");
+    const paidEl = document.getElementById("parchi-paid-val");
+    const balanceEl = document.getElementById("parchi-balance-val");
+    const wordsEl = document.getElementById("parchi-words-val");
+    const hashEl = document.getElementById("parchi-hash-val");
+    const qrSection = document.getElementById("parchi-qr-section");
+    const qrContainer = document.getElementById("parchi-qr-container");
+    const upiText = document.getElementById("parchi-upi-text");
+    const waBtn = document.getElementById("btn-whatsapp-parchi");
+
+    const origPaise = Number(record.principalAmountPaise || Math.round(Number(record.principalAmount || 0) * 100));
+    const paidPaise = (record.payments || []).reduce((acc, p) => acc + (p.paise || Math.round(Number(p.amount || 0) * 100)), 0);
+    const balancePaise = Math.max(0, origPaise - paidPaise);
+    const balanceRupees = balancePaise / 100;
+
+    const lenderName = isLent ? "You" : record.partyName || "Counterparty";
+    const borrowerName = isLent ? record.partyName || "Counterparty" : "You";
+
+    if (dateEl) dateEl.textContent = new Date(record.createdAt || Date.now()).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    if (lenderEl) lenderEl.textContent = lenderName;
+    if (borrowerEl) borrowerEl.textContent = borrowerName;
+    if (phoneEl) phoneEl.textContent = record.partyPhone || "—";
+    if (origEl) origEl.textContent = formatRupees(origPaise / 100);
+    if (paidEl) paidEl.textContent = formatRupees(paidPaise / 100);
+    if (balanceEl) balanceEl.textContent = formatRupees(balanceRupees);
+    if (wordsEl) wordsEl.textContent = numberToIndianWords(balanceRupees, currentLang);
+    if (hashEl) hashEl.textContent = "SHA-256: " + (record.contentHash || "verified-sha256");
+
+    // QR Code generation if UPI ID exists
+    if (record.upiId && qrSection && qrContainer && typeof QRCode !== "undefined") {
+      qrSection.hidden = false;
+      qrSection.classList.remove("hidden");
+      qrContainer.innerHTML = "";
+      if (upiText) upiText.textContent = record.upiId;
+
+      const upiUrl = `upi://pay?pa=${encodeURIComponent(record.upiId)}&pn=${encodeURIComponent(lenderName)}&am=${balanceRupees}&cu=INR&tn=Udhaar%20Settlement`;
+      try {
+        new QRCode(qrContainer, {
+          text: upiUrl,
+          width: 140,
+          height: 140,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      } catch (_) {}
+    } else if (qrSection) {
+      qrSection.hidden = true;
+      qrSection.classList.add("hidden");
+    }
+
+    // WhatsApp Hisab Slip button
+    if (waBtn) {
+      const shareUrl = getRecordShareUrl(record);
+      const textMsg = `📒 *Udhaar Hisab Parchi*\n--------------------\nLender: ${lenderName}\nBorrower: ${borrowerName}\nOriginal: ${formatRupees(origPaise / 100)}\nPaid: ${formatRupees(paidPaise / 100)}\n*Net Balance Due: ${formatRupees(balanceRupees)}*\n(${numberToIndianWords(balanceRupees, currentLang)})\n\nView digital record & confirm: ${shareUrl}`;
+      let waLink = "https://wa.me/?text=" + encodeURIComponent(textMsg);
+      const cleanPhone = (record.partyPhone || "").replace(/\D/g, "");
+      if (cleanPhone.length >= 10) {
+        waLink = `https://wa.me/${cleanPhone.length === 10 ? "91" + cleanPhone : cleanPhone}?text=${encodeURIComponent(textMsg)}`;
+      }
+      waBtn.href = waLink;
+    }
+
+    showModal("modal-parchi");
+    announce("Udhaar hisab parchi opened.");
+  }
+
+  // MODAL 7: Polite Reminder Tone Selector
+  function openReminderToneModal(record) {
+    activeReminderRecord = record;
+    const isLent = record.counterpartyRole === "BORROWER" || record.creatorRole === "GIVEN";
+    const party = record.partyName || "Friend";
+
+    const origPaise = Number(record.principalAmountPaise || Math.round(Number(record.principalAmount || 0) * 100));
+    const paidPaise = (record.payments || []).reduce((acc, p) => acc + (p.paise || Math.round(Number(p.amount || 0) * 100)), 0);
+    const balancePaise = Math.max(0, origPaise - paidPaise);
+    const amtStr = formatRupees(balancePaise / 100);
+    const shareUrl = getRecordShareUrl(record);
+
+    const prevPolite = document.getElementById("tone-preview-polite");
+    const prevStandard = document.getElementById("tone-preview-standard");
+    const prevDue = document.getElementById("tone-preview-due");
+
+    const dueDateStr = record.dueDateMillis ? new Date(record.dueDateMillis).toLocaleDateString("en-IN") : "soon";
+
+    // Respectful localized wording
+    let politeMsg = `नमस्ते ${party} जी, आशा है आप सकुशल हैं। हमारे ${amtStr} के हिसाब का एक छोटा सा अनुस्मारक। जब सुविधा हो कृपया देख लें: ${shareUrl}`;
+    let stdMsg = `नमस्ते ${party}, हमारे ${amtStr} के उधार का विवरण यहां है। कृपया पुष्टि करें: ${shareUrl}`;
+    let dueMsg = `नमस्ते ${party}, ${amtStr} की वापसी की तारीख ${dueDateStr} है। कृपया UPI या लिंक से भुगतान करें: ${shareUrl}`;
+
+    if (currentLang === "en") {
+      politeMsg = `Hi ${party}, hope you are doing well! Just a gentle reminder regarding our record of ${amtStr}. Whenever convenient, please review: ${shareUrl}`;
+      stdMsg = `Hi ${party}, here are the details of our Udhaar record of ${amtStr}. Please check and confirm: ${shareUrl}`;
+      dueMsg = `Hi ${party}, reminder that ${amtStr} is due on ${dueDateStr}. You can pay directly via UPI here: ${shareUrl}`;
+    }
+
+    if (prevPolite) prevPolite.textContent = politeMsg;
+    if (prevStandard) prevStandard.textContent = stdMsg;
+    if (prevDue) prevDue.textContent = dueMsg;
+
+    updateWhatsAppToneLink();
+    showModal("modal-reminder-tone");
+    announce("Reminder tone selector opened.");
+  }
+
+  function updateWhatsAppToneLink() {
+    const waBtn = document.getElementById("btn-send-whatsapp-tone");
+    if (!waBtn || !activeReminderRecord) return;
+
+    const checkedTone = document.querySelector('input[name="reminderTone"]:checked');
+    const toneVal = checkedTone ? checkedTone.value : "polite";
+
+    let textMsg = "";
+    if (toneVal === "polite") {
+      textMsg = document.getElementById("tone-preview-polite").textContent;
+    } else if (toneVal === "standard") {
+      textMsg = document.getElementById("tone-preview-standard").textContent;
+    } else {
+      textMsg = document.getElementById("tone-preview-due").textContent;
+    }
+
+    let waLink = "https://wa.me/?text=" + encodeURIComponent(textMsg);
+    const cleanPhone = (activeReminderRecord.partyPhone || "").replace(/\D/g, "");
+    if (cleanPhone.length >= 10) {
+      waLink = `https://wa.me/${cleanPhone.length === 10 ? "91" + cleanPhone : cleanPhone}?text=${encodeURIComponent(textMsg)}`;
+    }
+    waBtn.href = waLink;
   }
 
   function openAuditModal(record) {
@@ -1031,7 +1591,7 @@
         item.className = "timeline-item";
         item.setAttribute("role", "listitem");
         const d = new Date(evt.timestamp || Date.now());
-        const timeStr = d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        const timeStr = d.toLocaleDateString("en-IN") + " " + d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
         const actionKey = "status_event_" + (evt.actionType || "").toLowerCase().replace(/[^a-z0-9]/g, "_");
         const actionLabel = t(actionKey) !== actionKey ? t(actionKey) : evt.actionType;
@@ -1105,7 +1665,7 @@
     return true;
   }
 
-  // 9. Network & API Calls
+  // 11. Network & API Calls
   async function apiCall(endpoint, payload, token) {
     const headers = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -1148,67 +1708,7 @@
     }
   }
 
-  // 10. Modals: Open / Close & Focus Management
-  let lastFocusedElement = null;
-
-  function showModal(modalId) {
-    const el = document.getElementById(modalId);
-    if (!el) return;
-    lastFocusedElement = document.activeElement;
-    el.hidden = false;
-    el.style.display = "flex";
-    el.classList.remove("hidden");
-
-    const focusables = el.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-    if (focusables.length > 0) {
-      focusables[0].focus();
-    }
-  }
-
-  function hideModal(modalId) {
-    const el = document.getElementById(modalId);
-    if (!el) return;
-    el.hidden = true;
-    el.style.display = "none";
-    el.classList.add("hidden");
-    if (lastFocusedElement) {
-      lastFocusedElement.focus();
-    }
-  }
-
-  function openShareSuccessModal(record) {
-    const headline = document.getElementById("share-summary-text");
-    const codeEl = document.getElementById("display-otp-code");
-    const linkInput = document.getElementById("display-share-link");
-    const waBtn = document.getElementById("btn-open-whatsapp");
-
-    const isLent = record.counterpartyRole === "BORROWER" || record.creatorRole === "GIVEN";
-    const amtStr = formatRupees(record.principalAmount || ((record.principalAmountPaise || 0) / 100), record.currency);
-    const party = record.partyName || (isLent ? record.borrowerName : record.lenderName) || "Contact";
-    const verb = isLent ? "Lent to" : "Borrowed from";
-
-    if (headline) headline.textContent = `${amtStr} ${verb} ${party}`;
-    if (codeEl) codeEl.textContent = record.whatsappOtp ? `${record.whatsappOtp.slice(0, 3)} ${record.whatsappOtp.slice(3)}` : "123 456";
-
-    const shareUrl = getRecordShareUrl(record);
-    if (linkInput) linkInput.value = shareUrl;
-
-    if (waBtn) {
-      const waAction = isLent ? "lent you" : "borrowed from you";
-      const waMsg = `Hi ${party}, I've recorded ${amtStr} (${waAction}) on Udhaar. Please review and confirm our record here: ${shareUrl}\n\nYour 6-digit WhatsApp verification code is: ${record.whatsappOtp || "123456"}`;
-      let waLink = "https://wa.me/?text=" + encodeURIComponent(waMsg);
-      const cleanPhone = (record.partyPhone || "").replace(/\D/g, "");
-      if (cleanPhone.length >= 10) {
-        waLink = `https://wa.me/${cleanPhone.length === 10 ? "91" + cleanPhone : cleanPhone}?text=${encodeURIComponent(waMsg)}`;
-      }
-      waBtn.href = waLink;
-    }
-
-    showModal("modal-share-success");
-    announce("Record saved. Ready to share verification code on WhatsApp.");
-  }
-
-  // 11. Event Wiring
+  // 12. Event Wiring
   function wireEvents() {
     // Language switcher
     const langSelect = document.getElementById("ledger-lang-select");
@@ -1231,6 +1731,26 @@
         localStorage.setItem(STORAGE_KEYS.THEME, newTheme);
         if (themeIcon) themeIcon.textContent = newTheme === "dark" ? "☀️" : "🌙";
       });
+    }
+
+    // Soundbox chime toggle
+    const soundBtn = document.getElementById("btn-sound-toggle");
+    const soundIcon = document.getElementById("sound-icon");
+    if (soundBtn) {
+      soundBtn.addEventListener("click", () => {
+        const current = localStorage.getItem(STORAGE_KEYS.SOUND) !== "false";
+        const next = !current;
+        localStorage.setItem(STORAGE_KEYS.SOUND, String(next));
+        if (soundIcon) soundIcon.textContent = next ? "🔔" : "🔕";
+        if (next) playSoundboxChime();
+        showToast(next ? t("sound_enabled_msg") : t("sound_disabled_msg"), "info");
+      });
+    }
+
+    // Export Hisab CSV Button
+    const btnExportCsv = document.getElementById("btn-export-csv");
+    if (btnExportCsv) {
+      btnExportCsv.addEventListener("click", exportHisabCsv);
     }
 
     // Role radio buttons change -> update positive/negative aspect hint
@@ -1292,8 +1812,33 @@
         } else {
           setFieldError(amountInput, "err-amount", true, "");
         }
+        updateAmountInWords();
       });
     }
+
+    // Quick Amount Chips in Create Modal
+    const amtChips = document.querySelectorAll(".btn-amt-chip");
+    amtChips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const add = parseInt(chip.getAttribute("data-amt"), 10) || 0;
+        const current = parseInt(amountInput.value, 10) || 0;
+        amountInput.value = String(current + add);
+        setFieldError(amountInput, "err-amount", true, "");
+        updateAmountInWords();
+      });
+    });
+
+    // Popular UPI Handles in Create Modal
+    const handleChips = document.querySelectorAll(".btn-handle-chip");
+    handleChips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const handle = chip.getAttribute("data-handle") || "";
+        const currentVal = upiInput.value.trim();
+        const base = currentVal.includes("@") ? currentVal.split("@")[0] : currentVal;
+        upiInput.value = (base || "user") + handle;
+        setFieldError(upiInput, "err-upi", true, "");
+      });
+    });
 
     if (dueDateInput) {
       dueDateInput.addEventListener("input", () => {
@@ -1391,7 +1936,7 @@
       });
     }
 
-    // Auth Modal Logout Button (Separating users)
+    // Auth Modal Logout Button
     const btnAuthLogout = document.getElementById("btn-auth-logout");
     if (btnAuthLogout) {
       btnAuthLogout.addEventListener("click", () => {
@@ -1400,7 +1945,7 @@
         localStorage.removeItem(STORAGE_KEYS.SESSION);
         localStorage.removeItem(STORAGE_KEYS.USER);
         hideModal("modal-auth");
-        records = loadLocalRecords(); // Switch to guest records partition
+        records = loadLocalRecords();
         renderAll();
         showToast(t("toast_logged_out"), "info");
       });
@@ -1522,7 +2067,6 @@
           localStorage.setItem(STORAGE_KEYS.SESSION, sessionToken);
           localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(currentUser));
 
-          // Switch local records partition to this user
           records = loadLocalRecords();
 
           formAuth2.hidden = true;
@@ -1552,6 +2096,7 @@
     [btnOpenCreate, btnEmptyCreate].forEach((btn) => {
       if (btn) btn.addEventListener("click", () => {
         updateRoleAspectHint();
+        updateAmountInWords();
         showModal("modal-record");
       });
     });
@@ -1617,7 +2162,6 @@
         const dueDateMs = dueDate ? new Date(dueDate).getTime() : null;
         const isLent = role === "GIVEN";
 
-        // Generate local 6-digit WhatsApp OTP & secret token
         const localOtp = String(Math.floor(100000 + Math.random() * 900000));
         const localSecret = Array.from(crypto.getRandomValues(new Uint8Array(12)))
           .map((b) => b.toString(16).padStart(2, "0"))
@@ -1625,7 +2169,6 @@
         const localRecordId = "tx_" + Date.now();
         const nowMs = Date.now();
 
-        // Cryptographic content hash & Activity audit log
         const rawHashString = [localRecordId, currentUser ? currentUser.uid : "guest", phone, Math.round(amtVal * 100), "INR", nowMs].join(":");
         const contentHash = await computeRecordHash(rawHashString);
 
@@ -1668,6 +2211,7 @@
           secret: localSecret,
           contentHash,
           auditTrail: initialAuditTrail,
+          payments: [],
           createdAt: nowMs
         };
 
@@ -1696,7 +2240,6 @@
           console.warn("Could not sync online, saved offline:", err.message);
         }
 
-        // Add to local records for current user
         records.unshift(recordObj);
         saveLocalRecords(records);
 
@@ -1707,16 +2250,140 @@
             inp.classList.remove("input-invalid");
           }
         });
+        updateAmountInWords();
         hideModal("modal-record");
         btnSave.disabled = false;
         btnText.textContent = t("btn_save_record");
 
         renderKPIs();
         renderRecordList();
+        playSoundboxChime();
         showToast(t("toast_record_created"), "success");
-        openShareSuccessModal(recordObj);
+        openParchiModal(recordObj);
       });
     }
+
+    // Partial Repayment Form
+    const formPayment = document.getElementById("form-record-payment");
+    const payAmtInput = document.getElementById("input-payment-amount");
+
+    if (payAmtInput) {
+      payAmtInput.addEventListener("input", () => {
+        updatePaymentAmountInWords();
+      });
+    }
+
+    // Payment quick chips
+    const payChips = document.querySelectorAll(".btn-pay-chip");
+    payChips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const add = parseInt(chip.getAttribute("data-amt"), 10) || 0;
+        const current = parseInt(payAmtInput.value, 10) || 0;
+        payAmtInput.value = String(current + add);
+        updatePaymentAmountInWords();
+      });
+    });
+
+    const btnPayFull = document.getElementById("btn-pay-full");
+    if (btnPayFull) {
+      btnPayFull.addEventListener("click", () => {
+        if (!activePaymentRecord) return;
+        const origPaise = Number(activePaymentRecord.principalAmountPaise || Math.round(Number(activePaymentRecord.principalAmount || 0) * 100));
+        const paidPaise = (activePaymentRecord.payments || []).reduce((acc, p) => acc + (p.paise || Math.round(Number(p.amount || 0) * 100)), 0);
+        const remPaise = Math.max(0, origPaise - paidPaise);
+        payAmtInput.value = String(remPaise / 100);
+        updatePaymentAmountInWords();
+      });
+    }
+
+    if (formPayment) {
+      formPayment.addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (!activePaymentRecord) return;
+
+        const payAmt = parseFloat(payAmtInput.value || "0");
+        if (payAmt <= 0) {
+          showToast(t("err_amount_min"), "error");
+          return;
+        }
+
+        const mode = formPayment.querySelector('input[name="paymentMode"]:checked').value;
+        const note = (document.getElementById("input-payment-note") || {}).value || "";
+        const payPaise = Math.round(payAmt * 100);
+
+        if (!activePaymentRecord.payments) activePaymentRecord.payments = [];
+        activePaymentRecord.payments.push({
+          paymentId: "pay_" + Date.now(),
+          amount: payAmt,
+          paise: payPaise,
+          mode,
+          note: note.trim(),
+          timestamp: Date.now()
+        });
+
+        // Recalculate remaining
+        const origPaise = Number(activePaymentRecord.principalAmountPaise || Math.round(Number(activePaymentRecord.principalAmount || 0) * 100));
+        const totalPaidPaise = activePaymentRecord.payments.reduce((acc, p) => acc + (p.paise || 0), 0);
+        const remPaise = Math.max(0, origPaise - totalPaidPaise);
+
+        if (remPaise <= 0) {
+          activePaymentRecord.status = "SETTLED";
+        }
+
+        if (!activePaymentRecord.auditTrail) activePaymentRecord.auditTrail = [];
+        activePaymentRecord.auditTrail.push({
+          eventId: "ev_" + Date.now(),
+          timestamp: Date.now(),
+          actionType: "PAYMENT_RECEIVED",
+          actor: currentUser ? currentUser.mobileNumber || "User" : "Device Creator",
+          summaryText: `Payment of ${formatRupees(payAmt)} received via ${mode}`,
+          contentHash: activePaymentRecord.contentHash || "verified"
+        });
+
+        saveLocalRecords(records);
+        hideModal("modal-payment");
+        renderKPIs();
+        renderRecordList();
+        playSoundboxChime();
+        showToast(t("toast_payment_saved"), "success");
+      });
+    }
+
+    const btnClosePayment = document.getElementById("btn-close-payment");
+    const btnCancelPayment = document.getElementById("btn-cancel-payment");
+    [btnClosePayment, btnCancelPayment].forEach((btn) => {
+      if (btn) btn.addEventListener("click", () => hideModal("modal-payment"));
+    });
+
+    // Parchi Print & Close
+    const btnPrintParchi = document.getElementById("btn-print-parchi");
+    if (btnPrintParchi) {
+      btnPrintParchi.addEventListener("click", () => {
+        window.print();
+      });
+    }
+    const btnCloseParchi = document.getElementById("btn-close-parchi");
+    const btnFinishParchi = document.getElementById("btn-finish-parchi");
+    [btnCloseParchi, btnFinishParchi].forEach((btn) => {
+      if (btn) btn.addEventListener("click", () => hideModal("modal-parchi"));
+    });
+
+    // Reminder Tone Radio changes
+    const toneRadios = document.querySelectorAll('input[name="reminderTone"]');
+    toneRadios.forEach((r) => {
+      r.addEventListener("change", () => {
+        document.querySelectorAll(".tone-card").forEach((c) => c.classList.remove("active"));
+        const parentCard = r.closest(".tone-card");
+        if (parentCard) parentCard.classList.add("active");
+        updateWhatsAppToneLink();
+      });
+    });
+
+    const btnCloseReminder = document.getElementById("btn-close-reminder");
+    const btnCancelReminder = document.getElementById("btn-cancel-reminder");
+    [btnCloseReminder, btnCancelReminder].forEach((btn) => {
+      if (btn) btn.addEventListener("click", () => hideModal("modal-reminder-tone"));
+    });
 
     // Close Share Success Modal
     const btnCloseShare = document.getElementById("btn-close-share");
@@ -1771,6 +2438,9 @@
         hideModal("modal-record");
         hideModal("modal-share-success");
         hideModal("modal-audit-trail");
+        hideModal("modal-payment");
+        hideModal("modal-parchi");
+        hideModal("modal-reminder-tone");
       }
     });
   }
@@ -1793,7 +2463,7 @@
     }, 1000);
   }
 
-  // 12. App Initialization
+  // 13. App Initialization
   function init() {
     const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME);
     const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -1801,6 +2471,10 @@
     document.documentElement.setAttribute("data-theme", initialTheme);
     const themeIcon = document.getElementById("theme-icon");
     if (themeIcon) themeIcon.textContent = initialTheme === "dark" ? "☀️" : "🌙";
+
+    const soundIcon = document.getElementById("sound-icon");
+    const isSoundOn = localStorage.getItem(STORAGE_KEYS.SOUND) !== "false";
+    if (soundIcon) soundIcon.textContent = isSoundOn ? "🔔" : "🔕";
 
     const savedLang = localStorage.getItem(STORAGE_KEYS.LANG);
     const browserLang = (navigator.language || "").split("-")[0].toLowerCase();
@@ -1826,6 +2500,7 @@
     module.exports = {
       I18N,
       formatRupees,
+      numberToIndianWords,
       calculateLedgerKPIs,
       filterRecords,
       getRecordsStorageKey,

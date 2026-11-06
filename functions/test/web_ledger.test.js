@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const {
   I18N,
   formatRupees,
+  numberToIndianWords,
   calculateLedgerKPIs,
   filterRecords,
   getRecordsStorageKey,
@@ -163,3 +164,68 @@ test("Cryptographic Content Hash & Activity Audit Log Structure", async () => {
   assert.notEqual(hash1, hash3, "Different inputs must yield different hash");
   assert.ok(hash1.length >= 16, "Hash must have valid length");
 });
+
+test("numberToIndianWords generates accurate Indian wording across all 5 languages", () => {
+  // Test 1: Zero and negative returns empty string (for clean UI placeholder)
+  assert.equal(numberToIndianWords(0, "en"), "");
+  assert.equal(numberToIndianWords(0, "hi"), "");
+  assert.equal(numberToIndianWords(-50, "hi"), "");
+  assert.equal(numberToIndianWords(null, "bn"), "");
+
+  // Test 2: ₹500
+  assert.equal(numberToIndianWords(500, "en"), "Five Hundred Rupees Only");
+  assert.equal(numberToIndianWords(500, "hi"), "पाँच सौ रुपये मात्र");
+  assert.equal(numberToIndianWords(500, "bn"), "পাঁচ শত টাকা মাত্র");
+  assert.equal(numberToIndianWords(500, "as"), "পাঁচ শ টকা মাত্ৰ");
+  assert.equal(numberToIndianWords(500, "ne"), "पाँच सय रुपैयाँ मात्र");
+
+  // Test 3: ₹1,50,000 (1 Lakh 50 Thousand)
+  assert.equal(numberToIndianWords(150000, "en"), "One Lakh Fifty Thousand Rupees Only");
+  assert.equal(numberToIndianWords(150000, "hi"), "एक लाख पचास हज़ार रुपये मात्र");
+  assert.equal(numberToIndianWords(150000, "bn"), "এক লাখ পঞ্চাশ হাজার টাকা মাত্র");
+  assert.equal(numberToIndianWords(150000, "as"), "এক লাখ পঞ্চাশ হাজাৰ টকা মাত্ৰ");
+  assert.equal(numberToIndianWords(150000, "ne"), "एक लाख पचास हजार रुपैयाँ मात्र");
+
+  // Test 4: ₹1,00,00,000 (1 Crore)
+  assert.equal(numberToIndianWords(10000000, "en"), "One Crore Rupees Only");
+  assert.equal(numberToIndianWords(10000000, "hi"), "एक करोड़ रुपये मात्र");
+  assert.equal(numberToIndianWords(10000000, "bn"), "এক কোটি টাকা মাত্র");
+  assert.equal(numberToIndianWords(10000000, "as"), "এক কোটি টকা মাত্ৰ");
+  assert.equal(numberToIndianWords(10000000, "ne"), "एक करोड रुपैयाँ मात्र");
+
+  // Test 5: Fallback to English for unknown locales
+  assert.equal(numberToIndianWords(1000, "fr"), "One Thousand Rupees Only");
+});
+
+test("Partial Repayments decrement remaining balance and update KPIs dynamically", () => {
+  const recordsWithPayments = [
+    {
+      id: "tx_partial_1",
+      counterpartyRole: "BORROWER", // Lent to customer
+      principalAmountPaise: 1000000, // ₹10,000 original
+      status: "CONFIRMED",
+      payments: [
+        { id: "pay_1", paise: 300000, amount: 3000, mode: "UPI", timestamp: 1762400000000 },
+        { id: "pay_2", paise: 200000, amount: 2000, mode: "CASH", timestamp: 1762405000000 }
+      ]
+    },
+    {
+      id: "tx_partial_2",
+      counterpartyRole: "LENDER", // Borrowed from supplier
+      principalAmountPaise: 500000, // ₹5,000 original
+      status: "CONFIRMED",
+      payments: [
+        { id: "pay_3", paise: 500000, amount: 5000, mode: "BANK_TRANSFER", timestamp: 1762410000000 }
+      ] // Fully paid
+    }
+  ];
+
+  const kpis = calculateLedgerKPIs(recordsWithPayments);
+
+  // tx_partial_1: 10,000 - (3,000 + 2,000) = 5,000 remaining lent
+  // tx_partial_2: 5,000 - 5,000 = 0 remaining borrowed
+  assert.equal(kpis.totalLentRupees, 5000, "Lent KPI must reflect remaining balance of ₹5,000");
+  assert.equal(kpis.totalBorrowedRupees, 0, "Borrowed KPI must reflect remaining balance of ₹0");
+  assert.equal(kpis.netRupees, 5000, "Net KPI must reflect net remaining balance of +₹5,000");
+});
+
