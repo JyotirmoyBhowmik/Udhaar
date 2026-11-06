@@ -78,10 +78,11 @@
       </a>
 
       <nav class="nav-links" aria-label="Primary Navigation">
+        <a href="#features">Features</a>
+        <a href="/guide/">App Guide</a>
         <a href="#how-it-works" data-i18n="nav_how_it_works">How it works</a>
         <a href="#calculator" data-i18n="nav_calculator">Calculator</a>
         <a href="#interactive-demo" data-i18n="nav_demo">Try Demo</a>
-        <a href="#benefits" data-i18n="nav_benefits">Benefits</a>
         <a href="/trust/" data-i18n="nav_trust">Trust Center</a>
         <a href="#faq" data-i18n="nav_faq">FAQ</a>
         <a href="/privacy.html" data-i18n="nav_privacy">Privacy Policy</a>
@@ -139,6 +140,8 @@
     </div>
 
     <nav class="drawer-nav" aria-label="Mobile Navigation Links">
+      <a href="#features" class="drawer-link">Complete Features</a>
+      <a href="/guide/" class="drawer-link">Full App Guide (12 Screens)</a>
       <a href="#how-it-works" class="drawer-link" data-i18n="nav_how_it_works">How it works</a>
       <a href="#calculator" class="drawer-link" data-i18n="nav_calculator">Calculator</a>
       <a href="#interactive-demo" class="drawer-link" data-i18n="nav_demo">Try Demo</a>
@@ -164,7 +167,7 @@
   </aside>
 
   <main id="main-content" role="main">
-    <!-- Hero Section (Emerald Radial Gradient + Real Phone Mockup & Floating Cards) -->
+    <!-- Hero Section (Plain, High-Contrast Paper Layout) -->
     <section class="hero-section">
       <div class="container hero-grid">
         <div class="hero-copy">
@@ -185,6 +188,15 @@
             Record personal lending and borrowing in seconds. Send a private link on WhatsApp so both people agree on the amount and date. Works 100% offline and stays locked on your phone.
           </p>
 
+          <div class="hero-quick-specs" aria-label="Key capabilities">
+            <div class="hero-spec-item">✓ Dual Currency: INR (₹) &amp; NPR (रू)</div>
+            <div class="hero-spec-item">✓ Partial &amp; Installment Plans</div>
+            <div class="hero-spec-item">✓ Party Khata &amp; PDF Statements</div>
+            <div class="hero-spec-item">✓ QR &amp; WhatsApp Verification</div>
+            <div class="hero-spec-item">✓ Group &amp; Bill Split Tool</div>
+            <div class="hero-spec-item">✓ Encrypted Google Drive Backup</div>
+          </div>
+
           <div class="hero-actions">
             <a
               href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar"
@@ -198,6 +210,13 @@
             </a>
 
             <a
+              href="/guide/"
+              class="btn-secondary"
+            >
+              📖 Read Full App Guide (12 Screens)
+            </a>
+
+            <a
               href="#interactive-demo"
               id="btn-try-demo-hero"
               class="btn-secondary"
@@ -208,7 +227,7 @@
           </div>
         </div>
 
-        <!-- Realistic HTML/CSS Phone Mockup with Emerald Glow and Floating Live Cards -->
+        <!-- Clean Phone Mockup Showing Real App Dashboard -->
         <div class="hero-phone-wrap">
           <div class="hero-phone-glow" aria-hidden="true"></div>
 
@@ -251,8 +270,336 @@
       </div>
     </section>
 
-    <!-- Interactive Demo Widget (Part 1 Item 2) -->
-    <section id="interactive-demo" class="section section-demo">
+    <!-- Complete Feature Specifications & System Reference Section -->
+    <section id="features" class="section section-alt">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-badge">Complete Feature Specifications</span>
+          <h2 class="section-title">Everything built into the Udhaar app</h2>
+          <p class="section-subtitle">
+            Detailed overview of all 12 functional modules in Udhaar—from instant dashboard filtering and partial repayments to party-wise PDF statements, two-party verification, and group bill splits.
+          </p>
+        </div>
+
+        <div class="feature-directory-grid">
+          <article class="feature-spec-card">
+            <div class="feature-spec-header">
+              <h3 class="feature-spec-title">1. Home Dashboard &amp; Instant Filters</h3>
+              <span class="feature-spec-tag">Core Ledger</span>
+            </div>
+            <ul class="feature-spec-list">
+              <li>Separate <strong>Active</strong>, <strong>People</strong>, and <strong>History</strong> tabs with live record counts.</li>
+              <li>Real-time global search by person name, note, amount, or phone digits.</li>
+              <li>One-tap filter chips for <strong>All</strong>, <strong>Owed</strong>, <strong>Borrowed</strong>, <strong>Overdue</strong>, and <strong>Settled</strong>.</li>
+              <li><strong>Total Receivable</strong> and <strong>Total Payable</strong> summary cards with one-tap privacy eye masking (<code>₹ • • • • •</code>).</li>
+            </ul>
+          </article>
+
+          <article class="feature-spec-card">
+            <div class="feature-spec-header">
+              <h3 class="feature-spec-title">2. Compact &amp; Inline-Expandable Cards</h3>
+              <span class="feature-spec-tag">Quick Actions</span>
+            </div>
+            <ul class="feature-spec-list">
+              <li>Clean 2-row compact cards displaying party initials, name, <code>Given</code>/<code>Taken</code> pill, payment mode, and net remaining due.</li>
+              <li>Tap the chevron (<code>⌄</code>) to expand inline for masked phone number (<code>98*** ***10</code>), due date, and principal details.</li>
+              <li>Direct inline buttons for <strong>Transaction Chat</strong>, <strong>Get QR / Receipt</strong>, and <strong>Send Reminder</strong>.</li>
+            </ul>
+          </article>
+
+          <article class="feature-spec-card">
+            <div class="feature-spec-header">
+              <h3 class="feature-spec-title">3. Partial &amp; Installment Repayments</h3>
+              <span class="feature-spec-tag">Repayments</span>
+            </div>
+            <ul class="feature-spec-list">
+              <li>One-tap percentage chips (<strong>25%</strong>, <strong>50%</strong>, <strong>75%</strong>, <strong>100% FULL</strong>) auto-calculate exact paise amounts.</li>
+              <li>Track payment mode per installment: <strong>Cash</strong>, <strong>Online</strong>, <strong>UPI</strong>, or <strong>Party Account</strong>.</li>
+              <li>Attach live camera photos (<strong>Proof cam</strong>) or gallery screenshots (<strong>Proof pic</strong>) to every repayment.</li>
+              <li>Toggle <em>"Reported by other person (Requires my confirmation)"</em> for incoming payment claims.</li>
+            </ul>
+          </article>
+
+          <article class="feature-spec-card">
+            <div class="feature-spec-header">
+              <h3 class="feature-spec-title">4. Structured Installment Schedule Planner</h3>
+              <span class="feature-spec-tag">EMI Planner</span>
+            </div>
+            <ul class="feature-spec-list">
+              <li>Split any balance into custom installments with <strong>Weekly</strong>, <strong>Every 2 weeks</strong>, <strong>Monthly</strong>, or <strong>Custom</strong> intervals.</li>
+              <li>Choose <strong>None (₹0)</strong> or <strong>Fixed interest</strong> and preview every due date and installment amount live.</li>
+              <li>Final installment automatically absorbs any 1–2 paise division remainder (e.g., ₹1666.66 + ₹1666.66 + ₹1666.68 = ₹5,000.00).</li>
+            </ul>
+          </article>
+
+          <article class="feature-spec-card">
+            <div class="feature-spec-header">
+              <h3 class="feature-spec-title">5. People &amp; Parties Khata Directory</h3>
+              <span class="feature-spec-tag">Party Ledger</span>
+            </div>
+            <ul class="feature-spec-list">
+              <li>Selective contact import or <code>.vcf</code> vCard import—Udhaar never reads your phonebook without permission.</li>
+              <li>Sort parties by <strong>Name (A–Z)</strong>, <strong>Highest Net Balance</strong>, <strong>Most Overdue</strong>, or <strong>Recently Active</strong>.</li>
+              <li>Automatic <strong>Repayment Trust Score Badge</strong> (e.g., <code>★ 95% GOOD</code>) calculated from historical repayment punctuality.</li>
+            </ul>
+          </article>
+
+          <article class="feature-spec-card">
+            <div class="feature-spec-header">
+              <h3 class="feature-spec-title">6. Individual Party Statements &amp; Exports</h3>
+              <span class="feature-spec-tag">PDF &amp; JSON</span>
+            </div>
+            <ul class="feature-spec-list">
+              <li>Complete per-person summary showing <strong>You will get (Lent)</strong>, <strong>You will give (Taken)</strong>, and net position per currency.</li>
+              <li>Export <strong>Visual Receipt / Statement (Image &amp; PDF)</strong> or <strong>Formal PDF Statement with History of Changes</strong>.</li>
+              <li>Save or share machine-readable <strong>JSON statements</strong> and exchange UPI payment details directly.</li>
+            </ul>
+          </article>
+
+          <article class="feature-spec-card">
+            <div class="feature-spec-header">
+              <h3 class="feature-spec-title">7. Two-Party QR &amp; Link Verification</h3>
+              <span class="feature-spec-tag">Verification</span>
+            </div>
+            <ul class="feature-spec-list">
+              <li>Generate a scannable <strong>Verification QR Code</strong> for instant face-to-face confirmation or in-app scanning.</li>
+              <li>Every record generates a tamper-proof record fingerprint and a chronological <strong>History of changes</strong>.</li>
+              <li>Personal notes and attached proofs are locked with 256-bit end-to-end encryption so only the link holder can view them.</li>
+            </ul>
+          </article>
+
+          <article class="feature-spec-card">
+            <div class="feature-spec-header">
+              <h3 class="feature-spec-title">8. Granular Private Web Link Controls</h3>
+              <span class="feature-spec-tag">Guest Portal</span>
+            </div>
+            <ul class="feature-spec-list">
+              <li>Set custom link expiry (<strong>7 Days</strong>, <strong>30 Days</strong>, or <strong>90 Days</strong>) and revoke shared links anytime.</li>
+              <li>Choose between <strong>WhatsApp OTP (Zero-Cost 6-digit code)</strong> or <strong>Private Link</strong> verification.</li>
+              <li>Toggle visibility of <strong>Note/Purpose</strong>, <strong>Attachments/Proofs</strong>, and <strong>My UPI QR</strong>, plus toggle guest actions (<code>Confirm</code>, <code>Report a problem</code>, <code>I Have Paid</code>, <code>Propose Date</code>).</li>
+            </ul>
+          </article>
+
+          <article class="feature-spec-card">
+            <div class="feature-spec-header">
+              <h3 class="feature-spec-title">9. Group &amp; Split Payment Calculator</h3>
+              <span class="feature-spec-tag">Bill Split</span>
+            </div>
+            <ul class="feature-spec-list">
+              <li>Split group dinners, rent, or trip expenses with <strong>Equal split</strong>, <strong>Custom amount</strong>, or <strong>By percentage</strong>.</li>
+              <li>Support both <strong>I paid (Others owe me)</strong> and <strong>Someone else paid (I owe them)</strong> with optional self-share inclusion.</li>
+              <li>Share the full split breakdown on WhatsApp and generate individual trackable Udhaar records in one tap.</li>
+            </ul>
+          </article>
+
+          <article class="feature-spec-card">
+            <div class="feature-spec-header">
+              <h3 class="feature-spec-title">10. Dual Currency &amp; Paise-Exact Interest</h3>
+              <span class="feature-spec-tag">INR &amp; NPR</span>
+            </div>
+            <ul class="feature-spec-list">
+              <li>Native support for <strong>Indian Rupee (₹ INR)</strong> and <strong>Nepalese Rupee (रू NPR)</strong> with independent totals.</li>
+              <li>Optional <strong>Simple</strong> or <strong>Compound</strong> interest calculated per month or per year.</li>
+              <li>All accounting is stored in whole integer paise (₹1 = 100 paise) so floating-point errors never occur.</li>
+            </ul>
+          </article>
+
+          <article class="feature-spec-card">
+            <div class="feature-spec-header">
+              <h3 class="feature-spec-title">11. Encrypted Backup &amp; Recovery Key</h3>
+              <span class="feature-spec-tag">Data Safety</span>
+            </div>
+            <ul class="feature-spec-list">
+              <li>Backup your ledger to your own Google Drive or local storage locked with your personal backup password.</li>
+              <li>Generate an emergency <strong>Backup Recovery Key</strong> in case you ever forget your backup password.</li>
+              <li>Includes a built-in <strong>"Test my backup"</strong> button to verify backup decryption and integrity safely.</li>
+            </ul>
+          </article>
+
+          <article class="feature-spec-card">
+            <div class="feature-spec-header">
+              <h3 class="feature-spec-title">12. Polite Reminders in 5 Languages</h3>
+              <span class="feature-spec-tag">Multi-Language</span>
+            </div>
+            <ul class="feature-spec-list">
+              <li>Full app interface and polite reminder templates in <strong>English</strong>, <strong>Hindi</strong>, <strong>Bengali</strong>, <strong>Assamese</strong>, and <strong>Nepali</strong>.</li>
+              <li>Schedule local due-date notifications and open pre-filled WhatsApp or SMS messages with one tap.</li>
+              <li>Optional biometric fingerprint / PIN app lock keeps your ledger private when handing your phone to others.</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Complete 12-Screen Visual App Guide Overview Section -->
+    <section id="app-guide-preview" class="section">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-badge">Screen-by-Screen Visual Guide</span>
+          <h2 class="section-title">Complete 12-Screen App Walkthrough</h2>
+          <p class="section-subtitle">
+            Browse every screen of the Udhaar app below, or open the dedicated App Guide page for the full step-by-step user manual and field-by-field explanations.
+          </p>
+        </div>
+
+        <div class="guide-overview-banner">
+          <div class="guide-overview-banner-text">
+            <h3>Looking for the complete step-by-step user manual?</h3>
+            <p>Our dedicated App Guide page documents every screen, button, installment rule, statement export, and verification flow in detail.</p>
+          </div>
+          <a href="/guide/" class="btn-primary">Open Complete App Guide Page →</a>
+        </div>
+
+        <div class="guide-screens-grid">
+          <article class="guide-preview-card">
+            <div class="guide-preview-img-wrap">
+              <img src="/assets/guide-01-onboarding.webp" alt="Screen 1: Onboarding and Smart Math" width="240" height="533" loading="lazy" />
+            </div>
+            <div class="guide-preview-body">
+              <span class="guide-step-num">SCREEN 01 / 12</span>
+              <h3 class="guide-preview-title">Onboarding &amp; Smart Math</h3>
+              <p class="guide-preview-desc">Dual currency INR (₹) &amp; NPR (रू), simple/compound interest, and real-time partial payment math.</p>
+              <a href="/guide/#chapter-1" class="guide-preview-link">Read Chapter 1 →</a>
+            </div>
+          </article>
+
+          <article class="guide-preview-card">
+            <div class="guide-preview-img-wrap">
+              <img src="/assets/guide-02-dashboard.webp" alt="Screen 2: Home Dashboard and Filter Chips" width="240" height="533" loading="lazy" />
+            </div>
+            <div class="guide-preview-body">
+              <span class="guide-step-num">SCREEN 02 / 12</span>
+              <h3 class="guide-preview-title">Home Dashboard &amp; Filters</h3>
+              <p class="guide-preview-desc">Global search, All/Owed/Borrowed/Overdue chips, privacy-masked totals, and compact 2-row cards.</p>
+              <a href="/guide/#chapter-2" class="guide-preview-link">Read Chapter 2 →</a>
+            </div>
+          </article>
+
+          <article class="guide-preview-card">
+            <div class="guide-preview-img-wrap">
+              <img src="/assets/guide-03-card-expanded.webp" alt="Screen 3: Inline Expanded Transaction Card" width="240" height="533" loading="lazy" />
+            </div>
+            <div class="guide-preview-body">
+              <span class="guide-step-num">SCREEN 03 / 12</span>
+              <h3 class="guide-preview-title">Inline Expanded Card</h3>
+              <p class="guide-preview-desc">Expand any record in place for masked phone numbers, transaction chat, QR receipt, and reminders.</p>
+              <a href="/guide/#chapter-3" class="guide-preview-link">Read Chapter 3 →</a>
+            </div>
+          </article>
+
+          <article class="guide-preview-card">
+            <div class="guide-preview-img-wrap">
+              <img src="/assets/guide-04-record-detail.webp" alt="Screen 4: Partial and Installment Payments" width="240" height="533" loading="lazy" />
+            </div>
+            <div class="guide-preview-body">
+              <span class="guide-step-num">SCREEN 04 / 12</span>
+              <h3 class="guide-preview-title">Partial &amp; Installment Entry</h3>
+              <p class="guide-preview-desc">Log partial payments with 25%/50%/75%/100% chips, payment mode tags, and camera/gallery proofs.</p>
+              <a href="/guide/#chapter-4" class="guide-preview-link">Read Chapter 4 →</a>
+            </div>
+          </article>
+
+          <article class="guide-preview-card">
+            <div class="guide-preview-img-wrap">
+              <img src="/assets/guide-05-installment-planner.webp" alt="Screen 5: Split Into Installments Schedule Planner" width="240" height="533" loading="lazy" />
+            </div>
+            <div class="guide-preview-body">
+              <span class="guide-step-num">SCREEN 05 / 12</span>
+              <h3 class="guide-preview-title">Installment Schedule Planner</h3>
+              <p class="guide-preview-desc">Build weekly, bi-weekly, or monthly installment plans with live schedule preview and paise-exact totals.</p>
+              <a href="/guide/#chapter-5" class="guide-preview-link">Read Chapter 5 →</a>
+            </div>
+          </article>
+
+          <article class="guide-preview-card">
+            <div class="guide-preview-img-wrap">
+              <img src="/assets/guide-06-attachments-audit.webp" alt="Screen 6: Attached Documents and Verification History" width="240" height="533" loading="lazy" />
+            </div>
+            <div class="guide-preview-body">
+              <span class="guide-step-num">SCREEN 06 / 12</span>
+              <h3 class="guide-preview-title">Attachments &amp; Audit History</h3>
+              <p class="guide-preview-desc">Attach camera photos, gallery images, or PDF bills and inspect the permanent history of changes.</p>
+              <a href="/guide/#chapter-6" class="guide-preview-link">Read Chapter 6 →</a>
+            </div>
+          </article>
+
+          <article class="guide-preview-card">
+            <div class="guide-preview-img-wrap">
+              <img src="/assets/guide-07-add-edit-record.webp" alt="Screen 7: Add or Edit Udhaar Record Screen" width="240" height="533" loading="lazy" />
+            </div>
+            <div class="guide-preview-body">
+              <span class="guide-step-num">SCREEN 07 / 12</span>
+              <h3 class="guide-preview-title">Add / Edit Record Form</h3>
+              <p class="guide-preview-desc">Quick due-date presets plus optional payment mode, interest rules, scheduled reminders, and notes.</p>
+              <a href="/guide/#chapter-7" class="guide-preview-link">Read Chapter 7 →</a>
+            </div>
+          </article>
+
+          <article class="guide-preview-card">
+            <div class="guide-preview-img-wrap">
+              <img src="/assets/guide-08-people-directory.webp" alt="Screen 8: People and Parties Khata Directory" width="240" height="533" loading="lazy" />
+            </div>
+            <div class="guide-preview-body">
+              <span class="guide-step-num">SCREEN 08 / 12</span>
+              <h3 class="guide-preview-title">People &amp; Parties Directory</h3>
+              <p class="guide-preview-desc">Party-wise Khata directory with contact/vCard import, 4 sort modes, and repayment trust score badges.</p>
+              <a href="/guide/#chapter-8" class="guide-preview-link">Read Chapter 8 →</a>
+            </div>
+          </article>
+
+          <article class="guide-preview-card">
+            <div class="guide-preview-img-wrap">
+              <img src="/assets/guide-09-party-statement.webp" alt="Screen 9: Individual Party Khata and PDF Statement" width="240" height="533" loading="lazy" />
+            </div>
+            <div class="guide-preview-body">
+              <span class="guide-step-num">SCREEN 09 / 12</span>
+              <h3 class="guide-preview-title">Party Khata &amp; PDF Statements</h3>
+              <p class="guide-preview-desc">View per-person net position, export image/PDF/JSON statements, and exchange UPI payment details.</p>
+              <a href="/guide/#chapter-9" class="guide-preview-link">Read Chapter 9 →</a>
+            </div>
+          </article>
+
+          <article class="guide-preview-card">
+            <div class="guide-preview-img-wrap">
+              <img src="/assets/guide-10-qr-verification.webp" alt="Screen 10: Two-Party QR and Link Verification" width="240" height="533" loading="lazy" />
+            </div>
+            <div class="guide-preview-body">
+              <span class="guide-step-num">SCREEN 10 / 12</span>
+              <h3 class="guide-preview-title">QR &amp; Link Verification</h3>
+              <p class="guide-preview-desc">Verify records in person via QR scan or remotely via web link with tamper-proof record fingerprints.</p>
+              <a href="/guide/#chapter-10" class="guide-preview-link">Read Chapter 10 →</a>
+            </div>
+          </article>
+
+          <article class="guide-preview-card">
+            <div class="guide-preview-img-wrap">
+              <img src="/assets/guide-11-private-weblink.webp" alt="Screen 11: Send Private Web Link Configuration" width="240" height="533" loading="lazy" />
+            </div>
+            <div class="guide-preview-body">
+              <span class="guide-step-num">SCREEN 11 / 12</span>
+              <h3 class="guide-preview-title">Private Web Link Controls</h3>
+              <p class="guide-preview-desc">Choose 7/30/90-day expiry, WhatsApp OTP verification, shared details, and allowed guest actions.</p>
+              <a href="/guide/#chapter-11" class="guide-preview-link">Read Chapter 11 →</a>
+            </div>
+          </article>
+
+          <article class="guide-preview-card">
+            <div class="guide-preview-img-wrap">
+              <img src="/assets/guide-12-group-split.webp" alt="Screen 12: Group and Split Payment Calculator" width="240" height="533" loading="lazy" />
+            </div>
+            <div class="guide-preview-body">
+              <span class="guide-step-num">SCREEN 12 / 12</span>
+              <h3 class="guide-preview-title">Group &amp; Split Payment</h3>
+              <p class="guide-preview-desc">Split shared bills equally, by custom amount, or by percentage and save individual Udhaar records.</p>
+              <a href="/guide/#chapter-12" class="guide-preview-link">Read Chapter 12 →</a>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive Demo Widget -->
+    <section id="interactive-demo" class="section section-alt">
       <div class="container">
         <div class="section-header">
           <span class="section-badge" data-i18n="demo_widget_badge">Interactive Preview</span>
@@ -413,8 +760,8 @@
       </div>
     </section>
 
-    <!-- Visual Stepper Flow (Part 1 Item 4) -->
-    <section id="how-it-works" class="section section-alt">
+    <!-- Visual Stepper Flow -->
+    <section id="how-it-works" class="section">
       <div class="container">
         <div class="section-header">
           <span class="section-badge" data-i18n="steps_badge">Simple 3-Step Flow</span>
@@ -479,8 +826,8 @@
       </div>
     </section>
 
-    <!-- Repayment Calculator Widget (Part 1 Item 3) -->
-    <section id="calculator" class="section">
+    <!-- Repayment Calculator Widget -->
+    <section id="calculator" class="section section-alt">
       <div class="container">
         <div class="section-header">
           <span class="section-badge" data-i18n="calc_badge">Smart Planning</span>
@@ -590,7 +937,7 @@
     </section>
 
     <!-- Benefits in Plain Words -->
-    <section id="benefits" class="section section-alt">
+    <section id="benefits" class="section">
       <div class="container">
         <div class="section-header">
           <span class="section-badge" data-i18n="benefits_badge">Built for Real Life</span>
@@ -648,53 +995,6 @@
               Available in English, Hindi, Bengali, Assamese, and Nepali with plain, everyday words.
             </p>
           </article>
-        </div>
-      </div>
-    </section>
-
-    <!-- App Interface Showcase with Responsive WebP Images -->
-    <section class="section">
-      <div class="container">
-        <div class="section-header">
-          <span class="section-badge">App Preview</span>
-          <h2 class="section-title">Clean, Fast &amp; Easy to Read</h2>
-          <p class="section-subtitle">
-            Designed with clear totals, installment progress bars, and instant QR receipts.
-          </p>
-        </div>
-
-        <div class="screens-grid">
-          <div class="screen-card">
-            <picture>
-              <source srcset="/assets/screen-dashboard-480.webp 480w, /assets/screen-dashboard.webp 800w" type="image/webp" />
-              <img src="/assets/screen-dashboard.webp" alt="Udhaar Dashboard Screen" width="270" height="600" loading="lazy" />
-            </picture>
-            <div class="screen-card-caption">Clear Receivable &amp; Payable Totals</div>
-          </div>
-
-          <div class="screen-card">
-            <picture>
-              <source srcset="/assets/screen-new-record-480.webp 480w, /assets/screen-new-record.webp 800w" type="image/webp" />
-              <img src="/assets/screen-new-record.webp" alt="Add New Record Screen" width="270" height="600" loading="lazy" />
-            </picture>
-            <div class="screen-card-caption">Quick 3-Step Record Entry</div>
-          </div>
-
-          <div class="screen-card">
-            <picture>
-              <source srcset="/assets/screen-details-480.webp 480w, /assets/screen-details.webp 800w" type="image/webp" />
-              <img src="/assets/screen-details.webp" alt="Record Detail and Installment Timeline" width="270" height="600" loading="lazy" />
-            </picture>
-            <div class="screen-card-caption">Installments &amp; Payment History</div>
-          </div>
-
-          <div class="screen-card">
-            <picture>
-              <source srcset="/assets/screen-whatsapp-480.webp 480w, /assets/screen-whatsapp.webp 800w" type="image/webp" />
-              <img src="/assets/screen-whatsapp.webp" alt="Polite WhatsApp Reminder Sheet" width="270" height="600" loading="lazy" />
-            </picture>
-            <div class="screen-card-caption">Polite Multi-Language Reminders</div>
-          </div>
         </div>
       </div>
     </section>
@@ -778,7 +1078,7 @@
       </div>
     </section>
 
-    <!-- FAQ Section with Instant Search & Category Chips (Part 1 Item 5) -->
+    <!-- FAQ Section with Instant Search & Category Chips -->
     <section id="faq" class="section">
       <div class="container">
         <div class="section-header">
@@ -902,16 +1202,20 @@
           <p data-i18n="demo_box_desc">
             See exactly what the other person experiences when they tap your WhatsApp link. Test confirming, installments, and payment proof.
           </p>
-          <a href="/u/?demo=true" id="btn-try-demo" class="btn-primary">
-            <span aria-hidden="true">✨</span>
-            <span data-i18n="btn_launch_demo">Try Interactive Demo</span>
-          </a>
+          <div class="hero-actions">
+            <a href="/u/?demo=true" id="btn-try-demo" class="btn-primary">
+              <span data-i18n="btn_launch_demo">Try Interactive Demo</span>
+            </a>
+            <a href="/guide/" class="btn-secondary">
+              Read Full App Guide (12 Screens) →
+            </a>
+          </div>
         </div>
       </div>
     </section>
   </main>
 
-  <!-- Sticky Mobile Bottom Bar (Part 1 Item 6) -->
+  <!-- Sticky Mobile Bottom Bar -->
   <aside class="mobile-sticky-bottom-bar" id="mobile-sticky-bar" aria-label="Mobile download bar">
     <div class="mobile-sticky-inner">
       <div class="mobile-sticky-info">
@@ -946,12 +1250,13 @@
         </div>
 
         <div class="footer-col">
-          <h4 data-i18n="footer_product">Product</h4>
+          <h4 data-i18n="footer_product">Product &amp; Guide</h4>
           <ul>
+            <li><a href="/guide/">Complete App Guide (12 Screens)</a></li>
+            <li><a href="#features">All Features &amp; Specifications</a></li>
             <li><a href="#how-it-works" data-i18n="nav_how_it_works">How it works</a></li>
             <li><a href="#calculator" data-i18n="nav_calculator">Calculator</a></li>
             <li><a href="#interactive-demo" data-i18n="nav_demo">Interactive Demo</a></li>
-            <li><a href="#benefits" data-i18n="nav_benefits">Benefits</a></li>
             <li><a href="/updates/" data-i18n="nav_updates">What's New</a></li>
             <li><a href="/u/?demo=true" data-i18n="btn_launch_demo">Guest Flow Preview</a></li>
             <li>

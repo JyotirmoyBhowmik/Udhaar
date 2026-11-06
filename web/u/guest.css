@@ -663,14 +663,14 @@ header {
   bottom: 0;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
-  display: none;
+  display: none !important;
   align-items: flex-end;
   justify-content: center;
   z-index: 1000;
 }
 
 .modal-overlay.active {
-  display: flex;
+  display: flex !important;
 }
 
 .sheet-card {
@@ -755,26 +755,33 @@ header {
 
 /* OTP 6-Digit Code Inputs - >= 16px */
 .otp-inputs {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
-  justify-content: center;
-  margin: 14px 0;
+  max-width: 340px;
+  width: 100%;
+  margin: 14px auto;
 }
 
 .otp-box {
-  width: 48px;
-  height: 56px;
-  font-size: 24px;
+  width: 100%;
+  min-width: 0;
+  height: 54px;
+  font-size: 22px;
   font-weight: 800;
   text-align: center;
   border: 2px solid var(--border-color);
   border-radius: var(--radius-sm);
   background: var(--card-bg);
   color: var(--text-main);
+  padding: 0;
+  caret-color: var(--emerald-600);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .otp-box:focus {
   border-color: var(--emerald-600);
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.18);
   outline: none;
 }
 
@@ -1001,8 +1008,9 @@ footer a {
 /* -------------------------------------------------------------------------- */
 /* Utility Classes for Strict CSP Compliance (No Inline Styles)               */
 /* -------------------------------------------------------------------------- */
-.hidden {
-  display: none;
+.hidden,
+[hidden] {
+  display: none !important;
 }
 .skeleton-title {
   height: 24px;

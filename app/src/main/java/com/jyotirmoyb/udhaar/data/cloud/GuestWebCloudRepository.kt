@@ -62,7 +62,18 @@ class GuestWebCloudRepository @Inject constructor(
         allowedActions: List<String> = listOf("view", "confirm", "dispute", "pay_claim", "propose_date", "set_upi", "show_pay_qr"),
         allowNote: Boolean = true,
         allowAttachments: Boolean = false,
-        showUpiQr: Boolean = true
+        showUpiQr: Boolean = true,
+        lenderName: String = "",
+        borrowerName: String = "",
+        principalAmountPaise: Long = 0L,
+        amountPaidPaise: Long = 0L,
+        currency: String = "INR",
+        startDateMillis: Long = 0L,
+        expiryDateMillis: Long? = null,
+        note: String = "",
+        contentHash: String = "",
+        lenderUpiId: String = "",
+        creatorPhone: String = ""
     ): GuestWebLinkCreateResult {
         if (functions == null) {
             val localSecret = VerificationCryptoHelper.generateShareToken()
@@ -79,7 +90,7 @@ class GuestWebCloudRepository @Inject constructor(
             )
         }
         return try {
-            val payload = hashMapOf(
+            val payload = hashMapOf<String, Any?>(
                 "recordId" to recordId,
                 "counterpartyRole" to counterpartyRole,
                 "intendedPhone" to intendedPhone,
@@ -88,7 +99,18 @@ class GuestWebCloudRepository @Inject constructor(
                 "allowedActions" to allowedActions,
                 "allowNote" to allowNote,
                 "allowAttachments" to allowAttachments,
-                "showUpiQr" to showUpiQr
+                "showUpiQr" to showUpiQr,
+                "lenderName" to lenderName,
+                "borrowerName" to borrowerName,
+                "principalAmountPaise" to principalAmountPaise,
+                "amountPaidPaise" to amountPaidPaise,
+                "currency" to currency,
+                "startDateMillis" to startDateMillis,
+                "expiryDateMillis" to expiryDateMillis,
+                "note" to note,
+                "contentHash" to contentHash,
+                "lenderUpiId" to lenderUpiId,
+                "creatorPhone" to creatorPhone
             )
             val result = functions.getHttpsCallable("createGuestWebLink").call(payload).await()
             @Suppress("UNCHECKED_CAST")

@@ -34,8 +34,8 @@ open class VerificationRepository(
     suspend fun prepareVerificationShare(transaction: UdhaarTransaction): Pair<UdhaarTransaction, String> {
         val settings = settingsRepository.userSettings.first()
         val myName = settings.payeeName.ifBlank { "Udhaar User" }
-        val remoteId = transaction.remoteId.ifBlank { UUID.randomUUID().toString() }
-        val shareToken = transaction.shareToken.ifBlank { UUID.randomUUID().toString().replace("-", "") }
+        val remoteId = transaction.remoteId.ifBlank { VerificationCryptoHelper.generateShortId(10) }
+        val shareToken = transaction.shareToken.ifBlank { VerificationCryptoHelper.generateShareToken() }
         val (lender, borrower) = VerificationCryptoHelper.resolveLenderAndBorrowerNames(
             type = transaction.transactionType,
             partyName = transaction.partyName,

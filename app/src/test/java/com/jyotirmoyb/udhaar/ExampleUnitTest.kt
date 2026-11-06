@@ -1453,4 +1453,72 @@ class ExampleUnitTest {
             assertTrue("Interest must be monotonically non-decreasing with time", sumB.interestAccruedPaise >= sumA.interestAccruedPaise)
         }
     }
+
+    @Test
+    fun compactVerificationLink_isShortAndBackwardCompatible() {
+        val remoteId = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.generateShortId(10)
+        val shareToken = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.generateShareToken()
+        assertEquals(10, remoteId.length)
+        assertEquals(16, shareToken.length)
+
+        val startMs = 1_730_000_000_000L
+        val hash = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.computeContentHash(
+            lenderName = "Jyotirmoy",
+            borrowerName = "Ravi",
+            principalAmount = 1500.0,
+            currencyCode = "INR",
+            startDateMillis = startMs,
+            expiryDateMillis = null,
+            isInterestEnabled = false,
+            interestType = InterestType.SIMPLE,
+            interestRate = 0.0,
+            interestRatePeriod = InterestRatePeriod.PER_ANNUM,
+            compoundFrequency = CompoundFrequency.YEARLY
+        )
+
+        val payload = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.SharedVerificationPayload(
+            remoteId = remoteId,
+            shareToken = shareToken,
+            creatorUserId = "",
+            creatorRole = TransactionType.GIVEN,
+            lenderName = "Jyotirmoy",
+            borrowerName = "Ravi",
+            creatorPhone = "",
+            counterpartyPhone = "",
+            principalAmount = 1500.0,
+            currencyCode = "INR",
+            startDateMillis = startMs,
+            expiryDateMillis = null,
+            isInterestEnabled = false,
+            interestType = InterestType.SIMPLE,
+            interestRate = 0.0,
+            interestRatePeriod = InterestRatePeriod.PER_ANNUM,
+            compoundFrequency = CompoundFrequency.YEARLY,
+            contentHash = hash,
+            encryptedNote = ""
+        )
+
+        val compactUrl = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.buildVerificationLink(payload)
+        assertTrue(
+            "Expected compact verification URL to be under 140 chars, got ${compactUrl.length}: $compactUrl",
+            compactUrl.length < 140
+        )
+
+        val parsed = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.parseVerificationLink(compactUrl)
+        org.junit.Assert.assertNotNull(parsed)
+        assertEquals(payload, parsed)
+
+        // Verify legacy v1 URLs still parse with 100% compatibility
+        val legacyToken = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
+            "rid=legacy-123&tok=tok456&role=GIVEN&lender=Jyotirmoy&borrower=Ravi&amt=1500.00&cur=INR&start=$startMs&exp=0&ie=false&hash=$hash"
+                .toByteArray(Charsets.UTF_8)
+        )
+        val parsedLegacy = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.parseVerificationLink("https://udhaar.jyotirmoyb.com/u/$legacyToken")
+        org.junit.Assert.assertNotNull(parsedLegacy)
+        assertEquals("legacy-123", parsedLegacy!!.remoteId)
+        assertEquals("Jyotirmoy", parsedLegacy.lenderName)
+        assertEquals("Ravi", parsedLegacy.borrowerName)
+        assertEquals(1500.0, parsedLegacy.principalAmount, 0.001)
+        assertEquals(hash, parsedLegacy.contentHash)
+    }
 }

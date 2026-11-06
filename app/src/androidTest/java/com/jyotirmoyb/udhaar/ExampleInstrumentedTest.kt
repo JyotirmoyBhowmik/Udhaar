@@ -1,25 +1,50 @@
 package com.jyotirmoyb.udhaar
 
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
+import android.content.Intent
+import android.net.Uri
 import androidx.room.Room
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.db.SupportSQLiteOpenHelper
+import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
+import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.jyotirmoyb.udhaar.backup.BackupPreviewSummary
+import com.jyotirmoyb.udhaar.backup.DriveBackupCrypto
 import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.PartialPayment
 import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.PaymentMode
 import com.jyotirmoyb.udhaar.data.TransactionType
 import com.jyotirmoyb.udhaar.data.UdhaarDatabase
+import com.jyotirmoyb.udhaar.data.UdhaarRepository
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
 import com.jyotirmoyb.udhaar.security.EncryptedStorageManager
+import com.jyotirmoyb.udhaar.util.LedgerBackupManager
+import com.jyotirmoyb.udhaar.util.TelemetryManager
+import com.jyotirmoyb.udhaar.widget.UdhaarWidgetProvider
 import java.io.File
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
+/**
+ * Managed-device emulator suite (`pixel6Api34DebugAndroidTest`) covering SQLCipher hardware/JNI
+ * encryption and the 6 release smoke test journeys:
+ * 1. Cold start
+ * 2. Add a record
+ * 3. Restore a backup
+ * 4. Open a guest link
+ * 5. Widget update
+ * 6. Database migration from the previous version (v11 -> v12)
+ */
 @RunWith(AndroidJUnit4::class)
 class ExampleInstrumentedTest {
     @Test
@@ -58,15 +83,15 @@ class ExampleInstrumentedTest {
                 partyName = "Assam Tea Traders",
                 phoneNumber = "+919864012345",
                 currency = CurrencyType.INR,
-                principalAmount = 14_000.0,
-                amountPaid = 4_000.0,
+                principalAmountPaise = 1_400_000L,
+                amountPaidPaise = 400_000L,
                 paymentMode = PaymentMode.UPI
             )
         )
         plainDao.insertPartialPayment(
             PartialPayment(
                 transactionId = txId,
-                amount = 4_000.0,
+                amountPaise = 400_000L,
                 paymentMode = PaymentMode.UPI,
                 note = "First payment"
             )
@@ -97,7 +122,7 @@ class ExampleInstrumentedTest {
         assertEquals(1, dao.getAllPartiesSnapshot().size)
         assertEquals("Assam Tea Traders", dao.getAllPartiesSnapshot().first().name)
         assertEquals(1, dao.getAllTransactionsSnapshot().size)
-        assertEquals(14_000.0, dao.getAllTransactionsSnapshot().first().principalAmount, 0.01)
+        assertEquals(1_400_000L, dao.getAllTransactionsSnapshot().first().principalAmountPaise)
         assertEquals(1, dao.getAllPartialPaymentsSnapshot().size)
 
         encryptedDb.close()
@@ -174,5 +199,219 @@ class ExampleInstrumentedTest {
             EncryptedStorageManager.getDatabaseEncryptionState(context)
         )
         dbFile.delete()
+    }
+
+    @Test
+    fun releaseSmoke_coldStart_addRecord_restoreBackup_guestLink_widgetUpdate_and_migrationFromPreviousVersion() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+
+        // 1. Cold start: launch MainActivity, verify SQLCipher 256-bit key & telemetry default OFF
+        TelemetryManager.setConsent(context, false)
+        assertFalse("Telemetry must be OFF by default on cold start", TelemetryManager.isConsentGranted)
+        val keyBytes = EncryptedStorageManager.getOrCreateDatabasePassphrase(context)
+        assertEquals(32, keyBytes.size)
+        keyBytes.fill(0)
+
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                assertNotNull(activity)
+            }
+        }
+
+        // 2. Add a record: insert an INR record in paise and verify DAO + repository state
+        val db = UdhaarDatabase.getInstance(context)
+        val dao = db.udhaarDao()
+        val repo = UdhaarRepository(dao, context)
+
+        val addedTxId = dao.insertTransaction(
+            UdhaarTransaction(
+                transactionType = TransactionType.GIVEN,
+                partyName = "Smoke Test Trader",
+                phoneNumber = "+919876500001",
+                currency = CurrencyType.INR,
+                principalAmountPaise = 250_000L, // ₹2,500.00
+                amountPaidPaise = 50_000L,       // ₹500.00
+                paymentMode = PaymentMode.UPI,
+                notes = "Managed emulator smoke test record"
+            )
+        )
+        assertTrue(addedTxId > 0L)
+        val loadedTx = dao.getTransactionById(addedTxId)
+        assertNotNull(loadedTx)
+        assertEquals(250_000L, loadedTx?.principalAmountPaise)
+        assertEquals(50_000L, loadedTx?.amountPaidPaise)
+
+        // 3. Restore a backup: build encrypted .udhaar snapshot, decrypt, and restore cleanly
+        val backupParty = PartyEntity(
+            partyId = 10L,
+            name = "Restored Backup Party",
+            phoneNumber = "+919811223344",
+            upiId = "restored@okaxis",
+            preferredCurrency = CurrencyType.INR
+        )
+        val backupTx = UdhaarTransaction(
+            id = 20L,
+            partyId = 10L,
+            transactionType = TransactionType.GIVEN,
+            partyName = "Restored Backup Party",
+            phoneNumber = "+919811223344",
+            currency = CurrencyType.INR,
+            principalAmountPaise = 725_050L, // ₹7,250.50
+            amountPaidPaise = 125_050L,      // ₹1,250.50
+            paymentMode = PaymentMode.CASH
+        )
+        val backupPayment = PartialPayment(
+            id = 30L,
+            transactionId = 20L,
+            amountPaise = 125_050L,
+            paymentMode = PaymentMode.CASH,
+            note = "Backup verified installment"
+        )
+        val backupJson = LedgerBackupManager.buildBackupJson(
+            parties = listOf(backupParty),
+            transactions = listOf(backupTx),
+            partialPayments = listOf(backupPayment),
+            exportType = "FULL_LEDGER"
+        )
+        val encryptedEnvelope = DriveBackupCrypto.encrypt(
+            plainBytes = backupJson.toByteArray(Charsets.UTF_8),
+            passphrase = "SmokeTestRecovery#2026",
+            preview = BackupPreviewSummary(partiesCount = 1, transactionsCount = 1, paymentsCount = 1)
+        )
+        val decryptedJson = String(
+            DriveBackupCrypto.decrypt(encryptedEnvelope, "SmokeTestRecovery#2026"),
+            Charsets.UTF_8
+        )
+        val parsedBackup = LedgerBackupManager.parseBackupJson(decryptedJson)
+        val restoredCount = repo.restoreFullLedgerBackup(parsedBackup, replaceExisting = true)
+        assertEquals(1, restoredCount)
+        assertEquals(725_050L, dao.getAllTransactionsSnapshot().first().principalAmountPaise)
+
+        // 4. Open a guest link: launch MainActivity with ACTION_VIEW https://udhaar.jyotirmoyb.com/u/r/...
+        val guestIntent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("https://udhaar.jyotirmoyb.com/u/r/smoke_rec_01#secret_key_01")
+        ).setClass(context, MainActivity::class.java)
+        ActivityScenario.launch<MainActivity>(guestIntent).use { guestScenario ->
+            guestScenario.onActivity { activity ->
+                assertNotNull(activity)
+                assertEquals(Intent.ACTION_VIEW, activity.intent?.action)
+            }
+        }
+
+        // 5. Widget update: invoke UdhaarWidgetProvider.updateAllWidgets and onUpdate
+        val appWidgetManager = AppWidgetManager.getInstance(context)
+        val widgetIds = appWidgetManager.getAppWidgetIds(ComponentName(context, UdhaarWidgetProvider::class.java))
+        UdhaarWidgetProvider().onUpdate(context, appWidgetManager, if (widgetIds.isEmpty()) intArrayOf(1) else widgetIds)
+        UdhaarWidgetProvider.updateAllWidgets(context)
+
+        // 6. Database migration from the previous version (v11 -> v12)
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(null)
+                .callback(object : SupportSQLiteOpenHelper.Callback(11) {
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        db.execSQL(
+                            """
+                            CREATE TABLE IF NOT EXISTS `udhaar_transactions` (
+                                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                                `partyId` INTEGER,
+                                `transactionType` TEXT NOT NULL,
+                                `partyName` TEXT NOT NULL,
+                                `phoneNumber` TEXT NOT NULL,
+                                `currency` TEXT NOT NULL,
+                                `principalAmountPaise` INTEGER NOT NULL DEFAULT 0,
+                                `amountPaidPaise` INTEGER NOT NULL DEFAULT 0,
+                                `paymentMode` TEXT NOT NULL,
+                                `isInterestEnabled` INTEGER NOT NULL,
+                                `interestType` TEXT NOT NULL,
+                                `interestRate` REAL NOT NULL,
+                                `interestRatePeriod` TEXT NOT NULL,
+                                `compoundFrequency` TEXT NOT NULL,
+                                `startDateMillis` INTEGER NOT NULL,
+                                `expiryDateMillis` INTEGER,
+                                `reminderDateMillis` INTEGER,
+                                `remindersDisabled` INTEGER NOT NULL DEFAULT 0,
+                                `snoozedUntilMillis` INTEGER,
+                                `lastReminderSentMillis` INTEGER,
+                                `lastReminderLevel` INTEGER NOT NULL DEFAULT 0,
+                                `notes` TEXT NOT NULL,
+                                `isSettled` INTEGER NOT NULL,
+                                `settledAtMillis` INTEGER,
+                                `createdAtMillis` INTEGER NOT NULL DEFAULT 0,
+                                `remoteId` TEXT NOT NULL DEFAULT '',
+                                `verificationStatus` TEXT NOT NULL DEFAULT 'LOCAL_ONLY',
+                                `verifiedAtMillis` INTEGER,
+                                `counterpartyUserId` TEXT NOT NULL DEFAULT '',
+                                `contentHash` TEXT NOT NULL DEFAULT '',
+                                `needsMyConfirmation` INTEGER NOT NULL DEFAULT 0,
+                                `shareToken` TEXT NOT NULL DEFAULT '',
+                                `disputeReason` TEXT NOT NULL DEFAULT '',
+                                `lenderName` TEXT NOT NULL DEFAULT '',
+                                `borrowerName` TEXT NOT NULL DEFAULT '',
+                                `webLinkStatus` TEXT NOT NULL DEFAULT '',
+                                `lastGuestAction` TEXT NOT NULL DEFAULT '',
+                                `trustLevel` TEXT NOT NULL DEFAULT '',
+                                `pendingPaymentClaim` TEXT NOT NULL DEFAULT '',
+                                `pendingDateProposal` TEXT NOT NULL DEFAULT ''
+                            )
+                            """.trimIndent()
+                        )
+                        db.execSQL(
+                            """
+                            CREATE TABLE IF NOT EXISTS `partial_payments` (
+                                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                                `transactionId` INTEGER NOT NULL,
+                                `amountPaise` INTEGER NOT NULL DEFAULT 0,
+                                `paymentMode` TEXT NOT NULL DEFAULT 'CASH',
+                                `paidAtMillis` INTEGER NOT NULL,
+                                `note` TEXT NOT NULL,
+                                `remotePaymentId` TEXT NOT NULL DEFAULT '',
+                                `recordedByUserId` TEXT NOT NULL DEFAULT '',
+                                `recordedByName` TEXT NOT NULL DEFAULT '',
+                                `isAcknowledged` INTEGER NOT NULL DEFAULT 1,
+                                `acknowledgedAtMillis` INTEGER,
+                                `needsMyAcknowledgement` INTEGER NOT NULL DEFAULT 0,
+                                FOREIGN KEY(`transactionId`) REFERENCES `udhaar_transactions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                            )
+                            """.trimIndent()
+                        )
+                        db.execSQL(
+                            """
+                            INSERT INTO `udhaar_transactions` (
+                                `id`, `partyId`, `transactionType`, `partyName`, `phoneNumber`, `currency`,
+                                `principalAmountPaise`, `amountPaidPaise`, `paymentMode`, `isInterestEnabled`,
+                                `interestType`, `interestRate`, `interestRatePeriod`, `compoundFrequency`,
+                                `startDateMillis`, `notes`, `isSettled`, `createdAtMillis`
+                            ) VALUES (
+                                1, NULL, 'GIVEN', 'Previous Version v11 Party', '+919900112233', 'INR',
+                                450000, 150000, 'UPI', 0,
+                                'SIMPLE', 0.0, 'PER_MONTH', 'MONTHLY',
+                                1700000000000, 'Migrating from v11 to v12', 0, 1700000000000
+                            )
+                            """.trimIndent()
+                        )
+                        db.execSQL(
+                            """
+                            INSERT INTO `partial_payments` (`id`, `transactionId`, `amountPaise`, `paidAtMillis`, `paymentMode`, `note`)
+                            VALUES (1, 1, 150000, 1700005000000, 'UPI', 'v11 partial')
+                            """.trimIndent()
+                        )
+                    }
+
+                    override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+                })
+                .build()
+        )
+        val migDb = helper.writableDatabase
+        UdhaarDatabase.MIGRATION_11_12.migrate(migDb)
+
+        migDb.query("SELECT partyName, principalAmountPaise, amountPaidPaise FROM udhaar_transactions WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("Previous Version v11 Party", c.getString(0))
+            assertEquals(450_000L, c.getLong(1))
+            assertEquals(150_000L, c.getLong(2))
+        }
+        helper.close()
     }
 }

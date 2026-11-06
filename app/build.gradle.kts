@@ -44,7 +44,9 @@ android {
 
   buildTypes {
     release {
-      val enableR8Minify = System.getenv("CI") == "true" || System.getenv("ENABLE_R8_MINIFY") == "true"
+      val enableR8Minify = providers.gradleProperty("udhaar.r8")
+        .map { !it.equals("false", ignoreCase = true) }
+        .getOrElse(true)
       isCrunchPngs = false
       isMinifyEnabled = enableR8Minify
       isShrinkResources = enableR8Minify
@@ -77,6 +79,15 @@ android {
         )
       }
     }
+    managedDevices {
+      allDevices {
+        maybeCreate<com.android.build.api.dsl.ManagedVirtualDevice>("pixel6Api34").apply {
+          device = "Pixel 6"
+          apiLevel = 34
+          systemImageSource = "aosp-atd"
+        }
+      }
+    }
   }
   lint {
     checkReleaseBuilds = false
@@ -86,6 +97,31 @@ android {
     includeInApk = false
     includeInBundle = false
   }
+}
+
+val verifyReleaseR8 = tasks.register("verifyReleaseR8") {
+  group = "verification"
+  description = "Fails the build if bundleRelease runs with R8 minification or resource shrinking disabled."
+  val r8PropertyEnabled = providers.gradleProperty("udhaar.r8")
+    .map { !it.equals("false", ignoreCase = true) }
+    .getOrElse(true)
+  val releaseBuildType = android.buildTypes.getByName("release")
+  val minifyEnabled = releaseBuildType.isMinifyEnabled
+  val shrinkResources = releaseBuildType.isShrinkResources
+  doLast {
+    if (!r8PropertyEnabled || !minifyEnabled || !shrinkResources) {
+      throw GradleException(
+        "verifyReleaseR8 failed: bundleRelease requires R8 minification (isMinifyEnabled=$minifyEnabled) " +
+          "and resource shrinking (isShrinkResources=$shrinkResources) to be ON. " +
+          "Do not pass -Pudhaar.r8=false when building release bundles."
+      )
+    }
+    logger.lifecycle("verifyReleaseR8 passed: R8 minification and resource shrinking are enabled for release.")
+  }
+}
+
+tasks.matching { it.name == "bundleRelease" || it.name == "packageReleaseBundle" }.configureEach {
+  dependsOn(verifyReleaseR8)
 }
 
 tasks.withType<Test> {

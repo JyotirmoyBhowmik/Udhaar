@@ -30,9 +30,27 @@ object VerificationCryptoHelper {
 
     const val VERIFICATION_URL_PREFIX = "https://udhaar.jyotirmoyb.com/u/"
     const val PROFILE_URL_PREFIX = "https://udhaar.jyotirmoyb.com/u/p/"
+    private const val SHORT_ID_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
+    /**
+     * Generates a compact 10-character alphanumeric record identifier (~60 bits of entropy)
+     * so guest and verification URLs stay short and clean in WhatsApp messages.
+     */
+    fun generateShortId(length: Int = 10): String {
+        val random = SecureRandom()
+        return buildString(length) {
+            repeat(length) {
+                append(SHORT_ID_ALPHABET[random.nextInt(SHORT_ID_ALPHABET.length)])
+            }
+        }
+    }
+
+    /**
+     * Generates a 16-character URL-safe Base64 token (96 bits of cryptographic randomness).
+     * Meets the >= 16-char server token requirement while keeping shared links compact.
+     */
     fun generateShareToken(): String {
-        val randomBytes = ByteArray(24)
+        val randomBytes = ByteArray(12)
         SecureRandom().nextBytes(randomBytes)
         return base64UrlEncode(randomBytes)
     }
@@ -50,6 +68,23 @@ object VerificationCryptoHelper {
 
     private fun urlDecode(value: String): String =
         URLDecoder.decode(value, StandardCharsets.UTF_8.name())
+
+    private fun escapePipeField(value: String): String =
+        value.replace("%", "%25").replace("|", "%7C")
+
+    private fun unescapePipeField(value: String): String =
+        value.replace("%7C", "|").replace("%7c", "|").replace("%25", "%")
+
+    private fun formatCompactNumber(value: Double): String {
+        val rounded2 = String.format(Locale.US, "%.2f", value)
+        return if (rounded2.endsWith(".00")) {
+            rounded2.removeSuffix(".00")
+        } else if (rounded2.endsWith("0")) {
+            rounded2.removeSuffix("0")
+        } else {
+            rounded2
+        }
+    }
 
     /**
      * Resolves canonical (lenderName, borrowerName) for a transaction so that a GIVEN record on Lender's phone
@@ -249,32 +284,72 @@ object VerificationCryptoHelper {
     )
 
     /**
-     * Generates a verification URL (`https://udhaar.jyotirmoyb.com/u/<token>`) that acts both as an Android App Link
-     * and a web fallback URL, embedding the signed verification envelope so it works seamlessly online or offline.
+     * Generates a compact verification URL (`https://udhaar.jyotirmoyb.com/u/<token>`) that acts both
+     * as an Android App Link and a web fallback URL.
+     * Uses compact `v2|` pipe-delimited serialization that omits default/recomputable fields
+     * (reducing URL length by ~70% compared to legacy v1 query strings).
      */
     fun buildVerificationLink(payload: SharedVerificationPayload): String {
-        val pairs = listOf(
-            "rid" to payload.remoteId,
-            "tok" to payload.shareToken,
-            "uid" to payload.creatorUserId,
-            "role" to payload.creatorRole.name,
-            "lender" to payload.lenderName,
-            "borrower" to payload.borrowerName,
-            "cPhone" to payload.creatorPhone,
-            "pPhone" to payload.counterpartyPhone,
-            "amt" to String.format(Locale.US, "%.2f", payload.principalAmount),
-            "cur" to payload.currencyCode,
-            "start" to payload.startDateMillis.toString(),
-            "exp" to (payload.expiryDateMillis ?: 0L).toString(),
-            "ie" to payload.isInterestEnabled.toString(),
-            "it" to payload.interestType.name,
-            "ir" to String.format(Locale.US, "%.4f", payload.interestRate),
-            "irp" to payload.interestRatePeriod.name,
-            "cf" to payload.compoundFrequency.name,
-            "hash" to payload.contentHash,
-            "enote" to payload.encryptedNote
+        val roleCode = if (payload.creatorRole == TransactionType.TAKEN) "T" else "G"
+        val curCode = if (payload.currencyCode.equals("INR", ignoreCase = true)) "" else payload.currencyCode
+        val start36 = payload.startDateMillis.toString(36)
+        val exp36 = payload.expiryDateMillis?.takeIf { it > 0L }?.toString(36).orEmpty()
+        val intSpec = if (payload.isInterestEnabled) {
+            val typeShort = if (payload.interestType == InterestType.COMPOUND) "C" else "S"
+            val periodShort = when (payload.interestRatePeriod) {
+                InterestRatePeriod.PER_MONTH -> "M"
+                InterestRatePeriod.PER_ANNUM -> "A"
+            }
+            val freqShort = when (payload.compoundFrequency) {
+                CompoundFrequency.MONTHLY -> "M"
+                CompoundFrequency.QUARTERLY -> "Q"
+                CompoundFrequency.YEARLY -> "Y"
+            }
+            "$typeShort:${formatCompactNumber(payload.interestRate)}:$periodShort:$freqShort"
+        } else {
+            ""
+        }
+        val expectedHash = computeContentHash(
+            lenderName = payload.lenderName,
+            borrowerName = payload.borrowerName,
+            principalAmount = payload.principalAmount,
+            currencyCode = payload.currencyCode,
+            startDateMillis = payload.startDateMillis,
+            expiryDateMillis = payload.expiryDateMillis,
+            isInterestEnabled = payload.isInterestEnabled,
+            interestType = payload.interestType,
+            interestRate = payload.interestRate,
+            interestRatePeriod = payload.interestRatePeriod,
+            compoundFrequency = payload.compoundFrequency
         )
-        val serialized = pairs.joinToString("&") { (k, v) -> "$k=${urlEncode(v)}" }
+        val customHash = if (payload.contentHash.isNotBlank() && !payload.contentHash.equals(expectedHash, ignoreCase = true)) {
+            payload.contentHash
+        } else {
+            ""
+        }
+
+        val fields = mutableListOf(
+            "v2",
+            escapePipeField(payload.remoteId),
+            escapePipeField(payload.shareToken),
+            roleCode,
+            escapePipeField(payload.lenderName),
+            escapePipeField(payload.borrowerName),
+            formatCompactNumber(payload.principalAmount),
+            escapePipeField(curCode),
+            start36,
+            exp36,
+            intSpec,
+            escapePipeField(payload.creatorPhone),
+            escapePipeField(payload.counterpartyPhone),
+            escapePipeField(payload.creatorUserId),
+            escapePipeField(payload.encryptedNote),
+            escapePipeField(customHash)
+        )
+        while (fields.size > 9 && fields.last().isEmpty()) {
+            fields.removeAt(fields.lastIndex)
+        }
+        val serialized = fields.joinToString("|")
         val encoded = base64UrlEncode(serialized.toByteArray(StandardCharsets.UTF_8))
         return "$VERIFICATION_URL_PREFIX$encoded"
     }
@@ -284,46 +359,157 @@ object VerificationCryptoHelper {
         if (trimmed.startsWith(PROFILE_URL_PREFIX)) return null
         val tokenPart = when {
             trimmed.startsWith(VERIFICATION_URL_PREFIX) -> trimmed.removePrefix(VERIFICATION_URL_PREFIX)
-            trimmed.contains("/u/") && !trimmed.contains("/u/p/") -> trimmed.substringAfter("/u/")
+            trimmed.contains("/u/") && !trimmed.contains("/u/p/") && !trimmed.contains("/u/r/") ->
+                trimmed.substringAfter("/u/")
             else -> trimmed
         }.substringBefore("?").substringBefore("#").trim()
 
         if (tokenPart.isBlank()) return null
         return try {
             val decodedString = String(base64UrlDecode(tokenPart), StandardCharsets.UTF_8)
-            val map = parseQueryLikeString(decodedString)
-            val rid = map["rid"].orEmpty()
-            if (rid.isBlank()) return null
-            val expRaw = map["exp"]?.toLongOrNull() ?: 0L
-            SharedVerificationPayload(
-                remoteId = rid,
-                shareToken = map["tok"].orEmpty(),
-                creatorUserId = map["uid"].orEmpty(),
-                creatorRole = runCatching { TransactionType.valueOf(map["role"] ?: "GIVEN") }
-                    .getOrDefault(TransactionType.GIVEN),
-                lenderName = map["lender"] ?: "Lender",
-                borrowerName = map["borrower"] ?: "Borrower",
-                creatorPhone = map["cPhone"].orEmpty(),
-                counterpartyPhone = map["pPhone"].orEmpty(),
-                principalAmount = map["amt"]?.toDoubleOrNull() ?: 0.0,
-                currencyCode = map["cur"] ?: "INR",
-                startDateMillis = map["start"]?.toLongOrNull() ?: System.currentTimeMillis(),
-                expiryDateMillis = if (expRaw > 0L) expRaw else null,
-                isInterestEnabled = map["ie"]?.toBooleanStrictOrNull() ?: false,
-                interestType = runCatching { InterestType.valueOf(map["it"] ?: "SIMPLE") }
-                    .getOrDefault(InterestType.SIMPLE),
-                interestRate = map["ir"]?.toDoubleOrNull() ?: 0.0,
-                interestRatePeriod = runCatching { InterestRatePeriod.valueOf(map["irp"] ?: "PER_ANNUM") }
-                    .getOrDefault(InterestRatePeriod.PER_ANNUM),
-                compoundFrequency = runCatching { CompoundFrequency.valueOf(map["cf"] ?: "YEARLY") }
-                    .getOrDefault(CompoundFrequency.YEARLY),
-                contentHash = map["hash"].orEmpty(),
-                encryptedNote = map["enote"].orEmpty()
-            )
+            if (decodedString.startsWith("v2|")) {
+                parseCompactV2VerificationLink(decodedString)
+            } else {
+                parseLegacyVerificationLink(decodedString)
+            }
         } catch (e: Exception) {
             SafeLogger.w("VerificationCrypto", "Failed to parse verification link", e)
             null
         }
+    }
+
+    private fun parseCompactV2VerificationLink(decodedString: String): SharedVerificationPayload? {
+        val parts = decodedString.split("|")
+        if (parts.size < 9) return null
+        val rid = unescapePipeField(parts.getOrElse(1) { "" })
+        if (rid.isBlank()) return null
+        val tok = unescapePipeField(parts.getOrElse(2) { "" })
+        val role = if (parts.getOrElse(3) { "G" } == "T") TransactionType.TAKEN else TransactionType.GIVEN
+        val lender = unescapePipeField(parts.getOrElse(4) { "" }).ifBlank { "Lender" }
+        val borrower = unescapePipeField(parts.getOrElse(5) { "" }).ifBlank { "Borrower" }
+        val amt = parts.getOrElse(6) { "0" }.toDoubleOrNull() ?: 0.0
+        val cur = unescapePipeField(parts.getOrElse(7) { "" }).ifBlank { "INR" }
+        val startMs = parts.getOrElse(8) { "" }.toLongOrNull(36) ?: System.currentTimeMillis()
+        val expMs = parts.getOrElse(9) { "" }.takeIf { it.isNotBlank() }?.toLongOrNull(36)?.takeIf { it > 0L }
+        val intSpec = parts.getOrElse(10) { "" }
+        val isInterestEnabled = intSpec.isNotBlank()
+        var interestType = InterestType.SIMPLE
+        var interestRate = 0.0
+        var interestRatePeriod = InterestRatePeriod.PER_ANNUM
+        var compoundFrequency = CompoundFrequency.YEARLY
+        if (isInterestEnabled) {
+            val iParts = intSpec.split(":")
+            interestType = if (iParts.getOrElse(0) { "S" } == "C") InterestType.COMPOUND else InterestType.SIMPLE
+            interestRate = iParts.getOrElse(1) { "0" }.toDoubleOrNull() ?: 0.0
+            interestRatePeriod = when (iParts.getOrElse(2) { "A" }) {
+                "M" -> InterestRatePeriod.PER_MONTH
+                else -> InterestRatePeriod.PER_ANNUM
+            }
+            compoundFrequency = when (iParts.getOrElse(3) { "Y" }) {
+                "M" -> CompoundFrequency.MONTHLY
+                "Q" -> CompoundFrequency.QUARTERLY
+                else -> CompoundFrequency.YEARLY
+            }
+        }
+        val cPhone = unescapePipeField(parts.getOrElse(11) { "" })
+        val pPhone = unescapePipeField(parts.getOrElse(12) { "" })
+        val uid = unescapePipeField(parts.getOrElse(13) { "" })
+        val enote = unescapePipeField(parts.getOrElse(14) { "" })
+        val customHash = unescapePipeField(parts.getOrElse(15) { "" })
+        val hash = customHash.ifBlank {
+            computeContentHash(
+                lenderName = lender,
+                borrowerName = borrower,
+                principalAmount = amt,
+                currencyCode = cur,
+                startDateMillis = startMs,
+                expiryDateMillis = expMs,
+                isInterestEnabled = isInterestEnabled,
+                interestType = interestType,
+                interestRate = interestRate,
+                interestRatePeriod = interestRatePeriod,
+                compoundFrequency = compoundFrequency
+            )
+        }
+        return SharedVerificationPayload(
+            remoteId = rid,
+            shareToken = tok,
+            creatorUserId = uid,
+            creatorRole = role,
+            lenderName = lender,
+            borrowerName = borrower,
+            creatorPhone = cPhone,
+            counterpartyPhone = pPhone,
+            principalAmount = amt,
+            currencyCode = cur,
+            startDateMillis = startMs,
+            expiryDateMillis = expMs,
+            isInterestEnabled = isInterestEnabled,
+            interestType = interestType,
+            interestRate = interestRate,
+            interestRatePeriod = interestRatePeriod,
+            compoundFrequency = compoundFrequency,
+            contentHash = hash,
+            encryptedNote = enote
+        )
+    }
+
+    private fun parseLegacyVerificationLink(decodedString: String): SharedVerificationPayload? {
+        val map = parseQueryLikeString(decodedString)
+        val rid = map["rid"].orEmpty()
+        if (rid.isBlank()) return null
+        val expRaw = map["exp"]?.toLongOrNull() ?: 0L
+        val lender = map["lender"] ?: "Lender"
+        val borrower = map["borrower"] ?: "Borrower"
+        val amt = map["amt"]?.toDoubleOrNull() ?: 0.0
+        val cur = map["cur"] ?: "INR"
+        val startMs = map["start"]?.toLongOrNull() ?: System.currentTimeMillis()
+        val expMs = if (expRaw > 0L) expRaw else null
+        val isInterestEnabled = map["ie"]?.toBooleanStrictOrNull() ?: false
+        val interestType = runCatching { InterestType.valueOf(map["it"] ?: "SIMPLE") }
+            .getOrDefault(InterestType.SIMPLE)
+        val interestRate = map["ir"]?.toDoubleOrNull() ?: 0.0
+        val interestRatePeriod = runCatching { InterestRatePeriod.valueOf(map["irp"] ?: "PER_ANNUM") }
+            .getOrDefault(InterestRatePeriod.PER_ANNUM)
+        val compoundFrequency = runCatching { CompoundFrequency.valueOf(map["cf"] ?: "YEARLY") }
+            .getOrDefault(CompoundFrequency.YEARLY)
+        val hash = map["hash"].orEmpty().ifBlank {
+            computeContentHash(
+                lenderName = lender,
+                borrowerName = borrower,
+                principalAmount = amt,
+                currencyCode = cur,
+                startDateMillis = startMs,
+                expiryDateMillis = expMs,
+                isInterestEnabled = isInterestEnabled,
+                interestType = interestType,
+                interestRate = interestRate,
+                interestRatePeriod = interestRatePeriod,
+                compoundFrequency = compoundFrequency
+            )
+        }
+        return SharedVerificationPayload(
+            remoteId = rid,
+            shareToken = map["tok"].orEmpty(),
+            creatorUserId = map["uid"].orEmpty(),
+            creatorRole = runCatching { TransactionType.valueOf(map["role"] ?: "GIVEN") }
+                .getOrDefault(TransactionType.GIVEN),
+            lenderName = lender,
+            borrowerName = borrower,
+            creatorPhone = map["cPhone"].orEmpty(),
+            counterpartyPhone = map["pPhone"].orEmpty(),
+            principalAmount = amt,
+            currencyCode = cur,
+            startDateMillis = startMs,
+            expiryDateMillis = expMs,
+            isInterestEnabled = isInterestEnabled,
+            interestType = interestType,
+            interestRate = interestRate,
+            interestRatePeriod = interestRatePeriod,
+            compoundFrequency = compoundFrequency,
+            contentHash = hash,
+            encryptedNote = map["enote"].orEmpty()
+        )
     }
 
     /**
@@ -345,7 +531,7 @@ object VerificationCryptoHelper {
     }
 
     /**
-     * Constructs a guest web link with random base64url 128-bit secret in the fragment:
+     * Constructs a guest web link with random base64url secret in the fragment:
      * https://udhaar.jyotirmoyb.com/u/r/<recordId>#<secret>
      */
     fun buildGuestWebLink(recordId: String, secret: String): String {
@@ -353,18 +539,22 @@ object VerificationCryptoHelper {
     }
 
     /**
-     * Generates a shareable Payment Profile link (`https://udhaar.jyotirmoyb.com/u/p/<token>`)
+     * Generates a compact shareable Payment Profile link (`https://udhaar.jyotirmoyb.com/u/p/<token>`)
      * for "Share my payment details" and QR scanning.
      */
     fun buildPaymentProfileLink(profile: SharedPaymentProfilePayload): String {
-        val pairs = listOf(
-            "uid" to profile.userId,
-            "name" to profile.displayName,
-            "phone" to profile.phoneNumber,
-            "upi" to profile.upiId,
-            "photo" to profile.photoUrl
+        val fields = mutableListOf(
+            "p2",
+            escapePipeField(profile.displayName),
+            escapePipeField(profile.upiId),
+            escapePipeField(profile.phoneNumber),
+            escapePipeField(profile.userId),
+            escapePipeField(profile.photoUrl)
         )
-        val serialized = pairs.joinToString("&") { (k, v) -> "$k=${urlEncode(v)}" }
+        while (fields.size > 3 && fields.last().isEmpty()) {
+            fields.removeAt(fields.lastIndex)
+        }
+        val serialized = fields.joinToString("|")
         val encoded = base64UrlEncode(serialized.toByteArray(StandardCharsets.UTF_8))
         return "$PROFILE_URL_PREFIX$encoded"
     }
@@ -380,17 +570,31 @@ object VerificationCryptoHelper {
         if (tokenPart.isBlank()) return null
         return try {
             val decodedString = String(base64UrlDecode(tokenPart), StandardCharsets.UTF_8)
-            val map = parseQueryLikeString(decodedString)
-            val name = map["name"].orEmpty()
-            val upi = map["upi"].orEmpty()
-            if (name.isBlank() && upi.isBlank()) return null
-            SharedPaymentProfilePayload(
-                userId = map["uid"].orEmpty(),
-                displayName = name,
-                phoneNumber = map["phone"].orEmpty(),
-                upiId = upi,
-                photoUrl = map["photo"].orEmpty()
-            )
+            if (decodedString.startsWith("p2|")) {
+                val parts = decodedString.split("|")
+                val name = unescapePipeField(parts.getOrElse(1) { "" })
+                val upi = unescapePipeField(parts.getOrElse(2) { "" })
+                if (name.isBlank() && upi.isBlank()) return null
+                SharedPaymentProfilePayload(
+                    userId = unescapePipeField(parts.getOrElse(4) { "" }),
+                    displayName = name,
+                    phoneNumber = unescapePipeField(parts.getOrElse(3) { "" }),
+                    upiId = upi,
+                    photoUrl = unescapePipeField(parts.getOrElse(5) { "" })
+                )
+            } else {
+                val map = parseQueryLikeString(decodedString)
+                val name = map["name"].orEmpty()
+                val upi = map["upi"].orEmpty()
+                if (name.isBlank() && upi.isBlank()) return null
+                SharedPaymentProfilePayload(
+                    userId = map["uid"].orEmpty(),
+                    displayName = name,
+                    phoneNumber = map["phone"].orEmpty(),
+                    upiId = upi,
+                    photoUrl = map["photo"].orEmpty()
+                )
+            }
         } catch (e: Exception) {
             null
         }

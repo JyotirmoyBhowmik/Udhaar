@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="system">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Complete App Guide &amp; User Manual — Udhaar</title>
+  <meta name="description" content="Complete step-by-step visual guide and feature manual for the Udhaar Android app: dashboard filters, partial repayments, installment schedules, party statements, QR verification, private web links, and group bill splits." />
+  <meta name="theme-color" content="#064E3B" />
+
+  <link rel="canonical" href="https://udhaar.jyotirmoyb.com/guide/" />
+  <link rel="icon" type="image/svg+xml" href="/assets/icon.svg" />
+  <link rel="alternate icon" type="image/webp" href="/assets/icon.webp" />
+
+  <!-- Self-Hosted Subsetted Fonts Preload -->
+  <link rel="preload" href="/fonts/inter.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/space-grotesk.woff2" as="font" type="font/woff2" crossorigin />
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/design-tokens.css" />
+  <link rel="stylesheet" href="/landing.css" />
+  <script src="/site-config.js" defer></script>
+  <script src="/guide/guide.js" defer></script>
+</head>
+<body>
+  <a href="#guide-main" class="skip-link">Skip to main content</a>
+
+  <!-- Sticky Navigation Header -->
+  <header class="site-header" id="site-header" role="banner">
+    <div class="container nav-wrapper">
+      <a href="/" class="brand-logo" aria-label="UDHAAR - Home">
+        <span class="brand-icon" aria-hidden="true">₹</span>
+        <span>UDHAAR</span>
+      </a>
+
+      <nav class="nav-links" aria-label="Primary Navigation">
+        <a href="/">Home</a>
+        <a href="/#features">Features</a>
+        <a href="/guide/" class="nav-active">App Guide</a>
+        <a href="/#calculator">Calculator</a>
+        <a href="/#interactive-demo">Try Demo</a>
+        <a href="/trust/">Trust Center</a>
+        <a href="/updates/">What's New</a>
+        <a href="/privacy.html">Privacy Policy</a>
+      </nav>
+
+      <div class="nav-right">
+        <button id="theme-btn" class="theme-toggle-btn" type="button" aria-label="Toggle Dark Mode">🌙</button>
+        <a
+          href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn-header-play"
+          data-store-button="header-guide"
+        >
+          Get on Google Play
+        </a>
+        <button
+          id="mobile-menu-btn"
+          class="mobile-menu-btn"
+          type="button"
+          aria-label="Open navigation menu"
+          aria-expanded="false"
+          aria-controls="mobile-drawer"
+        >
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile Drawer -->
+  <div class="mobile-drawer-backdrop" id="mobile-drawer-backdrop" aria-hidden="true"></div>
+  <aside class="mobile-drawer" id="mobile-drawer" role="dialog" aria-modal="true" aria-label="Mobile Navigation" inert>
+    <div class="drawer-header">
+      <div class="brand-logo">
+        <span class="brand-icon">₹</span>
+        <span>UDHAAR</span>
+      </div>
+      <button class="drawer-close-btn" id="drawer-close-btn" type="button" aria-label="Close navigation menu">✕</button>
+    </div>
+    <nav class="drawer-nav" aria-label="Mobile Navigation Links">
+      <a href="/" class="drawer-link">Home</a>
+      <a href="/#features" class="drawer-link">Complete Features</a>
+      <a href="/guide/" class="drawer-link">App Guide (12 Screens)</a>
+      <a href="/#calculator" class="drawer-link">Installment Calculator</a>
+      <a href="/#interactive-demo" class="drawer-link">Interactive Demo</a>
+      <a href="/trust/" class="drawer-link">Trust Center</a>
+      <a href="/updates/" class="drawer-link">What's New</a>
+      <a href="/privacy.html" class="drawer-link">Privacy Policy</a>
+    </nav>
+    <div class="drawer-footer">
+      <a
+        href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="btn-primary drawer-cta"
+      >
+        Get on Google Play
+      </a>
+    </div>
+  </aside>
+
+  <!-- Guide Page Header & Search Toolbar -->
+  <section class="guide-page-header">
+    <div class="container">
+      <div class="guide-breadcrumb">
+        <a href="/">Home</a>
+        <span>/</span>
+        <span>Complete App Guide &amp; Reference Manual</span>
+      </div>
+
+      <div class="hero-pill">
+        <span class="hero-pill-dot" aria-hidden="true"></span>
+        <span>Udhaar v22.0 Documentation • 12 Illustrated Chapters + Technical Reference</span>
+      </div>
+
+      <h1 class="page-title">Complete Udhaar App Guide &amp; User Manual</h1>
+      <p class="page-subtitle">
+        A plain, screen-by-screen walkthrough of every feature, button, calculation rule, statement export, and two-party verification workflow in the Udhaar Android app.
+      </p>
+
+      <div class="guide-toolbar">
+        <div class="guide-search-box">
+          <input
+            type="search"
+            id="guide-search-input"
+            class="guide-search-input"
+            placeholder="Search manual (e.g. installment, UPI QR, PDF statement, WhatsApp OTP, group split)..."
+            aria-label="Search app guide chapters"
+          />
+        </div>
+
+        <div class="guide-filter-row" role="group" aria-label="Filter guide chapters">
+          <button type="button" class="guide-filter-btn active" data-filter="all">All Chapters (15)</button>
+          <button type="button" class="guide-filter-btn" data-filter="dashboard">Dashboard &amp; Entry</button>
+          <button type="button" class="guide-filter-btn" data-filter="repayment">Repayments &amp; Installments</button>
+          <button type="button" class="guide-filter-btn" data-filter="people">People &amp; Statements</button>
+          <button type="button" class="guide-filter-btn" data-filter="verification">Verification &amp; Splits</button>
+          <button type="button" class="guide-filter-btn" data-filter="reference">Math &amp; Security Reference</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Documentation Grid: Sidebar TOC + 12 Screen Chapters + 3 Reference Sections -->
+  <main id="guide-main" class="container guide-layout">
+    <!-- Left Sticky Table of Contents -->
+    <aside class="guide-sidebar" aria-label="Guide Table of Contents">
+      <div class="guide-sidebar-title">Screen-by-Screen Manual</div>
+      <ul class="guide-toc-list">
+        <li><a href="#chapter-1" class="active">1. Onboarding &amp; Core Math</a></li>
+        <li><a href="#chapter-2">2. Home Dashboard &amp; Filters</a></li>
+        <li><a href="#chapter-3">3. Inline Card Expansion</a></li>
+        <li><a href="#chapter-4">4. Partial &amp; Installment Payments</a></li>
+        <li><a href="#chapter-5">5. Installment Schedule Planner</a></li>
+        <li><a href="#chapter-6">6. Attached Proofs &amp; Audit Log</a></li>
+        <li><a href="#chapter-7">7. Add / Edit Udhaar Record</a></li>
+        <li><a href="#chapter-8">8. People &amp; Parties Directory</a></li>
+        <li><a href="#chapter-9">9. Party Khata &amp; PDF Statements</a></li>
+        <li><a href="#chapter-10">10. QR &amp; Link Verification</a></li>
+        <li><a href="#chapter-11">11. Private Web Link Controls</a></li>
+        <li><a href="#chapter-12">12. Group &amp; Bill Split Tool</a></li>
+        <li><a href="#appendix-features">A. Complete Feature Matrix</a></li>
+        <li><a href="#appendix-math">B. Paise &amp; Interest Math Rules</a></li>
+        <li><a href="#appendix-backup">C. Drive Backup &amp; Recovery Key</a></li>
+      </ul>
+    </aside>
+
+    <!-- Right Content Column -->
+    <div class="guide-content-col">
+      <!-- CHAPTER 1: ONBOARDING -->
+      <article id="chapter-1" class="guide-chapter-card" data-guide-cat="dashboard">
+        <div class="guide-chapter-grid">
+          <div class="guide-chapter-screenshot">
+            <img
+              src="/assets/guide-01-onboarding.webp"
+              alt="Screen 1: Onboarding — Smart Records and Automatic Math"
+              width="240"
+              height="533"
+              loading="eager"
+            />
+            <span class="guide-chapter-caption">Screen 1 of 12 — Onboarding</span>
+          </div>
+          <div>
+            <span class="guide-chapter-meta">Chapter 01 • First Launch &amp; Setup</span>
+            <h2 class="guide-chapter-title">Smart Records &amp; Automatic Math</h2>
+            <p class="guide-chapter-summary">
+              When you first open Udhaar, a 4-step walkthrough introduces how the app tracks money lent (Given) and borrowed (Taken) with zero rounding errors and complete device privacy.
+            </p>
+
+            <h3 class="guide-subhead">Key Capabilities Introduced</h3>
+            <ul class="guide-detail-list">
+              <li><strong>Dual Currency Ledger (INR ₹ &amp; NPR रू):</strong> Every transaction can be recorded in either Indian Rupee (₹) or Nepalese Rupee (रू). The dashboard and party statements maintain separate currency totals so INR and NPR balances are never accidentally mixed.</li>
+              <li><strong>Precise Simple &amp; Compound Interest:</strong> Configure optional monthly or annual interest rates. All calculations operate in integer paise (<code>Long</code>) with explicit <code>HALF_UP</code> rounding.</li>
+              <li><strong>Smart Partial Payments:</strong> Every partial repayment or installment immediately updates the live net remaining balance and logs a permanent history entry.</li>
+              <li><strong>No Mandatory Account or Phone Number:</strong> Tap <strong>Next →</strong> through the 4 onboarding cards to start using the offline notebook immediately without signing up.</li>
+            </ul>
+
+            <div class="guide-tip-box">
+              <strong>Language &amp; UPI Setup:</strong> You can switch the app language between English, Hindi, Bengali, Assamese, and Nepali or configure your personal UPI ID anytime in <strong>Settings (⚙️)</strong>.
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- CHAPTER 2: HOME DASHBOARD -->
+      <article id="chapter-2" class="guide-chapter-card" data-guide-cat="dashboard">
+        <div class="guide-chapter-grid">
+          <div class="guide-chapter-screenshot">
+            <img
+              src="/assets/guide-02-dashboard.webp"
+              alt="Screen 2: Home Dashboard with Search, Filter Chips, Receivable/Payable Cards, and Compact Transaction Row"
+              width="240"
+              height="533"
+              loading="lazy"
+            />
+            <span class="guide-chapter-caption">Screen 2 of 12 — Home Dashboard</span>
+          </div>
+          <div>
+            <span class="guide-chapter-meta">Chapter 02 • Main Ledger View</span>
+            <h2 class="guide-chapter-title">Home Dashboard, Global Search &amp; Filter Chips</h2>
+            <p class="guide-chapter-summary">
+              The Home Dashboard gives you an instant overview of your entire lending and borrowing position, with one-tap filtering, privacy masking, and compact 2-row transaction cards.
+            </p>
+
+            <h3 class="guide-subhead">Screen Elements &amp; Controls</h3>
+            <ul class="guide-detail-list">
+              <li><strong>Top App Bar Icons:</strong> Quick-add party icon (<code>+👤</code>), Reminder Notifications bell (<code>🔔</code>), and App Settings gear (<code>⚙️</code>).</li>
+              <li><strong>Primary View Tabs:</strong> Switch between <strong>Active (N)</strong> (open loans), <strong>People (N)</strong> (party-wise Khata directory), and <strong>History</strong> (settled/archived records).</li>
+              <li><strong>Global Search Bar:</strong> Type any person's name, transaction note, phone digits, or amount to filter records in real time.</li>
+              <li><strong>Status Filter Chips:</strong> Filter active records by <strong>All</strong>, <strong>Owed</strong> (money you gave and will receive back), <strong>Borrowed</strong> (money you took and need to pay), <strong>Overdue</strong> (past due date), or <strong>Settled</strong>.</li>
+              <li><strong>Total Receivable &amp; Total Payable Cards:</strong> The green card shows total money owed to you; the coral-red card shows total money you owe others. Tap the <strong>eye icon (👁️)</strong> on either card to mask amounts as <code>₹ • • • • •</code> when in public.</li>
+              <li><strong>Net Position Banner:</strong> Displays your net balance per currency (e.g., <code>Net INR Position: +₹ 5,000</code>).</li>
+              <li><strong>Records Toolbar:</strong> Shows total matching count, a quick <strong>+ Group Split</strong> button for shared bills, and the <strong>Newest</strong> sort menu (sort by Newest, Oldest, Highest Amount, or Due Soonest).</li>
+              <li><strong>Compact 2-Row Transaction Card:</strong> Displays party avatar initials, name, direction pill (<code>Given</code> / <code>Taken</code>), payment mode badge (<code>Cash</code> / <code>Online</code> / <code>UPI</code>), net remaining amount, principal summary, and a <strong>Show details</strong> button.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- CHAPTER 3: INLINE CARD EXPANSION -->
+      <article id="chapter-3" class="guide-chapter-card" data-guide-cat="dashboard">
+        <div class="guide-chapter-grid">
+          <div class="guide-chapter-screenshot">
+            <img
+              src="/assets/guide-03-card-expanded.webp"
+              alt="Screen 3: Dashboard Inline Expanded Card with Quick Actions"
+              width="240"
+              height="533"
+              loading="lazy"
+            />
+            <span class="guide-chapter-caption">Screen 3 of 12 — Inline Card Expansion</span>
+          </div>
+          <div>
+            <span class="guide-chapter-meta">Chapter 03 • Fast Actions Without Leaving Home</span>
+            <h2 class="guide-chapter-title">Inline Expanded Transaction Card</h2>
+            <p class="guide-chapter-summary">
+              Tap the chevron (<code>⌄</code>) on any dashboard transaction card to expand it inline for quick metadata inspection and one-tap actions, or tap <strong>Show details</strong> to open the full record sheet.
+            </p>
+
+            <h3 class="guide-subhead">What Appears in the Expanded Card</h3>
+            <ul class="guide-detail-list">
+              <li><strong>Status &amp; Metadata Chips:</strong> Direction badge (<code>Given</code> / <code>Taken</code>), payment channel (<code>Cash</code>), currency code (<code>INR</code> / <code>NPR</code>), due date status (<code>No due date</code> or exact due date), overflow menu (<code>⋮</code>), and collapse arrow (<code>⌃</code>).</li>
+              <li><strong>Privacy-Masked Phone Number:</strong> Shows the party's contact number masked as <code>98*** ***10</code> alongside the original creation date and principal amount.</li>
+              <li><strong>Tap for Repayment / Receipt Banner:</strong> Tapping the green callout opens the full repayment and receipt dialog immediately.</li>
+              <li><strong>Bottom Quick-Action Bar:</strong>
+                <ul>
+                  <li><strong>Chat Icon (💬):</strong> Opens the dedicated in-app transaction chat and note thread.</li>
+                  <li><strong>Get QR / Receipt:</strong> Generates a shareable receipt slip or UPI payment QR code for the exact remaining balance.</li>
+                  <li><strong>Send Reminder:</strong> Opens the polite multi-language WhatsApp/SMS reminder composer.</li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- CHAPTER 4: RECORD DETAIL & PARTIAL PAYMENTS -->
+      <article id="chapter-4" class="guide-chapter-card" data-guide-cat="repayment">
+        <div class="guide-chapter-grid">
+          <div class="guide-chapter-screenshot">
+            <img
+              src="/assets/guide-04-record-detail.webp"
+              alt="Screen 4: Full Record Detail and Partial / Installment Payment Entry"
+              width="240"
+              height="533"
+              loading="lazy"
+            />
+            <span class="guide-chapter-caption">Screen 4 of 12 — Record Detail &amp; Repayments</span>
+          </div>
+          <div>
+            <span class="guide-chapter-meta">Chapter 04 • Partial Payments &amp; Settlement</span>
+            <h2 class="guide-chapter-title">Record Detail &amp; Partial / Installment Repayment</h2>
+            <p class="guide-chapter-summary">
+              Tapping <strong>Show details</strong> on a card opens the comprehensive Record Detail sheet where you can log partial repayments, attach payment proofs, generate receipts, or settle the loan in full.
+            </p>
+
+            <h3 class="guide-subhead">Step-by-Step Repayment Controls</h3>
+            <ul class="guide-detail-list">
+              <li><strong>Net Remaining Due Header:</strong> Shows the live remaining balance in large numerals and a <strong>Show calculation details</strong> toggle that breaks down Principal + Accrued Interest − Partial Payments Paid.</li>
+              <li><strong>Quick Percentage Chips:</strong> Tap <strong>25%</strong>, <strong>50%</strong>, <strong>75%</strong>, or <strong>100% FULL</strong> to auto-fill the exact paise-accurate repayment amount without manual typing.</li>
+              <li><strong>Payment Mode Selector:</strong> Record how the installment was paid: <strong>Cash</strong>, <strong>Online</strong>, <strong>UPI</strong>, or <strong>Party Account</strong>.</li>
+              <li><strong>Proof Cam &amp; Proof Pic:</strong> Attach a live camera photo of a cash voucher or pick a UPI screenshot from your gallery as permanent proof for that specific installment.</li>
+              <li><strong>Reported by Counterparty Toggle:</strong> Mark whether the payment was reported by the other person and requires your confirmation before reducing the balance.</li>
+              <li><strong>Action Buttons:</strong>
+                <ul>
+                  <li><strong>+ Add installment (CASH/UPI):</strong> Logs the partial payment and updates the remaining balance.</li>
+                  <li><strong>Split into installments:</strong> Opens the structured installment schedule planner (see Chapter 5).</li>
+                  <li><strong>Whatsapp &amp; Receipt slip:</strong> Shares an updated text or image receipt showing the new balance.</li>
+                  <li><strong>Collect via my UPI QR:</strong> Displays a dynamic UPI QR pre-loaded with the remaining amount.</li>
+                  <li><strong>Mark as fully Paid back:</strong> Settles the entire record and moves it to the History tab.</li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- CHAPTER 5: INSTALLMENT SCHEDULE PLANNER -->
+      <article id="chapter-5" class="guide-chapter-card" data-guide-cat="repayment">
+        <div class="guide-chapter-grid">
+          <div class="guide-chapter-screenshot">
+            <img
+              src="/assets/guide-05-installment-planner.webp"
+              alt="Screen 5: Split Into Installments Schedule Planner"
+              width="240"
+              height="533"
+              loading="lazy"
+            />
+            <span class="guide-chapter-caption">Screen 5 of 12 — Installment Planner</span>
+          </div>
+          <div>
+            <span class="guide-chapter-meta">Chapter 05 • Structured EMI &amp; Schedule Builder</span>
+            <h2 class="guide-chapter-title">Split Into Installments Planner</h2>
+            <p class="guide-chapter-summary">
+              Convert any lump-sum loan into a structured multi-part repayment schedule with automatic due dates and exact paise remainder absorption.
+            </p>
+
+            <h3 class="guide-subhead">How to Configure an Installment Plan</h3>
+            <ul class="guide-detail-list">
+              <li><strong>Number of Installments &amp; Start Date:</strong> Enter the total number of parts (e.g., <code>3</code>) and select the first installment due date using the calendar picker.</li>
+              <li><strong>Repayment Frequency:</strong> Choose <strong>Weekly</strong>, <strong>Every 2 weeks</strong>, <strong>Monthly</strong>, or <strong>Custom</strong> day intervals.</li>
+              <li><strong>Interest / Extra Charge:</strong> Select <strong>None (₹0)</strong> for a zero-interest split, or <strong>Fixed interest</strong> to add an agreed flat fee across the schedule.</li>
+              <li><strong>Live Installment Schedule Preview:</strong> Preview every installment's exact date and amount before saving. Notice how ₹5,000 split into 3 parts automatically calculates as:
+                <ul>
+                  <li><code>#1 (06 Dec 2026): ₹ 1666.66</code></li>
+                  <li><code>#2 (06 Jan 2027): ₹ 1666.66</code></li>
+                  <li><code>#3 (06 Feb 2027): ₹ 1666.68</code> (final installment absorbs the 2-paise rounding remainder so the sum equals <code>₹ 5,000.00</code> to the exact paisa).</li>
+                </ul>
+              </li>
+              <li><strong>Save Installment Plan:</strong> Saves the schedule and enables automatic due-date tracking for each individual installment.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- CHAPTER 6: ATTACHED DOCUMENTS & AUDIT LOG -->
+      <article id="chapter-6" class="guide-chapter-card" data-guide-cat="verification">
+        <div class="guide-chapter-grid">
+          <div class="guide-chapter-screenshot">
+            <img
+              src="/assets/guide-06-attachments-audit.webp"
+              alt="Screen 6: Attached Documents and Verification Details Audit Log"
+              width="240"
+              height="533"
+              loading="lazy"
+            />
+            <span class="guide-chapter-caption">Screen 6 of 12 — Attachments &amp; Audit Trail</span>
+          </div>
+          <div>
+            <span class="guide-chapter-meta">Chapter 06 • Proofs &amp; Change History</span>
+            <h2 class="guide-chapter-title">Attached Documents &amp; Tamper-Proof Audit Trail</h2>
+            <p class="guide-chapter-summary">
+              Scroll to the bottom of any Record Detail sheet to attach bills, receipts, or PDFs and inspect the record's verification fingerprint and edit history.
+            </p>
+
+            <h3 class="guide-subhead">Features on This Screen</h3>
+            <ul class="guide-detail-list">
+              <li><strong>Attached Documents (Camera / Gallery / Doc/PDF):</strong> Attach multiple photos of handwritten slips, UPI screenshots, or PDF invoices directly to the transaction. All local attachments are encrypted on your device.</li>
+              <li><strong>Verification Status Card:</strong> Shows whether the record is <em>Not yet shared</em>, <em>Pending Verification</em>, or <em>Confirmed by Both Parties</em>, with quick buttons for <strong>Send Web Link</strong> and <strong>QR / App Link</strong>.</li>
+              <li><strong>Expandable Verification Details:</strong>
+                <ul>
+                  <li><strong>Record Fingerprint:</strong> Displays the unique tamper-proof digest calculated from the record ID, amount in paise, direction, and creation timestamp.</li>
+                  <li><strong>History of Changes:</strong> Lists every creation, edit, partial payment, and confirmation event with its exact date and time.</li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- CHAPTER 7: ADD / EDIT UDHAAR RECORD -->
+      <article id="chapter-7" class="guide-chapter-card" data-guide-cat="dashboard">
+        <div class="guide-chapter-grid">
+          <div class="guide-chapter-screenshot">
+            <img
+              src="/assets/guide-07-add-edit-record.webp"
+              alt="Screen 7: Add or Edit Udhaar Record Form with Optional Details Expanded"
+              width="240"
+              height="533"
+              loading="lazy"
+            />
+            <span class="guide-chapter-caption">Screen 7 of 12 — Add / Edit Record Form</span>
+          </div>
+          <div>
+            <span class="guide-chapter-meta">Chapter 07 • Creating &amp; Updating Loans</span>
+            <h2 class="guide-chapter-title">Add or Edit Udhaar Record Screen</h2>
+            <p class="guide-chapter-summary">
+              Tap the floating <strong>+ New udhaar</strong> button on the dashboard (or <strong>Edit</strong> inside any record) to open the guided 3-step entry form with an expandable advanced section.
+            </p>
+
+            <h3 class="guide-subhead">Form Fields &amp; Options</h3>
+            <ul class="guide-detail-list">
+              <li><strong>Step 1 — Direction &amp; Currency:</strong> Choose <strong>I Gave (Lent)</strong> or <strong>I Took (Borrowed)</strong> and select <strong>INR (₹)</strong> or <strong>NPR (रू)</strong>.</li>
+              <li><strong>Step 2 — Party &amp; Amount:</strong> Pick an existing party from your Khata directory, import from contacts, or type a new name and phone number, then enter the principal amount.</li>
+              <li><strong>Step 3 — When should it be paid back?:</strong> Quick-select <strong>In 1 week</strong>, <strong>In 1 month</strong>, <strong>Custom</strong> date, or <strong>Open-ended</strong> (no fixed expiry).</li>
+              <li><strong>Collapsible "More details (Optional)" Section:</strong>
+                <ul>
+                  <li><strong>Payment mode:</strong> Select <code>Cash</code>, <code>Online</code>, <code>UPI</code>, or <code>Other</code>.</li>
+                  <li><strong>Charge or pay interest:</strong> Toggle on to configure Simple or Compound interest (% per month or % per year).</li>
+                  <li><strong>Scheduled reminder:</strong> Toggle automatic local reminder notifications before or on the due date.</li>
+                  <li><strong>Note or reason:</strong> Add context (e.g., <em>"Shop inventory advance"</em> or <em>"Medical emergency"</em>).</li>
+                  <li><strong>Attachments &amp; bills:</strong> Attach photos or PDF documents before saving.</li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- CHAPTER 8: PEOPLE & PARTIES DIRECTORY -->
+      <article id="chapter-8" class="guide-chapter-card" data-guide-cat="people">
+        <div class="guide-chapter-grid">
+          <div class="guide-chapter-screenshot">
+            <img
+              src="/assets/guide-08-people-directory.webp"
+              alt="Screen 8: People and Parties Khata Directory with Repayment Trust Badges"
+              width="240"
+              height="533"
+              loading="lazy"
+            />
+            <span class="guide-chapter-caption">Screen 8 of 12 — People &amp; Parties Directory</span>
+          </div>
+          <div>
+            <span class="guide-chapter-meta">Chapter 08 • Party-Wise Khata Ledger</span>
+            <h2 class="guide-chapter-title">People &amp; Parties Directory</h2>
+            <p class="guide-chapter-summary">
+              Switch to the <strong>People</strong> tab on the dashboard (or open the full People &amp; Parties Directory) to view your relationship-level net balance with every person across all their transactions.
+            </p>
+
+            <h3 class="guide-subhead">Directory Controls &amp; Party Cards</h3>
+            <ul class="guide-detail-list">
+              <li><strong>Import &amp; Add Party Buttons:</strong> Import contacts selectively via the system contact picker or <code>.vcf</code> vCard file, or tap <strong>+ Add party</strong> to create a profile manually.</li>
+              <li><strong>Multi-Field Search:</strong> Search across party names, phone numbers, UPI IDs, or custom relationship tags (e.g., <em>Friend</em>, <em>Customer</em>, <em>Supplier</em>).</li>
+              <li><strong>4 Sort Modes:</strong> Sort your directory by <strong>NAME (A-Z)</strong>, <strong>HIGHEST NET BALANCE</strong>, <strong>MOST OVERDUE</strong>, or <strong>RECENTLY ACTIVE</strong>.</li>
+              <li><strong>Repayment Trust Score Badge (★ 95% GOOD):</strong> Automatically computed from on-time vs overdue repayment history with that party.</li>
+              <li><strong>Quick Party Card Actions:</strong> Pin favorites with the star icon (<code>☆</code>), view net receivable/payable badge (<code>RECEIVE ₹5,000</code>), open the party chat thread (<code>💬 Chat</code>), or tap <strong>+ New loan</strong> to record a new transaction with that person pre-selected.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- CHAPTER 9: INDIVIDUAL PARTY KHATA & STATEMENTS -->
+      <article id="chapter-9" class="guide-chapter-card" data-guide-cat="people">
+        <div class="guide-chapter-grid">
+          <div class="guide-chapter-screenshot">
+            <img
+              src="/assets/guide-09-party-statement.webp"
+              alt="Screen 9: Individual Party Khata Statement and Export Controls"
+              width="240"
+              height="533"
+              loading="lazy"
+            />
+            <span class="guide-chapter-caption">Screen 9 of 12 — Party Khata &amp; Statements</span>
+          </div>
+          <div>
+            <span class="guide-chapter-meta">Chapter 09 • Statements, PDF Export &amp; Direct UPI</span>
+            <h2 class="guide-chapter-title">Individual Party Khata &amp; Statement Screen</h2>
+            <p class="guide-chapter-summary">
+              Tap any person in the People directory to open their complete Party Khata page—featuring trust analytics, direct calling/WhatsApp actions, PDF/Image/JSON statement exports, and UPI settlement tools.
+            </p>
+
+            <h3 class="guide-subhead">Everything Available Inside a Party Khata</h3>
+            <ul class="guide-detail-list">
+              <li><strong>Repayment Trust &amp; Summary Card:</strong> Shows Trust score (<code>GOOD 95%</code>), <strong>Oldest overdue</strong> count, and <strong>Avg repayment time</strong>.</li>
+              <li><strong>Currency Net Position Breakdown:</strong> Displays <strong>You will get (Lent)</strong>, <strong>You will give (Taken)</strong>, and <strong>Net Receivable / Payable</strong> in INR (₹) and NPR (रू), plus active vs settled record counts.</li>
+              <li><strong>Direct Communication Row:</strong> One-tap <strong>Call</strong>, <strong>Whatsapp</strong>, and <strong>SMS</strong> buttons pre-linked to the party's phone number.</li>
+              <li><strong>Statement &amp; Audit Exports:</strong>
+                <ul>
+                  <li><strong>Share receipt / Statement (image &amp; PDF):</strong> Generates a clean visual account statement image or formatted PDF to send on WhatsApp.</li>
+                  <li><strong>Export PDF statement (History of changes):</strong> Produces a formal multi-column PDF ledger statement including the complete chronological audit trail.</li>
+                  <li><strong>Save statement (JSON) &amp; Share statement (JSON):</strong> Exports machine-readable portable ledger data for accounting or party-to-party import.</li>
+                </ul>
+              </li>
+              <li><strong>UPI &amp; Payment Details Exchange:</strong> Configure the party's UPI ID to pay them directly, or tap <strong>Share my payment details</strong> / <strong>Request their details</strong>.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- CHAPTER 10: TWO-PARTY QR & LINK VERIFICATION -->
+      <article id="chapter-10" class="guide-chapter-card" data-guide-cat="verification">
+        <div class="guide-chapter-grid">
+          <div class="guide-chapter-screenshot">
+            <img
+              src="/assets/guide-10-qr-verification.webp"
+              alt="Screen 10: Two-Party QR Code and Link Verification Sheet"
+              width="240"
+              height="533"
+              loading="lazy"
+            />
+            <span class="guide-chapter-caption">Screen 10 of 12 — QR &amp; Link Verification</span>
+          </div>
+          <div>
+            <span class="guide-chapter-meta">Chapter 10 • Mutual Confirmation (In-Person or Remote)</span>
+            <h2 class="guide-chapter-title">Two-Party QR &amp; Link Verification Sheet</h2>
+            <p class="guide-chapter-summary">
+              Eliminate future misunderstandings by having the other person verify the record either face-to-face via QR scan or remotely via a verification link.
+            </p>
+
+            <h3 class="guide-subhead">How Verification Works</h3>
+            <ul class="guide-detail-list">
+              <li><strong>Scannable Verification QR Code:</strong> When meeting in person, the other party can scan this QR code with their phone camera or inside their own Udhaar app to verify and import the exact record instantly.</li>
+              <li><strong>Universal Web &amp; App Link (<code>udhaar.jyotirmoyb.com/u/...</code>):</strong> Works in any mobile browser even if the other person does not use Udhaar.</li>
+              <li><strong>Tamper-Proof Record Fingerprint:</strong> Displays the 32-byte digest (`fc27da28...`) that locks the amount, date, and direction so neither side can silently alter figures later.</li>
+              <li><strong>End-to-End Encrypted Notes &amp; Attachments:</strong> Personal notes and proof images are encrypted on your phone using AES-256-GCM before sharing; the decryption key stays in the URL fragment (`#k=...`) and is never sent to the server.</li>
+              <li><strong>Sharing Channels:</strong> Tap <strong>Send verification on whatsapp</strong>, <strong>Copy link</strong>, or <strong>SMS / Other</strong>.</li>
+              <li><strong>Paste Incoming Link:</strong> Received a link from someone else? Paste it into the <em>"Have a verification link from the other party? Open it here"</em> box at the bottom to verify and import it.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- CHAPTER 11: PRIVATE WEB LINK CONFIGURATION -->
+      <article id="chapter-11" class="guide-chapter-card" data-guide-cat="verification">
+        <div class="guide-chapter-grid">
+          <div class="guide-chapter-screenshot">
+            <img
+              src="/assets/guide-11-private-weblink.webp"
+              alt="Screen 11: Send Private Web Link Granular Permissions and Expiry Controls"
+              width="240"
+              height="533"
+              loading="lazy"
+            />
+            <span class="guide-chapter-caption">Screen 11 of 12 — Private Web Link Controls</span>
+          </div>
+          <div>
+            <span class="guide-chapter-meta">Chapter 11 • Granular Guest Portal Permissions</span>
+            <h2 class="guide-chapter-title">Send Private Web Link Configuration</h2>
+            <p class="guide-chapter-summary">
+              Before sending a browser confirmation link (`udhaar.jyotirmoyb.com/u/...`), you have full granular control over how long the link stays active, how the guest unlocks it, and which actions they are allowed to take.
+            </p>
+
+            <h3 class="guide-subhead">Configurable Privacy &amp; Guest Controls</h3>
+            <ul class="guide-detail-list">
+              <li><strong>Link Expiry Duration:</strong> Choose <strong>7 Days</strong>, <strong>30 Days</strong>, or <strong>90 Days</strong>. Expired links automatically stop serving record data, and you can also revoke any active link with one tap.</li>
+              <li><strong>Verification Method:</strong>
+                <ul>
+                  <li><strong>WhatsApp OTP (Zero-Cost):</strong> Generates a 6-digit verification code included in your WhatsApp message so only the intended recipient can unlock the link.</li>
+                  <li><strong>Private Link (Phone Last 4 Digits):</strong> Guests verify by entering the last 4 digits of their phone number.</li>
+                </ul>
+              </li>
+              <li><strong>Allowed Details Toggles:</strong> Choose whether to include <strong>Show Note / Purpose</strong>, <strong>Show Attachments / Proofs</strong>, and <strong>Show My UPI QR on Web Page</strong>.</li>
+              <li><strong>Allowed Guest Actions Checkboxes:</strong> Enable or restrict specific guest actions on the web page:
+                <ul>
+                  <li><code>Confirm</code> — Guest agrees the amount and date are accurate.</li>
+                  <li><code>Report a problem</code> — Guest flags a discrepancy in amount or date with a reason.</li>
+                  <li><code>I Have Paid</code> — Guest submits a repayment claim with UTR/reference or screenshot proof.</li>
+                  <li><code>Propose Date</code> — Guest requests a new repayment due date.</li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- CHAPTER 12: GROUP & SPLIT PAYMENT -->
+      <article id="chapter-12" class="guide-chapter-card" data-guide-cat="verification">
+        <div class="guide-chapter-grid">
+          <div class="guide-chapter-screenshot">
+            <img
+              src="/assets/guide-12-group-split.webp"
+              alt="Screen 12: Group and Split Payment Calculator Sheet"
+              width="240"
+              height="533"
+              loading="lazy"
+            />
+            <span class="guide-chapter-caption">Screen 12 of 12 — Group &amp; Bill Split</span>
+          </div>
+          <div>
+            <span class="guide-chapter-meta">Chapter 12 • Shared Trips, Rent &amp; Group Expenses</span>
+            <h2 class="guide-chapter-title">Group &amp; Split Payment Calculator</h2>
+            <p class="guide-chapter-summary">
+              Tap <strong>+ Group Split</strong> on the dashboard to split a restaurant bill, room rent, trip expense, or shared purchase across multiple people and automatically create individual Udhaar records for each member.
+            </p>
+
+            <h3 class="guide-subhead">How to Split a Group Expense</h3>
+            <ul class="guide-detail-list">
+              <li><strong>Expense Details:</strong> Enter the <strong>Group or expense name</strong> (e.g., <em>Dinner, Trip, Rent</em>), total <strong>Amount (₹)</strong>, and optional <strong>Due date for everyone</strong>.</li>
+              <li><strong>Who Paid the Bill?:</strong> Select <strong>I paid (Others owe me)</strong> to create Receivable (`Given`) records for each member, or <strong>Someone else paid (I owe them)</strong> to record your payable share.</li>
+              <li><strong>Include My Own Share Toggle:</strong> When enabled, divides the total bill among all members plus yourself so your own portion is deducted before generating the others' owed amounts.</li>
+              <li><strong>3 Split Modes:</strong>
+                <ul>
+                  <li><strong>Equal split:</strong> Divides the total equally in integer paise (any 1–2 paise remainder is handled cleanly without loss).</li>
+                  <li><strong>Custom amount:</strong> Enter exact rupee/paise amounts per person.</li>
+                  <li><strong>By percentage:</strong> Assign percentage shares totaling 100%.</li>
+                </ul>
+              </li>
+              <li><strong>Quick Member Selection &amp; WhatsApp Summary:</strong> Tap existing contacts from your Khata pills or add members manually, share the full split breakdown via <strong>Share split on WhatsApp</strong>, and tap <strong>Save split records</strong> to generate individual trackable loans in one tap.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- APPENDIX A: COMPLETE FEATURE MATRIX -->
+      <article id="appendix-features" class="guide-chapter-card" data-guide-cat="reference">
+        <span class="guide-chapter-meta">Appendix A • System Specifications</span>
+        <h2 class="guide-chapter-title">Complete Feature &amp; Capability Matrix</h2>
+        <p class="guide-chapter-summary">
+          Reference table of all modules in Udhaar v22.0, including offline availability, storage encryption, and supported export formats.
+        </p>
+
+        <div class="trust-table-wrap">
+          <table class="trust-table">
+            <thead>
+              <tr>
+                <th>Module / Feature</th>
+                <th>Offline Support</th>
+                <th>Technical Specification</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Monetary Engine</strong></td>
+                <td>100% Offline</td>
+                <td>Integer paise (<code>Long</code>, ₹1 = 100 paise) across Room DB v12, repositories, calculators, and exports. Zero floating-point drift.</td>
+              </tr>
+              <tr>
+                <td><strong>Local Database Security</strong></td>
+                <td>100% Offline</td>
+                <td>SQLCipher 256-bit AES encryption backed by Android Keystore hardware keys + optional biometric/PIN app lock.</td>
+              </tr>
+              <tr>
+                <td><strong>Currencies Supported</strong></td>
+                <td>100% Offline</td>
+                <td>Indian Rupee (<code>INR ₹</code>) and Nepalese Rupee (<code>NPR रू</code>) with separate per-currency net position summaries.</td>
+              </tr>
+              <tr>
+                <td><strong>Interest Modes</strong></td>
+                <td>100% Offline</td>
+                <td>Zero Interest (0%), Simple Interest (Flat monthly/annual), and Compound Interest (Reducing/periodic) with exact day-count breakdowns.</td>
+              </tr>
+              <tr>
+                <td><strong>Installment Planner</strong></td>
+                <td>100% Offline</td>
+                <td>1 to 60+ installments; Weekly, Bi-weekly, Monthly, or Custom intervals; final installment absorbs integer division remainder.</td>
+              </tr>
+              <tr>
+                <td><strong>Statement Exports</strong></td>
+                <td>100% Offline</td>
+                <td>Formatted PDF Statement with Change History, Visual Receipt Slip (PNG/JPEG), Portable JSON Ledger, and Encrypted Backup Archive.</td>
+              </tr>
+              <tr>
+                <td><strong>Two-Party Verification</strong></td>
+                <td>QR Offline / Web Online</td>
+                <td>In-person QR code verification (offline) or browser guest link (<code>/u/...</code>) with WhatsApp 6-digit OTP and E2EE fragment keys.</td>
+              </tr>
+              <tr>
+                <td><strong>Supported Languages</strong></td>
+                <td>100% Offline</td>
+                <td>English (<code>en</code>), Hindi (<code>hi</code>), Bengali (<code>bn</code>), Assamese (<code>as</code>), and Nepali (<code>ne</code>).</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <!-- APPENDIX B: INTEREST & PAISE MATH REFERENCE -->
+      <article id="appendix-math" class="guide-chapter-card" data-guide-cat="reference">
+        <span class="guide-chapter-meta">Appendix B • Accounting &amp; Rounding Rules</span>
+        <h2 class="guide-chapter-title">Paise Precision, Interest &amp; Installment Rounding Rules</h2>
+        <p class="guide-chapter-summary">
+          How Udhaar guarantees that principal, interest, partial payments, and multi-part installments always add up to the exact paisa.
+        </p>
+
+        <ul class="guide-detail-list">
+          <li><strong>Whole-Paise Storage:</strong> Every rupee value entered by the user is immediately converted to integer paise (<code>₹ 5,000.00 → 500000L paise</code>). No <code>Double</code> or <code>Float</code> columns exist in the database.</li>
+          <li><strong>Installment Division &amp; Remainder Absorption:</strong> When splitting a total amount $T$ (in paise) into $N$ installments:
+            <ul>
+              <li>Base installment (parts $1$ to $N-1$): $\lfloor T / N \rfloor$ paise.</li>
+              <li>Final installment (part $N$): $T - \lfloor T / N \rfloor \times (N - 1)$ paise.</li>
+              <li>Example: Splitting ₹5,000 (<code>500,000 paise</code>) into 3 installments yields <code>166,666 paise</code> (₹1,666.66), <code>166,666 paise</code> (₹1,666.66), and <code>166,668 paise</code> (₹1,666.68). Total = <code>500,000 paise</code> (₹5,000.00).</li>
+            </ul>
+          </li>
+          <li><strong>Partial Repayment Allocation:</strong> Each confirmed partial payment reduces the net remaining obligation immediately and records its timestamp, payment mode (`CASH`, `ONLINE`, `UPI`, `PARTY_ACCOUNT`), optional note, and photo proof URI.</li>
+        </ul>
+      </article>
+
+      <!-- APPENDIX C: BACKUP & RECOVERY KEY -->
+      <article id="appendix-backup" class="guide-chapter-card" data-guide-cat="reference">
+        <span class="guide-chapter-meta">Appendix C • Data Safety &amp; Recovery</span>
+        <h2 class="guide-chapter-title">Encrypted Google Drive Backup, Recovery Key &amp; "Test My Backup"</h2>
+        <p class="guide-chapter-summary">
+          Protect your ledger against phone loss or device upgrades without sacrificing privacy.
+        </p>
+
+        <ul class="guide-detail-list">
+          <li><strong>Client-Side Encryption Before Upload:</strong> When you back up to Google Drive or export a local backup file, Udhaar derives a 256-bit key on your phone using <strong>600,000 iterations of PBKDF2-HMAC-SHA256</strong> and encrypts the database with <strong>AES-256-GCM</strong>.</li>
+          <li><strong>Backup Recovery Key:</strong> In Settings → Backup &amp; Restore, you can generate and save a printable emergency Recovery Key so you can still unlock your backup if you forget your custom backup password.</li>
+          <li><strong>"Test My Backup" Verification Button:</strong> Tap <strong>Test my backup</strong> in Settings anytime to run a non-destructive decryption and checksum dry-run in an isolated temporary sandbox—verifying your password and backup file integrity without overwriting your live records.</li>
+        </ul>
+      </article>
+
+      <!-- Empty state when search has no matches -->
+      <div id="guide-empty-state" class="faq-empty-state" style="display: none;">
+        <p>No guide chapters match your search term. Try searching for "dashboard", "installment", "QR", "UPI", or "split".</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="/" class="brand-logo">
+            <span class="brand-icon">₹</span>
+            <span>UDHAAR</span>
+          </a>
+          <p>
+            Simple, honest, and private records of money you lend and borrow. Designed for everyday users in India and Nepal.
+          </p>
+        </div>
+
+        <div class="footer-col">
+          <h4>Documentation &amp; Tools</h4>
+          <ul>
+            <li><a href="/guide/">Complete App Guide (12 Screens)</a></li>
+            <li><a href="/#features">Feature Specifications</a></li>
+            <li><a href="/#calculator">Repayment Calculator</a></li>
+            <li><a href="/#interactive-demo">Interactive Record Demo</a></li>
+            <li><a href="/u/?demo=true">Guest Confirmation Page Demo</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Trust &amp; Legal</h4>
+          <ul>
+            <li><a href="/trust/">Trust &amp; Privacy Center</a></li>
+            <li><a href="/updates/">What's New (v22.0)</a></li>
+            <li><a href="/privacy.html">Privacy Policy</a></li>
+            <li><a href="/privacy.html#delete-request-form">Data Deletion Request</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <span>© 2026 Udhaar. All rights reserved. Open-source and privacy-first.</span>
+        <span>Built by Jyotirmoy Bhowmik</span>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

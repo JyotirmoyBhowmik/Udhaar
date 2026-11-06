@@ -684,6 +684,504 @@ exports.renewGuestCode = onCall(
   }
 );
 
+// ---------------------------------------------------------------------------
+// 6. Callable & HTTP Endpoints for /u/r/<recordId>#<secret> Guest Web Portal
+// ---------------------------------------------------------------------------
+const {
+  hashGuestToken,
+  computeCodeHmac,
+  verifyGuestPhoneOtp: verifyGuestPhoneOtpHelper,
+  writeAuditEntry,
+  writeInboxItem
+} = require("./guestWebFlow");
+
+async function loadWebLinkAndVerify(db, recordId, rawSecret, nowMs = Date.now()) {
+  if (!recordId || typeof recordId !== "string") {
+    const err = new Error("MISSING_RECORD_ID");
+    err.status = 400;
+    throw err;
+  }
+  const webLinkRef = db.collection("webLinks").doc(recordId);
+  const snap = await webLinkRef.get();
+  if (!snap.exists) {
+    const err = new Error("RECORD_NOT_FOUND");
+    err.status = 410;
+    throw err;
+  }
+  const linkData = snap.data() || {};
+  if (linkData.revoked || linkData.status === "REVOKED") {
+    const err = new Error("LINK_REVOKED");
+    err.status = 403;
+    throw err;
+  }
+  const ver = verifyGuestCapabilityToken(linkData, rawSecret, nowMs);
+  if (!ver.valid) {
+    const err = new Error(ver.reason || "FORBIDDEN");
+    err.status = ver.reason === "TOKEN_EXPIRED" ? 410 : 403;
+    throw err;
+  }
+  return { webLinkRef, linkData };
+}
+
+exports.createGuestWebLink = onCall(
+  { cors: true, secrets: [UDHAAR_SERVER_SECRET] },
+  async (request) => {
+    if (!request.auth || !request.auth.uid) {
+      throw new HttpsError("unauthenticated", "Authentication is required to create a guest web link.");
+    }
+    const data = request.data || {};
+    const recordId = String(data.recordId || "").trim();
+    if (!recordId) {
+      throw new HttpsError("invalid-argument", "recordId is required.");
+    }
+
+    const expiryDays = [7, 30, 90].includes(Number(data.expiryDays)) ? Number(data.expiryDays) : 30;
+    const trustLevelRequired = data.trustLevelRequired === "LINK_ONLY" ? "LINK_ONLY" : "WHATSAPP_OTP";
+    const secret = crypto.randomBytes(12).toString("base64url");
+    const guestTokenHash = hashGuestToken(secret);
+    const nowMs = Date.now();
+    const guestTokenExpiresAt = nowMs + expiryDays * 24 * 60 * 60 * 1000;
+
+    let whatsappOtp = "";
+    let whatsappOtpHmac = "";
+    let whatsappOtpExpiresAtMillis = 0;
+    if (trustLevelRequired !== "LINK_ONLY") {
+      whatsappOtp = String(crypto.randomInt(100000, 1000000));
+      whatsappOtpHmac = computeCodeHmac(whatsappOtp);
+      whatsappOtpExpiresAtMillis = nowMs + 15 * 60 * 1000;
+    }
+
+    const principalAmountPaise = Number(data.principalAmountPaise || 0);
+    const amountPaidPaise = Number(data.amountPaidPaise || 0);
+    const docPayload = {
+      recordId,
+      creatorUid: request.auth.uid,
+      counterpartyRole: data.counterpartyRole === "LENDER" ? "LENDER" : "BORROWER",
+      intendedPhone: String(data.intendedPhone || "").slice(0, 24),
+      creatorPhone: String(data.creatorPhone || "").slice(0, 24),
+      lenderName: String(data.lenderName || "Lender").slice(0, 80),
+      borrowerName: String(data.borrowerName || "Borrower").slice(0, 80),
+      principalAmountPaise,
+      principalAmount: principalAmountPaise / 100,
+      amountPaidPaise,
+      currency: String(data.currency || "INR").slice(0, 8),
+      startDateMillis: Number(data.startDateMillis || nowMs),
+      expiryDateMillis: data.expiryDateMillis ? Number(data.expiryDateMillis) : null,
+      note: data.allowNote ? String(data.note || "").slice(0, 500) : "",
+      contentHash: String(data.contentHash || ""),
+      lenderUpiId: data.showUpiQr ? String(data.lenderUpiId || "").slice(0, 80) : "",
+      trustLevelRequired,
+      allowedActions: Array.isArray(data.allowedActions) ? data.allowedActions : ["view", "confirm", "dispute"],
+      guestTokenHash,
+      guestTokenExpiresAt,
+      whatsappOtpHmac,
+      whatsappOtpExpiresAtMillis,
+      whatsappOtpUsed: false,
+      whatsappVerified: false,
+      revoked: false,
+      status: "PENDING_CONFIRMATION",
+      createdAt: nowMs,
+      updatedAt: nowMs
+    };
+
+    await admin.firestore().collection("webLinks").doc(recordId).set(docPayload, { merge: true });
+
+    return {
+      success: true,
+      recordId,
+      url: `https://udhaar.jyotirmoyb.com/u/r/${recordId}#${secret}`,
+      secret,
+      whatsappOtp,
+      expiresAt: `${expiryDays} days`,
+      trustLevel: trustLevelRequired
+    };
+  }
+);
+
+exports.revokeGuestWebLink = onCall({ cors: true }, async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError("unauthenticated", "Authentication is required.");
+  }
+  const recordId = String((request.data && request.data.recordId) || "").trim();
+  if (!recordId) {
+    throw new HttpsError("invalid-argument", "recordId is required.");
+  }
+  await admin.firestore().collection("webLinks").doc(recordId).set(
+    {
+      revoked: true,
+      status: "REVOKED",
+      guestTokenHash: "",
+      updatedAt: Date.now()
+    },
+    { merge: true }
+  );
+  return { success: true };
+});
+
+exports.claimGuestActions = onCall({ cors: true }, async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError("unauthenticated", "Authentication is required.");
+  }
+  const recordId = String((request.data && request.data.recordId) || "").trim();
+  if (!recordId) {
+    throw new HttpsError("invalid-argument", "recordId is required.");
+  }
+  await admin.firestore().collection("webLinks").doc(recordId).set(
+    {
+      claimedByCreatorAt: Date.now()
+    },
+    { merge: true }
+  );
+  return { success: true };
+});
+
+exports.deleteGuestData = onCall({ cors: true }, async (request) => {
+  if (!request.auth || !request.auth.uid) {
+    throw new HttpsError("unauthenticated", "Authentication is required.");
+  }
+  const recordId = String((request.data && request.data.recordId) || "").trim();
+  if (!recordId) {
+    throw new HttpsError("invalid-argument", "recordId is required.");
+  }
+  await admin.firestore().collection("webLinks").doc(recordId).delete();
+  return { success: true };
+});
+
+exports.getGuestRecord = onRequest({ cors: true }, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const recordId = String(body.recordId || (req.query && req.query.recordId) || "").trim();
+    const secret = String(body.secret || req.headers["x-guest-token"] || "").trim();
+
+    const allowed = await checkGuestEndpointRateLimit(req, recordId);
+    if (!allowed) {
+      res.status(429).json({ error: "RATE_LIMIT_EXCEEDED" });
+      return;
+    }
+
+    const db = admin.firestore();
+    const { linkData } = await loadWebLinkAndVerify(db, recordId, secret, Date.now());
+    const principalAmountPaise = Number(linkData.principalAmountPaise || Math.round(Number(linkData.principalAmount || 0) * 100));
+
+    res.status(200).json({
+      success: true,
+      record: {
+        recordId,
+        counterpartyRole: linkData.counterpartyRole || "BORROWER",
+        lenderName: linkData.lenderName || "Lender",
+        borrowerName: linkData.borrowerName || "Borrower",
+        principalAmount: principalAmountPaise / 100,
+        amountPaise: principalAmountPaise,
+        currency: linkData.currency || "INR",
+        startDateMillis: linkData.startDateMillis || linkData.createdAt || Date.now(),
+        expiryDateMillis: linkData.expiryDateMillis || null,
+        note: linkData.note || "",
+        contentHash: linkData.contentHash || "",
+        lenderUpiId: linkData.lenderUpiId || "",
+        creatorPhone: linkData.creatorPhone || "",
+        trustLevelRequired: linkData.trustLevelRequired || "WHATSAPP_OTP",
+        whatsappVerified: Boolean(linkData.whatsappVerified),
+        status: linkData.status || "PENDING_CONFIRMATION",
+        disputeReason: linkData.disputeReason || "",
+        confirmedAtMillis: linkData.confirmedAtMillis || null
+      }
+    });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message || "INTERNAL_ERROR" });
+  }
+});
+
+exports.verifyGuestPhoneOtp = onRequest(
+  { cors: true, secrets: [UDHAAR_SERVER_SECRET] },
+  async (req, res) => {
+    try {
+      const body = req.body || {};
+      const recordId = String(body.recordId || "").trim();
+      const secret = String(body.secret || "").trim();
+      const rawCode = String(body.whatsappOtp || body.guestPhoneOtp || body.code || "").trim();
+
+      const allowed = await checkGuestEndpointRateLimit(req, recordId);
+      if (!allowed) {
+        res.status(429).json({ error: "RATE_LIMIT_EXCEEDED" });
+        return;
+      }
+
+      const db = admin.firestore();
+      const { webLinkRef, linkData } = await loadWebLinkAndVerify(db, recordId, secret, Date.now());
+      const otpRes = await verifyGuestPhoneOtpHelper(db, webLinkRef, linkData, rawCode, Date.now());
+      if (!otpRes.verified) {
+        res.status(otpRes.status || 403).json({ error: otpRes.error || "INVALID_OTP" });
+        return;
+      }
+      res.status(200).json({
+        success: true,
+        whatsappVerified: true,
+        trustLevel: otpRes.trustLevel || "Code checked"
+      });
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message || "INTERNAL_ERROR" });
+    }
+  }
+);
+
+exports.guestConfirm = onRequest(
+  { cors: true, secrets: [UDHAAR_SERVER_SECRET] },
+  async (req, res) => {
+    try {
+      const body = req.body || {};
+      const recordId = String(body.recordId || "").trim();
+      const secret = String(body.secret || "").trim();
+      const rawCode = String(body.whatsappOtp || body.guestPhoneOtp || "").trim();
+
+      const allowed = await checkGuestEndpointRateLimit(req, recordId);
+      if (!allowed) {
+        res.status(429).json({ error: "RATE_LIMIT_EXCEEDED" });
+        return;
+      }
+
+      const nowMs = Date.now();
+      const db = admin.firestore();
+      const { webLinkRef, linkData } = await loadWebLinkAndVerify(db, recordId, secret, nowMs);
+
+      let whatsappVerified = Boolean(linkData.whatsappVerified);
+      if (linkData.trustLevelRequired !== "LINK_ONLY" && !whatsappVerified) {
+        const otpRes = await verifyGuestPhoneOtpHelper(db, webLinkRef, linkData, rawCode, nowMs);
+        if (!otpRes.verified) {
+          res.status(otpRes.status || 403).json({ error: otpRes.error || "INVALID_OTP" });
+          return;
+        }
+        whatsappVerified = true;
+      }
+
+      await webLinkRef.set(
+        {
+          status: "CONFIRMED",
+          whatsappVerified,
+          confirmedAtMillis: nowMs,
+          updatedAt: nowMs
+        },
+        { merge: true }
+      );
+
+      await db.collection("shared_records").doc(recordId).set(
+        {
+          verificationStatus: "CONFIRMED",
+          verifiedAtMillis: nowMs,
+          updatedAtMillis: nowMs
+        },
+        { merge: true }
+      );
+
+      await writeAuditEntry(db, recordId, {
+        eventType: "CONFIRMED",
+        summaryText: "Confirmed via Udhaar Web verification link"
+      });
+      await writeInboxItem(db, recordId, {
+        actionType: "CONFIRM",
+        summaryText: "Counterparty confirmed the record via Web link",
+        trustLevel: whatsappVerified ? "WHATSAPP_OTP" : "LINK_ONLY"
+      });
+
+      res.status(200).json({
+        success: true,
+        trustLevel: whatsappVerified ? "Code checked" : "Private link"
+      });
+    } catch (err) {
+      res.status(err.status || 500).json({ error: err.message || "INTERNAL_ERROR" });
+    }
+  }
+);
+
+exports.guestDispute = onRequest({ cors: true }, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const recordId = String(body.recordId || "").trim();
+    const secret = String(body.secret || "").trim();
+    const reasonCode = String(body.reasonCode || "OTHER").slice(0, 40);
+    const reasonText = String(body.reasonText || "").trim().slice(0, 300);
+    const combinedReason = reasonText ? `${reasonCode}: ${reasonText}` : reasonCode;
+
+    const allowed = await checkGuestEndpointRateLimit(req, recordId);
+    if (!allowed) {
+      res.status(429).json({ error: "RATE_LIMIT_EXCEEDED" });
+      return;
+    }
+
+    const nowMs = Date.now();
+    const db = admin.firestore();
+    const { webLinkRef } = await loadWebLinkAndVerify(db, recordId, secret, nowMs);
+
+    await webLinkRef.set(
+      {
+        status: "DISPUTED",
+        disputeReason: combinedReason,
+        disputedAtMillis: nowMs,
+        updatedAt: nowMs
+      },
+      { merge: true }
+    );
+
+    await db.collection("shared_records").doc(recordId).set(
+      {
+        verificationStatus: "DISPUTED",
+        disputeReason: combinedReason,
+        updatedAtMillis: nowMs
+      },
+      { merge: true }
+    );
+
+    await writeAuditEntry(db, recordId, {
+      eventType: "DISPUTED",
+      summaryText: `Disputed via Web link (${combinedReason})`
+    });
+    await writeInboxItem(db, recordId, {
+      actionType: "DISPUTE",
+      summaryText: "Counterparty reported an issue via Web link",
+      detailText: combinedReason
+    });
+
+    res.status(200).json({ success: true });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message || "INTERNAL_ERROR" });
+  }
+});
+
+exports.guestPaymentClaim = onRequest({ cors: true }, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const recordId = String(body.recordId || "").trim();
+    const secret = String(body.secret || "").trim();
+    const amountPaise = Math.round(Number(body.amount || body.amountPaise || 0));
+    const paymentMode = String(body.paymentMode || "UPI").slice(0, 20);
+    const referenceNumber = String(body.referenceNumber || "").trim().slice(0, 100);
+
+    if (!Number.isFinite(amountPaise) || amountPaise <= 0) {
+      res.status(400).json({ error: "INVALID_AMOUNT" });
+      return;
+    }
+
+    const allowed = await checkGuestEndpointRateLimit(req, recordId);
+    if (!allowed) {
+      res.status(429).json({ error: "RATE_LIMIT_EXCEEDED" });
+      return;
+    }
+
+    const nowMs = Date.now();
+    const db = admin.firestore();
+    const { webLinkRef } = await loadWebLinkAndVerify(db, recordId, secret, nowMs);
+
+    await webLinkRef.set(
+      {
+        hasPendingPaymentClaim: true,
+        lastPaymentClaimPaise: amountPaise,
+        lastPaymentClaimMode: paymentMode,
+        lastPaymentClaimRef: referenceNumber,
+        updatedAt: nowMs
+      },
+      { merge: true }
+    );
+
+    await writeInboxItem(db, recordId, {
+      actionType: "PAYMENT_CLAIM",
+      amountPaise,
+      paymentMode,
+      reference: referenceNumber,
+      summaryText: `Payment claim of ₹${(amountPaise / 100).toFixed(2)} via ${paymentMode}`
+    });
+
+    res.status(200).json({ success: true });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message || "INTERNAL_ERROR" });
+  }
+});
+
+exports.guestProposeDate = onRequest({ cors: true }, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const recordId = String(body.recordId || "").trim();
+    const secret = String(body.secret || "").trim();
+    const proposedDateMillis = Number(body.proposedDateMillis || 0);
+    const note = String(body.note || "").trim().slice(0, 200);
+
+    if (!Number.isFinite(proposedDateMillis) || proposedDateMillis <= 0) {
+      res.status(400).json({ error: "INVALID_DATE" });
+      return;
+    }
+
+    const allowed = await checkGuestEndpointRateLimit(req, recordId);
+    if (!allowed) {
+      res.status(429).json({ error: "RATE_LIMIT_EXCEEDED" });
+      return;
+    }
+
+    const nowMs = Date.now();
+    const db = admin.firestore();
+    const { webLinkRef } = await loadWebLinkAndVerify(db, recordId, secret, nowMs);
+
+    await webLinkRef.set(
+      {
+        proposedDateMillis,
+        proposedDateNote: note,
+        updatedAt: nowMs
+      },
+      { merge: true }
+    );
+
+    await writeInboxItem(db, recordId, {
+      actionType: "PROPOSE_DATE",
+      proposedDateMillis,
+      message: note,
+      summaryText: "Counterparty proposed a return date"
+    });
+
+    res.status(200).json({ success: true });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message || "INTERNAL_ERROR" });
+  }
+});
+
+exports.guestSetUpi = onRequest({ cors: true }, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const recordId = String(body.recordId || "").trim();
+    const secret = String(body.secret || "").trim();
+    const upiId = String(body.upiId || "").trim().slice(0, 80);
+
+    if (!upiId || !upiId.includes("@")) {
+      res.status(400).json({ error: "INVALID_UPI_ID" });
+      return;
+    }
+
+    const allowed = await checkGuestEndpointRateLimit(req, recordId);
+    if (!allowed) {
+      res.status(429).json({ error: "RATE_LIMIT_EXCEEDED" });
+      return;
+    }
+
+    const nowMs = Date.now();
+    const db = admin.firestore();
+    const { webLinkRef } = await loadWebLinkAndVerify(db, recordId, secret, nowMs);
+
+    await webLinkRef.set(
+      {
+        guestUpiId: upiId,
+        updatedAt: nowMs
+      },
+      { merge: true }
+    );
+
+    await writeInboxItem(db, recordId, {
+      actionType: "SET_UPI",
+      guestUpiId: upiId,
+      summaryText: "Counterparty shared their UPI ID"
+    });
+
+    res.status(200).json({ success: true });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message || "INTERNAL_ERROR" });
+  }
+});
+
 exports.STORAGE_LIFECYCLE_RULE_90_DAYS = STORAGE_LIFECYCLE_RULE_90_DAYS;
 exports.buildProofSignedUrlOptions = buildProofSignedUrlOptions;
 exports.ensureBucketLifecycle90Days = ensureBucketLifecycle90Days;

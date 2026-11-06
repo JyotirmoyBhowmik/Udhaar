@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   android-ci:
-    name: Unit Tests, Lint, ktlint & Release R8 Build
+    name: Unit Tests, Lint, ktlint & Release R8 APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -46,12 +46,15 @@ jobs:
             --disabled_rules=standard:no-wildcard-imports,standard:max-line-length,standard:function-naming,standard:filename,standard:backing-property-naming,standard:discouraged-comment-location,standard:import-ordering || true
           ./ktlint --version
 
-      - name: Prepare ephemeral CI release signing key for R8 assembleRelease
+      - name: Prepare CI release signing key
         env:
+          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 || secrets.KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD || 'ci_release_password_123' }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'ci_release_password_123' }}
         run: |
-          if [ ! -f "my-upload-key.jks" ]; then
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > my-upload-key.jks
+          elif [ ! -f "my-upload-key.jks" ]; then
             keytool -genkeypair -v \
               -keystore my-upload-key.jks \
               -alias upload \
@@ -74,7 +77,7 @@ jobs:
               -dname "CN=Android Debug,O=Android,C=US"
           fi
 
-      - name: Run Android JVM & Robolectric Unit Tests
+      - name: Run Android JVM & Robolectric Unit Tests (including ReleaseSmokeTest)
         run: |
           if [ -x "./gradlew" ]; then
             ./gradlew :app:testDebugUnitTest --stacktrace
@@ -113,3 +116,159 @@ jobs:
             app/build/outputs/mapping/release/
             app/build/outputs/apk/release/*.apk
           if-no-files-found: ignore
+
+  bundle-release:
+    name: Build Signed Release AAB & Print AAB/DEX Size
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Decode Release Keystore from Secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 || secrets.KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD || 'ci_release_password_123' }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'ci_release_password_123' }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > my-upload-key.jks
+            echo "Decoded release keystore from repository secret."
+          elif [ ! -f "my-upload-key.jks" ]; then
+            keytool -genkeypair -v \
+              -keystore my-upload-key.jks \
+              -alias upload \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass "$STORE_PASSWORD" \
+              -keypass "$KEY_PASSWORD" \
+              -dname "CN=Udhaar CI, OU=Mobile, O=Udhaar, L=Kolkata, ST=WB, C=IN"
+          fi
+          if [ ! -f "debug.keystore" ]; then
+            keytool -genkeypair -v \
+              -keystore debug.keystore \
+              -alias androiddebugkey \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass android \
+              -keypass android \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Build Signed Release AAB (verifyReleaseR8 + bundleRelease)
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD || 'ci_release_password_123' }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'ci_release_password_123' }}
+        run: |
+          if [ -x "./gradlew" ]; then
+            ./gradlew :app:verifyReleaseR8 :app:bundleRelease --stacktrace
+          else
+            gradle :app:verifyReleaseR8 :app:bundleRelease --stacktrace
+          fi
+
+      - name: Verify R8 Mapping & Print AAB Size and DEX Size
+        run: |
+          AAB_FILE=$(find app/build/outputs/bundle/release -name "*.aab" | head -n 1)
+          MAP_FILE="app/build/outputs/mapping/release/mapping.txt"
+
+          if [ ! -f "$AAB_FILE" ]; then
+            echo "ERROR: Signed release AAB not found!"
+            exit 1
+          fi
+          if [ ! -s "$MAP_FILE" ]; then
+            echo "ERROR: R8 mapping.txt not found or empty at $MAP_FILE!"
+            exit 1
+          fi
+
+          python3 - "$AAB_FILE" "$MAP_FILE" << 'EOF'
+          import os, sys, zipfile
+
+          aab_path, map_path = sys.argv[1], sys.argv[2]
+          aab_bytes = os.path.getsize(aab_path)
+          map_bytes = os.path.getsize(map_path)
+
+          dex_uncompressed = 0
+          dex_compressed = 0
+          dex_files = []
+          has_r8_map_metadata = False
+
+          with zipfile.ZipFile(aab_path, 'r') as zf:
+              for info in zf.infolist():
+                  if info.filename.startswith("base/dex/") and info.filename.endswith(".dex"):
+                      dex_files.append((info.filename, info.file_size, info.compress_size))
+                      dex_uncompressed += info.file_size
+                      dex_compressed += info.compress_size
+                  if "proguard.map" in info.filename:
+                      has_r8_map_metadata = True
+
+          print("=========================================================")
+          print(f"Release Bundle (AAB): {aab_path}")
+          print(f"AAB Size:             {aab_bytes:,} bytes ({aab_bytes / (1024 * 1024):.2f} MB)")
+          print(f"DEX Files Count:      {len(dex_files)}")
+          for name, u_sz, c_sz in dex_files:
+              print(f"  - {name}: {u_sz:,} bytes uncompressed ({u_sz / (1024 * 1024):.2f} MB), {c_sz:,} bytes compressed")
+          print(f"Total DEX Size:       {dex_uncompressed:,} bytes ({dex_uncompressed / (1024 * 1024):.2f} MB uncompressed / {dex_compressed / (1024 * 1024):.2f} MB compressed)")
+          print(f"R8 mapping.txt Size:  {map_bytes:,} bytes ({map_bytes / (1024 * 1024):.2f} MB)")
+          print(f"Bundled proguard.map: {has_r8_map_metadata}")
+          print("=========================================================")
+          if not dex_files:
+              sys.exit("ERROR: No DEX files found inside AAB")
+          EOF
+
+      - name: Upload Signed Release AAB & R8 mapping.txt Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: udhaar-release-bundle-and-mapping
+          path: |
+            app/build/outputs/bundle/release/*.aab
+            app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: error
+
+  emulator-smoke-test:
+    name: Managed Emulator Release Smoke Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Enable KVM for Managed Android Emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+
+      - name: Run Release Smoke Test Suite (Managed Device pixel6Api34 / Robolectric fallback)
+        run: |
+          if [ -e /dev/kvm ]; then
+            if [ -x "./gradlew" ]; then
+              ./gradlew :app:pixel6Api34DebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.jyotirmoyb.udhaar.ReleaseSmokeInstrumentedTest --stacktrace
+            else
+              gradle :app:pixel6Api34DebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.jyotirmoyb.udhaar.ReleaseSmokeInstrumentedTest --stacktrace
+            fi
+          else
+            if [ -x "./gradlew" ]; then
+              ./gradlew :app:testDebugUnitTest --tests com.jyotirmoyb.udhaar.ReleaseSmokeTest --stacktrace
+            else
+              gradle :app:testDebugUnitTest --tests com.jyotirmoyb.udhaar.ReleaseSmokeTest --stacktrace
+            fi
+          fi

@@ -5,7 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
   <meta name="theme-color" content="#064e3b" />
   <meta name="color-scheme" content="light dark" />
+  <base href="/u/" />
   <title>Udhaar — Record Verification</title>
+  <meta name="description" content="Review, confirm, or settle your shared Udhaar record directly in your browser or the Udhaar app." />
+  <meta property="og:title" content="Udhaar — Verify Shared Record" />
+  <meta property="og:description" content="Tap to review the amount, dates, and confirm or settle this shared Udhaar entry." />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Udhaar" />
+  <meta property="og:url" content="https://udhaar.jyotirmoyb.com/u/" />
+  <meta property="og:image" content="https://udhaar.jyotirmoyb.com/assets/icon.webp" />
+  <meta name="twitter:card" content="summary" />
   <link rel="icon" type="image/svg+xml" href="../assets/icon.svg" />
   <link rel="manifest" href="/manifest.json" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -57,13 +66,13 @@
     </nav>
 
     <!-- Demo Mode Alert Banner -->
-    <div id="demo-banner" class="notice-box notice-blue hidden" role="alert">
+    <div id="demo-banner" class="notice-box notice-blue hidden" hidden role="alert">
       <span>ℹ️</span>
       <span data-i18n="demo_banner">Demo preview — no real data is saved.</span>
     </div>
 
     <!-- Offline Alert Banner -->
-    <div id="offline-banner" class="notice-box notice-amber hidden" role="alert">
+    <div id="offline-banner" class="notice-box notice-amber hidden" hidden role="alert">
       <span>⚠️</span>
       <span data-i18n="offline_banner">You are currently offline. Check your internet connection.</span>
     </div>
@@ -79,10 +88,10 @@
       </div>
 
       <!-- SCREEN 1: Who and how much? -->
-      <div id="screen-step1" class="card hidden">
+      <div id="screen-step1" class="card hidden" hidden>
         <div class="badge-bar">
           <span id="trust-badge" class="badge badge-slate" data-i18n="badge_link_verified">✓ Private link</span>
-          <span id="due-status-badge" class="badge badge-amber hidden"></span>
+          <span id="due-status-badge" class="badge badge-amber hidden" hidden></span>
         </div>
 
         <div class="amount-display">
@@ -92,7 +101,7 @@
         </div>
 
         <!-- Installment Progress Bar (Shown only if installments exist) -->
-        <div id="installment-progress-box" class="progress-box hidden">
+        <div id="installment-progress-box" class="progress-box hidden" hidden>
           <div class="progress-header">
             <span id="inst-progress-label">Installments: 0 of 0 paid</span>
             <span id="inst-next-due" class="badge badge-slate">Next: ₹0</span>
@@ -155,7 +164,7 @@
       </div>
 
       <!-- SCREEN 2: Honest Code Step (Enter 6-digit WhatsApp Code) -->
-      <div id="screen-step2" class="card hidden">
+      <div id="screen-step2" class="card hidden" hidden>
         <div class="badge-bar">
           <span class="badge badge-green">💬 WhatsApp Verification</span>
           <span id="code-timer-text" class="badge badge-slate" data-i18n="code_expires_in">Code valid for 15 minutes</span>
@@ -168,16 +177,16 @@
 
         <!-- 6 OTP Boxes -->
         <div class="otp-inputs" role="group" aria-label="6-digit verification code">
-          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" autocomplete="one-time-code" aria-label="Digit 1" />
-          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" autocomplete="one-time-code" aria-label="Digit 2" />
-          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" autocomplete="one-time-code" aria-label="Digit 3" />
-          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" autocomplete="one-time-code" aria-label="Digit 4" />
-          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" autocomplete="one-time-code" aria-label="Digit 5" />
-          <input type="text" maxlength="1" class="otp-box" inputmode="numeric" autocomplete="one-time-code" aria-label="Digit 6" />
+          <input type="tel" maxlength="6" class="otp-box" data-otp-index="0" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" enterkeyhint="next" aria-label="Digit 1" />
+          <input type="tel" maxlength="6" class="otp-box" data-otp-index="1" inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="next" aria-label="Digit 2" />
+          <input type="tel" maxlength="6" class="otp-box" data-otp-index="2" inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="next" aria-label="Digit 3" />
+          <input type="tel" maxlength="6" class="otp-box" data-otp-index="3" inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="next" aria-label="Digit 4" />
+          <input type="tel" maxlength="6" class="otp-box" data-otp-index="4" inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="next" aria-label="Digit 5" />
+          <input type="tel" maxlength="6" class="otp-box" data-otp-index="5" inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="done" aria-label="Digit 6" />
         </div>
 
         <div class="step2-row">
-          <a id="btn-ask-wa" href="#" target="_blank" class="link-ask-wa" data-i18n="btn_ask_whatsapp">
+          <a id="btn-ask-wa" href="https://wa.me/" target="_blank" rel="noopener noreferrer" class="link-ask-wa" data-i18n="btn_ask_whatsapp">
             Ask on WhatsApp 💬
           </a>
           <button id="btn-report-not-me" class="btn-text btn-report-not-me" data-i18n="btn_not_me">
@@ -213,7 +222,7 @@
       </div>
 
       <!-- SCREEN 3: Next Steps (After Confirmation) -->
-      <div id="screen-step3" class="card hidden">
+      <div id="screen-step3" class="card hidden" hidden>
         <!-- Print Receipt Header (visible only during window.print()) -->
         <div class="receipt-header-print">
           <div class="receipt-brand">UDHAAR • Official Confirmation Receipt</div>
@@ -247,7 +256,7 @@
         </div>
 
         <!-- PWA Install Prompt (Chrome/Android) -->
-        <div id="pwa-install-card" class="install-prompt-card hidden" role="region" aria-label="Install App">
+        <div id="pwa-install-card" class="install-prompt-card hidden" hidden role="region" aria-label="Install App">
           <div class="install-icon" aria-hidden="true">📱</div>
           <div class="install-text">
             <strong data-i18n="pwa_install_title">Add Udhaar to your home screen</strong>
@@ -257,7 +266,7 @@
         </div>
 
         <!-- iOS Safari Install Instructions -->
-        <div id="ios-install-guide" class="install-prompt-card hidden" role="region" aria-label="iOS Install Instructions">
+        <div id="ios-install-guide" class="install-prompt-card hidden" hidden role="region" aria-label="iOS Install Instructions">
           <div class="install-icon" aria-hidden="true">📲</div>
           <div class="install-text">
             <strong data-i18n="ios_install_title">Install on your iPhone</strong>
@@ -268,23 +277,23 @@
         <!-- Action Cards Grid -->
         <div class="action-grid">
           <button id="btn-open-date-sheet" class="action-card-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             <span data-i18n="act_return_date">Tell when you will return it</span>
           </button>
           <button id="btn-open-pay-sheet" class="action-card-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M7 7h3v3H7zM14 7h3v3h-3zM7 14h3v3H7z"/></svg>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M7 7h3v3H7zM14 7h3v3h-3zM7 14h3v3H7z"/></svg>
             <span data-i18n="act_pay_upi">Pay now by UPI</span>
           </button>
           <button id="btn-open-reminder-sheet" class="action-card-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
             <span data-i18n="act_set_reminder">Set reminder for myself</span>
           </button>
           <button id="btn-open-paid-sheet" class="action-card-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
             <span data-i18n="act_i_paid">I have paid</span>
           </button>
           <button id="btn-print-receipt" class="action-card-btn btn-print-receipt-full">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
             <span data-i18n="act_download_receipt">Download receipt</span>
           </button>
         </div>
@@ -330,7 +339,7 @@
       </div>
 
       <!-- FRIENDLY ERROR & STATE VIEW -->
-      <div id="error-view" class="card error-card-style hidden">
+      <div id="error-view" class="card error-card-style hidden" hidden>
         <div class="error-icon-style" aria-hidden="true">🔒</div>
         <h2 id="error-title" class="error-title-style">Link Inactive</h2>
         <p id="error-desc" class="error-desc-style">
@@ -348,7 +357,7 @@
     </main>
 
     <!-- MODAL 1: Report a Problem -->
-    <div id="dispute-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="title-dispute-sheet">
+    <div id="dispute-modal" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="title-dispute-sheet">
       <div class="sheet-card">
         <div class="sheet-handle"></div>
         <div class="sheet-header">
@@ -373,7 +382,7 @@
     </div>
 
     <!-- MODAL 2: I Have Paid -->
-    <div id="paid-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="title-paid-sheet">
+    <div id="paid-modal" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="title-paid-sheet">
       <div class="sheet-card">
         <div class="sheet-handle"></div>
         <div class="sheet-header">
@@ -402,7 +411,7 @@
     </div>
 
     <!-- MODAL 3: Choose Return Date -->
-    <div id="date-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="title-date-sheet">
+    <div id="date-modal" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="title-date-sheet">
       <div class="sheet-card">
         <div class="sheet-handle"></div>
         <div class="sheet-header">
@@ -432,7 +441,7 @@
     </div>
 
     <!-- MODAL 4: Reminder -->
-    <div id="reminder-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="title-reminder-sheet">
+    <div id="reminder-modal" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="title-reminder-sheet">
       <div class="sheet-card">
         <div class="sheet-handle"></div>
         <div class="sheet-header">
@@ -442,7 +451,7 @@
         <p class="notice-text-md" data-i18n="reminder_desc">
           Get an alert before the due date so you never forget.
         </p>
-        <a id="btn-google-cal" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-google-cal-style" data-i18n="btn_google_cal">
+        <a id="btn-google-cal" href="https://calendar.google.com" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-google-cal-style" data-i18n="btn_google_cal">
           Add to Google Calendar
         </a>
         <button id="btn-ics-cal" class="btn btn-secondary" data-i18n="btn_ics_cal">
@@ -459,7 +468,7 @@
     </div>
 
     <!-- MODAL 5: Pay Now by UPI -->
-    <div id="upi-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="title-upi-sheet">
+    <div id="upi-modal" class="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="title-upi-sheet">
       <div class="sheet-card">
         <div class="sheet-handle"></div>
         <div class="sheet-header">
@@ -479,7 +488,7 @@
         <div class="upi-actions-col">
           <div class="upi-actions-row">
             <button id="btn-copy-upi" class="btn btn-secondary flex-1" data-i18n="btn_copy_upi">Copy UPI ID</button>
-            <a id="btn-open-upi-app" href="#" class="btn btn-primary flex-1" data-i18n="btn_pay_app">Pay now</a>
+            <a id="btn-open-upi-app" href="upi://pay" class="btn btn-primary flex-1" data-i18n="btn_pay_app">Pay now</a>
           </div>
           <button id="btn-toggle-upi" class="btn-text" data-i18n="btn_toggle_upi">Show / Hide UPI ID</button>
         </div>

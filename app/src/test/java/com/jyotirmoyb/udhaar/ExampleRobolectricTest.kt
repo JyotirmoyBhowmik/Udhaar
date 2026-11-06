@@ -1181,7 +1181,7 @@ class ExampleRobolectricTest {
         val schemaContent = schemaFile!!.readText()
         assertTrue(schemaContent.contains("\"version\": 7"))
 
-        // 3. R8 keep rules cover SQLCipher, Firebase Messaging, and Room entities without disabling obfuscation
+        // 3. R8 keep rules cover SQLCipher JNI, Room @Entity/@Dao, and crash line numbers without broad package keeps or disabling obfuscation
         val proguardCandidates = listOf(
             java.io.File("proguard-rules.pro"),
             java.io.File("app/proguard-rules.pro")
@@ -1191,9 +1191,10 @@ class ExampleRobolectricTest {
         val proguardText = proguardFile!!.readText()
         assertTrue(proguardText.contains("-keep class net.zetetic.database.**"))
         assertTrue(proguardText.contains("-keep class net.zetetic.database.sqlcipher.**"))
-        assertTrue(proguardText.contains("-keep class com.google.firebase.messaging.**"))
         assertTrue(proguardText.contains("-keep @androidx.room.Entity class *"))
-        assertTrue(proguardText.contains("-keep class com.jyotirmoyb.udhaar.data.**"))
+        assertTrue(proguardText.contains("-keep @androidx.room.Dao class *"))
+        assertTrue(proguardText.contains("-keepattributes SourceFile,LineNumberTable"))
+        org.junit.Assert.assertFalse(proguardText.contains("-keep class com.jyotirmoyb.udhaar.data.**"))
         org.junit.Assert.assertFalse(proguardText.contains("-dontobfuscate"))
     }
 

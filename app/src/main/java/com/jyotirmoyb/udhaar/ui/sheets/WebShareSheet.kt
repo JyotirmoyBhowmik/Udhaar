@@ -129,12 +129,14 @@ fun WebShareSheet(
         val recipientName = transaction.partyName.ifBlank { "there" }
         val myName = settings.payeeName.ifBlank { "Udhaar" }
         val formattedAmount = InterestCalculator.formatPaise(transaction.principalAmountPaise, transaction.currency)
-        val roleDesc = if (transaction.transactionType == TransactionType.GIVEN) "lent" else "borrowed"
+        val roleDesc = if (transaction.transactionType == TransactionType.GIVEN) "lent by" else "borrowed by"
         val otpLine = if (!linkResult?.whatsappOtp.isNullOrBlank()) {
-            "\nYour WhatsApp verification code is: ${linkResult.whatsappOtp}"
+            "\n\n🔐 Verification Code: *${linkResult.whatsappOtp}*"
         } else ""
 
-        "Hi $recipientName, please review and verify our Udhaar record ($formattedAmount $roleDesc by $myName):\n" +
+        "*Udhaar Record Verification*\n" +
+                "Namaste $recipientName, please review our Udhaar record (*$formattedAmount* $roleDesc *$myName*):\n\n" +
+                "👇 *Tap link to review & confirm:*\n" +
                 "${linkResult?.url.orEmpty()}$otpLine"
     }
 

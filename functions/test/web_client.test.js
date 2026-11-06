@@ -91,4 +91,119 @@ test("Stage W2 Web Client UI & Zero-Cost WhatsApp OTP Verification", async (t) =
     const hsts = (uHeaders.headers || []).find((h) => h.key === "Strict-Transport-Security");
     assert.ok(hsts, "Strict-Transport-Security must be present");
   });
+
+  await t.test("10. OpenGraph WhatsApp Preview & Self-Contained Verification Link Decoding", () => {
+    assert.match(htmlContent, /property=["']og:title["']/i, "Must include OpenGraph og:title for WhatsApp link preview");
+    assert.match(htmlContent, /property=["']og:description["']/i, "Must include OpenGraph og:description for WhatsApp link preview");
+    assert.match(htmlContent, /property=["']og:image["']/i, "Must include OpenGraph og:image for WhatsApp link preview");
+
+    const { decodeEmbeddedVerificationToken } = require("../../web/u/guest.js");
+    assert.equal(typeof decodeEmbeddedVerificationToken, "function");
+
+    // Test compact v2 token decoding
+    const startMs = 1730000000000;
+    const rawV2 = `v2|k8m2p9x4q1|a7B9cD2eF4gH6jK8|G|Jyotirmoy|Ravi|1500||${startMs.toString(36)}`;
+    const tokenV2 = Buffer.from(rawV2, "utf8").toString("base64url");
+    const decodedV2 = decodeEmbeddedVerificationToken(tokenV2);
+    assert.ok(decodedV2, "Must decode compact v2 verification token");
+    assert.equal(decodedV2.recordId, "k8m2p9x4q1");
+    assert.equal(decodedV2.lenderName, "Jyotirmoy");
+    assert.equal(decodedV2.borrowerName, "Ravi");
+    assert.equal(decodedV2.principalAmount, 1500);
+    assert.equal(decodedV2.amountPaise, 150000);
+    assert.equal(decodedV2.isSelfContainedToken, true);
+
+    // Test legacy v1 token decoding
+    const rawV1 = `rid=rec-legacy&tok=tok-legacy&role=GIVEN&lender=Jyotirmoy&borrower=Ravi&amt=2500.00&cur=INR&start=${startMs}`;
+    const tokenV1 = Buffer.from(rawV1, "utf8").toString("base64url");
+    const decodedV1 = decodeEmbeddedVerificationToken(tokenV1);
+    assert.ok(decodedV1, "Must decode legacy v1 verification token");
+    assert.equal(decodedV1.recordId, "rec-legacy");
+    assert.equal(decodedV1.principalAmount, 2500);
+
+    // Verify all firebase.json /api/* rewrites are exported by functions/guestWebFlowEndpoints.js
+    const endpointsModule = require("../guestWebFlowEndpoints");
+    const apiRewrites = (firebaseJson.hosting.rewrites || []).filter((r) => r.source && r.source.startsWith("/api/"));
+    assert.ok(apiRewrites.length >= 8, "Expected all guest API rewrites in firebase.json");
+    for (const rw of apiRewrites) {
+      const fnName = rw.function && rw.function.functionId;
+      assert.equal(typeof endpointsModule[fnName], "function", `Cloud Function '${fnName}' for '${rw.source}' must be exported`);
+    }
+  });
+
+  await t.test("11. Nested Route Asset Resolution (/u/r/*) & Production OTP Auto-Jump / Paste / Backspace", () => {
+    // 1. <base href="/u/" /> ensures relative guest.css, guest.js, and ../assets/* resolve from /u/ on /u/r/<recordId>
+    assert.match(htmlContent, /<base\s+href=["']\/u\/["']\s*\/?>/i, "Must include <base href=\"/u/\"> so nested /u/r/* URLs load CSS/JS");
+    assert.match(cssContent, /\.hidden,\s*\[hidden\]\s*\{\s*display:\s*none\s*!important;/i, "Must enforce .hidden and [hidden] with !important");
+
+    // 2. firebase.json must rewrite /u/**/guest.css and /u/**/guest.js before /u/r/**
+    const rewrites = firebaseJson.hosting.rewrites || [];
+    const cssRewriteIdx = rewrites.findIndex((r) => r.source === "/u/**/guest.css" && r.destination === "/u/guest.css");
+    const jsRewriteIdx = rewrites.findIndex((r) => r.source === "/u/**/guest.js" && r.destination === "/u/guest.js");
+    const urRewriteIdx = rewrites.findIndex((r) => r.source === "/u/r/**");
+    assert.ok(cssRewriteIdx >= 0 && cssRewriteIdx < urRewriteIdx, "/u/**/guest.css rewrite must precede /u/r/**");
+    assert.ok(jsRewriteIdx >= 0 && jsRewriteIdx < urRewriteIdx, "/u/**/guest.js rewrite must precede /u/r/**");
+
+    // 3. Test bindOtpInputs auto-jump, overwrite, multi-digit Gboard paste, and Backspace navigation
+    const { bindOtpInputs } = require("../../web/u/guest.js");
+    assert.equal(typeof bindOtpInputs, "function", "bindOtpInputs must be exported for testing");
+
+    let focusedIdx = 0;
+    let completedCode = "";
+    const mockBoxes = Array.from({ length: 6 }, (_, i) => {
+      const listeners = {};
+      return {
+        value: "",
+        dataset: {},
+        addEventListener(type, fn) {
+          listeners[type] = fn;
+        },
+        focus() {
+          focusedIdx = i;
+          if (listeners.focus) listeners.focus({});
+        },
+        select() {},
+        trigger(type, eventObj) {
+          if (listeners[type]) listeners[type](eventObj);
+        }
+      };
+    });
+
+    bindOtpInputs(mockBoxes, (code) => {
+      completedCode = code;
+    });
+
+    // Single digit typing auto-jumps from box 0 -> 1 -> 2
+    mockBoxes[0].focus();
+    mockBoxes[0].value = "4";
+    mockBoxes[0].trigger("input", { target: mockBoxes[0] });
+    assert.equal(mockBoxes[0].value, "4");
+    assert.equal(focusedIdx, 1, "Typing digit in box 0 must auto-jump focus to box 1");
+
+    mockBoxes[1].value = "9";
+    mockBoxes[1].trigger("input", { target: mockBoxes[1] });
+    assert.equal(mockBoxes[1].value, "9");
+    assert.equal(focusedIdx, 2, "Typing digit in box 1 must auto-jump focus to box 2");
+
+    // Overwriting an existing digit when mobile IME appends to existing value ("4" -> "47")
+    mockBoxes[0].focus();
+    mockBoxes[0].value = "47";
+    mockBoxes[0].trigger("input", { target: mockBoxes[0] });
+    assert.equal(mockBoxes[0].value, "7", "Typing a new digit into a filled box must overwrite with the new digit");
+    assert.equal(focusedIdx, 1, "Overwriting a digit in box 0 must auto-jump focus to box 1");
+
+    // Backspace on empty box 2 clears box 1 and moves focus to box 1
+    mockBoxes[2].focus();
+    mockBoxes[2].trigger("keydown", { key: "Backspace", preventDefault() {} });
+    assert.equal(focusedIdx, 1, "Backspace on empty box 2 must move focus to box 1");
+    assert.equal(mockBoxes[1].value, "", "Backspace on empty box 2 must clear box 1");
+
+    // Multi-digit input from Android Gboard clipboard suggestion ("582913") fills all 6 boxes
+    mockBoxes[0].focus();
+    mockBoxes[0].value = "582913";
+    mockBoxes[0].trigger("input", { target: mockBoxes[0] });
+    assert.equal(mockBoxes.map((b) => b.value).join(""), "582913", "Multi-digit input must distribute across all 6 boxes");
+    assert.equal(focusedIdx, 5, "Focus must land on last box after 6-digit fill");
+    assert.equal(completedCode, "582913", "onComplete callback must receive full 6-digit code");
+  });
 });

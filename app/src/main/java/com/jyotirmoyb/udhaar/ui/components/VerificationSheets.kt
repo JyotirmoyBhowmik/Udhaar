@@ -298,20 +298,20 @@ fun VerificationShareSheet(
                     val calc = InterestCalculator.calculate(transaction)
                     val myName = settings.payeeName.ifBlank { "Udhaar User" }
                     val roleDesc = if (transaction.transactionType == TransactionType.GIVEN) {
-                        "$myName lent ${InterestCalculator.formatPaise(transaction.principalAmountPaise, transaction.currency)} to ${transaction.partyName}"
+                        "*$myName* lent *${InterestCalculator.formatPaise(transaction.principalAmountPaise, transaction.currency)}* to *${transaction.partyName}*"
                     } else {
-                        "$myName borrowed ${InterestCalculator.formatPaise(transaction.principalAmountPaise, transaction.currency)} from ${transaction.partyName}"
+                        "*$myName* borrowed *${InterestCalculator.formatPaise(transaction.principalAmountPaise, transaction.currency)}* from *${transaction.partyName}*"
                     }
                     buildString {
+                        append("*Udhaar Record Verification*\n")
                         append("Namaste ${transaction.partyName},\n\n")
-                        append("Please verify and confirm our Udhaar ledger entry:\n")
-                        append("• Summary: $roleDesc\n")
-                        append("• Net Balance: ${InterestCalculator.formatCurrency(calc.netBalanceDue, transaction.currency)}\n")
-                        append("• Content Hash: ${transaction.contentHash.take(16)}...\n")
+                        append("• $roleDesc\n")
+                        append("• Net Balance: *${InterestCalculator.formatCurrency(calc.netBalanceDue, transaction.currency)}*\n")
+                        append("• ID: `${transaction.contentHash.take(10)}`\n")
                         if (shareAttachmentsWithPerson && attachments.isNotEmpty()) {
-                            append("• Proofs Attached: ${attachments.size} document(s)\n")
+                            append("• Proofs: ${attachments.size} attached\n")
                         }
-                        append("\nConfirm or Dispute here (opens in Udhaar or Web):\n")
+                        append("\n👇 *Tap link to Confirm or Dispute (App or Web):*\n")
                         append(shareLink)
                     }
                 }
@@ -789,20 +789,20 @@ fun ShareMyPaymentDetailsSheet(
 
     val shareText = remember(settings, profileLink, targetParty) {
         buildString {
+            append("*Udhaar Payment Details*\n")
             if (targetParty != null) {
                 append("Namaste ${targetParty.name},\n\n")
             } else {
                 append("Namaste,\n\n")
             }
-            append("Here are my payment details from Udhaar:\n")
-            append("• Name: $myName\n")
+            append("• Name: *$myName*\n")
             if (settings.phoneNumber.isNotBlank()) {
                 append("• Phone: ${InterestCalculator.maskPhoneNumber(settings.phoneNumber)}\n")
             }
             if (settings.upiId.isNotBlank()) {
-                append("• UPI ID: ${InterestCalculator.maskUpiId(settings.upiId)}\n")
+                append("• UPI ID: `${InterestCalculator.maskUpiId(settings.upiId)}`\n")
             }
-            append("\nTap to save my UPI ID directly to your Udhaar Party book:\n")
+            append("\n👇 *Tap link to save UPI ID in Udhaar:*\n")
             append(profileLink)
         }
     }
@@ -1023,9 +1023,10 @@ fun RequestPartyPaymentDetailsSheet(
 
     val requestMessage = remember(party, myName) {
         buildString {
+            append("*Udhaar Payment Details Request*\n")
             append("Namaste ${party.name},\n\n")
-            append("$myName is requesting your UPI ID / payment details on Udhaar so payments can be settled quickly.\n\n")
-            append("In Udhaar, tap 'Share My Payment Details' and send your link back, or reply with your UPI ID:\n")
+            append("*$myName* requested your UPI ID on Udhaar for quick settlement.\n\n")
+            append("👇 *Tap to share your UPI ID or reply here:*\n")
             append(requestLink)
         }
     }

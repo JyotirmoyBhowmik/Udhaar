@@ -51,12 +51,31 @@ open class GuestWebRepository @Inject constructor(
             errorMessage = "Record not found"
         )
         val settings = settingsRepository.userSettings.first()
-        val remoteId = tx.remoteId.ifBlank { UUID.randomUUID().toString() }
+        val myName = settings.payeeName.ifBlank { "Udhaar User" }
+        val remoteId = tx.remoteId.ifBlank { com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.generateShortId(10) }
         val role = if (tx.transactionType == TransactionType.GIVEN) "BORROWER" else "LENDER"
+        val (lenderName, borrowerName) = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.resolveLenderAndBorrowerNames(
+            type = tx.transactionType,
+            partyName = tx.partyName,
+            myProfileName = myName,
+            explicitLenderName = tx.lenderName,
+            explicitBorrowerName = tx.borrowerName
+        )
+        val computedHash = tx.contentHash.ifBlank {
+            com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.computeTransactionContentHash(
+                tx = tx,
+                myProfileName = myName
+            )
+        }
 
-        // Ensure remoteId is saved locally
-        val preparedTx = if (tx.remoteId != remoteId) {
-            val updated = tx.copy(remoteId = remoteId)
+        // Ensure remoteId and canonical names/hash are saved locally
+        val preparedTx = if (tx.remoteId != remoteId || tx.contentHash != computedHash) {
+            val updated = tx.copy(
+                remoteId = remoteId,
+                lenderName = lenderName,
+                borrowerName = borrowerName,
+                contentHash = computedHash
+            )
             dao.updateTransaction(updated)
             updated
         } else tx
@@ -70,7 +89,18 @@ open class GuestWebRepository @Inject constructor(
             allowedActions = allowedActions,
             allowNote = allowNote,
             allowAttachments = allowAttachments,
-            showUpiQr = showUpiQr
+            showUpiQr = showUpiQr,
+            lenderName = lenderName,
+            borrowerName = borrowerName,
+            principalAmountPaise = preparedTx.principalAmountPaise,
+            amountPaidPaise = preparedTx.amountPaidPaise,
+            currency = preparedTx.currency.code,
+            startDateMillis = preparedTx.startDateMillis,
+            expiryDateMillis = preparedTx.expiryDateMillis,
+            note = if (allowNote) preparedTx.notes else "",
+            contentHash = computedHash,
+            lenderUpiId = if (showUpiQr) settings.upiId else "",
+            creatorPhone = settings.phoneNumber
         )
 
         if (result.success) {

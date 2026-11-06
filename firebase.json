@@ -90,7 +90,7 @@
           },
           {
             "key": "Content-Security-Policy",
-            "value": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://*.cloudfunctions.net https://asia-south1-*.cloudfunctions.net https://*.firebaseio.com; frame-ancestors 'none';"
+            "value": "default-src 'self'; base-uri 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://*.cloudfunctions.net https://asia-south1-*.cloudfunctions.net https://*.firebaseio.com; frame-ancestors 'none';"
           }
         ]
       },
@@ -136,7 +136,7 @@
           },
           {
             "key": "Content-Security-Policy",
-            "value": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://*.cloudfunctions.net https://asia-south1-*.cloudfunctions.net https://*.firebaseio.com; frame-ancestors 'none';"
+            "value": "default-src 'self'; base-uri 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://*.cloudfunctions.net https://asia-south1-*.cloudfunctions.net https://*.firebaseio.com; frame-ancestors 'none';"
           }
         ]
       },
@@ -169,12 +169,40 @@
           },
           {
             "key": "Content-Security-Policy",
-            "value": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://*.cloudfunctions.net https://asia-south1-*.cloudfunctions.net https://*.firebaseio.com; frame-ancestors 'none';"
+            "value": "default-src 'self'; base-uri 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://*.cloudfunctions.net https://asia-south1-*.cloudfunctions.net https://*.firebaseio.com; frame-ancestors 'none';"
           }
         ]
       }
     ],
     "rewrites": [
+      {
+        "source": "/guide",
+        "destination": "/guide/index.html"
+      },
+      {
+        "source": "/guide/**",
+        "destination": "/guide/index.html"
+      },
+      {
+        "source": "/u/**/guest.css",
+        "destination": "/u/guest.css"
+      },
+      {
+        "source": "/u/**/guest.js",
+        "destination": "/u/guest.js"
+      },
+      {
+        "source": "/u/**/qrcode.min.js",
+        "destination": "/assets/qrcode.min.js"
+      },
+      {
+        "source": "/u/**/icon.svg",
+        "destination": "/assets/icon.svg"
+      },
+      {
+        "source": "/u/**/icon.webp",
+        "destination": "/assets/icon.webp"
+      },
       {
         "source": "/u/r/**",
         "destination": "/u/index.html"
@@ -222,6 +250,20 @@
         "source": "/api/guestSetUpi",
         "function": {
           "functionId": "guestSetUpi",
+          "region": "asia-south1"
+        }
+      },
+      {
+        "source": "/api/verifyGuestPhoneOtp",
+        "function": {
+          "functionId": "verifyGuestPhoneOtp",
+          "region": "asia-south1"
+        }
+      },
+      {
+        "source": "/api/renewGuestCode",
+        "function": {
+          "functionId": "renewGuestCode",
           "region": "asia-south1"
         }
       },

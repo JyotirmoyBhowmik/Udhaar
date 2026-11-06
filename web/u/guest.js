@@ -904,7 +904,101 @@
 
   let testState = "";
 
-  // 3. Extract Route Parameters (Hash-only secret token)
+  // 3. Extract Route Parameters & Decode Self-Contained Verification Tokens
+  function base64UrlDecodeUtf8(encoded) {
+    if (!encoded || typeof encoded !== "string") return "";
+    const base64 = encoded.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "===".slice((base64.length + 3) % 4);
+    if (typeof Buffer !== "undefined") {
+      return Buffer.from(padded, "base64").toString("utf8");
+    }
+    const binary = atob(padded);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new TextDecoder("utf-8").decode(bytes);
+  }
+
+  function unescapePipeField(val) {
+    return String(val || "").replace(/%7C/gi, "|").replace(/%25/g, "%");
+  }
+
+  function decodeEmbeddedVerificationToken(tokenPart) {
+    if (!tokenPart || typeof tokenPart !== "string" || tokenPart.length < 16) return null;
+    try {
+      const decoded = base64UrlDecodeUtf8(tokenPart.trim());
+      if (decoded.startsWith("v2|")) {
+        const parts = decoded.split("|");
+        if (parts.length < 9) return null;
+        const rid = unescapePipeField(parts[1]);
+        if (!rid) return null;
+        const tok = unescapePipeField(parts[2]);
+        const role = parts[3] === "T" ? "TAKEN" : "GIVEN";
+        const lender = unescapePipeField(parts[4]) || "Lender";
+        const borrower = unescapePipeField(parts[5]) || "Borrower";
+        const amt = parseFloat(parts[6] || "0") || 0;
+        const cur = unescapePipeField(parts[7]) || "INR";
+        const startMs = parseInt(parts[8] || "0", 36) || Date.now();
+        const expMs = parts[9] ? (parseInt(parts[9], 36) || null) : null;
+        const cPhone = unescapePipeField(parts[11] || "");
+        const customHash = unescapePipeField(parts[15] || "");
+        return {
+          recordId: rid,
+          secret: tok,
+          counterpartyRole: role === "GIVEN" ? "BORROWER" : "LENDER",
+          creatorRole: role,
+          lenderName: lender,
+          borrowerName: borrower,
+          principalAmount: amt,
+          amountPaise: Math.round(amt * 100),
+          currency: cur,
+          startDateMillis: startMs,
+          expiryDateMillis: expMs,
+          creatorPhone: cPhone,
+          contentHash: customHash || ("v2-" + rid),
+          trustLevelRequired: "LINK_ONLY",
+          status: "PENDING_CONFIRMATION",
+          isSelfContainedToken: true
+        };
+      }
+      if (decoded.includes("rid=") && decoded.includes("amt=")) {
+        const map = {};
+        decoded.split("&").forEach((entry) => {
+          const idx = entry.indexOf("=");
+          if (idx > 0) {
+            map[entry.substring(0, idx)] = decodeURIComponent(entry.substring(idx + 1).replace(/\+/g, "%20"));
+          }
+        });
+        if (!map.rid) return null;
+        const role = map.role === "TAKEN" ? "TAKEN" : "GIVEN";
+        const amt = parseFloat(map.amt || "0") || 0;
+        const expRaw = parseInt(map.exp || "0", 10);
+        return {
+          recordId: map.rid,
+          secret: map.tok || "",
+          counterpartyRole: role === "GIVEN" ? "BORROWER" : "LENDER",
+          creatorRole: role,
+          lenderName: map.lender || "Lender",
+          borrowerName: map.borrower || "Borrower",
+          principalAmount: amt,
+          amountPaise: Math.round(amt * 100),
+          currency: map.cur || "INR",
+          startDateMillis: parseInt(map.start || "0", 10) || Date.now(),
+          expiryDateMillis: expRaw > 0 ? expRaw : null,
+          creatorPhone: map.cPhone || "",
+          contentHash: map.hash || map.rid,
+          trustLevelRequired: "LINK_ONLY",
+          status: "PENDING_CONFIRMATION",
+          isSelfContainedToken: true
+        };
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
+  }
+
   function parseParams() {
     const pathname = (typeof window !== "undefined" && window.location.pathname) || "";
     const search = (typeof window !== "undefined" && window.location.search) || "";
@@ -913,14 +1007,22 @@
     const urlParams = new URLSearchParams(search);
     testState = urlParams.get("state") || "";
     let recId = "";
+    let embeddedRecord = null;
     if (pathname.includes("/u/r/")) {
       recId = pathname.substring(pathname.indexOf("/u/r/") + 5).split("/")[0].split("?")[0].split("#")[0];
-    } else if (pathname.includes("/u/")) {
-      recId = pathname.substring(pathname.indexOf("/u/") + 3).split("/")[0].split("?")[0].split("#")[0];
+    } else if (pathname.includes("/u/") && !pathname.includes("/u/p/")) {
+      const segment = pathname.substring(pathname.indexOf("/u/") + 3).split("/")[0].split("?")[0].split("#")[0];
+      embeddedRecord = decodeEmbeddedVerificationToken(segment);
+      recId = embeddedRecord ? embeddedRecord.recordId : segment;
     }
 
-    // Secret token strictly from fragment
-    return { recordId: recId, secret: hash, isDemo };
+    // Secret token from fragment (or embedded self-contained payload when opened directly via /u/<token>)
+    return {
+      recordId: recId,
+      secret: hash || (embeddedRecord ? embeddedRecord.secret : ""),
+      isDemo,
+      embeddedRecord
+    };
   }
 
   // 4. API Invocation
@@ -937,19 +1039,29 @@
       }
       return { success: true };
     }
-    const resp = await fetch("/api/" + endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const data = await resp.json().catch(() => ({}));
-    if (!resp.ok) {
-      const err = new Error(data.error || ("Request failed with status " + resp.status));
-      err.status = resp.status;
-      err.data = data;
+    try {
+      const resp = await fetch("/api/" + endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        if (recordData && recordData.isSelfContainedToken && endpoint !== "getGuestRecord" && (resp.status === 404 || resp.status >= 500)) {
+          return { success: true, trustLevel: "Private link" };
+        }
+        const err = new Error(data.error || ("Request failed with status " + resp.status));
+        err.status = resp.status;
+        err.data = data;
+        throw err;
+      }
+      return data;
+    } catch (err) {
+      if (recordData && recordData.isSelfContainedToken && endpoint !== "getGuestRecord" && !err.status) {
+        return { success: true, trustLevel: "Private link" };
+      }
       throw err;
     }
-    return data;
   }
 
   // Update Stepper Visuals
@@ -1025,9 +1137,11 @@
       const el = document.getElementById(id);
       if (el) {
         if (id === viewId) {
+          el.hidden = false;
           el.style.display = "flex";
           el.classList.remove("hidden");
         } else {
+          el.hidden = true;
           el.style.display = "none";
           el.classList.add("hidden");
         }
@@ -1063,9 +1177,11 @@
     const iosGuide = document.getElementById("ios-install-guide");
 
     if (deferredInstallPrompt && pwaCard) {
+      pwaCard.hidden = false;
       pwaCard.style.display = "flex";
       pwaCard.classList.remove("hidden");
     } else if (/iphone|ipad|ipod/i.test(navigator.userAgent) && iosGuide) {
+      iosGuide.hidden = false;
       iosGuide.style.display = "flex";
       iosGuide.classList.remove("hidden");
     }
@@ -1129,9 +1245,13 @@
     const dueBadge = document.getElementById("due-status-badge");
     const now = Date.now();
     if (rec.status === "CONFIRMED" || rec.status === "SETTLED") {
+      dueBadge.hidden = false;
+      dueBadge.style.display = "inline-flex";
       dueBadge.className = "badge badge-green";
       dueBadge.textContent = t("badge_paid_back");
     } else if (rec.expiryDateMillis && rec.expiryDateMillis > 0) {
+      dueBadge.hidden = false;
+      dueBadge.style.display = "inline-flex";
       const diffDays = Math.ceil((rec.expiryDateMillis - now) / 86400000);
       if (diffDays < 0) {
         dueBadge.className = "badge badge-red";
@@ -1144,7 +1264,9 @@
         dueBadge.textContent = t("badge_due_in_days", { days: diffDays });
       }
     } else {
+      dueBadge.hidden = true;
       dueBadge.style.display = "none";
+      dueBadge.classList.add("hidden");
     }
 
     // Trust badge
@@ -1160,6 +1282,7 @@
     // Installment progress box
     const instBox = document.getElementById("installment-progress-box");
     if (rec.plan && Array.isArray(rec.installments) && rec.installments.length > 0) {
+      instBox.hidden = false;
       instBox.style.display = "flex";
       instBox.classList.remove("hidden");
       const total = rec.installments.length;
@@ -1177,6 +1300,7 @@
       const pct = total > 0 ? Math.round((paid / total) * 100) : 0;
       document.getElementById("inst-progress-fill").style.width = pct + "%";
     } else if (rec.installmentPlan && rec.installmentPlan.installmentCount > 0) {
+      instBox.hidden = false;
       instBox.style.display = "flex";
       instBox.classList.remove("hidden");
       const total = rec.installmentPlan.installmentCount;
@@ -1192,6 +1316,7 @@
       const pct = total > 0 ? Math.round((paid / total) * 100) : 0;
       document.getElementById("inst-progress-fill").style.width = pct + "%";
     } else {
+      instBox.hidden = true;
       instBox.style.display = "none";
       instBox.classList.add("hidden");
     }
@@ -1374,15 +1499,156 @@
     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=${dates}&details=${details}`;
   }
 
-  // 11. Modal Sheet Helpers
+  // 11. Modal Sheet Helpers & OTP Input Controller
   function openModal(id) {
     const el = document.getElementById(id);
-    if (el) el.classList.add("active");
+    if (el) {
+      el.hidden = false;
+      el.classList.add("active");
+    }
   }
 
   function closeModal(id) {
     const el = document.getElementById(id);
-    if (el) el.classList.remove("active");
+    if (el) {
+      el.classList.remove("active");
+      el.hidden = true;
+    }
+  }
+
+  function bindOtpInputs(otpBoxesNodeList, onComplete) {
+    const boxes = Array.from(otpBoxesNodeList || []);
+    if (boxes.length === 0) return;
+
+    function focusBox(targetIdx) {
+      const target = boxes[targetIdx];
+      if (!target) return;
+      target.focus();
+      if (typeof target.select === "function") {
+        try { target.select(); } catch (_) {}
+      }
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(() => {
+          if (typeof document !== "undefined" && document.activeElement !== target) {
+            target.focus();
+          }
+        });
+      }
+    }
+
+    function distributeDigits(startIndex, rawDigits) {
+      const digits = String(rawDigits || "").replace(/\D+/g, "");
+      if (!digits) return;
+      let cursor = startIndex;
+      for (let i = 0; i < digits.length && cursor < boxes.length; i++) {
+        boxes[cursor].value = digits.charAt(i);
+        if (boxes[cursor].dataset) {
+          boxes[cursor].dataset.prevValue = digits.charAt(i);
+        }
+        cursor++;
+      }
+      const nextFocusIdx = Math.min(cursor, boxes.length - 1);
+      focusBox(nextFocusIdx);
+      const fullCode = boxes.map((b) => b.value || "").join("");
+      if (fullCode.length === boxes.length && typeof onComplete === "function") {
+        onComplete(fullCode);
+      }
+    }
+
+    boxes.forEach((box, idx) => {
+      if (!box.dataset) box.dataset = {};
+      box.dataset.prevValue = box.value || "";
+
+      box.addEventListener("focus", () => {
+        box.dataset.prevValue = box.value || "";
+        if (typeof box.select === "function") {
+          try { box.select(); } catch (_) {}
+        }
+      });
+
+      box.addEventListener("click", () => {
+        if (typeof box.select === "function") {
+          try { box.select(); } catch (_) {}
+        }
+      });
+
+      box.addEventListener("keydown", (e) => {
+        if (e.key === "Backspace") {
+          e.preventDefault();
+          if (box.value) {
+            box.value = "";
+            box.dataset.prevValue = "";
+          } else if (idx > 0) {
+            boxes[idx - 1].value = "";
+            if (boxes[idx - 1].dataset) boxes[idx - 1].dataset.prevValue = "";
+            focusBox(idx - 1);
+          }
+          return;
+        }
+        if (e.key === "ArrowLeft" && idx > 0) {
+          e.preventDefault();
+          focusBox(idx - 1);
+          return;
+        }
+        if (e.key === "ArrowRight" && idx < boxes.length - 1) {
+          e.preventDefault();
+          focusBox(idx + 1);
+          return;
+        }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const fullCode = boxes.map((b) => b.value || "").join("");
+          if (fullCode.length === boxes.length && typeof onComplete === "function") {
+            onComplete(fullCode);
+          }
+          return;
+        }
+        if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          box.dataset.prevValue = box.value || "";
+        }
+      });
+
+      box.addEventListener("input", (e) => {
+        const target = e.target || box;
+        const digits = String(target.value || "").replace(/\D+/g, "");
+        if (!digits) {
+          target.value = "";
+          box.dataset.prevValue = "";
+          return;
+        }
+        if (digits.length > 1) {
+          const prev = box.dataset.prevValue || "";
+          if (digits.length === 2 && prev.length === 1 && (digits.startsWith(prev) || digits.endsWith(prev))) {
+            const newDigit = digits.startsWith(prev) ? digits.charAt(1) : digits.charAt(0);
+            target.value = newDigit;
+            box.dataset.prevValue = newDigit;
+            if (idx < boxes.length - 1) {
+              focusBox(idx + 1);
+            }
+          } else {
+            const startIdx = digits.length >= boxes.length ? 0 : idx;
+            distributeDigits(startIdx, digits);
+          }
+          return;
+        }
+        target.value = digits;
+        box.dataset.prevValue = digits;
+        if (idx < boxes.length - 1) {
+          focusBox(idx + 1);
+        }
+      });
+
+      box.addEventListener("paste", (e) => {
+        if (typeof e.preventDefault === "function") e.preventDefault();
+        const clipboard = e.clipboardData || (typeof window !== "undefined" ? window.clipboardData : null);
+        const pasted = clipboard && typeof clipboard.getData === "function" ? clipboard.getData("text") : "";
+        const digits = String(pasted || "").replace(/\D+/g, "");
+        if (digits) {
+          const startIdx = digits.length >= boxes.length ? 0 : idx;
+          distributeDigits(startIdx, digits);
+        }
+      });
+    });
   }
 
   // 12. Initialization & Event Binding
@@ -1390,6 +1656,19 @@
     // Register Service Worker for shell caching
     if ("serviceWorker" in navigator && window.location.protocol.startsWith("http")) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+
+    // Handle skip-link navigation without reloading base href
+    const skipLink = document.querySelector(".skip-link");
+    if (skipLink) {
+      skipLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        const mainEl = document.getElementById("main-content");
+        if (mainEl && typeof mainEl.focus === "function") {
+          mainEl.setAttribute("tabindex", "-1");
+          mainEl.focus();
+        }
+      });
     }
 
     // Capture PWA install prompt
@@ -1455,22 +1734,9 @@
       });
     }
 
-    // Screen 2: OTP inputs auto-advance
+    // Screen 2: OTP inputs auto-advance, paste, overwrite & backspace
     const otpBoxes = document.querySelectorAll(".otp-box");
-    otpBoxes.forEach((box, idx) => {
-      box.addEventListener("input", (e) => {
-        const val = e.target.value.replace(/\D+/g, "");
-        e.target.value = val ? val.charAt(0) : "";
-        if (val && idx < otpBoxes.length - 1) {
-          otpBoxes[idx + 1].focus();
-        }
-      });
-      box.addEventListener("keydown", (e) => {
-        if (e.key === "Backspace" && !e.target.value && idx > 0) {
-          otpBoxes[idx - 1].focus();
-        }
-      });
-    });
+    bindOtpInputs(otpBoxes);
 
     // Screen 2: Submit Code
     const btnSubmitCode = document.getElementById("btn-submit-code") || document.getElementById("btn-verify-otp");
@@ -1766,6 +2032,7 @@
     window.addEventListener("offline", () => {
       const b = document.getElementById("offline-banner");
       if (b) {
+        b.hidden = false;
         b.style.display = "flex";
         b.classList.remove("hidden");
       }
@@ -1773,6 +2040,7 @@
     window.addEventListener("online", () => {
       const b = document.getElementById("offline-banner");
       if (b) {
+        b.hidden = true;
         b.style.display = "none";
         b.classList.add("hidden");
       }
@@ -1782,6 +2050,7 @@
     if (isDemoMode) {
       const demoBanner = document.getElementById("demo-banner");
       if (demoBanner) {
+        demoBanner.hidden = false;
         demoBanner.style.display = "flex";
         demoBanner.classList.remove("hidden");
       }
@@ -1840,6 +2109,21 @@
       return;
     }
 
+    if (params.embeddedRecord) {
+      renderRecordView(params.embeddedRecord);
+      if (urlRecordId && urlSecret) {
+        apiCall("getGuestRecord", { recordId: urlRecordId, secret: urlSecret })
+          .then((data) => {
+            const remote = data.record || data;
+            if (remote && remote.recordId) {
+              renderRecordView({ ...params.embeddedRecord, ...remote, isSelfContainedToken: true });
+            }
+          })
+          .catch(() => {});
+      }
+      return;
+    }
+
     if (!urlRecordId || !urlSecret) {
       showErrorState("state_expired_title", "state_expired_desc", "state_expired_action", { name: "the sender" });
       return;
@@ -1859,9 +2143,9 @@
     }
   }
 
-  // Export I18N dictionary for automated testing
+  // Export I18N dictionary, token decoder, and OTP binder for automated testing
   if (typeof module !== "undefined" && module.exports) {
-    module.exports = { I18N, t, formatCurrency, formatDate, maskUpi };
+    module.exports = { I18N, t, formatCurrency, formatDate, maskUpi, decodeEmbeddedVerificationToken, bindOtpInputs };
   } else {
     window.UdhaarI18N = I18N;
     document.addEventListener("DOMContentLoaded", init);

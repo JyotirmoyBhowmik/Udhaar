@@ -1,14 +1,18 @@
-# Udhaar v21.0 — Offline-First Personal Loan & Khata Android Application
+# Udhaar v22.0 — Offline-First Personal Loan & Khata Android Application
 
-**Udhaar** (`com.jyotirmoyb.udhaar`, `v21.0` / `versionCode = 21`, Room Schema `v12`) is an offline-first Android application built with Kotlin, Jetpack Compose, Hilt, SQLCipher-encrypted Room SQLite, and optional zero-trust Firebase Cloud Verification & Encrypted Google Drive Backup for tracking personal and party-based records (**Given / Owed** and **Taken / Borrowed**) across **Indian Rupees (`INR ₹`)** and **Nepalese Rupees (`NPR रू`)** in **5 languages** (`English`, `Hindi`, `Bengali`, `Assamese`, and `Nepali`) and **8 curated visual themes** (including *Emerald Slate*, *Warm Paper Khata*, *Pure Monochrome*, *Forest Ink*, *Royal Indigo*, *Terracotta Clay*, *Midnight Ledger*, and *Obsidian Gold*).
+**Udhaar** (`com.jyotirmoyb.udhaar`, `v22.0` / `versionCode = 22`, Room Schema `v12`) is an offline-first Android application built with Kotlin, Jetpack Compose, Hilt, SQLCipher-encrypted Room SQLite, and optional zero-trust Firebase Cloud Verification & Encrypted Google Drive Backup for tracking personal and party-based records (**Given / Owed** and **Taken / Borrowed**) across **Indian Rupees (`INR ₹`)** and **Nepalese Rupees (`NPR रू`)** in **5 languages** (`English`, `Hindi`, `Bengali`, `Assamese`, and `Nepali`) and **8 curated visual themes** (including *Emerald Slate*, *Warm Paper Khata*, *Pure Monochrome*, *Forest Ink*, *Royal Indigo*, *Terracotta Clay*, *Midnight Ledger*, and *Obsidian Gold*).
 
 ---
 
-## 1. Key Features (v21.0)
+## 1. Key Features (v22.0)
 
 - **Exact Paise Money Engine (`Long` Minor Units Only):**
   - Every financial record (`UdhaarTransaction`, `PartialPayment`, `InstallmentPlan`, `Installment`), DAO query, repository, interest calculator (`InterestCalculator`), installment schedule (`InstallmentCalculator`), group split calculator (`GroupSplitCalculator`), and backup/export pipeline (`LedgerBackupManager`) uses **`Long` paise** (`100 paise = ₹1.00 / रू1.00`) as the sole source of truth with `BigDecimal` + `RoundingMode.HALF_UP` arithmetic.
   - Safe Room migrations (`MIGRATION_10_11` and `MIGRATION_11_12`) convert legacy `Double` amounts to `Long` paise, rebuild tables without floating-point columns, and verify row counts and paise sums before committing.
+- **Default-On R8 Shrinking, Narrow ProGuard Rules & `verifyReleaseR8` Guard:**
+  - `isMinifyEnabled = true` and `isShrinkResources = true` are **enabled by default** on the `release` build type in `app/build.gradle.kts` (opting out is only permitted via `-Pudhaar.r8=false` for local non-bundle debug iterations).
+  - The `verifyReleaseR8` Gradle task is wired as a mandatory dependency of `bundleRelease` / `packageReleaseBundle` and fails the build immediately if R8 minification or resource shrinking is disabled.
+  - Narrow `app/proguard-rules.pro` keeps only Room `@Entity` / `@Dao` / `RoomDatabase` / `Migration` / `@TypeConverter` classes, Android manifest entry points, AssistedInject `ListenableWorker` constructors, and required SQLCipher JNI / Tink AEAD reflection targets while preserving `SourceFile,LineNumberTable` for Play Console & Crashlytics stack trace deobfuscation.
 - **Hardware-Backed On-Device Security:**
   - Startup **Biometric Security Gate** (`BiometricPrompt` Fingerprint / Face Unlock + PBKDF2-HMAC-SHA256 salted PIN with exponential lockout backoff).
   - **SQLCipher 256-bit AES Room Database** (`udhaar_ledger.db`, Schema `v12`) + `EncryptedSharedPreferences` backed by Android Keystore `MasterKey`, with a self-healing schema verification and pre-migration emergency JSON export safeguard.
@@ -40,7 +44,11 @@ All primary UI screen entry points are modularized to stay well under 600 lines:
   - `PeopleDirectoryScreen.kt`, `PartyDirectoryCard.kt`, `PartyDetailScreen.kt`, `PartyDetailSummarySection.kt`
   - `AddEditUdhaarScreen.kt`, `AddEditPartyAndAmountSection.kt`, `AddEditTermsAndInterestSection.kt`, `AddEditAttachmentsAndDialogs.kt`
 - `app/schemas/com.jyotirmoyb.udhaar.data.UdhaarDatabase/` — Exported Room schemas `3.json` through `12.json`.
-- `.github/workflows/android-ci.yml` — GitHub Actions CI running unit tests, Android Lint, `ktlint`, R8 release build (`assembleRelease`), and Node Cloud Functions / Firestore rules tests on every push.
+- `.github/workflows/android-ci.yml` — GitHub Actions CI running:
+  1. `android-quality-and-release`: Unit tests, Robolectric smoke tests, Android Lint, `ktlint`, and R8 `assembleRelease`.
+  2. `bundle-release`: Decodes `RELEASE_KEYSTORE_BASE64`, runs `verifyReleaseR8` and signed `bundleRelease` with `STORE_PASSWORD` and `KEY_PASSWORD`, prints the AAB size and DEX size breakdown, and uploads `app-release.aab` and `app/build/outputs/mapping/release/mapping.txt` as build artifacts.
+  3. `emulator-smoke-test`: Runs the 6-part release smoke test suite on the `pixel6Api34` Gradle Managed Device emulator (`pixel6Api34DebugAndroidTest`) and Robolectric JVM runner (`ReleaseSmokeTest`).
+  4. `functions-and-rules-tests`: Runs Cloud Functions & Storage signed URL tests.
 
 ---
 
@@ -49,32 +57,55 @@ All primary UI screen entry points are modularized to stay well under 600 lines:
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Modular MVVM architecture, Hilt DI modules, domain ViewModels, and repositories.
 - [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) — Complete schema reference for Room SQLite tables (`v12`) and Cloud Firestore collections.
 - [`docs/SECURITY.md`](docs/SECURITY.md) — Zero-PII logging (`SafeLogger`), Secret Manager configuration, Play Console permission declarations, and Google Play Data Safety documentation.
-- [`docs/RELEASE_SMOKE_TEST_CHECKLIST.md`](docs/RELEASE_SMOKE_TEST_CHECKLIST.md) — Pre-release verification checklist covering biometric gate, paise-exact ledger math, migrations, backups, and R8 release builds.
+- [`docs/RELEASE_SMOKE_TEST_CHECKLIST.md`](docs/RELEASE_SMOKE_TEST_CHECKLIST.md) — Pre-release verification checklist, exact `bundleRelease` + `verifyReleaseR8` commands, and Play Console R8 / DEX verification steps.
 - [`FIREBASE_DEPLOY.md`](FIREBASE_DEPLOY.md) — Deployment guide for Firebase Hosting, Firestore & Storage rules, Cloud Functions secrets (`firebase functions:secrets:set UDHAAR_SERVER_SECRET`), and GCS 90-day lifecycle rules.
 
 ---
 
-## 4. Setup, Build & Test Instructions
+## 4. Setup, Build, Release Bundle & Play Console R8 Verification
 
 ### Prerequisites
 - Android SDK 36, JDK 11+
 - Gradle (invoked directly via `gradle` in the workspace root)
 
-### Build Commands
+### Exact Build & Release Bundle Commands
 ```bash
-# Compile Debug APK
+# 1. Compile Debug APK
 gradle assembleDebug
 
-# Compile Release APK / AAB with R8 minification & resource shrinking
-gradle assembleRelease
+# 2. Build Signed Release App Bundle (AAB) with R8 & Resource Shrinking (ON by default)
+#    bundleRelease automatically executes verifyReleaseR8 first and fails if R8 is disabled.
+gradle :app:verifyReleaseR8 :app:bundleRelease
+
+# 3. Build Signed Release APK with R8 & Resource Shrinking (ON by default)
+gradle :app:assembleRelease
+
+# 4. Opt-out of R8 ONLY for fast local non-bundle debug runs (blocked on bundleRelease):
+gradle :app:assembleRelease -Pudhaar.r8=false
 ```
 
-### Run Unit, Robolectric & Node Tests
+### How to Confirm Shrinking & R8 Metadata in Google Play Console
+1. **Verify locally before uploading (`app/build/outputs/bundle/release/app-release.aab`):**
+   - Check that `app/build/outputs/mapping/release/mapping.txt` exists and is non-empty.
+   - Run `unzip -l app/build/outputs/bundle/release/app-release.aab | grep -E "proguard\.map|classes.*\.dex"` to verify that `BUNDLE-METADATA/com.android.tools.build.obfuscation/proguard.map` is embedded inside the AAB and that the `base/dex/classes*.dex` total is shrunk well below the previous 47 MB unminified DEX size.
+2. **Confirm in Google Play Console after uploading the AAB:**
+   - Navigate to **Google Play Console $\rightarrow$ Udhaar (`com.jyotirmoyb.udhaar`) $\rightarrow$ Test and release $\rightarrow$ App bundle explorer** and select version **`22 (22.0)`**.
+   - **Details tab:** Verify that no *"unobfuscated code / missing deobfuscation file"* warning is shown.
+   - **Downloads tab $\rightarrow$ Assets and files:** Confirm **ReTrace mapping file (`mapping.txt`)** appears as **Available / Uploaded** (bundled automatically from `BUNDLE-METADATA/com.android.tools.build.obfuscation/proguard.map`; the standalone `app/build/outputs/mapping/release/mapping.txt` is also archived in CI artifacts).
+   - **Downloads tab $\rightarrow$ Download size:** Confirm the compressed download size and DEX footprint reflect R8 code and resource shrinking.
+
+### Run Unit, Release Smoke, Managed Emulator & Node Tests
 ```bash
+# Run Release Smoke Test Suite (cold start, add record, restore backup, open guest link, widget update, v11->v12 migration, R8 verification)
+gradle :app:testDebugUnitTest --tests com.jyotirmoyb.udhaar.ReleaseSmokeTest
+
+# Run Release Smoke Test Suite on Gradle Managed Device Emulator (Pixel 6 API 34)
+gradle :app:pixel6Api34DebugAndroidTest
+
 # Run JVM Unit Tests (paise property tests, InterestCalculator, GroupSplit, Reminders, Style Guide)
 gradle :app:testDebugUnitTest --tests com.jyotirmoyb.udhaar.ExampleUnitTest
 
-# Run Robolectric Suite (Room migrations 1->12, SQLCipher encryption, fontScale 2.0 touch targets, adaptive 600dp layout, telemetry & backup round-trip)
+# Run Full Robolectric Suite (Room migrations 1->12, SQLCipher encryption, fontScale 2.0 touch targets, adaptive 600dp layout, telemetry & backup round-trip)
 gradle :app:testDebugUnitTest --tests com.jyotirmoyb.udhaar.ExampleRobolectricTest
 
 # Run Cloud Functions & Storage Signed URL Tests
