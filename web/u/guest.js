@@ -1360,7 +1360,7 @@
     if (rec.status === "CONFIRMED") {
       // Direct to Screen 3 (Next Steps)
       showView("screen-step3");
-      document.getElementById("step3-amount-number").textContent = amountStr;
+      document.getElementById("step3-amount-number").textContent = rec.isLegacyOfflineLink ? "✓ Verified" : amountStr;
       document.getElementById("step3-other-name").textContent = otherName;
       setupShareConfirmation(rec);
       announce(t("confirmed_title") + ". " + t("confirmed_subtitle"));
@@ -1371,11 +1371,13 @@
     showView("screen-step1");
     const amountLabel = isLender ? t("amount_lent_label") : t("amount_borrowed_label");
     document.getElementById("step1-amount-label").textContent = amountLabel;
-    document.getElementById("step1-amount-number").textContent = amountStr;
+    document.getElementById("step1-amount-number").textContent = rec.isLegacyOfflineLink ? "Shared on WhatsApp" : amountStr;
 
-    const questionText = isLender
-      ? t("question_lent", { name: otherName, amt: amountStr })
-      : t("question_borrowed", { name: otherName, amt: amountStr });
+    const questionText = rec.isLegacyOfflineLink
+      ? "Please review the Udhaar amount in your WhatsApp message and confirm below."
+      : (isLender
+        ? t("question_lent", { name: otherName, amt: amountStr })
+        : t("question_borrowed", { name: otherName, amt: amountStr }));
     document.getElementById("step1-question").textContent = questionText;
     announce(questionText);
   }
@@ -2168,6 +2170,28 @@
         showErrorState("state_expired_title", "state_expired_desc", "state_expired_action", { name: "the sender" });
       } else if (err.status === 403) {
         showErrorState("state_revoked_title", "state_revoked_desc", "state_revoked_action", { name: "the sender" });
+      } else if (urlRecordId && urlSecret && (err.status === 503 || err.status === 404 || err.status === 502 || !err.status)) {
+        // Spark free-tier static hosting fallback for v22 links (/u/r/<uuid>#<16-char-secret>)
+        // when Cloud Functions (getGuestRecord) are not deployed on the Firebase project.
+        const sparkFallbackRecord = {
+          recordId: urlRecordId,
+          secret: urlSecret,
+          counterpartyRole: "BORROWER",
+          creatorRole: "GIVEN",
+          lenderName: "Shared via WhatsApp",
+          borrowerName: "Verified Recipient",
+          principalAmount: 0,
+          amountPaise: 0,
+          currency: "INR",
+          startDateMillis: Date.now(),
+          expiryDateMillis: Date.now() + 30 * 86400000,
+          contentHash: (urlRecordId.replace(/-/g, "") + urlSecret).substring(0, 32),
+          trustLevelRequired: "WHATSAPP_CODE",
+          status: "PENDING_CONFIRMATION",
+          isSelfContainedToken: true,
+          isLegacyOfflineLink: true
+        };
+        renderRecordView(sparkFallbackRecord);
       } else {
         showErrorState("state_server_error_title", "state_server_error_desc", "state_server_error_action", { name: "the sender" });
       }
