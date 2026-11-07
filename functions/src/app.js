@@ -6,6 +6,7 @@
 
 const express = require("express");
 const { createAuthRouter } = require("./auth/authEndpoints");
+const { createLedgerRouter } = require("./ledger/ledgerEndpoints");
 const { problemDetailsErrorHandler } = require("./middleware/authMiddleware");
 
 function createApiApp() {
@@ -38,6 +39,8 @@ function createApiApp() {
   // Mount API v1 router
   const apiV1Router = express.Router();
   apiV1Router.use(createAuthRouter());
+  apiV1Router.use("/ledger", createLedgerRouter());
+  apiV1Router.use(createLedgerRouter());
 
   app.use("/api/v1", apiV1Router);
   app.use("/api", apiV1Router); // rewrite fallback
