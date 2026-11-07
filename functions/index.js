@@ -326,3 +326,8 @@ exports.onPartialPaymentWrittenPush = onDocumentWritten(
 
 // Guest Web Flow Endpoints (Stage W1)
 Object.assign(exports, require('./guestWebFlowEndpoints'));
+
+// Udhaar Platform v2 Central API (Stage S1)
+const { createApiApp } = require("./src/app");
+exports.api = onRequest({ region: "asia-south1" }, createApiApp());
+

@@ -698,5 +698,60 @@ service cloud.firestore {
     match /webLinks/{recordId} {
       allow read, write: if false;
     }
+
+    // =========================================================================
+    // 9. Platform v2 Ledger Collections & Indexes (Admin SDK Only / Deny Direct Client)
+    // =========================================================================
+    match /phoneIndex/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /emailIndex/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /otpChallenges/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /rateLimits/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /auditLogs/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /users/{userId}/records/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /users/{userId}/people/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /users/{userId}/events/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /users/{userId}/plans/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /users/{userId}/attachments/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /users/{userId}/changeLog/{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // 10. Platform v2 Real-Time Sync Signaling (Owner-Only Read, Server-Only Write)
+    // =========================================================================
+    match /users/{userId}/syncSignal/current {
+      allow read: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow write: if false;
+    }
   }
 }

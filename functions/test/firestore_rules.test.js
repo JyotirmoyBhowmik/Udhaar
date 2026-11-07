@@ -24,6 +24,34 @@ test("firestore.rules locks down /webLinks/{recordId} to Cloud Functions Admin S
   assert.match(rulesText, /allow read, write:\s*if false/);
 });
 
+test("firestore.rules locks down Platform v2 ledger collections and indexes (deny-by-default for clients)", () => {
+  const deniedCollections = [
+    "/phoneIndex/{document=**}",
+    "/emailIndex/{document=**}",
+    "/otpChallenges/{document=**}",
+    "/rateLimits/{document=**}",
+    "/auditLogs/{document=**}",
+    "/users/{userId}/records/{document=**}",
+    "/users/{userId}/people/{document=**}",
+    "/users/{userId}/events/{document=**}",
+    "/users/{userId}/plans/{document=**}",
+    "/users/{userId}/attachments/{document=**}",
+    "/users/{userId}/changeLog/{document=**}",
+  ];
+
+  for (const coll of deniedCollections) {
+    const escaped = coll.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(`match\\s+${escaped}\\s*\\{\\s*allow\\s+read,\\s*write:\\s*if\\s+false;?\\s*\\}`);
+    assert.match(rulesText, pattern, `Expected deny rule for ${coll}`);
+  }
+});
+
+test("firestore.rules allows owner-only read on /users/{userId}/syncSignal/current and denies client writes", () => {
+  assert.match(rulesText, /match \/users\/\{userId\}\/syncSignal\/current/);
+  assert.match(rulesText, /allow read:\s*if isSignedIn\(\) && isValidId\(userId\) && request\.auth\.uid == userId;/);
+  assert.match(rulesText, /allow write:\s*if false;/);
+});
+
 test("storage.rules sets allow create: if false for clients so uploads happen only via signed URLs or Admin SDK", () => {
   assert.match(storageRulesText, /match \/payment_proofs\/\{recordId\}\/\{fileName\}/);
   assert.match(storageRulesText, /match \/guest_proofs\/\{recordId\}\/\{fileName\}/);
