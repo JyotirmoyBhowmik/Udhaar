@@ -70,13 +70,29 @@
 ## 7. Observability, Backups & SRE Gate (SRE Lead)
 - [x] **Structured JSON Logging**: Enterprise logging with automatic PII sanitization. [Proof: `functions/src/observability/logger.js`, Test: `functions/test/stage_s9_observability.test.js`]
 - [x] **W3C Distributed Tracing**: Standard `traceparent` and correlation IDs propagated end-to-end. [Proof: `functions/src/observability/tracingMiddleware.js`, Test: `functions/test/stage_s9_observability.test.js`]
+- [x] **Fault Injection & Chaos Recovery**: Multi-device sync under network latency, mid-batch dropped writes, cold-start instance crashes, and idempotency recovery pass atomically. [Proof: `functions/src/sync/syncService.js`, Test: `functions/test/stage_r9_chaos.test.js`]
+- [x] **Threat Model Defenses**: Strict IDOR isolation on records/sync streams/DEKs, replay attack protection, constant-time verification, spoofed IP rate limiting, and instant cryptographic shredding. [Proof: `functions/src/crypto/envelopeCrypto.js`, Test: `functions/test/stage_r9_security.test.js`]
+- [x] **Disaster Recovery Runbook**: Documented and tested procedures for Point-in-Time Recovery (PITR), Cloud KMS key compromise with bulk DEK re-wrapping, and emergency session revocation. [Proof: `docs/runbooks/disaster-recovery.md`, Test: `functions/test/stage_r9_chaos.test.js`]
 - [ ] **SLO Dashboards**: API availability $\ge 99.9\%$, latency $p95 < 500\text{ms}$, OTP delivery $< 20\text{s}$ backed by Cloud Monitoring. *(Status: Pending live GCP metrics deployment)*
 - [ ] **Automated PITR Backups**: Hourly incremental and daily full backups to `gs://udhaar-backups-asia-south1/` sealed with SHA-256 manifests. *(Status: Code written; GCS bucket provision pending)*
 - [ ] **Emergency Rollback**: One-command instant rollback script (`./scripts/rollback.sh` / `.\scripts\rollback.ps1`) verified in live production environment. *(Status: Script tested in sandbox; live run pending)*
 
 ---
 
-## 8. Staged Rollout Timeline & Sign-Off
+## 8. Real-Device Manual Verification Gate (Hardware & Live Carrier Testing)
+> [!NOTE]
+> Physical hardware, carrier network, and biometric verifications must be executed on real devices prior to promoting Canary Phase 1 to General Availability.
+
+- [ ] **Physical Camera & Optical Scanning**: Verify receipt capture and barcode scanning on physical budget handsets (e.g. Redmi 9A, Samsung Galaxy M04) where autofocus or camera hardware is limited (`uses-feature required="false"`).
+- [ ] **Indian Telco Carrier SMS Interoperability**: Validate live OTP delivery latencies across Jio, Airtel, Vodafone Idea (Vi), and BSNL networks with registered DLT Principal Entity and Template IDs.
+- [ ] **Biometric Prompt Hardware Verification**: Test biometric screen unlock on Android 13, 14, and 15 physical devices with fingerprint sensors, face unlock, and device PIN/pattern fallback.
+- [ ] **Meta WhatsApp Cloud API Live Webhook**: Test live two-way webhook delivery, read receipts, and incoming OTP response tracking on physical WhatsApp SIM.
+- [ ] **Physical Touch Target Ergonomics**: Validate that all interactive buttons and inputs meet the $\ge 48\text{dp}$ touch target requirement on physical 5.5" to 6.7" screens.
+- [ ] **Airplane Mode Reconnection Drill**: Execute rapid toggling of Airplane Mode during active offline ledger edits on physical device and verify convergence upon reconnection without data loss.
+
+---
+
+## 9. Staged Rollout Timeline & Sign-Off
 
 | Phase | Traffic Allocation | Soak Duration | Exit Criteria |
 | :--- | :--- | :--- | :--- |
@@ -85,4 +101,4 @@
 | **General Availability** | **100%** | Permanent | Full global release promoted to live production |
 
 **Audit Status**:
-- **Baseline Audit (Stage R0)**: Complete. 24 items proven, 12 items pending completion across Stages R6–R8.
+- **Audit Update (Stage R9 Complete)**: All core architecture, persistence, cryptography, sessions, sync, web, admin, and chaos/security gates are fully implemented, verified, and automated in CI. 28 items proven with automated test assertions. Real-device manual verifications outlined for live production canary deployment.

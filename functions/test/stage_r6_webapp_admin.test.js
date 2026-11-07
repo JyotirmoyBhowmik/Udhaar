@@ -438,6 +438,7 @@ test("Stage R6 Playwright E2E: PWA Shell, 5 Languages, and axe-core 0-violations
 
   } finally {
     await browser.close();
+    server.closeAllConnections?.();
     server.close();
   }
 });
