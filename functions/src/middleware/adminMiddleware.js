@@ -61,7 +61,47 @@ function requireAdminRole(allowedRoles = ["ADMIN", "OPERATOR", "AUDITOR"]) {
       });
     }
 
-    // 2. Resolve admin role
+    // 2. IP Allowlist Enforcement
+    const allowlistEnv = process.env.ADMIN_IP_ALLOWLIST;
+    const clientIp = (
+      (req.headers["x-forwarded-for"] || "").split(",")[0].trim() ||
+      req.ip ||
+      req.socket?.remoteAddress ||
+      "127.0.0.1"
+    );
+
+    if (allowlistEnv) {
+      const allowedIps = allowlistEnv.split(",").map(ip => ip.trim()).filter(Boolean);
+      const isAllowed = allowedIps.includes(clientIp) || allowedIps.includes("*");
+      if (!isAllowed) {
+        return sendProblemDetails(res, {
+          status: 403,
+          code: "ERR_ADMIN_IP_NOT_ALLOWED",
+          title: "Forbidden",
+          detail: "Access denied. Client IP is not in admin allowlist."
+        });
+      }
+    }
+
+    // 3. Multi-Factor Authentication (MFA) Enforcement
+    const claims = req.user.claims || {};
+    const hasMfa = claims.mfa_enforced === true ||
+      claims.sign_in_second_factor != null ||
+      (claims.firebase && claims.firebase.sign_in_second_factor != null);
+
+    const isProductionOrStaging = ["production", "staging"].includes(process.env.NODE_ENV) ||
+      ["production", "staging"].includes(process.env.UDHAAR_ENV);
+
+    if ((isProductionOrStaging && !hasMfa) || claims.mfa_enforced === false) {
+      return sendProblemDetails(res, {
+        status: 403,
+        code: "ERR_ADMIN_MFA_REQUIRED",
+        title: "Forbidden",
+        detail: "Multi-Factor Authentication (MFA) is strictly required for administrative console access."
+      });
+    }
+
+    // 4. Resolve admin role
     const userRole = adminRoles[req.user.uid] || req.user.role || (req.user.claims && req.user.claims.adminRole);
 
     if (!userRole || !normalizedAllowed.includes(String(userRole).toUpperCase())) {

@@ -1,8 +1,11 @@
+/// <reference lib="webworker" />
+
 /**
  * Udhaar Web App Service Worker (webapp/src/pwa/sw.js)
  * Implements App Shell caching, offline navigation fallback, and network resilience.
  */
 
+// @ts-nocheck
 const CACHE_NAME = "udhaar-app-shell-v2.0";
 const PRECACHE_URLS = [
   "/",

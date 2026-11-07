@@ -978,4 +978,13 @@
     <string name="account_sign_out_confirm_message">साइन आउट करने से क्लाउड सिंक रुक जाएगा। आपके सभी रिकॉर्ड इस फोन पर सुरक्षित रहेंगे।</string>
     <string name="account_switch_to_signup">खाता नहीं है? नया बनाएं</string>
     <string name="account_switch_to_signin">पहले से खाता है? साइन इन करें</string>
+    <string name="account_user_id_fmt">यूज़र आईडी: %1$s</string>
+    <string name="account_phone_fmt">फ़ोन: %1$s</string>
+    <string name="account_email_fmt">ईमेल: %1$s</string>
+    <string name="account_device_id_fmt">डिवाइस आईडी: %1$s</string>
+    <string name="account_conflict_item_fmt">%1$s (₹%2$d)</string>
+    <string name="account_toast_code_sent">व्हाट्सएप के ज़रिए सत्यापन कोड भेजा गया</string>
+    <string name="account_toast_sync_triggered">सिंक शुरू हुआ</string>
+    <string name="account_toast_sync_enabled">क्लाउड सिंक चालू किया गया</string>
+    <string name="account_toast_signed_out">सफलतापूर्वक साइन आउट किया गया</string>
 </resources>

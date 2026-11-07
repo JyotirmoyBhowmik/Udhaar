@@ -978,4 +978,13 @@
     <string name="account_sign_out_confirm_message">साइन आउट गर्दा क्लाउड सिङ्क रोकिनेछ। तपाईंका सबै रेकर्डहरू यस फोनमा सुरक्षित रहनेछन्।</string>
     <string name="account_switch_to_signup">खाता छैन? नयाँ खोल्नुहोस्</string>
     <string name="account_switch_to_signin">पहिले नै खाता छ? साइन इन गर्नुहोस्</string>
+    <string name="account_user_id_fmt">प्रयोगकर्ता आईडी: %1$s</string>
+    <string name="account_phone_fmt">फोन: %1$s</string>
+    <string name="account_email_fmt">इमेल: %1$s</string>
+    <string name="account_device_id_fmt">उपकरण आईडी: %1$s</string>
+    <string name="account_conflict_item_fmt">%1$s (₹%2$d)</string>
+    <string name="account_toast_code_sent">ह्वाट्सएप मार्फत प्रमाणीकरण कोड पठाइयो</string>
+    <string name="account_toast_sync_triggered">सिङ्क सुरु भयो</string>
+    <string name="account_toast_sync_enabled">क्लाउड सिङ्क सक्षम पारियो</string>
+    <string name="account_toast_signed_out">सफलतापूर्वक साइन आउट गरियो</string>
 </resources>

@@ -58,6 +58,13 @@ class SignInView {
           <p id="signin-phone-error" class="form-error" style="display: none;"></p>
         </div>
 
+        <div class="form-group checkbox-group" style="margin-top: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="public-computer-checkbox" class="checkbox-input">
+          <label for="public-computer-checkbox" class="form-label" style="margin-bottom: 0; font-size: 0.875rem;">
+            ${t("public_computer_label")}
+          </label>
+        </div>
+
         <button type="submit" id="signin-submit-btn" class="btn btn-primary" style="margin-top: 1rem;">
           ${t("send_login_code")}
         </button>
@@ -83,6 +90,9 @@ class SignInView {
         errEl.style.display = "block";
         return;
       }
+
+      const publicBox = card.querySelector("#public-computer-checkbox");
+      this.isPublicComputer = publicBox ? !!publicBox.checked : false;
 
       errEl.style.display = "none";
       submitBtn.disabled = true;
@@ -200,6 +210,15 @@ class SignInView {
         code
       });
 
+      if (this.isPublicComputer) {
+        if (typeof sessionStorage !== "undefined") {
+          sessionStorage.setItem("udhaar_public_mode", "true");
+        }
+        if (typeof localStorage !== "undefined") {
+          localStorage.setItem("udhaar_lock_timeout_mins", "2");
+        }
+      }
+
       this._clearIntervals();
       this.onToast(`Welcome back, ${res.user.displayName}!`);
       this.router.navigate("#dashboard");
@@ -240,7 +259,8 @@ class SignInView {
 
       input.addEventListener("paste", (e) => {
         e.preventDefault();
-        const text = (e.clipboardData || window.clipboardData).getData("text").replace(/[^0-9]/g, "");
+        const clipData = e.clipboardData || (typeof window !== "undefined" && /** @type {any} */ (window).clipboardData);
+        const text = clipData ? clipData.getData("text").replace(/[^0-9]/g, "") : "";
         if (text) {
           const chars = text.slice(0, 6).split("");
           chars.forEach((char, i) => {

@@ -947,7 +947,7 @@
     <string name="settings_group_records_by_person_subtitle">Group records on the home screen by person</string>
     <!-- Stage R5: Account and Web Access -->
     <string name="account_and_web_access_title">Account and web access</string>
-    <string name="account_and_web_access_subtitle">Access your ledger on the web and sync between devices (Optional)</string>
+    <string name="account_and_web_access_subtitle">Access your records on the web and sync between devices (Optional)</string>
     <string name="account_sync_status_title">Cloud sync</string>
     <string name="account_sync_status_off">Off (100% stored on this device only)</string>
     <string name="account_sync_status_on">Cloud sync active</string>
@@ -978,4 +978,13 @@
     <string name="account_sign_out_confirm_message">Signing out stops cloud sync. All your records stay safely on this phone.</string>
     <string name="account_switch_to_signup">Don\'t have an account? Create one</string>
     <string name="account_switch_to_signin">Already have an account? Sign in</string>
+    <string name="account_user_id_fmt">User ID: %1$s</string>
+    <string name="account_phone_fmt">Phone: %1$s</string>
+    <string name="account_email_fmt">Email: %1$s</string>
+    <string name="account_device_id_fmt">Device ID: %1$s</string>
+    <string name="account_conflict_item_fmt">%1$s (₹%2$d)</string>
+    <string name="account_toast_code_sent">Verification code sent via WhatsApp</string>
+    <string name="account_toast_sync_triggered">Sync triggered</string>
+    <string name="account_toast_sync_enabled">Cloud sync enabled</string>
+    <string name="account_toast_signed_out">Signed out successfully</string>
 </resources>

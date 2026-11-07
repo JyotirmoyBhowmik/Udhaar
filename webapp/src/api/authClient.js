@@ -4,6 +4,22 @@
  * and formats RFC 9457 Problem Details for friendly UI presentation.
  */
 
+class AuthError extends Error {
+  /**
+   * @param {string} message
+   * @param {string} code
+   * @param {number} status
+   * @param {any} [details]
+   */
+  constructor(message, code, status, details = null) {
+    super(message);
+    this.name = "AuthError";
+    this.code = code;
+    this.status = status;
+    this.details = details;
+  }
+}
+
 class AuthClient {
   constructor(baseUrl = "") {
     this.baseUrl = baseUrl;
@@ -41,11 +57,12 @@ class AuthClient {
     }
 
     if (!res.ok) {
-      const err = new Error(data.detail || data.title || "Authentication request failed");
-      err.code = data.code || "ERR_AUTH_FAILED";
-      err.status = res.status;
-      err.details = data.invalidParams || null;
-      throw err;
+      throw new AuthError(
+        data.detail || data.title || "Authentication request failed",
+        data.code || "ERR_AUTH_FAILED",
+        res.status,
+        data.invalidParams || null
+      );
     }
 
     return data;
@@ -148,11 +165,27 @@ class AuthClient {
   }
 
   async signOut() {
-    const res = await fetch(`${this.baseUrl}/api/v1/auth/session/signout`, {
-      method: "POST",
-      headers: this._getHeaders()
-    });
-    return this._handleResponse(res);
+    try {
+      await fetch(`${this.baseUrl}/api/v1/auth/session/signout`, {
+        method: "POST",
+        headers: this._getHeaders()
+      });
+    } catch (_) {}
+
+    if (typeof localStorage !== "undefined") {
+      localStorage.clear();
+    }
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.clear();
+    }
+    try {
+      const { ledgerDb } = require("../db/ledgerDb");
+      if (ledgerDb && ledgerDb.clearAll) {
+        await ledgerDb.clearAll();
+      }
+    } catch (_) {}
+
+    return { success: true };
   }
 
   async upgradeGuestRecord({ recordId, rawToken }) {

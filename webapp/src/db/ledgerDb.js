@@ -6,6 +6,7 @@
 
 const DB_NAME = "udhaar_ledger_db";
 const DB_VERSION = 2;
+const { encryptedCache } = require("./encryptedCache");
 
 class MockObjectStore {
   constructor(name, keyPath, autoIncrement = false) {
@@ -70,8 +71,8 @@ class LedgerDatabase {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-      request.onupgradeneeded = (event) => {
-        const db = event.target.result;
+      request.onupgradeneeded = () => {
+        const db = request.result;
 
         // 1. Records store
         if (!db.objectStoreNames.contains("records")) {
@@ -112,17 +113,21 @@ class LedgerDatabase {
         }
       };
 
-      request.onsuccess = (event) => {
-        this.db = event.target.result;
+      request.onsuccess = () => {
+        this.db = request.result;
         resolve(this);
       };
 
-      request.onerror = (event) => {
-        reject(event.target.error);
+      request.onerror = () => {
+        reject(request.error);
       };
     });
   }
 
+  /**
+   * @param {string} storeName
+   * @param {IDBTransactionMode} [mode="readonly"]
+   */
   _getStore(storeName, mode = "readonly") {
     if (this.isMock) {
       return this.mockStores[storeName];
@@ -131,35 +136,46 @@ class LedgerDatabase {
     return tx.objectStore(storeName);
   }
 
-  // Record operations
+  // Record operations with transparent AES-GCM-256 client cache encryption
   async putRecord(record) {
-    if (this.isMock) return this.mockStores.records.put(record);
+    const toStore = await encryptedCache.encryptRecord(record);
+    if (this.isMock) return this.mockStores.records.put(toStore);
     return new Promise((resolve, reject) => {
       const store = this._getStore("records", "readwrite");
-      const req = store.put(record);
+      const req = store.put(toStore);
       req.onsuccess = () => resolve(record.syncId);
       req.onerror = () => reject(req.error);
     });
   }
 
   async getRecord(syncId) {
-    if (this.isMock) return this.mockStores.records.get(syncId);
-    return new Promise((resolve, reject) => {
-      const store = this._getStore("records", "readonly");
-      const req = store.get(syncId);
-      req.onsuccess = () => resolve(req.result || null);
-      req.onerror = () => reject(req.error);
-    });
+    let raw;
+    if (this.isMock) {
+      raw = await this.mockStores.records.get(syncId);
+    } else {
+      raw = await new Promise((resolve, reject) => {
+        const store = this._getStore("records", "readonly");
+        const req = store.get(syncId);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    return raw ? await encryptedCache.decryptRecord(raw) : null;
   }
 
   async getAllRecords() {
-    if (this.isMock) return this.mockStores.records.getAll();
-    return new Promise((resolve, reject) => {
-      const store = this._getStore("records", "readonly");
-      const req = store.getAll();
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = () => reject(req.error);
-    });
+    let list;
+    if (this.isMock) {
+      list = await this.mockStores.records.getAll();
+    } else {
+      list = await new Promise((resolve, reject) => {
+        const store = this._getStore("records", "readonly");
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+    }
+    return Promise.all((list || []).map(r => encryptedCache.decryptRecord(r)));
   }
 
   // Payment operations
@@ -307,6 +323,7 @@ class LedgerDatabase {
   }
 
   async clearAll() {
+    encryptedCache.clearKey();
     if (this.isMock) {
       for (const s of Object.values(this.mockStores)) {
         await s.clear();
@@ -318,6 +335,7 @@ class LedgerDatabase {
     for (const name of storeNames) {
       tx.objectStore(name).clear();
     }
+    /** @type {Promise<void>} */
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);

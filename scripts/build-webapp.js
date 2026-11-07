@@ -28,6 +28,7 @@ console.log("▶ [1/5] Bundling JavaScript modules into app.js...");
 const moduleFiles = [
   { name: "i18n", path: path.join(WEBAPP_DIR, "src/i18n/index.js") },
   { name: "hlc", path: path.join(WEBAPP_DIR, "src/sync/hlc.js") },
+  { name: "encryptedCache", path: path.join(WEBAPP_DIR, "src/db/encryptedCache.js") },
   { name: "ledgerDb", path: path.join(WEBAPP_DIR, "src/db/ledgerDb.js") },
   { name: "syncEngine", path: path.join(WEBAPP_DIR, "src/sync/syncEngine.js") },
   { name: "authClient", path: path.join(WEBAPP_DIR, "src/api/authClient.js") },
@@ -61,21 +62,22 @@ let bundleCode = `/**
 for (const mod of moduleFiles) {
   let content = fs.readFileSync(mod.path, "utf8");
   // Normalize require paths inside modules
-  content = content.replace(/require\(["']\.\.\/i18n["']\)/g, '__require("i18n")');
-  content = content.replace(/require\(["']\.\.\/db\/ledgerDb["']\)/g, '__require("ledgerDb")');
-  content = content.replace(/require\(["']\.\/hlc["']\)/g, '__require("hlc")');
-  content = content.replace(/require\(["']\.\.\/sync\/hlc["']\)/g, '__require("hlc")');
-  content = content.replace(/require\(["']\.\.\/sync\/syncEngine["']\)/g, '__require("syncEngine")');
-  content = content.replace(/require\(["']\.\.\/api\/authClient["']\)/g, '__require("authClient")');
-  content = content.replace(/require\(["']\.\.\/routes\/router["']\)/g, '__require("router")');
-  content = content.replace(/require\(["']\.\.\/features\/auth\/SignUpView["']\)/g, '__require("SignUpView")');
-  content = content.replace(/require\(["']\.\.\/features\/auth\/SignInView["']\)/g, '__require("SignInView")');
-  content = content.replace(/require\(["']\.\.\/features\/records\/DashboardView["']\)/g, '__require("DashboardView")');
-  content = content.replace(/require\(["']\.\.\/features\/settings\/SettingsView["']\)/g, '__require("SettingsView")');
-  content = content.replace(/require\(["']\.\.\/features\/reminders\/RemindersView["']\)/g, '__require("RemindersView")');
-  content = content.replace(/require\(["']\.\.\/features\/chat\/ChatView["']\)/g, '__require("ChatView")');
-  content = content.replace(/require\(["']\.\.\/features\/inbox\/InboxView["']\)/g, '__require("InboxView")');
-  content = content.replace(/require\(["']\.\.\/features\/exports\/ExportsView["']\)/g, '__require("ExportsView")');
+  content = content.replace(/require\(["'](?:\.\.\/)+i18n["']\)/g, '__require("i18n")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+encryptedCache["']\)/g, '__require("encryptedCache")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+db\/ledgerDb["']\)/g, '__require("ledgerDb")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+hlc["']\)/g, '__require("hlc")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+sync\/hlc["']\)/g, '__require("hlc")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+sync\/syncEngine["']\)/g, '__require("syncEngine")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+api\/authClient["']\)/g, '__require("authClient")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+routes\/router["']\)/g, '__require("router")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+features\/auth\/SignUpView["']\)/g, '__require("SignUpView")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+features\/auth\/SignInView["']\)/g, '__require("SignInView")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+features\/records\/DashboardView["']\)/g, '__require("DashboardView")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+features\/settings\/SettingsView["']\)/g, '__require("SettingsView")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+features\/reminders\/RemindersView["']\)/g, '__require("RemindersView")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+features\/chat\/ChatView["']\)/g, '__require("ChatView")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+features\/inbox\/InboxView["']\)/g, '__require("InboxView")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+features\/exports\/ExportsView["']\)/g, '__require("ExportsView")');
 
   bundleCode += `  // --- Module: ${mod.name} ---
   (function() {

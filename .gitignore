@@ -28,3 +28,5 @@ app/google-services.json
 node_modules/
 functions/node_modules/
 web/test-results/
+webapp/dist/
+admin/dist/

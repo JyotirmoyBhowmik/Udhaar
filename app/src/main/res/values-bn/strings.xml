@@ -978,4 +978,13 @@
     <string name="account_sign_out_confirm_message">সাইন আউট করলে ক্লাউড সিঙ্ক বন্ধ হবে। আপনার সমস্ত রেকর্ড এই ফোনেই নিরাপদে থাকবে।</string>
     <string name="account_switch_to_signup">অ্যাকাউন্ট নেই? নতুন তৈরি করুন</string>
     <string name="account_switch_to_signin">ইতিমধ্যে অ্যাকাউন্ট আছে? সাইন ইন করুন</string>
+    <string name="account_user_id_fmt">ব্যবহারকারী আইডি: %1$s</string>
+    <string name="account_phone_fmt">ফোন: %1$s</string>
+    <string name="account_email_fmt">ইমেইল: %1$s</string>
+    <string name="account_device_id_fmt">ডিভাইস আইডি: %1$s</string>
+    <string name="account_conflict_item_fmt">%1$s (₹%2$d)</string>
+    <string name="account_toast_code_sent">হোয়াটসঅ্যাপের মাধ্যমে যাচাইকরণ কোড পাঠানো হয়েছে</string>
+    <string name="account_toast_sync_triggered">সিঙ্ক শুরু হয়েছে</string>
+    <string name="account_toast_sync_enabled">ক্লাউড সিঙ্ক চালু করা হয়েছে</string>
+    <string name="account_toast_signed_out">সফলভাবে সাইন আউট হয়েছে</string>
 </resources>

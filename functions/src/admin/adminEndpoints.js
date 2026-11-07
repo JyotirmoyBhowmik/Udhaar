@@ -183,6 +183,28 @@ function createAdminRouter() {
     }
   });
 
+  // 8. Security Guarantee: Non-Bypassable Lost-Number Cooling Period
+  router.post("/users/:targetUid/cooling-period/bypass", requireAdminRole(["ADMIN"]), async (req, res) => {
+    return res.status(403).json({
+      type: "https://udhaar.app/errors/cooling-period-non-bypassable",
+      title: "Forbidden",
+      status: 403,
+      code: "ERR_ADMIN_COOLING_PERIOD_NON_BYPASSABLE",
+      detail: "Admins cannot bypass the statutory 30-day security cooling period for lost numbers under any circumstances."
+    });
+  });
+
+  // 9. Security Guarantee: Ledger Content Reading is Strictly Denied
+  router.get("/users/:targetUid/records", requireAdminRole(["ADMIN", "OPERATOR", "AUDITOR"]), async (req, res) => {
+    return res.status(403).json({
+      type: "https://udhaar.app/errors/ledger-access-denied",
+      title: "Forbidden",
+      status: 403,
+      code: "ERR_ADMIN_LEDGER_ACCESS_DENIED",
+      detail: "User ledger contents are protected by end-to-end envelope encryption and are strictly inaccessible to administrative personnel."
+    });
+  });
+
   return router;
 }
 

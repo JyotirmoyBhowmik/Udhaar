@@ -8,7 +8,14 @@ const { ledgerDb } = require("../db/ledgerDb");
 const { createHlc, incrementHlc, updateHlc, packHlc } = require("./hlc");
 
 class SyncEngine {
-  constructor({ db = ledgerDb, authClient, deviceId = "web_replica_1", transport = null }) {
+  /**
+   * @param {object} [options]
+   * @param {any} [options.db]
+   * @param {any} [options.authClient]
+   * @param {string} [options.deviceId]
+   * @param {any} [options.transport]
+   */
+  constructor({ db = ledgerDb, authClient = null, deviceId = "web_replica_1", transport = null } = {}) {
     this.db = db;
     this.authClient = authClient;
     this.deviceId = deviceId;
@@ -444,6 +451,8 @@ class SyncEngine {
   }
 }
 
+const syncEngine = new SyncEngine({ db: ledgerDb });
+
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { SyncEngine };
+  module.exports = { SyncEngine, syncEngine };
 }

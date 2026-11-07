@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Udhaar Governance &amp; Administration Console</title>
+  <meta name="description" content="Administrative console for Udhaar Platform governance, telemetry, and emergency operations.">
+  <link rel="stylesheet" href="/design-tokens.css">
+  <link rel="stylesheet" href="/admin.css">
+</head>
+<body>
+  <header class="admin-header">
+    <div class="brand-wrap">
+      <span class="shield-icon" aria-hidden="true">🛡️</span>
+      <h1>Udhaar Admin Console</h1>
+    </div>
+    <div class="header-right">
+      <span id="admin-badge" class="badge badge-admin">Role: Verifying...</span>
+      <button type="button" id="admin-logout-btn" class="btn btn-secondary btn-sm">Sign Out</button>
+    </div>
+  </header>
+
+  <aside class="security-banner" role="alert">
+    <strong>Security &amp; Privacy Mandate:</strong>
+    Administrative personnel have <em>zero access</em> to decrypted personal ledger contents.
+    The statutory 30-day security cooling period for lost numbers is strictly non-bypassable.
+  </aside>
+
+  <main class="admin-main">
+    <!-- Login Card (Displayed if unauthenticated) -->
+    <section id="login-section" class="card admin-auth-card">
+      <h2>Administrative Sign-In</h2>
+      <p class="subtitle">Access is restricted to authorized personnel with active MFA and IP allowlist registration.</p>
+      <form id="admin-login-form">
+        <div class="form-group">
+          <label for="admin-token-input" class="form-label">Admin Bearer Token / Session</label>
+          <input type="password" id="admin-token-input" class="input-field" placeholder="Enter session token" required autocomplete="current-password">
+        </div>
+        <div class="form-group">
+          <label for="admin-mfa-code" class="form-label">Multi-Factor Authentication (MFA) Code</label>
+          <input type="text" id="admin-mfa-code" class="input-field" placeholder="6-digit authenticator code" maxlength="6" required autocomplete="one-time-code">
+        </div>
+        <p id="admin-login-error" class="form-error" style="display: none;"></p>
+        <button type="submit" id="admin-login-btn" class="btn btn-primary" style="margin-top: 1rem;">Authenticate with MFA</button>
+      </form>
+    </section>
+
+    <!-- Console Dashboard (Displayed when authenticated) -->
+    <div id="dashboard-content" style="display: none;">
+      <!-- System Telemetry & Cost Controls -->
+      <section class="admin-section" aria-labelledby="telemetry-heading">
+        <h2 id="telemetry-heading">System Telemetry &amp; Circuit Breakers</h2>
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-title">Total Registered Users</div>
+            <div id="metric-total-users" class="metric-val">-</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">Active Accounts</div>
+            <div id="metric-active-users" class="metric-val text-success">-</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">Locked Accounts</div>
+            <div id="metric-locked-users" class="metric-val text-warning">-</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">Audit Logs Recorded</div>
+            <div id="metric-audit-logs" class="metric-val">-</div>
+          </div>
+        </div>
+
+        <div class="circuits-wrap card" style="margin-top: 1rem;">
+          <h3>Provider Circuit Breakers &amp; Spend Quotas</h3>
+          <div id="circuits-list" class="circuits-list">Loading circuits...</div>
+        </div>
+      </section>
+
+      <!-- Masked User Investigation -->
+      <section class="admin-section card" aria-labelledby="investigation-heading" style="margin-top: 1.5rem;">
+        <h2 id="investigation-heading">Masked User Investigation &amp; Account Controls</h2>
+        <p class="section-desc">Search by pseudonymized phone or email hash. Plaintext ledger contents are inaccessible.</p>
+        <form id="lookup-form" class="lookup-form">
+          <div class="lookup-input-row">
+            <input type="text" id="query-hash-input" class="input-field" placeholder="Pseudonymized Phone or Email Hash" required>
+            <input type="text" id="lookup-reason-input" class="input-field" placeholder="Mandatory Audit Reason (min 5 chars)" required>
+            <button type="submit" id="lookup-btn" class="btn btn-primary" style="width: auto;">Search User</button>
+          </div>
+          <p id="lookup-error" class="form-error" style="display: none;"></p>
+        </form>
+
+        <div id="lookup-result" class="lookup-result" style="display: none; margin-top: 1rem;">
+          <!-- Injected via admin.js -->
+        </div>
+      </section>
+
+      <!-- Emergency Revocation -->
+      <section class="admin-section card" aria-labelledby="revocation-heading" style="margin-top: 1.5rem;">
+        <h2 id="revocation-heading">Emergency Capability Link Revocation</h2>
+        <p class="section-desc">Immediately revoke a compromised guest verification link. Requires non-empty justification.</p>
+        <form id="revoke-link-form" class="lookup-form">
+          <div class="lookup-input-row">
+            <input type="text" id="revoke-record-id" class="input-field" placeholder="Target Record ID (e.g. rec_xyz)" required>
+            <input type="text" id="revoke-reason" class="input-field" placeholder="Mandatory Audit Reason (min 5 chars)" required>
+            <button type="submit" id="revoke-btn" class="btn btn-danger" style="width: auto;">Revoke Link</button>
+          </div>
+          <p id="revoke-status" class="form-status" style="display: none;"></p>
+        </form>
+      </section>
+
+      <!-- Audit Log Stream -->
+      <section class="admin-section card" aria-labelledby="audit-heading" style="margin-top: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+          <h2 id="audit-heading">Immutable Administrative Audit Log</h2>
+          <button type="button" id="refresh-audit-btn" class="btn btn-secondary btn-sm">Refresh Logs</button>
+        </div>
+        <div class="table-wrap">
+          <table class="audit-table">
+            <thead>
+              <tr>
+                <th scope="col">Timestamp</th>
+                <th scope="col">Admin UID</th>
+                <th scope="col">Role</th>
+                <th scope="col">Action</th>
+                <th scope="col">Target</th>
+                <th scope="col">Justification Reason</th>
+                <th scope="col">Client IP</th>
+              </tr>
+            </thead>
+            <tbody id="audit-tbody">
+              <tr><td colspan="7" style="text-align: center; color: var(--color-text-muted);">No audit records loaded.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="admin-footer">
+    <p>Udhaar Platform v2 Governance Portal • asia-south1 • Strict Banking-Grade CSP Enforced</p>
+  </footer>
+
+  <script src="/admin.js"></script>
+</body>
+</html>

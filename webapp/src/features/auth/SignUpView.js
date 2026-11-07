@@ -553,7 +553,8 @@ class SignUpView {
 
       input.addEventListener("paste", (e) => {
         e.preventDefault();
-        const text = (e.clipboardData || window.clipboardData).getData("text").replace(/[^0-9]/g, "");
+        const clipData = e.clipboardData || (typeof window !== "undefined" && /** @type {any} */ (window).clipboardData);
+        const text = clipData ? clipData.getData("text").replace(/[^0-9]/g, "") : "";
         if (text) {
           const chars = text.slice(0, 6).split("");
           chars.forEach((char, i) => {

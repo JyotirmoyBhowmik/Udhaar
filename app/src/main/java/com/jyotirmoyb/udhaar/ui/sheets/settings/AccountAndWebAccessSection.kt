@@ -199,7 +199,7 @@ fun AccountAndWebAccessSection(
                                     try {
                                         val resp = apiClient?.startSignin(phoneInput.trim())
                                         flowId = resp?.flowId ?: "flow_${System.currentTimeMillis()}"
-                                        Toast.makeText(context, "Verification code sent via WhatsApp", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.account_toast_code_sent), Toast.LENGTH_SHORT).show()
                                     } catch (e: Exception) {
                                         errorMessage = e.message ?: "Failed to send code"
                                     } finally {
@@ -456,27 +456,27 @@ fun AccountAndWebAccessSection(
                 ) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
-                            text = "User ID: ${tokenStore.getUserId() ?: ""}",
+                            text = stringResource(R.string.account_user_id_fmt, tokenStore.getUserId() ?: ""),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         if (!tokenStore.getPhoneNumber().isNullOrBlank()) {
                             Text(
-                                text = "Phone: ${tokenStore.getPhoneNumber()}",
+                                text = stringResource(R.string.account_phone_fmt, tokenStore.getPhoneNumber().orEmpty()),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         if (!tokenStore.getEmail().isNullOrBlank()) {
                             Text(
-                                text = "Email: ${tokenStore.getEmail()}",
+                                text = stringResource(R.string.account_email_fmt, tokenStore.getEmail().orEmpty()),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Text(
-                            text = "Device ID: ${tokenStore.getDeviceId()}",
+                            text = stringResource(R.string.account_device_id_fmt, tokenStore.getDeviceId()),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
@@ -543,7 +543,7 @@ fun AccountAndWebAccessSection(
                     OutlinedButton(
                         onClick = {
                             SyncWorker.enqueueImmediate(context)
-                            Toast.makeText(context, "Sync triggered", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.account_toast_sync_triggered), Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -588,7 +588,7 @@ fun AccountAndWebAccessSection(
                             ) {
                                 Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Text(
-                                        text = "${conflictTx.partyName} (₹${conflictTx.principalAmountPaise / 100})",
+                                        text = stringResource(R.string.account_conflict_item_fmt, conflictTx.partyName, conflictTx.principalAmountPaise / 100),
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -730,7 +730,7 @@ fun AccountAndWebAccessSection(
                         SyncWorker.enqueuePeriodic(context)
                         SyncWorker.enqueueImmediate(context)
                         showUploadPreviewDialog = false
-                        Toast.makeText(context, "Cloud sync enabled", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.account_toast_sync_enabled), Toast.LENGTH_SHORT).show()
                     },
                     modifier = Modifier.testTag("enable_cloud_sync_dialog_confirm")
                 ) {
@@ -778,7 +778,7 @@ fun AccountAndWebAccessSection(
                             isSignedIn = false
                             isSyncEnabled = false
                             showSignOutConfirmDialog = false
-                            Toast.makeText(context, "Signed out successfully", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.account_toast_signed_out), Toast.LENGTH_SHORT).show()
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),

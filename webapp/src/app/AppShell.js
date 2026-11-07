@@ -31,6 +31,7 @@ class AppShell {
     this._setupRoutes();
     this._setupNetworkListeners();
     this._registerServiceWorker();
+    this._setupIdleLock();
     this.router.start();
   }
 
@@ -274,11 +275,11 @@ class AppShell {
   }
 
   _setupNetworkListeners() {
-    const banner = this.root.querySelector("#offline-banner");
-    if (!banner) return;
+    const updateStatus = (e) => {
+      const banner = this.root ? this.root.querySelector("#offline-banner") : null;
+      if (!banner) return;
 
-    const updateStatus = () => {
-      const isOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
+      const isOnline = e && e.type ? e.type === "online" : (typeof navigator !== "undefined" ? navigator.onLine : true);
       if (!isOnline) {
         banner.classList.add("active");
       } else {
@@ -299,6 +300,86 @@ class AppShell {
         console.warn("[PWA] Service Worker registration failed:", err);
       });
     }
+  }
+
+  _setupIdleLock() {
+    if (typeof window === "undefined") return;
+
+    this.lastActiveTime = Date.now();
+    this.isLocked = false;
+
+    const recordActive = () => {
+      if (!this.isLocked) {
+        this.lastActiveTime = Date.now();
+      }
+    };
+
+    window.addEventListener("pointerdown", recordActive, { passive: true });
+    window.addEventListener("keydown", recordActive, { passive: true });
+    window.addEventListener("touchstart", recordActive, { passive: true });
+
+    this.idleInterval = setInterval(() => {
+      if (this.isLocked) return;
+      const currentRoute = window.location.hash || "#signin";
+      if (currentRoute === "#signin" || currentRoute === "#signup") return;
+
+      const isPublic = typeof sessionStorage !== "undefined" && sessionStorage.getItem("udhaar_public_mode") === "true";
+      const timeoutMins = isPublic ? 2 : Number(localStorage.getItem("udhaar_lock_timeout_mins") || 10);
+      const elapsedMins = (Date.now() - this.lastActiveTime) / (60 * 1000);
+
+      if (elapsedMins >= timeoutMins) {
+        this._lockScreen();
+      }
+    }, 5000);
+  }
+
+  _lockScreen() {
+    this.isLocked = true;
+    let modal = this.root.querySelector("#idle-lock-modal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "idle-lock-modal";
+      modal.className = "modal-overlay";
+      modal.setAttribute("role", "dialog");
+      modal.setAttribute("aria-modal", "true");
+      modal.setAttribute("aria-labelledby", "lock-title");
+      this.root.appendChild(modal);
+    }
+
+    const t = this.i18n.t;
+    modal.style.display = "flex";
+    modal.innerHTML = `
+      <div class="modal-card" style="max-width: 400px; text-align: center; padding: 2rem;">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">🔒</div>
+        <h2 id="lock-title" style="font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem;">
+          ${t("idle_lock_title")}
+        </h2>
+        <p style="font-size: 0.9rem; color: var(--color-text-muted); line-height: 1.5; margin-bottom: 1.5rem;">
+          ${t("idle_lock_subtitle")}
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <button type="button" id="unlock-btn" class="btn btn-primary" style="width: 100%;">
+            ${t("unlock_button")}
+          </button>
+          <button type="button" id="lock-signout-btn" class="btn btn-secondary" style="width: 100%; color: var(--color-danger); border-color: var(--color-danger);">
+            ${t("sign_out")}
+          </button>
+        </div>
+      </div>
+    `;
+
+    modal.querySelector("#unlock-btn").addEventListener("click", () => {
+      this.isLocked = false;
+      this.lastActiveTime = Date.now();
+      modal.style.display = "none";
+    });
+
+    modal.querySelector("#lock-signout-btn").addEventListener("click", async () => {
+      modal.style.display = "none";
+      this.isLocked = false;
+      await this.authClient.signOut();
+      this.router.navigate("#signin");
+    });
   }
 
   showToast(message, durationMs = 4000) {
