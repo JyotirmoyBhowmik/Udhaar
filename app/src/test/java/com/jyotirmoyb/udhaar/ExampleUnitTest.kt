@@ -435,7 +435,10 @@ class ExampleUnitTest {
             defaultStrings.size >= 500
         )
 
-        val nonTranslatableKeys = setOf("default_web_client_id")
+        val nonTranslatableKeys = setOf(
+            "default_web_client_id",
+            "com.google.firebase.crashlytics.mapping_file_id"
+        )
         val requiredKeys = defaultStrings.keys - nonTranslatableKeys
 
         for (locale in listOf("values-hi", "values-bn", "values-as", "values-ne")) {

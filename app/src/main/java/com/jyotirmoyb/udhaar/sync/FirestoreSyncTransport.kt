@@ -165,7 +165,7 @@ class FirestoreSyncTransport(
     override suspend fun pullDeltas(cursor: Long, limit: Int): SyncPullResponse = withContext(Dispatchers.IO) {
         val user = auth.currentUser
         if (user == null || !user.isEmailVerified) {
-            return@withContext SyncPullResponse(deltas = emptyList(), nextCursor = cursor, hasMore = false)
+            return@withContext SyncPullResponse(changes = emptyList(), nextCursor = cursor, hasMore = false)
         }
 
         val uid = user.uid
@@ -195,20 +195,22 @@ class FirestoreSyncTransport(
                         op = if (data["isDeleted"] == true || data["deleted"] == true) "DELETE" else "UPSERT",
                         fields = data,
                         serverRev = doc.getLong("rev") ?: 1L,
-                        hlc = data["hlc"]?.toString() ?: ""
+                        hlc = data["hlc"]?.toString() ?: "",
+                        deviceId = data["deviceId"]?.toString() ?: "cloud",
+                        timestampMs = updatedAt
                     )
                 )
             }
 
             SyncPullResponse(
-                deltas = deltas,
+                changes = deltas,
                 nextCursor = maxCursor,
                 hasMore = recQuery.size() >= limit
             )
         } catch (e: FirebaseFirestoreException) {
             if (e.code == FirebaseFirestoreException.Code.RESOURCE_EXHAUSTED) {
                 SafeLogger.w(TAG, "Firestore daily read quota reached for Spark plan.")
-                return@withContext SyncPullResponse(deltas = emptyList(), nextCursor = cursor, hasMore = false)
+                return@withContext SyncPullResponse(changes = emptyList(), nextCursor = cursor, hasMore = false)
             }
             throw e
         }
