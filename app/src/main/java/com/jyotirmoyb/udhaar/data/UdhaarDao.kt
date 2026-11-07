@@ -76,6 +76,12 @@ interface UdhaarDao {
     @Query("SELECT * FROM udhaar_transactions WHERE pendingPaymentClaim != '' OR pendingDateProposal != '' OR lastGuestAction != '' ORDER BY createdAtMillis DESC")
     fun getTransactionsWithGuestUpdates(): Flow<List<UdhaarTransaction>>
 
+    @Query("SELECT * FROM udhaar_transactions WHERE syncStatus = 'CONFLICT' ORDER BY createdAtMillis DESC")
+    fun getConflictedTransactions(): Flow<List<UdhaarTransaction>>
+
+    @Query("SELECT * FROM udhaar_transactions WHERE syncStatus = 'CONFLICT' ORDER BY createdAtMillis DESC")
+    suspend fun getConflictedTransactionsSnapshot(): List<UdhaarTransaction>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: UdhaarTransaction): Long
 

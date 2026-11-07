@@ -4,6 +4,7 @@ import java.time.Duration
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
+  alias(libs.plugins.kotlin.serialization)
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.secrets)
   alias(libs.plugins.google.services)
@@ -199,6 +200,7 @@ dependencies {
   // implementation(libs.logging.interceptor)
   // implementation(libs.moshi.kotlin)
   implementation(libs.okhttp)
+  implementation(libs.kotlinx.serialization.json)
   implementation(libs.androidx.work.runtime.ktx)
   implementation(libs.play.services.auth)
   implementation(libs.androidx.security.crypto)
@@ -217,6 +219,7 @@ dependencies {
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.robolectric)
+  testImplementation(libs.mockwebserver)
   androidTestImplementation(platform(libs.androidx.compose.bom))
   androidTestImplementation(libs.androidx.compose.ui.test.junit4)
   androidTestImplementation(libs.androidx.espresso.core)

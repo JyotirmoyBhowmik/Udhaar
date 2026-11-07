@@ -12,6 +12,8 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.jyotirmoyb.udhaar.data.UdhaarDatabase
+import com.jyotirmoyb.udhaar.security.EncryptedTokenStore
+import com.jyotirmoyb.udhaar.security.TokenStore
 import com.jyotirmoyb.udhaar.util.SafeLogger
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -21,7 +23,8 @@ import java.util.concurrent.TimeUnit
 class SyncWorker @AssistedInject constructor(
     @Assisted private val appContext: Context,
     @Assisted workerParams: WorkerParameters,
-    private val syncRepository: SyncRepository
+    private val syncRepository: SyncRepository,
+    private val tokenStore: TokenStore
 ) : CoroutineWorker(appContext, workerParams) {
 
     // Fallback constructor for environments without Hilt worker factory
@@ -31,13 +34,24 @@ class SyncWorker @AssistedInject constructor(
         SyncRepository(
             dao = UdhaarDatabase.getInstance(appContext).udhaarDao(),
             outboxDao = UdhaarDatabase.getInstance(appContext).syncOutboxDao()
-        )
+        ),
+        EncryptedTokenStore(appContext)
     )
 
     override suspend fun doWork(): Result {
-        SafeLogger.i("SyncWorker", "Starting background sync work...")
+        val store = tokenStore
+
+        // Strict Feature Flag Check: Off by default.
+        // With flag off or signed out, make NO network calls and behave exactly as before.
+        if (!store.isSignedIn() || !store.isCloudSyncEnabled()) {
+            SafeLogger.i("SyncWorker", "Cloud sync disabled or user signed out; skipping all network sync operations.")
+            return Result.success()
+        }
+
+        SafeLogger.i("SyncWorker", "Starting background sync work for user: ${store.getUserId()}")
         return try {
             val success = syncRepository.sync()
+            store.setLastSyncTimestamp(System.currentTimeMillis())
             SafeLogger.i("SyncWorker", "Sync work finished successfully: $success")
             Result.success()
         } catch (t: Throwable) {
@@ -80,6 +94,11 @@ class SyncWorker @AssistedInject constructor(
                 ExistingPeriodicWorkPolicy.KEEP,
                 request
             )
+        }
+
+        fun cancelSync(context: Context) {
+            WorkManager.getInstance(context).cancelUniqueWork(PERIODIC_SYNC_WORK_NAME)
+            WorkManager.getInstance(context).cancelUniqueWork(IMMEDIATE_SYNC_WORK_NAME)
         }
     }
 }

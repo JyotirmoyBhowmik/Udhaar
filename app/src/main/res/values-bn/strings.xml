@@ -945,4 +945,37 @@
     <string name="ui_str_repayment_history_e95aa2">পরিশোধের ইতিহাস</string>
     <string name="settings_group_records_by_person_title">ব্যক্তি অনুযায়ী দলবদ্ধ করুন</string>
     <string name="settings_group_records_by_person_subtitle">হোম স্ক্রিনে ব্যক্তির নাম অনুযায়ী রেকর্ড সাজান</string>
+    <!-- Stage R5: Account and Web Access -->
+    <string name="account_and_web_access_title">অ্যাকাউন্ট এবং ওয়েব অ্যাক্সেস</string>
+    <string name="account_and_web_access_subtitle">ওয়েবে আপনার খাতা অ্যাক্সেস করুন এবং ডিভাইসের মধ্যে সিঙ্ক করুন (ঐচ্ছিক)</string>
+    <string name="account_sync_status_title">ক্লাউড সিঙ্ক</string>
+    <string name="account_sync_status_off">বন্ধ (১০০% শুধুমাত্র এই ডিভাইসেই সংরক্ষিত)</string>
+    <string name="account_sync_status_on">ক্লাউড সিঙ্ক সক্রিয়</string>
+    <string name="account_sync_now">এখনই সিঙ্ক করুন</string>
+    <string name="account_syncing">সিঙ্ক হচ্ছে…</string>
+    <string name="account_last_synced_fmt">সর্বশেষ সিঙ্ক: %1$s</string>
+    <string name="account_sign_in_heading">উধারে সাইন ইন করুন</string>
+    <string name="account_sign_up_heading">আপনার অ্যাকাউন্ট তৈরি করুন</string>
+    <string name="account_phone_label">ফোন নম্বর (কান্ট্রি কোড সহ)</string>
+    <string name="account_send_otp_btn">হোয়াটসঅ্যাপ কোড পাঠান</string>
+    <string name="account_otp_label">৬-সংখ্যার যাচাইকরণ কোড</string>
+    <string name="account_verify_and_continue">যাচাই করুন এবং এগিয়ে যান</string>
+    <string name="account_email_label">ইমেল ঠিকানা</string>
+    <string name="account_send_email_code">ইমেল কোড পাঠান</string>
+    <string name="account_verify_and_finish">সেটআপ সম্পন্ন করুন</string>
+    <string name="account_upload_preview_title">প্রথম সাইন-ইন আপলোড পূর্বরূপ</string>
+    <string name="account_upload_preview_body">এই ফোনে পাওয়া %1$d টি রেকর্ড এবং %2$d টি পেমেন্ট নিরাপদে এনক্রিপ্ট হয়ে আপনার ব্যক্তিগত অ্যাকাউন্টে সিঙ্ক হবে।</string>
+    <string name="account_enable_sync_btn">ক্লাউড সিঙ্ক চালু করুন</string>
+    <string name="account_keep_offline_btn">শুধুমাত্র অফলাইনে রাখুন</string>
+    <string name="account_devices_heading">সংযুক্ত ডিভাইসসমূহ</string>
+    <string name="account_this_device">এই ডিভাইস</string>
+    <string name="account_revoke_device">বাতিল করুন</string>
+    <string name="account_conflicts_heading">আপনার মনোযোগ প্রয়োজন</string>
+    <string name="account_conflict_keep_phone">ফোন সংস্করণ রাখুন</string>
+    <string name="account_conflict_accept_cloud">ওয়েব সংস্করণ গ্রহণ করুন</string>
+    <string name="account_sign_out_btn">সাইন আউট করুন</string>
+    <string name="account_sign_out_confirm_title">উধার থেকে সাইন আউট করবেন?</string>
+    <string name="account_sign_out_confirm_message">সাইন আউট করলে ক্লাউড সিঙ্ক বন্ধ হবে। আপনার সমস্ত রেকর্ড এই ফোনেই নিরাপদে থাকবে।</string>
+    <string name="account_switch_to_signup">অ্যাকাউন্ট নেই? নতুন তৈরি করুন</string>
+    <string name="account_switch_to_signin">ইতিমধ্যে অ্যাকাউন্ট আছে? সাইন ইন করুন</string>
 </resources>

@@ -945,4 +945,37 @@
     <string name="ui_str_repayment_history_e95aa2">Repayment History</string>
     <string name="settings_group_records_by_person_title">Group by contact</string>
     <string name="settings_group_records_by_person_subtitle">Group records on the home screen by person</string>
+    <!-- Stage R5: Account and Web Access -->
+    <string name="account_and_web_access_title">Account and web access</string>
+    <string name="account_and_web_access_subtitle">Access your ledger on the web and sync between devices (Optional)</string>
+    <string name="account_sync_status_title">Cloud sync</string>
+    <string name="account_sync_status_off">Off (100% stored on this device only)</string>
+    <string name="account_sync_status_on">Cloud sync active</string>
+    <string name="account_sync_now">Sync Now</string>
+    <string name="account_syncing">Syncing…</string>
+    <string name="account_last_synced_fmt">Last synced: %1$s</string>
+    <string name="account_sign_in_heading">Sign in to Udhaar</string>
+    <string name="account_sign_up_heading">Create your account</string>
+    <string name="account_phone_label">Phone number (with country code)</string>
+    <string name="account_send_otp_btn">Send WhatsApp code</string>
+    <string name="account_otp_label">6-digit verification code</string>
+    <string name="account_verify_and_continue">Verify &amp; Continue</string>
+    <string name="account_email_label">Email address</string>
+    <string name="account_send_email_code">Send Email Code</string>
+    <string name="account_verify_and_finish">Complete Setup</string>
+    <string name="account_upload_preview_title">First Sign-in Upload Preview</string>
+    <string name="account_upload_preview_body">%1$d records and %2$d payments found on this phone will be securely encrypted and synced to your private account.</string>
+    <string name="account_enable_sync_btn">Turn On Cloud Sync</string>
+    <string name="account_keep_offline_btn">Keep Offline Only</string>
+    <string name="account_devices_heading">Connected Devices</string>
+    <string name="account_this_device">This device</string>
+    <string name="account_revoke_device">Revoke</string>
+    <string name="account_conflicts_heading">Needs your attention</string>
+    <string name="account_conflict_keep_phone">Keep Phone Version</string>
+    <string name="account_conflict_accept_cloud">Accept Web Version</string>
+    <string name="account_sign_out_btn">Sign Out</string>
+    <string name="account_sign_out_confirm_title">Sign out of Udhaar?</string>
+    <string name="account_sign_out_confirm_message">Signing out stops cloud sync. All your records stay safely on this phone.</string>
+    <string name="account_switch_to_signup">Don\'t have an account? Create one</string>
+    <string name="account_switch_to_signin">Already have an account? Sign in</string>
 </resources>

@@ -8,6 +8,7 @@ import com.jyotirmoyb.udhaar.data.SyncOutboxEntity
 import com.jyotirmoyb.udhaar.data.SyncStatus
 import com.jyotirmoyb.udhaar.data.UdhaarDao
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
+import com.jyotirmoyb.udhaar.security.TokenStore
 import com.jyotirmoyb.udhaar.util.SafeLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -26,7 +27,8 @@ interface SyncCloudTransport {
 class SyncRepository(
     private val dao: UdhaarDao,
     private val outboxDao: SyncOutboxDao,
-    private val transport: SyncCloudTransport? = null
+    private val transport: SyncCloudTransport? = null,
+    private val tokenStore: TokenStore? = null
 ) {
     private var localHlc: Hlc = Hlc.create("android_${UUID.randomUUID().toString().take(8)}")
     private var lastPulledCursor: Long = 0L
@@ -175,6 +177,10 @@ class SyncRepository(
     // -------------------------------------------------------------------------
     suspend fun drainOutbox(): Int = withContext(Dispatchers.IO) {
         if (transport == null) return@withContext 0
+        if (tokenStore != null && (!tokenStore.isSignedIn() || !tokenStore.isCloudSyncEnabled())) {
+            SafeLogger.i("SyncRepository", "Cloud sync disabled or signed out. Skipping outbox drain.")
+            return@withContext 0
+        }
         val pending = outboxDao.getPendingMutations(now = System.currentTimeMillis(), limit = 100)
         if (pending.isEmpty()) return@withContext 0
 
@@ -265,6 +271,10 @@ class SyncRepository(
 
     suspend fun pullDeltas(): Int = withContext(Dispatchers.IO) {
         if (transport == null) return@withContext 0
+        if (tokenStore != null && (!tokenStore.isSignedIn() || !tokenStore.isCloudSyncEnabled())) {
+            SafeLogger.i("SyncRepository", "Cloud sync disabled or signed out. Skipping delta pull.")
+            return@withContext 0
+        }
         try {
             val response = transport.pullDeltas(cursor = lastPulledCursor, limit = 100)
             if (response.changes.isEmpty()) return@withContext 0
@@ -357,6 +367,10 @@ class SyncRepository(
     }
 
     suspend fun sync(): Boolean = withContext(Dispatchers.IO) {
+        if (tokenStore != null && (!tokenStore.isSignedIn() || !tokenStore.isCloudSyncEnabled())) {
+            SafeLogger.i("SyncRepository", "Cloud sync disabled or signed out. Zero network calls.")
+            return@withContext true
+        }
         drainOutbox()
         pullDeltas()
         true

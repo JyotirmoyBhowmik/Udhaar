@@ -54,7 +54,9 @@ import com.jyotirmoyb.udhaar.backup.DriveConnectionTestReport
 import com.jyotirmoyb.udhaar.backup.DriveRemoteBackup
 import com.jyotirmoyb.udhaar.data.AutoBackupFrequency
 import com.jyotirmoyb.udhaar.data.CurrencyType
+import com.jyotirmoyb.udhaar.data.UdhaarDatabase
 import com.jyotirmoyb.udhaar.data.UserSettings
+import com.jyotirmoyb.udhaar.ui.sheets.settings.AccountAndWebAccessSection
 import com.jyotirmoyb.udhaar.security.EncryptedStorageManager
 import com.jyotirmoyb.udhaar.security.SecureScreenEffect
 import com.jyotirmoyb.udhaar.ui.components.AppIconButton
@@ -248,6 +250,7 @@ fun SettingsScreen(
         "SECURITY" to R.string.settings_cat_security,
         "DISPLAY" to R.string.settings_cat_display,
         "BACKUP" to R.string.settings_cat_backup,
+        "ACCOUNT" to R.string.account_and_web_access_title,
         "ABOUT" to R.string.settings_cat_about
     )
 
@@ -607,6 +610,14 @@ fun SettingsScreen(
                                 onRevokeAllWebLinks?.invoke()
                             }
                         )
+                    }
+                }
+
+                // 6. ACCOUNT AND WEB ACCESS
+                if (selectedCategory == "ALL" || selectedCategory == "ACCOUNT" || selectedCategory == "BACKUP") {
+                    item(key = "section_account_and_web_access") {
+                        val dao = remember { UdhaarDatabase.getInstance(context).udhaarDao() }
+                        AccountAndWebAccessSection(dao = dao)
                     }
                 }
 

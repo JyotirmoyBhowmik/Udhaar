@@ -945,4 +945,37 @@
     <string name="ui_str_repayment_history_e95aa2">भुक्तानी इतिहास</string>
     <string name="settings_group_records_by_person_title">व्यक्ति अनुसार समूह बनाउनुहोस्</string>
     <string name="settings_group_records_by_person_subtitle">गृह स्क्रिनमा व्यक्तिको नाम अनुसार रेकर्डहरू समूहीकृत गर्नुहोस्</string>
+    <!-- Stage R5: Account and Web Access -->
+    <string name="account_and_web_access_title">खाता र वेब पहुँच</string>
+    <string name="account_and_web_access_subtitle">वेबमा आफ्नो खाता हेर्नुहोस् र उपकरणहरू बीच सिङ्क गर्नुहोस् (वैकल्पिक)</string>
+    <string name="account_sync_status_title">क्लाउड सिङ्क</string>
+    <string name="account_sync_status_off">बन्द (१००% यसै उपकरणमा मात्र सुरक्षित)</string>
+    <string name="account_sync_status_on">क्लाउड सिङ्क सक्रिय छ</string>
+    <string name="account_sync_now">अहिले सिङ्क गर्नुहोस्</string>
+    <string name="account_syncing">सिङ्क हुँदैछ…</string>
+    <string name="account_last_synced_fmt">पछिल्लो सिङ्क: %1$s</string>
+    <string name="account_sign_in_heading">उधारमा साइन इन गर्नुहोस्</string>
+    <string name="account_sign_up_heading">आफ्नो खाता खोल्नुहोस्</string>
+    <string name="account_phone_label">फोन नम्बर (देशको कोड सहित)</string>
+    <string name="account_send_otp_btn">ह्वाट्सएप कोड पठाउनुहोस्</string>
+    <string name="account_otp_label">६-अङ्कको प्रमाणीकरण कोड</string>
+    <string name="account_verify_and_continue">प्रमाणित गर्नुहोस् र अगाडि बढ्नुहोस्</string>
+    <string name="account_email_label">इमेल ठेगाना</string>
+    <string name="account_send_email_code">इमेल कोड पठाउनुहोस्</string>
+    <string name="account_verify_and_finish">सेटअप पूरा गर्नुहोस्</string>
+    <string name="account_upload_preview_title">पहिलो साइन-इन पूर्वावलोकन</string>
+    <string name="account_upload_preview_body">यस फोनमा भेटिएका %1$d रेकर्डहरू र %2$d भुक्तानीहरू सुरक्षित रूपमा गुप्तिकृत भई तपाईंको खातामा सिङ्क हुनेछन्।</string>
+    <string name="account_enable_sync_btn">क्लाउड सिङ्क सुरु गर्नुहोस्</string>
+    <string name="account_keep_offline_btn">अफलाइन मात्र राख्नुहोस्</string>
+    <string name="account_devices_heading">जडान भएका उपकरणहरू</string>
+    <string name="account_this_device">यो उपकरण</string>
+    <string name="account_revoke_device">हटाउनुहोस्</string>
+    <string name="account_conflicts_heading">तपाईंको ध्यान आवश्यक छ</string>
+    <string name="account_conflict_keep_phone">फोन संस्करण राख्नुहोस्</string>
+    <string name="account_conflict_accept_cloud">वेब संस्करण स्वीकार गर्नुहोस्</string>
+    <string name="account_sign_out_btn">साइन आउट गर्नुहोस्</string>
+    <string name="account_sign_out_confirm_title">उधारबाट साइन आउट गर्नुहुन्छ?</string>
+    <string name="account_sign_out_confirm_message">साइन आउट गर्दा क्लाउड सिङ्क रोकिनेछ। तपाईंका सबै रेकर्डहरू यस फोनमा सुरक्षित रहनेछन्।</string>
+    <string name="account_switch_to_signup">खाता छैन? नयाँ खोल्नुहोस्</string>
+    <string name="account_switch_to_signin">पहिले नै खाता छ? साइन इन गर्नुहोस्</string>
 </resources>

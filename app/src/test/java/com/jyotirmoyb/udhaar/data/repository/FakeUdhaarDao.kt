@@ -155,6 +155,12 @@ class FakeUdhaarDao : UdhaarDao {
             }
         }
 
+    override fun getConflictedTransactions(): Flow<List<UdhaarTransaction>> =
+        txFlow.map { list -> list.filter { it.syncStatus == com.jyotirmoyb.udhaar.data.SyncStatus.CONFLICT } }
+
+    override suspend fun getConflictedTransactionsSnapshot(): List<UdhaarTransaction> =
+        txFlow.value.filter { it.syncStatus == com.jyotirmoyb.udhaar.data.SyncStatus.CONFLICT }
+
     override suspend fun insertTransaction(transaction: UdhaarTransaction): Long {
         val current = txFlow.value.toMutableList()
         val assignedId = if (transaction.id > 0L) transaction.id else txIdGen.getAndIncrement()

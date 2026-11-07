@@ -185,10 +185,30 @@ object RepositoryModule {
 
     @Provides
     @Singleton
+    fun provideTokenStore(@ApplicationContext context: Context): com.jyotirmoyb.udhaar.security.TokenStore {
+        return com.jyotirmoyb.udhaar.security.EncryptedTokenStore(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideApiClient(
+        tokenStore: com.jyotirmoyb.udhaar.security.TokenStore
+    ): com.jyotirmoyb.udhaar.sync.ApiClient {
+        return com.jyotirmoyb.udhaar.sync.ApiClient(
+            baseUrl = "https://app.udhaar.jyotirmoyb.com",
+            tokenStore = tokenStore
+        )
+    }
+
+    @Provides
+    @Singleton
     fun provideSyncRepository(
         dao: UdhaarDao,
-        outboxDao: com.jyotirmoyb.udhaar.data.SyncOutboxDao
+        outboxDao: com.jyotirmoyb.udhaar.data.SyncOutboxDao,
+        tokenStore: com.jyotirmoyb.udhaar.security.TokenStore,
+        apiClient: com.jyotirmoyb.udhaar.sync.ApiClient
     ): com.jyotirmoyb.udhaar.sync.SyncRepository {
-        return com.jyotirmoyb.udhaar.sync.SyncRepository(dao, outboxDao, null)
+        val transport = com.jyotirmoyb.udhaar.sync.HttpSyncCloudTransport(apiClient)
+        return com.jyotirmoyb.udhaar.sync.SyncRepository(dao, outboxDao, transport, tokenStore)
     }
 }

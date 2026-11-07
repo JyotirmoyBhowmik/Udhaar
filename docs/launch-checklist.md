@@ -51,7 +51,7 @@
 ## 5. Android Native Application Gate (Android Lead)
 - [x] **Room Schema v13 Migration**: Automated migration with SQLCipher encryption, adding Hybrid Logical Clocks (`hlcTimestamp`, `nodeId`), outbox queue, and sync revision tracking. [Proof: `app/src/main/java/com/jyotirmoyb/udhaar/data/UdhaarDatabase.kt`, Test: `app/src/test/java/com/jyotirmoyb/udhaar/RoomMigration12To13Test.kt`]
 - [x] **Offline-First Continuity**: Behavior strictly identical to v1 when user is not signed in; sync is completely optional. [Proof: `app/src/main/java/com/jyotirmoyb/udhaar/data/UdhaarDatabase.kt`, Test: `app/src/test/java/com/jyotirmoyb/udhaar/ExampleUnitTest.kt`]
-- [ ] **SyncWorker**: Robust Android `WorkManager` background sync wired to live network API client. *(Status: Pending Stage R5)*
+- [x] **SyncWorker**: Robust Android `WorkManager` background sync wired to live network API client and TokenStore. [Proof: `app/src/main/java/com/jyotirmoyb/udhaar/sync/SyncWorker.kt`, Test: `app/src/test/java/com/jyotirmoyb/udhaar/sync/TwoDeviceSyncTest.kt`]
 - [x] **Polite Reminders Engine**: Respects quiet hours (9:00 PM to 8:00 AM) and polite escalation levels (Gentle &rarr; Friendly &rarr; Firm &rarr; Final). [Proof: `app/src/main/java/com/jyotirmoyb/udhaar/notification/ReminderScheduler.kt`, Test: `app/src/test/java/com/jyotirmoyb/udhaar/ExampleUnitTest.kt`]
 - [ ] **R8 Minification & Code Shrinking**: Release build compiled with ProGuard/R8 rules with localeFilters and non-required camera feature. *(Status: Pending Stage R8)*
 
@@ -84,4 +84,4 @@
 | **General Availability** | **100%** | Permanent | Full global release promoted to live production |
 
 **Audit Status**:
-- **Baseline Audit (Stage R0)**: Complete. 23 items proven, 13 items pending completion across Stages R5–R8.
+- **Baseline Audit (Stage R0)**: Complete. 24 items proven, 12 items pending completion across Stages R6–R8.
