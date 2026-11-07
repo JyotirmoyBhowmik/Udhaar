@@ -15,6 +15,7 @@ const {
   hashIp
 } = require("../crypto/serverCrypto");
 const { OTP_LIMITS } = require("../config");
+const { isFeatureEnabled } = require("../config/killSwitches");
 const { getWhatsAppProvider, getEmailProvider, getSmsProvider } = require("../providers");
 const { getOtpRepository } = require("../repositories");
 
@@ -85,6 +86,13 @@ async function sendOtpChallenge({
 }) {
   if (!flowId) throw new Error("flowId is required");
   if (!destination) throw new Error("destination is required");
+
+  if (!isFeatureEnabled("KILL_SWITCH_OTP_DISPATCH")) {
+    const err = new Error("Verification code dispatch is temporarily paused by emergency kill switch.");
+    err.code = "ERR_DISPATCH_SUSPENDED";
+    err.status = 503;
+    throw err;
+  }
 
   const isEmail = channel === "EMAIL";
   const destinationHash = isEmail ? computeEmailHash(destination) : computePhoneHash(destination);
@@ -180,8 +188,12 @@ async function verifyOtpChallenge({ flowId, code, purpose, destination = null })
     throw err;
   }
 
-  const now = Date.now();
   const otpRepo = getOtpRepository();
+  if (typeof otpRepo.verifyAndConsumeChallengeTransaction === "function") {
+    return await otpRepo.verifyAndConsumeChallengeTransaction({ flowId, code, purpose, destination });
+  }
+
+  const now = Date.now();
 
   // Find active challenge matching flowId and purpose
   let targetChallenge = null;

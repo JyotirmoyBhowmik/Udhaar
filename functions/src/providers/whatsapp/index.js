@@ -48,6 +48,37 @@ class FakeWhatsAppProvider {
     const matches = this.sentMessages.filter(m => m.destination === destination);
     return matches.length > 0 ? matches[matches.length - 1].code : null;
   }
+
+  verifyWebhookSignature(headers, rawBody) {
+    const signature = headers["x-hub-signature-256"];
+    if (!signature || typeof signature !== "string") return false;
+    const secret = process.env.META_APP_SECRET || "test_meta_app_secret";
+    const payload = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(typeof rawBody === "string" ? rawBody : JSON.stringify(rawBody));
+    const expected = "sha256=" + crypto.createHmac("sha256", secret).update(payload).digest("hex");
+    const sigBuf = Buffer.from(signature);
+    const expBuf = Buffer.from(expected);
+    if (sigBuf.length !== expBuf.length) return false;
+    return crypto.timingSafeEqual(sigBuf, expBuf);
+  }
+
+  parseWebhookPayload(body) {
+    try {
+      const entry = body?.entry?.[0];
+      const change = entry?.changes?.[0];
+      const statusObj = change?.value?.statuses?.[0];
+      if (!statusObj) return null;
+
+      return {
+        messageId: statusObj.id,
+        recipientId: statusObj.recipient_id,
+        status: (statusObj.status || "").toUpperCase(),
+        timestamp: statusObj.timestamp,
+        errors: statusObj.errors || null
+      };
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
 class WhatsAppCloudApiProvider {
@@ -127,12 +158,17 @@ class WhatsAppCloudApiProvider {
   }
 
   verifyWebhookSignature(headers, rawBody) {
-    if (!this.appSecret) return false;
+    const secret = this.appSecret || process.env.META_APP_SECRET;
+    if (!secret) return false;
     const signature = headers["x-hub-signature-256"];
-    if (!signature) return false;
+    if (!signature || typeof signature !== "string") return false;
 
-    const expected = "sha256=" + crypto.createHmac("sha256", this.appSecret).update(rawBody).digest("hex");
-    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+    const payload = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(typeof rawBody === "string" ? rawBody : JSON.stringify(rawBody));
+    const expected = "sha256=" + crypto.createHmac("sha256", secret).update(payload).digest("hex");
+    const sigBuf = Buffer.from(signature);
+    const expBuf = Buffer.from(expected);
+    if (sigBuf.length !== expBuf.length) return false;
+    return crypto.timingSafeEqual(sigBuf, expBuf);
   }
 
   parseWebhookPayload(body) {
@@ -145,8 +181,9 @@ class WhatsAppCloudApiProvider {
       return {
         messageId: statusObj.id,
         recipientId: statusObj.recipient_id,
-        status: statusObj.status, // "sent" | "delivered" | "read" | "failed"
-        timestamp: statusObj.timestamp
+        status: (statusObj.status || "").toUpperCase(), // "SENT" | "DELIVERED" | "READ" | "FAILED"
+        timestamp: statusObj.timestamp,
+        errors: statusObj.errors || null
       };
     } catch (_) {
       return null;

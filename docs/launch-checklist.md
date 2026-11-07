@@ -23,7 +23,7 @@
 ## 2. Identity, Authentication & Anti-Fraud Gate (Security Lead)
 - [ ] **WhatsApp Cloud API**: Production Meta App approved with active credit line and `udhaar_login_code` authentication template in EN, HI, BN, NE, AS. *(Status: Provider adapter written; live credentials pending)*
 - [ ] **Email Provider**: Amazon SES / SendGrid configured with SPF, DKIM, and DMARC passing on `no-reply@jyotirmoyb.com`. *(Status: Provider adapter written; live credentials pending)*
-- [ ] **OTP Service Hardening**: Challenges stored with Firestore TTL policy, atomic rate limiting, and global budget transaction. *(Status: Pending Stage R1 real persistence)*
+- [x] **OTP Service Hardening**: Challenges stored with Firestore TTL policy, atomic rate limiting, 50%/80%/100% budget alerts, and global budget transaction. [Proof: `functions/src/otp/otpService.js`, Test: `functions/test/stage_r4_abuse_resistant_codes.test.js`]
 - [x] **Fraud Mitigation**: Server-side reCAPTCHA Enterprise and Play Integrity App Check verification on endpoints. [Proof: `functions/src/security/appCheckMiddleware.js`, Test: `functions/test/stage_r3_sessions_tokens.test.js`]
 - [x] **Session Hardening**: Firebase Admin `createSessionCookie` (`__session`) and `createCustomToken` with Firestore revocation. [Proof: `functions/src/sessions/sessionManager.js`, Test: `functions/test/stage_r3_sessions_tokens.test.js`]
 
@@ -84,4 +84,4 @@
 | **General Availability** | **100%** | Permanent | Full global release promoted to live production |
 
 **Audit Status**:
-- **Baseline Audit (Stage R0)**: Complete. 16 items proven, 20 items pending completion across Stages R1–R8.
+- **Baseline Audit (Stage R0)**: Complete. 23 items proven, 13 items pending completion across Stages R5–R8.

@@ -3,7 +3,11 @@
  * Implements persistent challenges with TTL, atomic rate limits, and global send budget.
  */
 
+const crypto = require("crypto");
 const { getDb } = require("./firestoreClient");
+const { logger } = require("../../observability/logger");
+const { computeOtpHash, constantTimeEquals } = require("../../crypto/serverCrypto");
+const { OTP_LIMITS } = require("../../config");
 
 class FirestoreOtpRepository {
   constructor(db) {
@@ -46,6 +50,112 @@ class FirestoreOtpRepository {
       t.set(docRef, updates, { merge: true });
       return { ...snap.data(), ...updates };
     });
+  }
+
+  async verifyAndConsumeChallengeTransaction({ flowId, code, purpose, destination = null }) {
+    return this.db.runTransaction(async (t) => {
+      const snap = await this.db.collection("otpChallenges")
+        .where("flowId", "==", flowId)
+        .where("purpose", "==", purpose)
+        .where("consumed", "==", false)
+        .limit(1)
+        .get();
+
+      if (snap.empty) {
+        const err = new Error("No active verification challenge found for this flow.");
+        err.code = "ERR_CHALLENGE_NOT_FOUND";
+        err.status = 404;
+        throw err;
+      }
+
+      const docRef = snap.docs[0].ref;
+      const targetChallenge = snap.docs[0].data();
+      const now = Date.now();
+
+      if (targetChallenge.lockedUntilMs && targetChallenge.lockedUntilMs > now) {
+        const remainingMins = Math.ceil((targetChallenge.lockedUntilMs - now) / 60000);
+        const err = new Error(`Too many incorrect attempts. Account verification is locked for ${remainingMins} more minutes.`);
+        err.code = "ERR_ACCOUNT_LOCKED";
+        err.status = 403;
+        throw err;
+      }
+
+      if (now > targetChallenge.expiresAtMs) {
+        const err = new Error("Verification code has expired. Please request a new code.");
+        err.code = "ERR_OTP_EXPIRED";
+        err.status = 400;
+        throw err;
+      }
+
+      const candidateHash = computeOtpHash(code.trim(), flowId);
+      const isValid = constantTimeEquals(candidateHash, targetChallenge.codeHash);
+
+      if (!isValid) {
+        const newAttempts = (targetChallenge.attempts || 0) + 1;
+        const updates = { attempts: newAttempts };
+
+        if (newAttempts >= targetChallenge.maxAttempts) {
+          updates.lockedUntilMs = now + (OTP_LIMITS.LOCKOUT_DURATION_MINUTES || 15) * 60 * 1000;
+          t.set(docRef, updates, { merge: true });
+          const err = new Error("Too many incorrect attempts. Account verification locked for 15 minutes.");
+          err.code = "ERR_MAX_ATTEMPTS_EXCEEDED";
+          err.status = 403;
+          throw err;
+        }
+
+        t.set(docRef, updates, { merge: true });
+        const attemptsLeft = targetChallenge.maxAttempts - newAttempts;
+        const err = new Error(`Incorrect verification code. ${attemptsLeft} attempts remaining.`);
+        err.code = "ERR_INVALID_OTP";
+        err.status = 400;
+        err.attemptsRemaining = attemptsLeft;
+        throw err;
+      }
+
+      const flowToken = crypto
+        .createHmac("sha256", targetChallenge.codeHash)
+        .update(`verified:${flowId}:${purpose}:${now}`)
+        .digest("hex");
+
+      t.set(docRef, {
+        consumed: true,
+        consumedAtMs: now,
+        flowToken
+      }, { merge: true });
+
+      return {
+        verified: true,
+        flowToken
+      };
+    });
+  }
+
+  async getChallengeByFlowId(flowId, purpose) {
+    const snap = await this.db.collection("otpChallenges")
+      .where("flowId", "==", flowId)
+      .where("purpose", "==", purpose)
+      .where("consumed", "==", false)
+      .limit(1)
+      .get();
+    if (snap.empty) return null;
+    return snap.docs[0].data();
+  }
+
+  async updateChallengeDeliveryStatus(providerMessageId, status, timestamp, errors = null) {
+    const snap = await this.db.collection("otpChallenges")
+      .where("providerMessageId", "==", providerMessageId)
+      .limit(1)
+      .get();
+    if (snap.empty) return null;
+    const docRef = snap.docs[0].ref;
+    const updates = {
+      deliveryStatus: (status || "").toUpperCase(),
+      deliveryUpdatedAtMs: Date.now(),
+      deliveryTimestamp: timestamp || null,
+      deliveryErrors: errors || null
+    };
+    await docRef.set(updates, { merge: true });
+    return { ...snap.docs[0].data(), ...updates };
   }
 
   /**
@@ -196,6 +306,9 @@ class FirestoreOtpRepository {
           dateStr: today,
           sentCount: 1,
           killSwitchTriggered: false,
+          alerted50: false,
+          alerted80: false,
+          alerted100: false,
           ttlExpiresAt: new Date(Date.now() + 7 * 86400000) // Keep for 7 days
         };
         t.set(docRef, counter);
@@ -204,7 +317,15 @@ class FirestoreOtpRepository {
 
       if (counter.killSwitchTriggered || counter.sentCount >= maxDailyBudget) {
         counter.killSwitchTriggered = true;
-        t.set(docRef, { killSwitchTriggered: true }, { merge: true });
+        if (!counter.alerted100) {
+          counter.alerted100 = true;
+          logger.warn(`[BUDGET_ALERT] 100% daily budget reached (${counter.sentCount}/${maxDailyBudget}). Kill switch activated.`, {
+            threshold: "100%",
+            sentCount: counter.sentCount,
+            maxDailyBudget
+          });
+        }
+        t.set(docRef, { killSwitchTriggered: true, alerted100: true }, { merge: true });
         const err = new Error("Emergency daily OTP dispatch budget reached. Send service paused.");
         err.code = "ERR_GLOBAL_BUDGET_EXCEEDED";
         err.status = 503;
@@ -212,7 +333,25 @@ class FirestoreOtpRepository {
       }
 
       counter.sentCount += 1;
-      t.set(docRef, { sentCount: counter.sentCount }, { merge: true });
+      const pct = (counter.sentCount / maxDailyBudget) * 100;
+
+      if (pct >= 80 && !counter.alerted80) {
+        counter.alerted80 = true;
+        logger.warn(`[BUDGET_ALERT] 80% daily budget reached (${counter.sentCount}/${maxDailyBudget}).`, {
+          threshold: "80%",
+          sentCount: counter.sentCount,
+          maxDailyBudget
+        });
+      } else if (pct >= 50 && !counter.alerted50) {
+        counter.alerted50 = true;
+        logger.warn(`[BUDGET_ALERT] 50% daily budget reached (${counter.sentCount}/${maxDailyBudget}).`, {
+          threshold: "50%",
+          sentCount: counter.sentCount,
+          maxDailyBudget
+        });
+      }
+
+      t.set(docRef, counter, { merge: true });
       return counter;
     });
   }

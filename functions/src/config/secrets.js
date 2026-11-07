@@ -17,6 +17,9 @@ const whatsappAppSecret = defineSecret("META_APP_SECRET");
 const whatsappWebhookVerifyToken = defineSecret("WHATSAPP_WEBHOOK_VERIFY_TOKEN");
 const whatsappApiToken = defineSecret("WHATSAPP_API_TOKEN");
 const resendApiKey = defineSecret("RESEND_API_KEY");
+const dltSmsApiKey = defineSecret("DLT_SMS_API_KEY");
+const dltSenderId = defineSecret("DLT_SENDER_ID");
+const dltTemplateId = defineSecret("DLT_TEMPLATE_ID");
 
 const ALL_SECRETS = [
   udhaarServerSecret,
@@ -25,7 +28,10 @@ const ALL_SECRETS = [
   whatsappAppSecret,
   whatsappWebhookVerifyToken,
   whatsappApiToken,
-  resendApiKey
+  resendApiKey,
+  dltSmsApiKey,
+  dltSenderId,
+  dltTemplateId
 ];
 
 let injectedSecretsProvider = null;

@@ -27,8 +27,13 @@ function createApiApp() {
   // W3C Distributed Tracing and Telemetry Middleware
   app.use(tracingMiddleware);
 
-  // Basic security and parsing middleware
-  app.use(express.json({ limit: "500kb" }));
+  // Basic security and parsing middleware (preserves rawBody for webhook HMAC verification)
+  app.use(express.json({
+    limit: "500kb",
+    verify: (req, res, buf) => {
+      req.rawBody = buf;
+    }
+  }));
 
   // App Check Token Verification Guard (Play Integrity & reCAPTCHA Enterprise)
   app.use(appCheckGuard);

@@ -16,6 +16,7 @@ const { listUserDevices, revokeDeviceSession } = require("../sessions/sessionMan
 const { sendProblemDetails, requireAuth } = require("../middleware/authMiddleware");
 const { requireStepUpAuth, generateStepUpToken } = require("../middleware/stepUpMiddleware");
 const { getWhatsAppProvider } = require("../providers");
+const { constantTimeEquals } = require("../crypto/serverCrypto");
 
 function createAuthRouter() {
   const express = require("express");
@@ -298,15 +299,112 @@ function createAuthRouter() {
     }
   });
 
-  // 12. POST /webhooks/whatsapp
+  // 12. GET /webhooks/whatsapp (Meta Hub subscription verification)
+  router.get("/webhooks/whatsapp", (req, res) => {
+    const mode = req.query["hub.mode"];
+    const token = req.query["hub.verify_token"];
+    const challenge = req.query["hub.challenge"];
+    const expectedToken = process.env.META_WEBHOOK_VERIFY_TOKEN || process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || "udhaar_webhook_verify_token_prod";
+
+    if (mode === "subscribe" && token && constantTimeEquals(token, expectedToken)) {
+      return res.status(200).send(challenge);
+    }
+    return res.status(403).send("Forbidden");
+  });
+
+  // 13. POST /webhooks/whatsapp (Meta status delivery updates with raw body signature check)
   router.post("/webhooks/whatsapp", async (req, res) => {
     const provider = getWhatsAppProvider();
-    if (provider.verifyWebhookSignature && !provider.verifyWebhookSignature(req.headers, req.body)) {
+    const rawBody = req.rawBody || (typeof req.body === "string" ? req.body : JSON.stringify(req.body));
+    if (provider.verifyWebhookSignature && !provider.verifyWebhookSignature(req.headers, rawBody)) {
       return res.status(401).send("Invalid signature");
     }
 
-    // Process delivery status idempotently
+    if (provider.parseWebhookPayload) {
+      const parsed = provider.parseWebhookPayload(req.body);
+      if (parsed && parsed.messageId) {
+        const { getOtpRepository } = require("../repositories");
+        const otpRepo = getOtpRepository();
+        await otpRepo.updateChallengeDeliveryStatus(
+          parsed.messageId,
+          parsed.status,
+          parsed.timestamp,
+          parsed.errors
+        );
+      }
+    }
+
     return res.status(200).send("EVENT_RECEIVED");
+  });
+
+  // 14. GET /auth/otp/status (Delivery inspection & alternative channel recommendation)
+  router.get("/auth/otp/status", async (req, res, next) => {
+    try {
+      const { flowId } = req.query;
+      if (!flowId) {
+        const err = new Error("flowId is required");
+        err.code = "ERR_INVALID_PARAMETERS";
+        err.status = 400;
+        throw err;
+      }
+      const { getOtpRepository } = require("../repositories");
+      const otpRepo = getOtpRepository();
+      let targetChallenge = null;
+      if (otpRepo.challenges && typeof otpRepo.challenges.values === "function") {
+        for (const chal of otpRepo.challenges.values()) {
+          if (chal.flowId === flowId) {
+            targetChallenge = chal;
+            break;
+          }
+        }
+      } else if (otpRepo.db) {
+        const snap = await otpRepo.db.collection("otpChallenges").where("flowId", "==", flowId).limit(1).get();
+        if (!snap.empty) targetChallenge = snap.docs[0].data();
+      }
+
+      if (!targetChallenge) {
+        const err = new Error("No verification challenge found for this flow.");
+        err.code = "ERR_CHALLENGE_NOT_FOUND";
+        err.status = 404;
+        throw err;
+      }
+
+      const isFailed = targetChallenge.deliveryStatus === "FAILED";
+      return res.status(200).json({
+        flowId,
+        channel: targetChallenge.channel,
+        deliveryStatus: targetChallenge.deliveryStatus || "SENT",
+        canFallback: isFailed || (Date.now() - targetChallenge.createdAtMs > 30000),
+        suggestedAlternative: isFailed ? "SMS or Email" : null,
+        message: isFailed
+          ? "WhatsApp delivery failed. Request verification code via SMS or Email instead."
+          : "Verification code sent.",
+        allowedFallbackChannels: ["SMS", "EMAIL"]
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // 15. POST /auth/otp/fallback (Fallback dispatch via SMS or Email)
+  router.post("/auth/otp/fallback", async (req, res, next) => {
+    try {
+      const { flowId, channel, destination, locale } = req.body || {};
+      const clientIp = req.ip || req.headers["x-forwarded-for"] || "127.0.0.1";
+      const { fallbackOtpChallenge } = require("./authService");
+
+      const result = await fallbackOtpChallenge({
+        flowId,
+        channel,
+        destination,
+        locale,
+        clientIp
+      });
+
+      return res.status(200).json(result);
+    } catch (err) {
+      next(err);
+    }
   });
 
   return router;

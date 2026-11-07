@@ -3,6 +3,10 @@
  * Cleanly isolated classes with per-instance stores. Strictly forbidden in production/staging.
  */
 
+const crypto = require("crypto");
+const { computeOtpHash, constantTimeEquals } = require("../../src/crypto/serverCrypto");
+const { OTP_LIMITS } = require("../../src/config");
+
 class InMemoryAuthRepository {
   constructor() {
     this.users = new Map();
@@ -67,10 +71,14 @@ class InMemoryOtpRepository {
   constructor() {
     this.challenges = new Map();
     this.rateLimits = new Map();
+    this.budgetAlerts = [];
     this.dailyBudget = {
       dateStr: new Date().toISOString().split("T")[0],
       sentCount: 0,
-      killSwitchTriggered: false
+      killSwitchTriggered: false,
+      alerted50: false,
+      alerted80: false,
+      alerted100: false
     };
   }
 
@@ -83,6 +91,15 @@ class InMemoryOtpRepository {
     return this.challenges.get(challengeId) || null;
   }
 
+  async getChallengeByFlowId(flowId, purpose) {
+    for (const chal of this.challenges.values()) {
+      if (chal.flowId === flowId && chal.purpose === purpose && !chal.consumed) {
+        return chal;
+      }
+    }
+    return null;
+  }
+
   async updateChallenge(challengeId, updates) {
     const existing = this.challenges.get(challengeId) || {};
     Object.assign(existing, updates);
@@ -90,11 +107,106 @@ class InMemoryOtpRepository {
     return existing;
   }
 
+  async updateChallengeDeliveryStatus(providerMessageId, status, timestamp, errors = null) {
+    for (const chal of this.challenges.values()) {
+      if (chal.providerMessageId === providerMessageId) {
+        chal.deliveryStatus = (status || "").toUpperCase();
+        chal.deliveryUpdatedAtMs = Date.now();
+        chal.deliveryTimestamp = timestamp || null;
+        chal.deliveryErrors = errors || null;
+        return chal;
+      }
+    }
+    return null;
+  }
+
   async consumeChallenge(challengeId, updates) {
     const existing = this.challenges.get(challengeId);
     if (!existing) return null;
     Object.assign(existing, updates);
     return existing;
+  }
+
+  async verifyAndConsumeChallengeTransaction({ flowId, code, purpose, destination = null }) {
+    if (!this._flowLocks) this._flowLocks = new Map();
+    let prevLock = this._flowLocks.get(flowId) || Promise.resolve();
+    let release;
+    const currentLock = new Promise(r => { release = r; });
+    this._flowLocks.set(flowId, currentLock);
+    await prevLock;
+
+    try {
+      let targetChallenge = null;
+      for (const chal of this.challenges.values()) {
+        if (chal.flowId === flowId && chal.purpose === purpose && !chal.consumed) {
+          targetChallenge = chal;
+          break;
+        }
+      }
+
+      if (!targetChallenge) {
+        const err = new Error("No active verification challenge found for this flow.");
+        err.code = "ERR_CHALLENGE_NOT_FOUND";
+        err.status = 404;
+        throw err;
+      }
+
+      const now = Date.now();
+
+      if (targetChallenge.lockedUntilMs && targetChallenge.lockedUntilMs > now) {
+        const remainingMins = Math.ceil((targetChallenge.lockedUntilMs - now) / 60000);
+        const err = new Error(`Too many incorrect attempts. Account verification is locked for ${remainingMins} more minutes.`);
+        err.code = "ERR_ACCOUNT_LOCKED";
+        err.status = 403;
+        throw err;
+      }
+
+      if (now > targetChallenge.expiresAtMs) {
+        const err = new Error("Verification code has expired. Please request a new code.");
+        err.code = "ERR_OTP_EXPIRED";
+        err.status = 400;
+        throw err;
+      }
+
+      const candidateHash = computeOtpHash(code.trim(), flowId);
+      const isValid = constantTimeEquals(candidateHash, targetChallenge.codeHash);
+
+      if (!isValid) {
+        const newAttempts = (targetChallenge.attempts || 0) + 1;
+        targetChallenge.attempts = newAttempts;
+
+        if (newAttempts >= targetChallenge.maxAttempts) {
+          targetChallenge.lockedUntilMs = now + (OTP_LIMITS.LOCKOUT_DURATION_MINUTES || 15) * 60 * 1000;
+          const err = new Error("Too many incorrect attempts. Account verification locked for 15 minutes.");
+          err.code = "ERR_MAX_ATTEMPTS_EXCEEDED";
+          err.status = 403;
+          throw err;
+        }
+
+        const attemptsLeft = targetChallenge.maxAttempts - newAttempts;
+        const err = new Error(`Incorrect verification code. ${attemptsLeft} attempts remaining.`);
+        err.code = "ERR_INVALID_OTP";
+        err.status = 400;
+        err.attemptsRemaining = attemptsLeft;
+        throw err;
+      }
+
+      const flowToken = crypto
+        .createHmac("sha256", targetChallenge.codeHash)
+        .update(`verified:${flowId}:${purpose}:${now}`)
+        .digest("hex");
+
+      targetChallenge.consumed = true;
+      targetChallenge.consumedAtMs = now;
+      targetChallenge.flowToken = flowToken;
+
+      return {
+        verified: true,
+        flowToken
+      };
+    } finally {
+      release();
+    }
   }
 
   async checkAndIncrementIpLimit(ipHashed, maxLimit, windowMs = 3600000) {
@@ -196,10 +308,17 @@ class InMemoryOtpRepository {
       this.dailyBudget.dateStr = today;
       this.dailyBudget.sentCount = 0;
       this.dailyBudget.killSwitchTriggered = false;
+      this.dailyBudget.alerted50 = false;
+      this.dailyBudget.alerted80 = false;
+      this.dailyBudget.alerted100 = false;
     }
 
     if (this.dailyBudget.killSwitchTriggered || this.dailyBudget.sentCount >= budgetCap) {
       this.dailyBudget.killSwitchTriggered = true;
+      if (!this.dailyBudget.alerted100) {
+        this.dailyBudget.alerted100 = true;
+        this.budgetAlerts.push({ threshold: "100%", sentCount: this.dailyBudget.sentCount, maxDailyBudget: budgetCap });
+      }
       const err = new Error("Emergency daily OTP dispatch budget reached. Send service paused.");
       err.code = "ERR_GLOBAL_BUDGET_EXCEEDED";
       err.status = 503;
@@ -207,14 +326,31 @@ class InMemoryOtpRepository {
     }
 
     this.dailyBudget.sentCount += 1;
+    const pct = (this.dailyBudget.sentCount / budgetCap) * 100;
+
+    if (pct >= 100 && !this.dailyBudget.alerted100) {
+      this.dailyBudget.alerted100 = true;
+      this.budgetAlerts.push({ threshold: "100%", sentCount: this.dailyBudget.sentCount, maxDailyBudget: budgetCap });
+    } else if (pct >= 80 && !this.dailyBudget.alerted80) {
+      this.dailyBudget.alerted80 = true;
+      this.budgetAlerts.push({ threshold: "80%", sentCount: this.dailyBudget.sentCount, maxDailyBudget: budgetCap });
+    } else if (pct >= 50 && !this.dailyBudget.alerted50) {
+      this.dailyBudget.alerted50 = true;
+      this.budgetAlerts.push({ threshold: "50%", sentCount: this.dailyBudget.sentCount, maxDailyBudget: budgetCap });
+    }
+
     return { ...this.dailyBudget };
   }
 
   clear() {
     this.challenges.clear();
     this.rateLimits.clear();
+    this.budgetAlerts.length = 0;
     this.dailyBudget.sentCount = 0;
     this.dailyBudget.killSwitchTriggered = false;
+    this.dailyBudget.alerted50 = false;
+    this.dailyBudget.alerted80 = false;
+    this.dailyBudget.alerted100 = false;
   }
 }
 

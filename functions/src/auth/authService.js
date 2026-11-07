@@ -8,7 +8,7 @@
 const crypto = require("crypto");
 const { parsePhoneNumber } = require("libphonenumber-js");
 const { ALLOWED_COUNTRY_CODES } = require("../config");
-const { computePhoneHash, computeEmailHash } = require("../crypto/serverCrypto");
+const { computePhoneHash, computeEmailHash, computeOtpHash } = require("../crypto/serverCrypto");
 const { sendOtpChallenge, verifyOtpChallenge } = require("../otp/otpService");
 const { isDisposableEmail } = require("./disposableEmails");
 const { createSession } = require("../sessions/sessionManager");
@@ -401,6 +401,9 @@ async function verifySignin({ flowId, code, phoneNumber, clientType = "WEB", cli
   const authRepo = getAuthRepository();
   const user = await authRepo.getUserByPhoneHash(phoneHmac);
   if (!user) {
+    // Constant-time dummy computation to prevent enumeration via timing
+    computeOtpHash(code || "000000", flowId);
+    await new Promise(r => setTimeout(r, 20));
     const err = new Error("Invalid verification code or session expired.");
     err.code = "ERR_INVALID_CREDENTIALS";
     err.status = 401;
@@ -408,11 +411,22 @@ async function verifySignin({ flowId, code, phoneNumber, clientType = "WEB", cli
   }
 
   // Verify OTP
-  await verifyOtpChallenge({
-    flowId,
-    code,
-    purpose: "SIGNIN"
-  });
+  try {
+    await verifyOtpChallenge({
+      flowId,
+      code,
+      purpose: "SIGNIN"
+    });
+  } catch (err) {
+    if (err.code === "ERR_INVALID_OTP" || err.code === "ERR_CHALLENGE_NOT_FOUND" || err.code === "ERR_OTP_EXPIRED") {
+      const authErr = new Error("Invalid verification code or session expired.");
+      authErr.code = "ERR_INVALID_CREDENTIALS";
+      authErr.status = 401;
+      authErr.attemptsRemaining = err.attemptsRemaining;
+      throw authErr;
+    }
+    throw err;
+  }
 
   if (user.status !== "ACTIVE") {
     const err = new Error("User account is inactive or suspended.");
@@ -448,6 +462,50 @@ async function verifySignin({ flowId, code, phoneNumber, clientType = "WEB", cli
   };
 }
 
+/**
+ * 7. Fallback to alternative verification channel (SMS or Email) on failure
+ */
+async function fallbackOtpChallenge({ flowId, channel, destination, locale = "en", clientIp = "127.0.0.1" }) {
+  if (!flowId || !channel || !destination) {
+    const err = new Error("flowId, channel, and destination are required for fallback.");
+    err.code = "ERR_INVALID_PARAMETERS";
+    err.status = 400;
+    throw err;
+  }
+
+  const upperChannel = channel.toUpperCase();
+  if (upperChannel !== "SMS" && upperChannel !== "EMAIL") {
+    const err = new Error("Fallback channel must be SMS or EMAIL.");
+    err.code = "ERR_UNSUPPORTED_CHANNEL";
+    err.status = 400;
+    throw err;
+  }
+
+  let cleanDestination;
+  if (upperChannel === "SMS") {
+    const { e164 } = validateAndNormalizePhone(destination);
+    cleanDestination = e164;
+  } else {
+    cleanDestination = validateAndNormalizeEmail(destination);
+  }
+
+  const result = await sendOtpChallenge({
+    flowId,
+    destination: cleanDestination,
+    channel: upperChannel,
+    purpose: "SIGNUP",
+    locale,
+    clientIp
+  });
+
+  return {
+    flowId,
+    channel: upperChannel,
+    resendAfterSeconds: result.resendAfterSeconds,
+    expiresAtMs: result.expiresAtMs
+  };
+}
+
 module.exports = {
   validateAndNormalizePhone,
   validateAndNormalizeEmail,
@@ -457,6 +515,7 @@ module.exports = {
   completeSignup,
   startSignin,
   verifySignin,
+  fallbackOtpChallenge,
   resetAuthStore,
   _inMemoryUsers,
   _inMemoryPhoneIndex,
