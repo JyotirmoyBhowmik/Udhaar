@@ -4,9 +4,10 @@
  */
 
 const crypto = require("crypto");
-const { getRecord, _inMemoryRecords } = require("./recordService");
+const { getRecord } = require("./recordService");
 const { getOrCreateUserDek, encryptRecordFields, decryptRecordFields } = require("../crypto/envelopeCrypto");
 const { appendLedgerEvent, listEvents } = require("./eventService");
+const { getLedgerRepository } = require("../repositories");
 
 /**
  * Record a partial or full repayment against a record
@@ -46,13 +47,11 @@ async function recordPayment({ uid, recordId, amountPaise, paymentMode = "UPI", 
   record.serverRev += 1;
   record.updatedAtMs = now;
 
-  // Re-encrypt record
+  // Re-encrypt record and update in repository
   const dek = await getOrCreateUserDek(uid);
   const reEncrypted = encryptRecordFields(record, dek);
-  const userRecordsMap = _inMemoryRecords.get(uid);
-  if (userRecordsMap) {
-    userRecordsMap.set(recordId, reEncrypted);
-  }
+  const repo = getLedgerRepository();
+  await repo.updateRecord(uid, recordId, reEncrypted);
 
   // Append payment event
   const event = await appendLedgerEvent({

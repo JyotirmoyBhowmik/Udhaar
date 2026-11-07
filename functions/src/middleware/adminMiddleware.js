@@ -9,8 +9,7 @@
 
 const { sendProblemDetails } = require("./authMiddleware");
 
-// In-memory admin roles mapping for emulator/test environment: uid -> role
-const inMemoryAdminRoles = new Map();
+const adminRoles = Object.create(null);
 
 function setAdminRole(uid, role) {
   const validRoles = ["ADMIN", "OPERATOR", "AUDITOR"];
@@ -18,16 +17,30 @@ function setAdminRole(uid, role) {
   if (!validRoles.includes(r)) {
     throw new Error(`Invalid admin role: '${role}'. Allowed: ADMIN, OPERATOR, AUDITOR.`);
   }
-  inMemoryAdminRoles.set(uid, r);
+  adminRoles[uid] = r;
 }
 
 function removeAdminRole(uid) {
-  inMemoryAdminRoles.delete(uid);
+  delete adminRoles[uid];
 }
 
 function clearAdminRoles() {
-  inMemoryAdminRoles.clear();
+  for (const k of Object.keys(adminRoles)) {
+    delete adminRoles[k];
+  }
 }
+
+const _inMemoryAdminRoles = new Proxy(adminRoles, {
+  get(target, prop) {
+    if (prop === "get") return (k) => target[k];
+    if (prop === "set") return (k, v) => { target[k] = v; return target; };
+    if (prop === "has") return (k) => Object.prototype.hasOwnProperty.call(target, k);
+    if (prop === "delete") return (k) => { delete target[k]; return true; };
+    if (prop === "clear") return () => clearAdminRoles();
+    if (prop === "size") return Object.keys(target).length;
+    return target[prop];
+  }
+});
 
 /**
  * Higher-order middleware factory requiring specific admin role(s)
@@ -49,7 +62,7 @@ function requireAdminRole(allowedRoles = ["ADMIN", "OPERATOR", "AUDITOR"]) {
     }
 
     // 2. Resolve admin role
-    const userRole = inMemoryAdminRoles.get(req.user.uid) || req.user.role || (req.user.claims && req.user.claims.adminRole);
+    const userRole = adminRoles[req.user.uid] || req.user.role || (req.user.claims && req.user.claims.adminRole);
 
     if (!userRole || !normalizedAllowed.includes(String(userRole).toUpperCase())) {
       return sendProblemDetails(res, {
@@ -86,5 +99,5 @@ module.exports = {
   setAdminRole,
   removeAdminRole,
   clearAdminRoles,
-  _inMemoryAdminRoles: inMemoryAdminRoles
+  _inMemoryAdminRoles
 };

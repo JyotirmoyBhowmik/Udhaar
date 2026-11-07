@@ -1,6 +1,7 @@
 /**
  * Ledger People & Contacts Directory Service (functions/src/ledger/peopleService.js)
  * Implements CRUD on counterparties with field-level envelope encryption and quota checks.
+ * Backed by persistent repositories with zero module-level Map storage.
  */
 
 const crypto = require("crypto");
@@ -10,22 +11,25 @@ const {
   encryptPersonFields,
   decryptPersonFields
 } = require("../crypto/envelopeCrypto");
+const { getLedgerRepository } = require("../repositories");
 
-// In-memory people store: uid -> Map(personId -> person)
-const inMemoryPeople = new Map();
-
-function getUserPeopleMap(uid) {
-  if (!inMemoryPeople.has(uid)) {
-    inMemoryPeople.set(uid, new Map());
+const proxyMap = (getMapFn) => new Proxy({}, {
+  get(target, prop) {
+    const repo = getLedgerRepository();
+    const map = (repo && repo.people) || {};
+    if (typeof map[prop] === "function") {
+      return map[prop].bind(map);
+    }
+    return map[prop];
   }
-  return inMemoryPeople.get(uid);
-}
+});
+
+const _inMemoryPeople = proxyMap(() => getLedgerRepository().people);
 
 async function createPerson({ uid, personData }) {
-  const peopleMap = getUserPeopleMap(uid);
-
-  // Quota check
-  const activeCount = Array.from(peopleMap.values()).filter(p => !p.deletedAtMs).length;
+  const repo = getLedgerRepository();
+  const existingPeople = await repo.listPeople(uid);
+  const activeCount = existingPeople.filter(p => !p.deletedAtMs).length;
   if (activeCount >= USER_QUOTAS.MAX_PEOPLE) {
     const err = new Error(`User account quota exceeded: maximum of ${USER_QUOTAS.MAX_PEOPLE} contacts allowed.`);
     err.code = "ERR_QUOTA_EXCEEDED";
@@ -45,6 +49,7 @@ async function createPerson({ uid, personData }) {
 
   const personPayload = {
     personId,
+    id: personId,
     name: personData.name.trim(),
     phone: personData.phone ? String(personData.phone).trim() : "",
     email: personData.email ? String(personData.email).trim().toLowerCase() : "",
@@ -56,14 +61,14 @@ async function createPerson({ uid, personData }) {
 
   const dek = await getOrCreateUserDek(uid);
   const encrypted = encryptPersonFields(personPayload, dek);
-  peopleMap.set(personId, encrypted);
+  await repo.createPerson(uid, { id: personId, ...encrypted });
 
   return { ...personPayload };
 }
 
 async function getPerson({ uid, personId }) {
-  const peopleMap = getUserPeopleMap(uid);
-  const stored = peopleMap.get(personId);
+  const repo = getLedgerRepository();
+  const stored = await repo.getPerson(uid, personId);
 
   if (!stored || stored.deletedAtMs) {
     const err = new Error(`Person ${personId} not found`);
@@ -77,14 +82,14 @@ async function getPerson({ uid, personId }) {
 }
 
 async function listPeople({ uid, cursor = null, limit = 50 }) {
-  const peopleMap = getUserPeopleMap(uid);
-  let all = Array.from(peopleMap.values()).filter(p => !p.deletedAtMs);
+  const repo = getLedgerRepository();
+  let all = (await repo.listPeople(uid)).filter(p => !p.deletedAtMs);
 
   all.sort((a, b) => b.createdAtMs - a.createdAtMs);
 
   let startIndex = 0;
   if (cursor) {
-    const foundIdx = all.findIndex(p => p.personId === cursor);
+    const foundIdx = all.findIndex(p => (p.personId || p.id) === cursor);
     if (foundIdx !== -1) {
       startIndex = foundIdx + 1;
     }
@@ -92,7 +97,7 @@ async function listPeople({ uid, cursor = null, limit = 50 }) {
 
   const pageSize = Math.min(Math.max(Number(limit) || 50, 1), 100);
   const paged = all.slice(startIndex, startIndex + pageSize);
-  const nextCursor = startIndex + pageSize < all.length ? paged[paged.length - 1].personId : null;
+  const nextCursor = startIndex + pageSize < all.length ? (paged[paged.length - 1].personId || paged[paged.length - 1].id) : null;
 
   const dek = await getOrCreateUserDek(uid);
   const items = paged.map(p => decryptPersonFields(p, dek));
@@ -105,8 +110,8 @@ async function listPeople({ uid, cursor = null, limit = 50 }) {
 }
 
 async function updatePerson({ uid, personId, updates }) {
-  const peopleMap = getUserPeopleMap(uid);
-  const existing = peopleMap.get(personId);
+  const repo = getLedgerRepository();
+  const existing = await repo.getPerson(uid, personId);
 
   if (!existing || existing.deletedAtMs) {
     const err = new Error(`Person ${personId} not found`);
@@ -125,14 +130,14 @@ async function updatePerson({ uid, personId, updates }) {
   decrypted.updatedAtMs = Date.now();
 
   const reEncrypted = encryptPersonFields(decrypted, dek);
-  peopleMap.set(personId, reEncrypted);
+  await repo.updatePerson(uid, personId, reEncrypted);
 
   return decrypted;
 }
 
 async function deletePerson({ uid, personId }) {
-  const peopleMap = getUserPeopleMap(uid);
-  const existing = peopleMap.get(personId);
+  const repo = getLedgerRepository();
+  const existing = await repo.getPerson(uid, personId);
 
   if (!existing || existing.deletedAtMs) {
     const err = new Error(`Person ${personId} not found`);
@@ -142,14 +147,16 @@ async function deletePerson({ uid, personId }) {
   }
 
   const now = Date.now();
-  existing.deletedAtMs = now;
-  existing.updatedAtMs = now;
+  await repo.updatePerson(uid, personId, { deletedAtMs: now, updatedAtMs: now });
 
   return { success: true, personId, deletedAtMs: now };
 }
 
 function resetPeopleStore() {
-  inMemoryPeople.clear();
+  const repo = getLedgerRepository();
+  if (repo && typeof repo.clear === "function") {
+    repo.clear();
+  }
 }
 
 module.exports = {
@@ -159,5 +166,5 @@ module.exports = {
   updatePerson,
   deletePerson,
   resetPeopleStore,
-  _inMemoryPeople: inMemoryPeople
+  _inMemoryPeople
 };

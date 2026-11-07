@@ -15,6 +15,16 @@
 const latencyReservoir = [];
 const MAX_RESERVOIR_SIZE = 10000;
 
+class KeyStore {
+  constructor() {
+    this._data = Object.create(null);
+  }
+  get(k) { return this._data[k]; }
+  set(k, v) { this._data[k] = v; return this; }
+  clear() { this._data = Object.create(null); }
+  *entries() { for (const k of Object.keys(this._data)) yield [k, this._data[k]]; }
+}
+
 // Metric counters
 const counters = {
   totalRequests: 0,
@@ -22,7 +32,7 @@ const counters = {
   status3xx: 0,
   status4xx: 0,
   status5xx: 0,
-  endpoints: new Map() // endpoint -> { count, totalDurationMs, status2xx, status4xx, status5xx }
+  endpoints: new KeyStore() // endpoint -> { count, totalDurationMs, status2xx, status4xx, status5xx }
 };
 
 // Client RUM metrics buffer

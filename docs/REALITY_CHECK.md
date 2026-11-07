@@ -1,0 +1,95 @@
+# Udhaar Platform v2 — Reality Check & Architectural Audit (Stage R0)
+
+**Document Version**: 1.0.0-AUDIT  
+**Audit Date**: 2026-11-07  
+**Auditor**: Principal Backend & Security Engineering  
+**Scope**: Codebase audit of `functions/src`, `webapp/`, `sync-conformance/`, `app/`, `docs/launch-checklist.md`, `docs/TRUST_CLAIMS.md`, `docs/SECURITY.md`, and `web/trust/index.html`.
+
+---
+
+## 1. Executive Summary
+
+A comprehensive architectural and security audit of the Udhaar Platform codebase revealed that while the high-level designs, data models, Android Room migrations, and client UI/PWA components are extensive, the **backend implementation in `functions/src/` was largely simulated using in-memory `Map` instances**. 
+
+Consequently:
+- Cloud Functions cold starts cause total data loss.
+- Verification codes and rate limits are siloed per Cloud Function instance.
+- Encryption keys were wrapped using a hard-coded fallback secret rather than Google Cloud KMS.
+- Sessions and tokens were simulated strings rather than Firebase Admin SDK cryptographic tokens.
+- Android sync plumbing lacked an active network implementation and UI toggle.
+
+This document establishes the **baseline truth** of what is actually proven in code and tests versus what was aspirational or unproven.
+
+---
+
+## 2. Launch Checklist Reality Check Matrix (`docs/launch-checklist.md`)
+
+| Category | Checklist Claim | Proving File | Proving Test | Actual Status | Remediation Required |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **1. Infra** | Regional Pinning to `asia-south1` | `functions/index.js` (L28) | `stage_s0.test.js` | **Partly** | Functions v2 pinned; Firestore database region not verified by infrastructure script. |
+| **1. Infra** | Custom Domains & SSL Active | None (DNS / Host configs) | None | **Not True** | Domain names defined in config only; live SSL certificates not provisioned in infrastructure code. |
+| **1. Infra** | Dual Origin Isolation | `infra/firebase.prod.json` | `stage_s0.test.js` | **Proven** | `udhaar-marketing-prod` and `udhaar-app-prod` sites configured with distinct headers. |
+| **1. Infra** | Strict HTTP Security Headers & CSP | `infra/firebase.prod.json` | `stage_s0.test.js` | **Proven** | Strict CSP, zero inline code, COOP/CORP headers configured and validated. |
+| **1. Infra** | Cloud KMS Encryption (Master KEK) | `crypto/envelopeCrypto.js` | None | **Not True** | Key name specified as string, but wrapped with fallback secret `udhaar_fallback_kek_secret_...`. No `@google-cloud/kms` package. |
+| **1. Infra** | Secret Manager Injection | `functions/index.js` | None | **Not True** | Uses `defineString` for DB ID, but secrets are read from `process.env` with insecure fallback defaults. |
+| **2. Auth** | WhatsApp Cloud API Live Template | `providers/whatsapp/index.js` | Fake in tests | **Partly** | API client code written, but runs against `FakeWhatsAppProvider` in tests; live Meta credentials not verified in code. |
+| **2. Auth** | Transactional Email (SES/SendGrid) | `providers/email/index.js` | Fake in tests | **Partly** | Email client code written, but runs against `FakeEmailProvider`; SPF/DKIM/DMARC depends on external DNS. |
+| **2. Auth** | OTP Service Hardening & Limits | `otp/otpService.js` | `identity_s1.test.js` | **Not True** | Challenges, rate limits, and daily budgets are stored in ephemeral module-level `Map`s; lost on cold start. |
+| **2. Auth** | Fraud Mitigation (reCAPTCHA/App Check) | `middleware/authMiddleware.js` | None | **Not True** | App Check and reCAPTCHA Enterprise are stubbed or check CSRF headers; no server-side token verification with Firebase Admin. |
+| **2. Auth** | Session Hardening (`__session` & Tokens) | `sessions/sessionManager.js` | `identity_s1.test.js` | **Not True** | Generates synthetic string `custom_token_<uid>` and base64 JSON cookie; sessions stored in in-memory `Map`. |
+| **3. Data** | Deny-by-Default Firestore Rules | `firestore.rules` | `firestore_rules.test.js` | **Proven** | Security rules deny direct client reads/writes on `/users/{uid}/**`, `/webLinks/**`, `/phoneIndex/**`. |
+| **3. Data** | API Gateway Pattern | `functions/src/app.js` | `ledger_s3.test.js` | **Partly** | Central API router enforces auth, but endpoints write to module-level in-memory stores. |
+| **3. Data** | Field Envelope Encryption | `crypto/envelopeCrypto.js` | `ledger_s3.test.js` | **Not True** | Encrypts fields with AES-256-GCM, but DEK is derived from fallback secret without KMS. |
+| **3. Data** | Composite Indexes | `firestore.indexes.json` | `stage_s0.test.js` | **Proven** | Valid Firestore index definitions exist in repo. |
+| **3. Data** | Real-Time Sync Signal Document | `sync/syncService.js` | `firestore_rules.test.js` | **Partly** | Rules allow owner read, but API does not update real Firestore document. |
+| **4. Web** | Offline-First IndexedDB Engine | `web/assets/idb-outbox.js` | `enterprise_tech.test.js` | **Proven** | IndexedDB `udhaar_ledger_db` with outbox queue and CRDT-lite conflict resolution verified. |
+| **4. Web** | Zero Inline Code | `web/index.html`, `u/index.html` | `build-web.js` audit | **Proven** | Strict CSP audit passes with zero inline `<script>` or `<style>` tags. |
+| **4. Web** | Biometric Passkey Guard | `web/assets/webauthn-lock.js` | `enterprise_tech.test.js` | **Proven** | FIDO2 WebAuthn credential registration and lock flow verified. |
+| **4. Web** | Performance Weight Budgets | `scripts/build-web.js` | `npm run build` | **Proven** | Landing < 600KB, Guest < 250KB, Web App < 300KB enforced by build script. |
+| **4. Web** | 5-Language Multi-Language i18n | `web/landing.js`, `u/guest.js` | `check_i18n.js` | **Proven** | 100% dictionary completeness across EN, HI, BN, AS, NE verified. |
+| **4. Web** | Accessibility (a11y) WCAG AA | `functions/test/playwright_e2e.test.js` | `playwright_e2e.test.js` | **Proven** | `axe-core` automated audit reports 0 critical or serious violations. |
+| **5. Android**| Room Schema v13 Migration | `UdhaarDatabaseMigrations.kt` | `ExampleRobolectricTest.kt` | **Proven** | Migration 12 &rarr; 13 adds HLC, outbox, and sync fields under SQLCipher. |
+| **5. Android**| Offline-First Continuity | `UdhaarDatabase.kt` | Android test suite | **Proven** | App operates 100% offline using local Room database. |
+| **5. Android**| WorkManager SyncWorker | `SyncWorker.kt` | None | **Partly** | Worker class exists, but `SyncRepository` lacks concrete HTTP network implementation. |
+| **5. Android**| Polite Reminders & Quiet Hours | `ReminderScheduler.kt` | `ExampleUnitTest.kt` | **Proven** | 4 polite escalation levels, quiet hours (9 PM-8 AM), and snooze tested. |
+| **5. Android**| R8 Minification & Code Shrinking | `app/build.gradle.kts` | Android CI build | **Partly** | R8 rules configured, but `localeFilters` not set and camera feature is marked required. |
+| **6. Privacy**| DPDP & Nepal Statutory Schedule | `docs/legal-and-dpdp-updates.md` | None (Documentation) | **Proven** | Documentation complete; legal counsel review pending. |
+| **6. Privacy**| Granular Consent Manager | `privacy/privacyService.js` | `stage_s8_hardening.test.js` | **Partly** | Consent model written, but stored in in-memory Map. |
+| **6. Privacy**| Instant Crypto-Shredding & Deletion| `privacy/privacyService.js` | `stage_s8_hardening.test.js` | **Partly** | Shred logic clears in-memory DEK, not persistent KMS/Firestore. |
+| **6. Privacy**| Grievance Officer Designation | `docs/legal-and-dpdp-updates.md` | None | **Proven** | Contact `grievance@jyotirmoyb.com` designated. |
+| **7. SRE** | Structured JSON Logging & PII Mask | `observability/logger.js` | `stage_s9_observability.test.js` | **Proven** | Deep PII redaction and GCP Cloud Logging JSON format verified. |
+| **7. SRE** | W3C Distributed Tracing | `observability/tracingMiddleware.js`| `stage_s9_observability.test.js` | **Proven** | Standard `traceparent` and correlation IDs generated and propagated. |
+| **7. SRE** | SLI/SLO Telemetry Endpoints | `observability/metrics.js` | `stage_s9_observability.test.js` | **Partly** | Reservoir sampling in memory; resets on cold start. |
+| **7. SRE** | Automated PITR Backups & Drill | `backup/backupService.js` | `stage_s9_observability.test.js` | **Partly** | Manifest hashing and restore simulation pass; GCS bucket not provisioned. |
+| **7. SRE** | Emergency Rollback Script | `scripts/rollback.js` | `stage_s10_release.test.js` | **Partly** | Rollback orchestrator and audit logging verified; relies on live Firebase CLI in CI. |
+
+---
+
+## 3. Trust Center Claims Reality Check (`docs/TRUST_CLAIMS.md`)
+
+1. **Claim 1: "Your records stay locked on your phone"**:
+   - **Status**: **PROVEN**. Verified in `UdhaarDatabase.kt` and `EncryptedStorageManager.kt`. The Android app operates 100% locally with SQLCipher encryption.
+2. **Claim 2: "Your backup password never leaves your phone"**:
+   - **Status**: **PROVEN**. Verified in `DriveBackupCrypto.kt` (PBKDF2 600,000 iterations + AES-256-GCM).
+3. **Claim 3: "What the web page stores for a guest"**:
+   - **Status**: **PROVEN (for guest flow)**. Verified in `functions/guestWebFlow.js` (salted phone hash, capability secret in URL fragment `#token`).
+4. **Claim 4: "How long data is kept"**:
+   - **Status**: **PROVEN**. Verified in `guestWebFlow.js` (15-min OTP TTL) and `storage.lifecycle.json` (90-day delete rule).
+5. **Claim 5: "How to delete your data"**:
+   - **Status**: **PROVEN on Android / PARTLY on Web**. In-app delete cascading is proven; web deletion endpoint routes to guest record deletion.
+6. **Claim 6: "What Udhaar does NOT do"**:
+   - **Status**: **PROVEN**. Codebase contains zero financial transaction execution APIs, zero payment gateway SDKs, and zero moving of money.
+
+---
+
+## 4. Remediation Action Plan
+
+1. **Stage R0 (Immediate)**:
+   - Untick all `Not True` and `Partly` items in `docs/launch-checklist.md`.
+   - Implement CI check script `scripts/verify-launch-checklist.js` ensuring no unchecked/unproven items are ticked.
+   - Implement `functions/src/config/environmentGuard.js` to fail-closed on staging/production if in-memory or fallback secrets are detected.
+2. **Stage R1 (Persistence)**:
+   - Introduce Firestore Repository architecture for all services.
+   - Eliminate module-level `Map`s from `src/`.
+   - Implement transactions for atomicity, unique indexes, counters, and rate limits.
+   - Validate against Firestore emulator with multi-instance and cold-start tests.

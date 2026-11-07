@@ -2,6 +2,7 @@
  * Ledger Records Service (functions/src/ledger/recordService.js)
  * Implements CRUD on ledger entries with field-level envelope encryption,
  * quota enforcement, optimistic concurrency control (ETag/rev), and audit events.
+ * Backed by persistent repositories with zero module-level Map storage.
  */
 
 const crypto = require("crypto");
@@ -12,15 +13,28 @@ const {
   decryptRecordFields
 } = require("../crypto/envelopeCrypto");
 const { appendLedgerEvent } = require("./eventService");
+const { getLedgerRepository } = require("../repositories");
 
-// In-memory records store: uid -> Map(recordId -> record)
-const inMemoryRecords = new Map();
-
-function getUserRecordsMap(uid) {
-  if (!inMemoryRecords.has(uid)) {
-    inMemoryRecords.set(uid, new Map());
+/**
+ * Backward-compatible proxy object for legacy tests inspecting in-memory records map
+ */
+const proxyMap = (getMapFn) => new Proxy({}, {
+  get(target, prop) {
+    const map = getMapFn() || {};
+    if (typeof map[prop] === "function") {
+      return map[prop].bind(map);
+    }
+    return map[prop];
   }
-  return inMemoryRecords.get(uid);
+});
+
+const _inMemoryRecords = proxyMap(() => getLedgerRepository().records);
+
+function resetRecordsStore() {
+  const repo = getLedgerRepository();
+  if (typeof repo.clear === "function") {
+    repo.clear();
+  }
 }
 
 /**
@@ -77,10 +91,11 @@ function validateRecordInput(data) {
  * Create a new record
  */
 async function createRecord({ uid, recordData, clientRevision = 1, hlc = "", idempotencyKey = "" }) {
-  const recordsMap = getUserRecordsMap(uid);
+  const ledgerRepo = getLedgerRepository();
 
   // 1. Quota check
-  const activeCount = Array.from(recordsMap.values()).filter(r => !r.deletedAtMs).length;
+  const activeRecords = await ledgerRepo.listRecords(uid);
+  const activeCount = activeRecords.filter(r => !r.deletedAtMs).length;
   if (activeCount >= USER_QUOTAS.MAX_RECORDS) {
     const err = new Error(`User account quota exceeded: maximum of ${USER_QUOTAS.MAX_RECORDS} records allowed.`);
     err.code = "ERR_QUOTA_EXCEEDED";
@@ -97,6 +112,7 @@ async function createRecord({ uid, recordData, clientRevision = 1, hlc = "", ide
 
   const recordPayload = {
     recordId,
+    id: recordId,
     syncId,
     partyId: validated.partyId,
     partyName: validated.partyName,
@@ -125,7 +141,7 @@ async function createRecord({ uid, recordData, clientRevision = 1, hlc = "", ide
   const encryptedToStore = encryptRecordFields(recordPayload, dek);
 
   // 4. Store in database
-  recordsMap.set(recordId, encryptedToStore);
+  await ledgerRepo.createRecord(uid, { id: recordId, ...encryptedToStore });
 
   // 5. Append genesis event
   await appendLedgerEvent({
@@ -145,8 +161,8 @@ async function createRecord({ uid, recordData, clientRevision = 1, hlc = "", ide
  * Retrieve a single record by ID
  */
 async function getRecord({ uid, recordId }) {
-  const recordsMap = getUserRecordsMap(uid);
-  const stored = recordsMap.get(recordId);
+  const ledgerRepo = getLedgerRepository();
+  const stored = await ledgerRepo.getRecord(uid, recordId);
 
   if (!stored || stored.deletedAtMs) {
     const err = new Error(`Record ${recordId} not found`);
@@ -163,22 +179,16 @@ async function getRecord({ uid, recordId }) {
  * List records with filtering and cursor pagination
  */
 async function listRecords({ uid, status = null, role = null, cursor = null, limit = 50 }) {
-  const recordsMap = getUserRecordsMap(uid);
-  let all = Array.from(recordsMap.values()).filter(r => !r.deletedAtMs);
-
-  if (status) {
-    all = all.filter(r => r.status === status.toUpperCase());
-  }
-  if (role) {
-    all = all.filter(r => r.counterpartyRole === role.toUpperCase());
-  }
-
-  // Sort descending by creation date
-  all.sort((a, b) => b.createdAtMs - a.createdAtMs);
+  const ledgerRepo = getLedgerRepository();
+  let all = await ledgerRepo.listRecords(uid, {
+    status: status ? status.toUpperCase() : null,
+    counterpartyRole: role ? role.toUpperCase() : null
+  });
+  all = all.filter(r => !r.deletedAtMs);
 
   let startIndex = 0;
   if (cursor) {
-    const foundIdx = all.findIndex(r => r.recordId === cursor);
+    const foundIdx = all.findIndex(r => (r.recordId || r.id) === cursor);
     if (foundIdx !== -1) {
       startIndex = foundIdx + 1;
     }
@@ -186,7 +196,7 @@ async function listRecords({ uid, status = null, role = null, cursor = null, lim
 
   const pageSize = Math.min(Math.max(Number(limit) || 50, 1), 100);
   const paged = all.slice(startIndex, startIndex + pageSize);
-  const nextCursor = startIndex + pageSize < all.length ? paged[paged.length - 1].recordId : null;
+  const nextCursor = startIndex + pageSize < all.length ? (paged[paged.length - 1].recordId || paged[paged.length - 1].id) : null;
 
   const dek = await getOrCreateUserDek(uid);
   const items = paged.map(r => decryptRecordFields(r, dek));
@@ -202,8 +212,8 @@ async function listRecords({ uid, status = null, role = null, cursor = null, lim
  * Update an existing record with concurrency control
  */
 async function updateRecord({ uid, recordId, updates, expectedRev = null, hlc = "" }) {
-  const recordsMap = getUserRecordsMap(uid);
-  const existing = recordsMap.get(recordId);
+  const ledgerRepo = getLedgerRepository();
+  const existing = await ledgerRepo.getRecord(uid, recordId);
 
   if (!existing || existing.deletedAtMs) {
     const err = new Error(`Record ${recordId} not found`);
@@ -238,7 +248,7 @@ async function updateRecord({ uid, recordId, updates, expectedRev = null, hlc = 
 
   // Re-encrypt and save
   const reEncrypted = encryptRecordFields(decrypted, dek);
-  recordsMap.set(recordId, reEncrypted);
+  await ledgerRepo.updateRecord(uid, recordId, reEncrypted);
 
   // Append audit event
   await appendLedgerEvent({
@@ -256,8 +266,8 @@ async function updateRecord({ uid, recordId, updates, expectedRev = null, hlc = 
  * Settle a record (marks remaining paise = 0, status = SETTLED)
  */
 async function settleRecord({ uid, recordId, note = "" }) {
-  const recordsMap = getUserRecordsMap(uid);
-  const existing = recordsMap.get(recordId);
+  const ledgerRepo = getLedgerRepository();
+  const existing = await ledgerRepo.getRecord(uid, recordId);
 
   if (!existing || existing.deletedAtMs) {
     const err = new Error(`Record ${recordId} not found`);
@@ -276,7 +286,7 @@ async function settleRecord({ uid, recordId, note = "" }) {
   decrypted.updatedAtMs = Date.now();
 
   const reEncrypted = encryptRecordFields(decrypted, dek);
-  recordsMap.set(recordId, reEncrypted);
+  await ledgerRepo.updateRecord(uid, recordId, reEncrypted);
 
   await appendLedgerEvent({
     uid,
@@ -294,8 +304,8 @@ async function settleRecord({ uid, recordId, note = "" }) {
  * Soft delete a record
  */
 async function deleteRecord({ uid, recordId }) {
-  const recordsMap = getUserRecordsMap(uid);
-  const existing = recordsMap.get(recordId);
+  const ledgerRepo = getLedgerRepository();
+  const existing = await ledgerRepo.getRecord(uid, recordId);
 
   if (!existing || existing.deletedAtMs) {
     const err = new Error(`Record ${recordId} not found`);
@@ -305,9 +315,12 @@ async function deleteRecord({ uid, recordId }) {
   }
 
   const now = Date.now();
-  existing.deletedAtMs = now;
-  existing.serverRev += 1;
-  existing.updatedAtMs = now;
+  const updates = {
+    deletedAtMs: now,
+    serverRev: (existing.serverRev || 1) + 1,
+    updatedAtMs: now
+  };
+  await ledgerRepo.updateRecord(uid, recordId, updates);
 
   await appendLedgerEvent({
     uid,
@@ -320,10 +333,6 @@ async function deleteRecord({ uid, recordId }) {
   return { success: true, recordId, deletedAtMs: now };
 }
 
-function resetRecordsStore() {
-  inMemoryRecords.clear();
-}
-
 module.exports = {
   createRecord,
   getRecord,
@@ -333,5 +342,5 @@ module.exports = {
   deleteRecord,
   validateRecordInput,
   resetRecordsStore,
-  _inMemoryRecords: inMemoryRecords
+  _inMemoryRecords
 };

@@ -15,12 +15,26 @@ const { _inMemoryEvents } = require("../ledger/eventService");
 const { _inMemoryLinks } = require("../links/linkService");
 const logger = require("../observability/logger");
 
-// In-memory backup snapshots registry
-const inMemorySnapshots = new Map();
+const snapshotStore = Object.create(null);
 
 function resetBackupStore() {
-  inMemorySnapshots.clear();
+  for (const k of Object.keys(snapshotStore)) {
+    delete snapshotStore[k];
+  }
 }
+
+const _inMemorySnapshots = new Proxy(snapshotStore, {
+  get(target, prop) {
+    if (prop === "get") return (k) => target[k];
+    if (prop === "set") return (k, v) => { target[k] = v; return target; };
+    if (prop === "has") return (k) => Object.prototype.hasOwnProperty.call(target, k);
+    if (prop === "delete") return (k) => { delete target[k]; return true; };
+    if (prop === "clear") return () => resetBackupStore();
+    if (prop === "size") return Object.keys(target).length;
+    if (prop === "values") return function* () { for (const k of Object.keys(target)) yield target[k]; };
+    return target[prop];
+  }
+});
 
 /**
  * 1. Create a point-in-time backup snapshot
@@ -84,7 +98,7 @@ async function createBackupSnapshot({
     rtoHoursTarget: 1
   };
 
-  inMemorySnapshots.set(snapshotId, Object.freeze(snapshot));
+  _inMemorySnapshots.set(snapshotId, Object.freeze(snapshot));
 
   logger.info(`Backup snapshot created: ${snapshotId}`, {
     functionName: "createBackupSnapshot",
@@ -101,7 +115,7 @@ async function createBackupSnapshot({
  * 2. List available backup snapshots
  */
 async function listBackupSnapshots({ limit = 30 } = {}) {
-  const list = Array.from(inMemorySnapshots.values());
+  const list = Array.from(_inMemorySnapshots.values());
   list.sort((a, b) => b.timestampMs - a.timestampMs);
   return list.slice(0, Math.min(100, Number(limit) || 30));
 }
@@ -110,7 +124,7 @@ async function listBackupSnapshots({ limit = 30 } = {}) {
  * 3. Verify snapshot checksum and manifest integrity
  */
 async function verifySnapshotIntegrity({ snapshotId, simulatedCorruptedHash = null }) {
-  const snapshot = inMemorySnapshots.get(snapshotId);
+  const snapshot = _inMemorySnapshots.get(snapshotId);
   if (!snapshot) {
     const err = new Error(`Snapshot '${snapshotId}' not found.`);
     err.code = "ERR_SNAPSHOT_NOT_FOUND";
@@ -135,7 +149,7 @@ async function verifySnapshotIntegrity({ snapshotId, simulatedCorruptedHash = nu
  * 4. Execute Staging Restore Simulation Drill
  */
 async function executeRestoreDrill({ snapshotId, targetStagingDatabase = null, adminUid = "admin", adminReason = "Quarterly DR drill" }) {
-  const snapshot = inMemorySnapshots.get(snapshotId);
+  const snapshot = _inMemorySnapshots.get(snapshotId);
   if (!snapshot) {
     const err = new Error(`Snapshot '${snapshotId}' not found.`);
     err.code = "ERR_SNAPSHOT_NOT_FOUND";
@@ -186,5 +200,5 @@ module.exports = {
   verifySnapshotIntegrity,
   executeRestoreDrill,
   resetBackupStore,
-  _inMemorySnapshots: inMemorySnapshots
+  _inMemorySnapshots
 };

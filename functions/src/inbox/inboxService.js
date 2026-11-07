@@ -11,18 +11,34 @@ const { getRecord, updateRecord } = require("../ledger/recordService");
 const { recordPayment } = require("../ledger/paymentService");
 const { sendPushNotification } = require("../push/pushService");
 
-// In-memory inbox store: uid -> Map(inboxId -> item)
-const inMemoryUserInbox = new Map();
+const { getInboxRepository } = require("../repositories");
+
+const proxyMap = (getMapFn) => new Proxy({}, {
+  get(target, prop) {
+    const repo = getInboxRepository();
+    const map = (repo && getMapFn(repo)) || {};
+    if (typeof map[prop] === "function") {
+      return map[prop].bind(map);
+    }
+    return map[prop];
+  }
+});
+
+const _inMemoryUserInbox = proxyMap((repo) => repo.userInboxes);
 
 function getUserInboxMap(uid) {
-  if (!inMemoryUserInbox.has(uid)) {
-    inMemoryUserInbox.set(uid, new Map());
+  const repo = getInboxRepository();
+  if (repo && typeof repo.getUserInboxMap === "function") {
+    return repo.getUserInboxMap(uid);
   }
-  return inMemoryUserInbox.get(uid);
+  return { get: () => null, set: () => {}, values: () => [] };
 }
 
 function resetInboxStore() {
-  inMemoryUserInbox.clear();
+  const repo = getInboxRepository();
+  if (repo && typeof repo.clear === "function") {
+    repo.clear();
+  }
 }
 
 /**
@@ -226,5 +242,5 @@ module.exports = {
   listUserInboxItems,
   markInboxItemRead,
   processInboxAction,
-  _inMemoryUserInbox: inMemoryUserInbox
+  _inMemoryUserInbox
 };

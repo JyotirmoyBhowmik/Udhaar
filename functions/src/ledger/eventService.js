@@ -2,14 +2,24 @@
  * Ledger Event & Merkle Audit Trail Service (functions/src/ledger/eventService.js)
  * Implements append-only event logging, cryptographic Merkle hash chaining,
  * and user sync signaling.
+ * Backed by persistent repositories with zero module-level Map storage.
  */
 
 const crypto = require("crypto");
+const { getLedgerRepository, getSyncRepository } = require("../repositories");
 
-// In-memory events store for testing/emulator: uid -> Map(eventId -> event)
-const inMemoryEvents = new Map();
-// In-memory sync signals: uid -> { seq, updatedAtMs }
-const inMemorySyncSignals = new Map();
+const proxyMap = (getMapFn) => new Proxy({}, {
+  get(target, prop) {
+    const repo = getLedgerRepository();
+    const map = (repo && repo.events) || {};
+    if (typeof map[prop] === "function") {
+      return map[prop].bind(map);
+    }
+    return map[prop];
+  }
+});
+
+const _inMemoryEvents = proxyMap(() => getLedgerRepository().events);
 
 function getGenesisHash(uid) {
   return crypto.createHash("sha256").update(`genesis:${uid}:udhaar_v2`).digest("hex");
@@ -29,15 +39,12 @@ function calculateBlockHash(prevHash, eventType, timestampMs, payload) {
 async function appendLedgerEvent({ uid, recordId, eventType, amountPaise = 0, paymentMode = null, note = "", metadata = {} }) {
   const now = Date.now();
   const eventId = `evt_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
-
-  if (!inMemoryEvents.has(uid)) {
-    inMemoryEvents.set(uid, new Map());
-  }
-  const userEvents = inMemoryEvents.get(uid);
+  const ledgerRepo = getLedgerRepository();
+  const syncRepo = getSyncRepository();
 
   // Find previous block hash
   let prevHash = getGenesisHash(uid);
-  const existingEventsList = Array.from(userEvents.values());
+  const existingEventsList = await ledgerRepo.listEvents(uid);
   if (existingEventsList.length > 0) {
     prevHash = existingEventsList[existingEventsList.length - 1].merkleHash;
   }
@@ -54,6 +61,7 @@ async function appendLedgerEvent({ uid, recordId, eventType, amountPaise = 0, pa
 
   const eventRecord = {
     eventId,
+    id: eventId,
     recordId,
     eventType,
     amountPaise,
@@ -65,13 +73,12 @@ async function appendLedgerEvent({ uid, recordId, eventType, amountPaise = 0, pa
     merkleHash
   };
 
-  userEvents.set(eventId, eventRecord);
+  await ledgerRepo.addEvent(uid, eventRecord);
 
   // Increment sync signal sequence
-  const currentSignal = inMemorySyncSignals.get(uid) || { seq: 0, updatedAtMs: now };
-  currentSignal.seq += 1;
-  currentSignal.updatedAtMs = now;
-  inMemorySyncSignals.set(uid, currentSignal);
+  const currentSignal = (await syncRepo.getSyncSignal(uid)) || { seq: 0 };
+  const nextSeq = (currentSignal.seq || 0) + 1;
+  await syncRepo.touchSyncSignal(uid, nextSeq);
 
   return eventRecord;
 }
@@ -80,25 +87,21 @@ async function appendLedgerEvent({ uid, recordId, eventType, amountPaise = 0, pa
  * List events for a specific record or all user events
  */
 async function listEvents({ uid, recordId = null }) {
-  if (!inMemoryEvents.has(uid)) {
-    return [];
-  }
-  const all = Array.from(inMemoryEvents.get(uid).values());
-  if (recordId) {
-    return all.filter(e => e.recordId === recordId);
-  }
-  return all;
+  const ledgerRepo = getLedgerRepository();
+  return ledgerRepo.listEvents(uid, recordId);
 }
 
 /**
  * Verify Merkle chain integrity from genesis to latest block
  */
 async function verifyAuditChain(uid) {
-  if (!inMemoryEvents.has(uid)) {
+  const ledgerRepo = getLedgerRepository();
+  const all = await ledgerRepo.listEvents(uid);
+
+  if (!all || all.length === 0) {
     return { valid: true, blockCount: 0 };
   }
 
-  const all = Array.from(inMemoryEvents.get(uid).values());
   let expectedPrev = getGenesisHash(uid);
 
   for (let i = 0; i < all.length; i++) {
@@ -127,12 +130,21 @@ async function verifyAuditChain(uid) {
 }
 
 function getSyncSignal(uid) {
-  return inMemorySyncSignals.get(uid) || { seq: 0, updatedAtMs: 0 };
+  const syncRepo = getSyncRepository();
+  if (syncRepo && typeof syncRepo.getSyncSignal === "function") {
+    // In synchronous contexts, if syncSignals map exists, return it
+    if (syncRepo.syncSignals && syncRepo.syncSignals.get) {
+      return syncRepo.syncSignals.get(uid) || { seq: 0, updatedAtMs: 0 };
+    }
+  }
+  return { seq: 0, updatedAtMs: 0 };
 }
 
 function resetEventStore() {
-  inMemoryEvents.clear();
-  inMemorySyncSignals.clear();
+  const ledgerRepo = getLedgerRepository();
+  const syncRepo = getSyncRepository();
+  if (ledgerRepo && typeof ledgerRepo.clear === "function") ledgerRepo.clear();
+  if (syncRepo && typeof syncRepo.clear === "function") syncRepo.clear();
 }
 
 module.exports = {
@@ -141,5 +153,5 @@ module.exports = {
   verifyAuditChain,
   getSyncSignal,
   resetEventStore,
-  _inMemoryEvents: inMemoryEvents
+  _inMemoryEvents
 };

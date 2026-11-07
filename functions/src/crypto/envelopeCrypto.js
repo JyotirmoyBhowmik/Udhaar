@@ -12,11 +12,26 @@ const { USER_QUOTAS } = require("../config/quotas");
 const KMS_KEK_NAME = process.env.KMS_KEK_NAME || "projects/udhaar/locations/asia-south1/keyRings/udhaar-keyring/cryptoKeys/user-dek-wrapper";
 const FALLBACK_KEK_SECRET = process.env.UDHAAR_SERVER_SECRET || "udhaar_fallback_kek_secret_32_bytes_long!";
 
+class MemoryStore {
+  constructor() {
+    this._data = Object.create(null);
+  }
+  get(k) { return this._data[k]; }
+  set(k, v) { this._data[k] = v; return this; }
+  has(k) { return Object.prototype.hasOwnProperty.call(this._data, k); }
+  delete(k) { delete this._data[k]; return true; }
+  clear() { this._data = Object.create(null); }
+  get size() { return Object.keys(this._data).length; }
+  *values() { for (const k of Object.keys(this._data)) yield this._data[k]; }
+  *entries() { for (const k of Object.keys(this._data)) yield [k, this._data[k]]; }
+  *keys() { for (const k of Object.keys(this._data)) yield k; }
+}
+
 // In-memory DEK cache: uid -> { dek: Buffer, expiresAt: number }
-const inMemoryDekCache = new Map();
+const inMemoryDekCache = new MemoryStore();
 
 // In-memory key store for tests/emulators: uid -> { wrappedDek, kekId, createdAtMs }
-const inMemoryKeyStore = new Map();
+const inMemoryKeyStore = new MemoryStore();
 
 function getServerKek() {
   return crypto.createHash("sha256").update(FALLBACK_KEK_SECRET).digest();

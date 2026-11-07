@@ -1,0 +1,37 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "records",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "updatedAtMs", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "records",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "counterpartyRole", "order": "ASCENDING" },
+        { "fieldPath": "updatedAtMs", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "recordId", "order": "ASCENDING" },
+        { "fieldPath": "timestampMs", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "changeLog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "seq", "order": "ASCENDING" },
+        { "fieldPath": "timestampMs", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

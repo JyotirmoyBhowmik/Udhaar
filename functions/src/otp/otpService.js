@@ -2,6 +2,7 @@
  * OTP Code & Verification Service (functions/src/otp/otpService.js)
  * Implements cryptographic OTP challenge lifecycle, multi-layer rate limiting,
  * brute-force lockout, timing-safe validation, and fallback delivery.
+ * Backed by persistent repositories with zero module-level Map storage.
  */
 
 const crypto = require("crypto");
@@ -15,115 +16,59 @@ const {
 } = require("../crypto/serverCrypto");
 const { OTP_LIMITS } = require("../config");
 const { getWhatsAppProvider, getEmailProvider, getSmsProvider } = require("../providers");
+const { getOtpRepository } = require("../repositories");
 
-// In-memory challenge store for unit tests or when Firestore is uninitialized
-const inMemoryChallenges = new Map();
-const inMemoryRateLimits = new Map();
+/**
+ * Backward-compatible proxy objects for legacy tests inspecting in-memory maps
+ */
+const proxyMap = (getMapFn) => new Proxy({}, {
+  get(target, prop) {
+    const map = getMapFn() || {};
+    if (typeof map[prop] === "function") {
+      return map[prop].bind(map);
+    }
+    return map[prop];
+  }
+});
 
-// Daily global send budget tracker
-let globalDailyBudget = {
-  dateStr: new Date().toISOString().split("T")[0],
-  sentCount: 0,
-  maxDailyBudget: 10000,
-  killSwitchTriggered: false
-};
+const _inMemoryChallenges = proxyMap(() => getOtpRepository().challenges);
+const _inMemoryRateLimits = proxyMap(() => getOtpRepository().rateLimits);
+const _globalDailyBudget = new Proxy({}, {
+  get(target, prop) {
+    const repo = getOtpRepository();
+    const budget = repo.dailyBudget || {};
+    return budget[prop];
+  },
+  set(target, prop, value) {
+    const repo = getOtpRepository();
+    if (repo.dailyBudget) {
+      repo.dailyBudget[prop] = value;
+    }
+    return true;
+  }
+});
 
 function resetDailyBudget() {
-  globalDailyBudget.sentCount = 0;
-  globalDailyBudget.killSwitchTriggered = false;
-  inMemoryChallenges.clear();
-  inMemoryRateLimits.clear();
+  const repo = getOtpRepository();
+  if (typeof repo.clear === "function") {
+    repo.clear();
+  }
 }
 
 /**
  * Check and increment rate limits for destination and IP
  */
-function checkRateLimits(destinationHash, ipHashed) {
-  const now = Date.now();
-  const today = new Date().toISOString().split("T")[0];
+async function checkRateLimits(destinationHash, ipHashed) {
+  const otpRepo = getOtpRepository();
 
-  // Global budget kill-switch check
-  if (globalDailyBudget.dateStr !== today) {
-    globalDailyBudget.dateStr = today;
-    globalDailyBudget.sentCount = 0;
-    globalDailyBudget.killSwitchTriggered = false;
-  }
-  if (globalDailyBudget.killSwitchTriggered || globalDailyBudget.sentCount >= globalDailyBudget.maxDailyBudget) {
-    globalDailyBudget.killSwitchTriggered = true;
-    const err = new Error("Emergency daily OTP dispatch budget reached. Send service paused.");
-    err.code = "ERR_GLOBAL_BUDGET_EXCEEDED";
-    err.status = 503;
-    throw err;
-  }
+  // 1. Global budget check & increment
+  await otpRepo.checkAndIncrementDailyBudget(OTP_LIMITS.MAX_DAILY_GLOBAL_BUDGET);
 
-  // 1. IP rate limit check (20 per hour)
-  const ipKey = `ip_${ipHashed}`;
-  const ipRecord = inMemoryRateLimits.get(ipKey) || { count: 0, resetAt: now + 3600000 };
-  if (now > ipRecord.resetAt) {
-    ipRecord.count = 0;
-    ipRecord.resetAt = now + 3600000;
-  }
-  if (ipRecord.count >= OTP_LIMITS.MAX_HOURLY_PER_IP) {
-    const err = new Error("Too many verification requests from this network. Please try again later.");
-    err.code = "ERR_RATE_LIMIT_IP";
-    err.status = 429;
-    throw err;
-  }
+  // 2. IP rate limit check (20 per hour)
+  await otpRepo.checkAndIncrementIpLimit(ipHashed, OTP_LIMITS.MAX_HOURLY_PER_IP, 3600000);
 
-  // 2. Destination hourly (3/hr) and daily (10/day) limit check
-  const destKey = `dest_${destinationHash}`;
-  const destRecord = inMemoryRateLimits.get(destKey) || {
-    hourlyCount: 0,
-    hourlyResetAt: now + 3600000,
-    dailyCount: 0,
-    dailyResetAt: now + 86400000,
-    lastSentAt: 0
-  };
-
-  // Cooldown check (30 seconds)
-  if (now - destRecord.lastSentAt < OTP_LIMITS.RESEND_COOLDOWN_SECONDS * 1000) {
-    const remainingSecs = Math.ceil((OTP_LIMITS.RESEND_COOLDOWN_SECONDS * 1000 - (now - destRecord.lastSentAt)) / 1000);
-    const err = new Error(`Please wait ${remainingSecs} seconds before requesting a new code.`);
-    err.code = "ERR_RESEND_COOLDOWN";
-    err.status = 429;
-    err.retryAfter = remainingSecs;
-    throw err;
-  }
-
-  // Hourly reset
-  if (now > destRecord.hourlyResetAt) {
-    destRecord.hourlyCount = 0;
-    destRecord.hourlyResetAt = now + 3600000;
-  }
-  if (destRecord.hourlyCount >= OTP_LIMITS.MAX_HOURLY_PER_DESTINATION) {
-    const err = new Error("Hourly verification limit reached for this destination (max 3/hour).");
-    err.code = "ERR_RATE_LIMIT_DESTINATION_HOURLY";
-    err.status = 429;
-    throw err;
-  }
-
-  // Daily reset
-  if (now > destRecord.dailyResetAt) {
-    destRecord.dailyCount = 0;
-    destRecord.dailyResetAt = now + 86400000;
-  }
-  if (destRecord.dailyCount >= OTP_LIMITS.MAX_DAILY_PER_DESTINATION) {
-    const err = new Error("Daily verification limit reached for this destination (max 10/day).");
-    err.code = "ERR_RATE_LIMIT_DESTINATION_DAILY";
-    err.status = 429;
-    throw err;
-  }
-
-  // Increment counters
-  ipRecord.count++;
-  inMemoryRateLimits.set(ipKey, ipRecord);
-
-  destRecord.hourlyCount++;
-  destRecord.dailyCount++;
-  destRecord.lastSentAt = now;
-  inMemoryRateLimits.set(destKey, destRecord);
-
-  globalDailyBudget.sentCount++;
+  // 3. Destination cooldown, hourly (3/hr) and daily (10/day) limit check
+  await otpRepo.checkAndIncrementDestinationLimit(destinationHash, OTP_LIMITS);
 }
 
 /**
@@ -145,8 +90,8 @@ async function sendOtpChallenge({
   const destinationHash = isEmail ? computeEmailHash(destination) : computePhoneHash(destination);
   const ipHashed = hashIp(clientIp);
 
-  // Enforce rate limits
-  checkRateLimits(destinationHash, ipHashed);
+  // Enforce rate limits via repository
+  await checkRateLimits(destinationHash, ipHashed);
 
   // Generate 6-digit code
   const code = generateOtpCode();
@@ -191,7 +136,7 @@ async function sendOtpChallenge({
     });
   }
 
-  // Record challenge metadata
+  // Record challenge metadata in repository
   const challenge = {
     challengeId,
     flowId,
@@ -201,18 +146,20 @@ async function sendOtpChallenge({
     codeHash,
     createdAtMs: now,
     expiresAtMs,
+    expiresAt: expiresAtMs,
     attempts: 0,
     maxAttempts: OTP_LIMITS.MAX_FAILED_ATTEMPTS,
     lockedUntilMs: null,
     consumed: false,
     ipHash: ipHashed,
     deviceHash,
-    providerMessageId: sendResult.providerMessageId || sendResult.messageId || null,
-    deliveryStatus: sendResult.deliveryStatus || "SENT",
+    providerMessageId: (sendResult && (sendResult.providerMessageId || sendResult.messageId)) || null,
+    deliveryStatus: (sendResult && sendResult.deliveryStatus) || "SENT",
     ttl: Math.floor((expiresAtMs + 86400000) / 1000)
   };
 
-  inMemoryChallenges.set(challengeId, challenge);
+  const otpRepo = getOtpRepository();
+  await otpRepo.saveChallenge(challenge);
 
   return {
     challengeId,
@@ -234,13 +181,28 @@ async function verifyOtpChallenge({ flowId, code, purpose, destination = null })
   }
 
   const now = Date.now();
+  const otpRepo = getOtpRepository();
 
-  // Find challenge matching flowId and purpose
+  // Find active challenge matching flowId and purpose
   let targetChallenge = null;
-  for (const chal of inMemoryChallenges.values()) {
-    if (chal.flowId === flowId && chal.purpose === purpose && !chal.consumed) {
-      targetChallenge = chal;
-      break;
+  if (otpRepo.challenges && typeof otpRepo.challenges.values === "function") {
+    for (const chal of otpRepo.challenges.values()) {
+      if (chal.flowId === flowId && chal.purpose === purpose && !chal.consumed) {
+        targetChallenge = chal;
+        break;
+      }
+    }
+  } else if (otpRepo.db) {
+    // Firestore query
+    const snap = await otpRepo.db
+      .collection("otpChallenges")
+      .where("flowId", "==", flowId)
+      .where("purpose", "==", purpose)
+      .where("consumed", "==", false)
+      .limit(1)
+      .get();
+    if (!snap.empty) {
+      targetChallenge = snap.docs[0].data();
     }
   }
 
@@ -273,15 +235,20 @@ async function verifyOtpChallenge({ flowId, code, purpose, destination = null })
   const isValid = constantTimeEquals(candidateHash, targetChallenge.codeHash);
 
   if (!isValid) {
-    targetChallenge.attempts++;
-    if (targetChallenge.attempts >= targetChallenge.maxAttempts) {
-      targetChallenge.lockedUntilMs = now + OTP_LIMITS.LOCKOUT_DURATION_MINUTES * 60 * 1000;
+    const newAttempts = (targetChallenge.attempts || 0) + 1;
+    const updates = { attempts: newAttempts };
+
+    if (newAttempts >= targetChallenge.maxAttempts) {
+      updates.lockedUntilMs = now + OTP_LIMITS.LOCKOUT_DURATION_MINUTES * 60 * 1000;
+      await otpRepo.consumeChallenge(targetChallenge.challengeId, updates);
       const err = new Error("Too many incorrect attempts. Account verification locked for 15 minutes.");
       err.code = "ERR_MAX_ATTEMPTS_EXCEEDED";
       err.status = 403;
       throw err;
     }
-    const attemptsLeft = targetChallenge.maxAttempts - targetChallenge.attempts;
+
+    await otpRepo.consumeChallenge(targetChallenge.challengeId, updates);
+    const attemptsLeft = targetChallenge.maxAttempts - newAttempts;
     const err = new Error(`Incorrect verification code. ${attemptsLeft} attempts remaining.`);
     err.code = "ERR_INVALID_OTP";
     err.status = 400;
@@ -290,16 +257,16 @@ async function verifyOtpChallenge({ flowId, code, purpose, destination = null })
   }
 
   // Code matches: mark consumed (single-use only)
-  targetChallenge.consumed = true;
-  targetChallenge.consumedAtMs = now;
-
-  // Mint flow verification token (HMAC proof that this flow successfully verified)
   const flowToken = crypto
     .createHmac("sha256", targetChallenge.codeHash)
     .update(`verified:${flowId}:${purpose}:${now}`)
     .digest("hex");
 
-  targetChallenge.flowToken = flowToken;
+  await otpRepo.consumeChallenge(targetChallenge.challengeId, {
+    consumed: true,
+    consumedAtMs: now,
+    flowToken
+  });
 
   return {
     verified: true,
@@ -311,7 +278,7 @@ module.exports = {
   sendOtpChallenge,
   verifyOtpChallenge,
   resetDailyBudget,
-  _inMemoryChallenges: inMemoryChallenges,
-  _inMemoryRateLimits: inMemoryRateLimits,
-  _globalDailyBudget: globalDailyBudget
+  _inMemoryChallenges,
+  _inMemoryRateLimits,
+  _globalDailyBudget
 };

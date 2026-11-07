@@ -2,13 +2,34 @@
  * Session & Device Management Engine (functions/src/sessions/sessionManager.js)
  * Implements sliding __session cookies for Web, Firebase custom tokens for Android,
  * device tracking, and instant revocation (checkRevoked).
+ * Backed by persistent repositories with zero module-level Map storage.
  */
 
 const crypto = require("crypto");
+const { getSessionRepository } = require("../repositories");
 
-// In-memory sessions store for emulator / testing
-const inMemorySessions = new Map();
-const inMemoryDevices = new Map();
+/**
+ * Backward-compatible proxy objects for legacy tests inspecting in-memory maps
+ */
+const proxyMap = (getMapFn) => new Proxy({}, {
+  get(target, prop) {
+    const map = getMapFn() || {};
+    if (typeof map[prop] === "function") {
+      return map[prop].bind(map);
+    }
+    return map[prop];
+  }
+});
+
+const _inMemorySessions = proxyMap(() => getSessionRepository().sessions);
+const _inMemoryDevices = proxyMap(() => getSessionRepository().devices);
+
+function resetSessionsStore() {
+  const repo = getSessionRepository();
+  if (typeof repo.clear === "function") {
+    repo.clear();
+  }
+}
 
 /**
  * Mint a session for Web or Android client
@@ -43,7 +64,8 @@ async function createSession({
     revoked: false
   };
 
-  inMemorySessions.set(sessionId, session);
+  const sessionRepo = getSessionRepository();
+  await sessionRepo.createSession(session);
 
   // Track in devices collection
   const device = {
@@ -56,7 +78,7 @@ async function createSession({
     isCurrent: true,
     revoked: false
   };
-  inMemoryDevices.set(`${uid}_${deviceId}`, device);
+  await sessionRepo.createDevice(device);
 
   // Value for __session cookie
   const sessionCookieValue = Buffer.from(JSON.stringify({
@@ -66,7 +88,7 @@ async function createSession({
     exp: session.expiresAtMs
   })).toString("base64");
 
-  // Synthetic custom token for Android
+  // Synthetic custom token for Android (will be replaced by Firebase Admin createCustomToken in R3)
   const customToken = `custom_token_${uid}_${crypto.randomBytes(16).toString("hex")}`;
 
   return {
@@ -85,7 +107,6 @@ async function validateSession(sessionCookieOrToken) {
   if (!sessionCookieOrToken) return null;
 
   try {
-    let payload = null;
     if (sessionCookieOrToken.startsWith("custom_token_")) {
       const parts = sessionCookieOrToken.split("_");
       return {
@@ -96,9 +117,10 @@ async function validateSession(sessionCookieOrToken) {
     }
 
     const decoded = Buffer.from(sessionCookieOrToken, "base64").toString("utf8");
-    payload = JSON.parse(decoded);
+    const payload = JSON.parse(decoded);
 
-    const session = inMemorySessions.get(payload.s);
+    const sessionRepo = getSessionRepository();
+    const session = await sessionRepo.getSession(payload.s, payload.u);
     if (!session || session.revoked) {
       return null;
     }
@@ -111,6 +133,7 @@ async function validateSession(sessionCookieOrToken) {
     // Slide expiration window if not public computer
     if (!session.isPublicComputer) {
       session.expiresAtMs = Math.min(now + 7 * 24 * 60 * 60 * 1000, session.absoluteExpiresAtMs);
+      await sessionRepo.updateSession(session.sessionId, { expiresAtMs: session.expiresAtMs }, session.uid);
     }
 
     return {
@@ -128,16 +151,20 @@ async function validateSession(sessionCookieOrToken) {
  * Revoke a specific device session
  */
 async function revokeDeviceSession(uid, deviceId) {
-  for (const session of inMemorySessions.values()) {
-    if (session.uid === uid && session.deviceId === deviceId) {
-      session.revoked = true;
+  const sessionRepo = getSessionRepository();
+  const sessions = await sessionRepo.listUserSessions(uid);
+  for (const session of sessions) {
+    if (session.deviceId === deviceId) {
+      await sessionRepo.revokeSession(session.sessionId, uid);
     }
   }
 
-  const devKey = `${uid}_${deviceId}`;
-  const dev = inMemoryDevices.get(devKey);
-  if (dev) {
-    dev.revoked = true;
+  const devices = await sessionRepo.listUserDevices(uid);
+  for (const dev of devices) {
+    if (dev.deviceId === deviceId) {
+      dev.revoked = true;
+      await sessionRepo.createDevice(dev);
+    }
   }
 
   return true;
@@ -147,18 +174,9 @@ async function revokeDeviceSession(uid, deviceId) {
  * List registered devices for user
  */
 async function listUserDevices(uid) {
-  const list = [];
-  for (const [key, dev] of inMemoryDevices.entries()) {
-    if (dev.uid === uid && !dev.revoked) {
-      list.push(dev);
-    }
-  }
-  return list;
-}
-
-function resetSessionsStore() {
-  inMemorySessions.clear();
-  inMemoryDevices.clear();
+  const sessionRepo = getSessionRepository();
+  const list = await sessionRepo.listUserDevices(uid);
+  return list.filter(d => !d.revoked);
 }
 
 module.exports = {
@@ -167,6 +185,6 @@ module.exports = {
   revokeDeviceSession,
   listUserDevices,
   resetSessionsStore,
-  _inMemorySessions: inMemorySessions,
-  _inMemoryDevices: inMemoryDevices
+  _inMemorySessions,
+  _inMemoryDevices
 };

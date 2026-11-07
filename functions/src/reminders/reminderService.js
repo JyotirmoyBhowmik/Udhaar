@@ -12,10 +12,31 @@ const { getRecord, listRecords, updateRecord, _inMemoryRecords } = require("../l
 const { getWhatsAppProvider } = require("../providers");
 const { isFeatureEnabled } = require("../config/killSwitches");
 
-// User reminder policies store: uid -> policy
-const inMemoryReminderPolicies = new Map();
-// Per-record reminder state store: recordId -> reminderState
-const inMemoryRecordReminderStates = new Map();
+const { getReminderRepository } = require("../repositories");
+
+const proxyMap = (getMapFn) => new Proxy({}, {
+  get(target, prop) {
+    const repo = getReminderRepository();
+    const map = (repo && getMapFn(repo)) || {};
+    if (typeof map[prop] === "function") {
+      return map[prop].bind(map);
+    }
+    return map[prop];
+  }
+});
+
+const _inMemoryReminderPolicies = proxyMap((repo) => repo.policies);
+const _inMemoryRecordReminderStates = proxyMap((repo) => repo.states);
+
+function getPoliciesMap() {
+  const repo = getReminderRepository();
+  return (repo && repo.policies) || { get: () => null, set: () => {}, clear: () => {} };
+}
+
+function getStatesMap() {
+  const repo = getReminderRepository();
+  return (repo && repo.states) || { get: () => null, set: () => {}, clear: () => {} };
+}
 
 const DEFAULT_POLICY = Object.freeze({
   quietHoursStartHour: 21, // 9:00 PM
@@ -61,8 +82,10 @@ const REMINDER_TEMPLATES = {
 };
 
 function resetRemindersStore() {
-  inMemoryReminderPolicies.clear();
-  inMemoryRecordReminderStates.clear();
+  const repo = getReminderRepository();
+  if (repo && typeof repo.clear === "function") {
+    repo.clear();
+  }
 }
 
 /**
@@ -70,7 +93,7 @@ function resetRemindersStore() {
  */
 async function getUserReminderPolicy({ uid }) {
   if (!uid) return { ...DEFAULT_POLICY };
-  const existing = inMemoryReminderPolicies.get(uid);
+  const existing = getPoliciesMap().get(uid);
   return existing ? { ...existing } : { ...DEFAULT_POLICY, uid };
 }
 
@@ -93,7 +116,7 @@ async function updateUserReminderPolicy({ uid, policyUpdates }) {
     updatedAtMs: Date.now()
   };
 
-  inMemoryReminderPolicies.set(uid, updated);
+  getPoliciesMap().set(uid, updated);
   return updated;
 }
 
@@ -181,7 +204,7 @@ async function snoozeRecordReminders({ uid, recordId, snoozeDays = 1, stop = fal
   }
 
   const now = Date.now();
-  let state = inMemoryRecordReminderStates.get(recordId) || {};
+  let state = getStatesMap().get(recordId) || {};
 
   if (stop) {
     state.remindersDisabled = true;
@@ -194,7 +217,7 @@ async function snoozeRecordReminders({ uid, recordId, snoozeDays = 1, stop = fal
     state.snoozedAtMs = now;
   }
 
-  inMemoryRecordReminderStates.set(recordId, state);
+  getStatesMap().set(recordId, state);
 
   return {
     success: true,
@@ -242,7 +265,7 @@ async function evaluatePendingReminders({ uid, nowMs = Date.now() }) {
     }
 
     // Stop condition 4: Snoozed or disabled
-    const reminderState = inMemoryRecordReminderStates.get(record.recordId) || {};
+    const reminderState = getStatesMap().get(record.recordId) || {};
     if (reminderState.remindersDisabled) {
       continue;
     }
@@ -349,10 +372,10 @@ async function sendRecordReminder({ uid, recordId, locale = "en", forceSendWhats
   }
 
   // Update last reminder sent timestamp
-  const state = inMemoryRecordReminderStates.get(recordId) || {};
+  const state = getStatesMap().get(recordId) || {};
   state.lastReminderSentMs = nowMs;
   state.lastReminderLevel = level;
-  inMemoryRecordReminderStates.set(recordId, state);
+  getStatesMap().set(recordId, state);
 
   return {
     success: true,
@@ -378,6 +401,6 @@ module.exports = {
   snoozeRecordReminders,
   evaluatePendingReminders,
   sendRecordReminder,
-  _inMemoryReminderPolicies: inMemoryReminderPolicies,
-  _inMemoryRecordReminderStates: inMemoryRecordReminderStates
+  _inMemoryReminderPolicies,
+  _inMemoryRecordReminderStates
 };

@@ -2,6 +2,7 @@
  * Core Authentication Service (functions/src/auth/authService.js)
  * Implements passwordless registration, phone + email verification,
  * timing-safe non-enumerable sign-in, and atomic unique indexing.
+ * Backed by persistent repositories with zero module-level Map storage.
  */
 
 const crypto = require("crypto");
@@ -13,18 +14,39 @@ const { isDisposableEmail } = require("./disposableEmails");
 const { createSession } = require("../sessions/sessionManager");
 const { isFeatureEnabled } = require("../config/killSwitches");
 const { checkProviderCircuit, recordProviderSpend } = require("../config/circuitBreakers");
+const { getAuthRepository, resetTestRepositories } = require("../repositories");
 
-// In-memory user and index stores for testing / emulator
-const inMemoryUsers = new Map();
-const inMemoryPhoneIndex = new Map();
-const inMemoryEmailIndex = new Map();
-const inMemoryAuditLogs = [];
+/**
+ * Backward-compatible proxy objects for legacy tests inspecting in-memory maps
+ */
+const proxyMap = (getMapFn) => new Proxy({}, {
+  get(target, prop) {
+    const map = getMapFn() || {};
+    if (typeof map[prop] === "function") {
+      return map[prop].bind(map);
+    }
+    return map[prop];
+  }
+});
+
+const _inMemoryUsers = proxyMap(() => getAuthRepository().users);
+const _inMemoryPhoneIndex = proxyMap(() => getAuthRepository().phoneIndex);
+const _inMemoryEmailIndex = proxyMap(() => getAuthRepository().emailIndex);
+const _inMemoryAuditLogs = new Proxy([], {
+  get(target, prop) {
+    const repo = getAuthRepository();
+    const logs = repo.auditLogs || [];
+    if (prop === "length") return logs.length;
+    if (typeof logs[prop] === "function") return logs[prop].bind(logs);
+    return logs[prop];
+  }
+});
 
 function resetAuthStore() {
-  inMemoryUsers.clear();
-  inMemoryPhoneIndex.clear();
-  inMemoryEmailIndex.clear();
-  inMemoryAuditLogs.length = 0;
+  const repo = getAuthRepository();
+  if (typeof repo.clear === "function") {
+    repo.clear();
+  }
 }
 
 /**
@@ -103,9 +125,9 @@ function validateAndNormalizeEmail(email) {
 }
 
 /**
- * 1. Start sign-up with mobile number
+ * 1. Start sign-up flow
  */
-async function startSignup({ phoneNumber, locale = "en", botCheckToken = "test_token", clientIp = "127.0.0.1" }) {
+async function startSignup({ phoneNumber, locale = "en", botCheckToken = "", clientIp = "127.0.0.1" }) {
   if (!isFeatureEnabled("KILL_SWITCH_REGISTRATION")) {
     const err = new Error("New user registrations are temporarily suspended for system maintenance.");
     err.code = "ERR_REGISTRATION_SUSPENDED";
@@ -115,7 +137,7 @@ async function startSignup({ phoneNumber, locale = "en", botCheckToken = "test_t
 
   const circuit = checkProviderCircuit("WHATSAPP");
   if (!circuit.allowed) {
-    const err = new Error(`WhatsApp verification delivery is temporarily unavailable: ${circuit.reason}`);
+    const err = new Error(`Verification code delivery is temporarily unavailable: ${circuit.reason}`);
     err.code = "ERR_CIRCUIT_OPEN";
     err.status = 503;
     throw err;
@@ -196,7 +218,7 @@ async function submitSignupEmail({ flowId, flowToken, email, locale = "en", clie
 }
 
 /**
- * 4. Complete sign-up: atomic creation of user and unique blind indexes
+ * 4. Complete sign-up: atomic creation of user and unique blind indexes via repository transaction
  */
 async function completeSignup({
   flowId,
@@ -239,14 +261,7 @@ async function completeSignup({
   const phoneHmac = computePhoneHash(e164);
   const emailHmac = computeEmailHash(cleanEmail);
 
-  // Atomic unique collision check
-  if (inMemoryPhoneIndex.has(phoneHmac) || inMemoryEmailIndex.has(emailHmac)) {
-    const err = new Error("An account with these credentials already exists.");
-    err.code = "ERR_ACCOUNT_EXISTS";
-    err.status = 409;
-    throw err;
-  }
-
+  const authRepo = getAuthRepository();
   const uid = `usr_${crypto.randomUUID()}`;
   const now = Date.now();
 
@@ -271,12 +286,14 @@ async function completeSignup({
     }
   };
 
-  // Atomic write
-  inMemoryUsers.set(uid, user);
-  inMemoryPhoneIndex.set(phoneHmac, { uid, createdAtMs: now });
-  inMemoryEmailIndex.set(emailHmac, { uid, createdAtMs: now });
+  // Atomic write in repository transaction
+  await authRepo.createUserTransaction(
+    user,
+    { phoneHash: phoneHmac, createdAt: now },
+    { emailHash: emailHmac, createdAt: now }
+  );
 
-  inMemoryAuditLogs.push({
+  await authRepo.saveAuditEntry({
     logId: `log_${crypto.randomUUID()}`,
     timestamp: now,
     actorUid: uid,
@@ -313,7 +330,9 @@ async function startSignin({ phoneNumber, clientIp = "127.0.0.1", locale = "en" 
   const flowId = crypto.randomUUID();
   const phoneHmac = computePhoneHash(e164);
 
-  const userExists = inMemoryPhoneIndex.has(phoneHmac);
+  const authRepo = getAuthRepository();
+  const existingUser = await authRepo.getUserByPhoneHash(phoneHmac);
+  const userExists = !!existingUser;
 
   if (userExists) {
     const circuit = checkProviderCircuit("WHATSAPP");
@@ -356,8 +375,9 @@ async function verifySignin({ flowId, code, phoneNumber, clientType = "WEB", cli
   const { e164 } = validateAndNormalizePhone(phoneNumber);
   const phoneHmac = computePhoneHash(e164);
 
-  const indexEntry = inMemoryPhoneIndex.get(phoneHmac);
-  if (!indexEntry) {
+  const authRepo = getAuthRepository();
+  const user = await authRepo.getUserByPhoneHash(phoneHmac);
+  if (!user) {
     const err = new Error("Invalid verification code or session expired.");
     err.code = "ERR_INVALID_CREDENTIALS";
     err.status = 401;
@@ -371,8 +391,7 @@ async function verifySignin({ flowId, code, phoneNumber, clientType = "WEB", cli
     purpose: "SIGNIN"
   });
 
-  const user = inMemoryUsers.get(indexEntry.uid);
-  if (!user || user.status !== "ACTIVE") {
+  if (user.status !== "ACTIVE") {
     const err = new Error("User account is inactive or suspended.");
     err.code = "ERR_ACCOUNT_SUSPENDED";
     err.status = 403;
@@ -386,7 +405,7 @@ async function verifySignin({ flowId, code, phoneNumber, clientType = "WEB", cli
     userAgent
   });
 
-  inMemoryAuditLogs.push({
+  await authRepo.saveAuditEntry({
     logId: `log_${crypto.randomUUID()}`,
     timestamp: Date.now(),
     actorUid: user.uid,
@@ -416,8 +435,8 @@ module.exports = {
   startSignin,
   verifySignin,
   resetAuthStore,
-  _inMemoryUsers: inMemoryUsers,
-  _inMemoryPhoneIndex: inMemoryPhoneIndex,
-  _inMemoryEmailIndex: inMemoryEmailIndex,
-  _inMemoryAuditLogs: inMemoryAuditLogs
+  _inMemoryUsers,
+  _inMemoryPhoneIndex,
+  _inMemoryEmailIndex,
+  _inMemoryAuditLogs
 };

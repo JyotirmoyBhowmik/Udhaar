@@ -12,20 +12,40 @@ const crypto = require("crypto");
 const { getRecord, updateRecord } = require("../ledger/recordService");
 const { sendPushNotification } = require("../push/pushService");
 
-// In-memory chat stores: threadId -> thread, threadId -> Map(messageId -> message)
-const inMemoryThreads = new Map();
-const inMemoryMessages = new Map();
+const { getChatRepository } = require("../repositories");
 
-function resetChatStore() {
-  inMemoryThreads.clear();
-  inMemoryMessages.clear();
+const proxyMap = (getMapFn) => new Proxy({}, {
+  get(target, prop) {
+    const repo = getChatRepository();
+    const map = (repo && getMapFn(repo)) || {};
+    if (typeof map[prop] === "function") {
+      return map[prop].bind(map);
+    }
+    return map[prop];
+  }
+});
+
+const _inMemoryThreads = proxyMap((repo) => repo.threads);
+const _inMemoryMessages = proxyMap((repo) => repo.messages);
+
+function getThreadsMap() {
+  const repo = getChatRepository();
+  return (repo && repo.threads) || { get: () => null, set: () => {}, values: () => [] };
 }
 
 function getThreadMessagesMap(threadId) {
-  if (!inMemoryMessages.has(threadId)) {
-    inMemoryMessages.set(threadId, new Map());
+  const repo = getChatRepository();
+  if (repo && typeof repo.getThreadMessagesMap === "function") {
+    return repo.getThreadMessagesMap(threadId);
   }
-  return inMemoryMessages.get(threadId);
+  return { get: () => null, set: () => {}, values: () => [] };
+}
+
+function resetChatStore() {
+  const repo = getChatRepository();
+  if (repo && typeof repo.clear === "function") {
+    repo.clear();
+  }
 }
 
 /**
@@ -40,7 +60,7 @@ async function getOrCreateChatThread({ uid, recordId, partyUid = null, partyName
   }
 
   // Check if thread already exists for this record
-  for (const thread of inMemoryThreads.values()) {
+  for (const thread of getThreadsMap().values()) {
     if (thread.remoteRecordId === recordId && thread.participantUids.includes(uid)) {
       return thread;
     }
@@ -65,7 +85,7 @@ async function getOrCreateChatThread({ uid, recordId, partyUid = null, partyName
     updatedAtMs: now
   };
 
-  inMemoryThreads.set(threadId, thread);
+  getThreadsMap().set(threadId, thread);
   return thread;
 }
 
@@ -75,7 +95,7 @@ async function getOrCreateChatThread({ uid, recordId, partyUid = null, partyName
 async function listUserChatThreads({ uid }) {
   if (!uid) return [];
   const results = [];
-  for (const thread of inMemoryThreads.values()) {
+  for (const thread of getThreadsMap().values()) {
     if (thread.participantUids.includes(uid)) {
       results.push({
         ...thread,
@@ -99,7 +119,7 @@ async function postChatMessage({
   attachment = null,
   extensionData = null
 }) {
-  const thread = inMemoryThreads.get(threadId);
+  const thread = getThreadsMap().get(threadId);
   if (!thread || !thread.participantUids.includes(uid)) {
     const err = new Error(`Chat thread ${threadId} not found or access denied.`);
     err.code = "ERR_THREAD_NOT_FOUND";
@@ -195,7 +215,7 @@ async function postChatMessage({
  * List messages in a thread with pagination
  */
 async function listThreadMessages({ uid, threadId, limit = 50, beforeMs = null }) {
-  const thread = inMemoryThreads.get(threadId);
+  const thread = getThreadsMap().get(threadId);
   if (!thread || !thread.participantUids.includes(uid)) {
     const err = new Error("Thread not found or access denied.");
     err.code = "ERR_THREAD_NOT_FOUND";
@@ -218,7 +238,7 @@ async function listThreadMessages({ uid, threadId, limit = 50, beforeMs = null }
  * Respond to an Extension Request (ACCEPT or DECLINE)
  */
 async function respondToExtensionRequest({ uid, threadId, messageId, decision = "ACCEPT" }) {
-  const thread = inMemoryThreads.get(threadId);
+  const thread = getThreadsMap().get(threadId);
   if (!thread || !thread.participantUids.includes(uid)) {
     const err = new Error("Thread not found or access denied.");
     err.code = "ERR_THREAD_NOT_FOUND";
@@ -299,7 +319,7 @@ async function respondToExtensionRequest({ uid, threadId, messageId, decision = 
  * Mute or un-mute a chat thread
  */
 async function toggleThreadMute({ uid, threadId, isMuted = true }) {
-  const thread = inMemoryThreads.get(threadId);
+  const thread = getThreadsMap().get(threadId);
   if (!thread || !thread.participantUids.includes(uid)) {
     const err = new Error("Thread not found.");
     err.code = "ERR_THREAD_NOT_FOUND";
@@ -324,6 +344,6 @@ module.exports = {
   listThreadMessages,
   respondToExtensionRequest,
   toggleThreadMute,
-  _inMemoryThreads: inMemoryThreads,
-  _inMemoryMessages: inMemoryMessages
+  _inMemoryThreads,
+  _inMemoryMessages
 };

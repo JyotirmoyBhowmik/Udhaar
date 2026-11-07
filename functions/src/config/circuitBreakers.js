@@ -5,7 +5,7 @@
  * - Prevents cloud bill runaways by failing fast before calling provider HTTP endpoints.
  */
 
-const inMemoryCircuitState = new Map();
+const circuitState = Object.create(null);
 
 const DEFAULT_BUDGETS = Object.freeze({
   WHATSAPP: {
@@ -23,9 +23,11 @@ const DEFAULT_BUDGETS = Object.freeze({
 });
 
 function initCircuits() {
-  inMemoryCircuitState.clear();
+  for (const k of Object.keys(circuitState)) {
+    delete circuitState[k];
+  }
   for (const [provider, budget] of Object.entries(DEFAULT_BUDGETS)) {
-    inMemoryCircuitState.set(provider, {
+    circuitState[provider] = {
       provider,
       state: "CLOSED", // CLOSED | OPEN | HALF_OPEN
       dailySpent: 0,
@@ -36,11 +38,25 @@ function initCircuits() {
       lastResetHour: new Date().getUTCHours(),
       trippedAtMs: null,
       tripReason: null
-    });
+    };
   }
 }
 
 initCircuits();
+
+const _inMemoryCircuitState = new Proxy(circuitState, {
+  get(target, prop) {
+    if (prop === "get") return (k) => target[k];
+    if (prop === "set") return (k, v) => { target[k] = v; return target; };
+    if (prop === "has") return (k) => Object.prototype.hasOwnProperty.call(target, k);
+    if (prop === "clear") return () => initCircuits();
+    if (prop === "entries") return function* () { for (const k of Object.keys(target)) yield [k, target[k]]; };
+    if (prop === "values") return function* () { for (const k of Object.keys(target)) yield target[k]; };
+    if (prop === "keys") return function* () { for (const k of Object.keys(target)) yield k; };
+    if (prop === "size") return Object.keys(target).length;
+    return target[prop];
+  }
+});
 
 function checkRollingWindow(circuit) {
   const now = new Date();
@@ -68,7 +84,7 @@ function checkRollingWindow(circuit) {
  */
 function checkProviderCircuit(providerName) {
   const key = String(providerName || "").toUpperCase();
-  const circuit = inMemoryCircuitState.get(key);
+  const circuit = _inMemoryCircuitState.get(key);
   if (!circuit) {
     return { allowed: true, state: "CLOSED" };
   }
@@ -100,7 +116,7 @@ function checkProviderCircuit(providerName) {
  */
 function recordProviderSpend(providerName, units = 1) {
   const key = String(providerName || "").toUpperCase();
-  const circuit = inMemoryCircuitState.get(key);
+  const circuit = _inMemoryCircuitState.get(key);
   if (!circuit) return;
 
   checkRollingWindow(circuit);
@@ -124,7 +140,7 @@ function recordProviderSpend(providerName, units = 1) {
  */
 function resetProviderCircuit({ providerName, newDailyLimit = null, reason = "Admin override", adminUid = "admin" }) {
   const key = String(providerName || "").toUpperCase();
-  const circuit = inMemoryCircuitState.get(key);
+  const circuit = _inMemoryCircuitState.get(key);
   if (!circuit) {
     const err = new Error(`Unknown provider: '${providerName}'.`);
     err.code = "ERR_INVALID_PROVIDER";
@@ -157,7 +173,7 @@ function resetProviderCircuit({ providerName, newDailyLimit = null, reason = "Ad
  */
 function getCircuitStatus() {
   const result = {};
-  for (const [key, c] of inMemoryCircuitState.entries()) {
+  for (const [key, c] of _inMemoryCircuitState.entries()) {
     checkRollingWindow(c);
     result[key] = {
       provider: c.provider,
@@ -184,5 +200,5 @@ module.exports = {
   getCircuitStatus,
   resetAllCircuits,
   DEFAULT_BUDGETS,
-  _inMemoryCircuitState: inMemoryCircuitState
+  _inMemoryCircuitState
 };

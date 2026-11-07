@@ -32,14 +32,36 @@ const ALLOWED_PROOF_MIME_TYPES = Object.freeze([
   "application/pdf"
 ]);
 
-// In-memory link store: recordId -> linkData
-const inMemoryLinks = new Map();
-// IP rate limit store: ipHash -> array of timestamps
-const inMemoryIpRateLimits = new Map();
+const { getLinkRepository } = require("../repositories");
+
+const proxyMap = (getMapFn) => new Proxy({}, {
+  get(target, prop) {
+    const repo = getLinkRepository();
+    const map = (repo && getMapFn(repo)) || {};
+    if (typeof map[prop] === "function") {
+      return map[prop].bind(map);
+    }
+    return map[prop];
+  }
+});
+
+const _inMemoryLinks = proxyMap((repo) => repo.links);
+
+function getLinksMap() {
+  const repo = getLinkRepository();
+  return (repo && repo.links) || { get: () => null, set: () => {}, has: () => false, clear: () => {} };
+}
+
+function getIpRateLimitsMap() {
+  const repo = getLinkRepository();
+  return (repo && repo.ipRateLimits) || { get: () => null, set: () => {}, clear: () => {} };
+}
 
 function resetLinksStore() {
-  inMemoryLinks.clear();
-  inMemoryIpRateLimits.clear();
+  const repo = getLinkRepository();
+  if (repo && typeof repo.clear === "function") {
+    repo.clear();
+  }
 }
 
 /**
@@ -49,8 +71,9 @@ function checkIpRateLimit(clientIp = "127.0.0.1") {
   const ip = String(clientIp || "127.0.0.1").trim();
   const now = Date.now();
   const windowStart = now - IP_RATE_LIMIT_WINDOW_MS;
+  const ipLimits = getIpRateLimitsMap();
 
-  let timestamps = inMemoryIpRateLimits.get(ip) || [];
+  let timestamps = ipLimits.get(ip) || [];
   timestamps = timestamps.filter(t => t > windowStart);
 
   if (timestamps.length >= IP_RATE_LIMIT_MAX) {
@@ -61,7 +84,7 @@ function checkIpRateLimit(clientIp = "127.0.0.1") {
   }
 
   timestamps.push(now);
-  inMemoryIpRateLimits.set(ip, timestamps);
+  ipLimits.set(ip, timestamps);
 }
 
 /**
@@ -125,7 +148,7 @@ async function createCapabilityLink({ uid, recordId, expiresInDays = 30 }) {
     upgradedAtMs: null
   };
 
-  inMemoryLinks.set(recordId, linkData);
+  getLinksMap().set(recordId, linkData);
 
   const guestUrl = `https://udhaar.jyotirmoyb.com/u/${recordId}#${rawToken}`;
 
@@ -157,7 +180,7 @@ function resolveAndVerifyLink(recordId, rawToken, nowMs = Date.now()) {
     throw err;
   }
 
-  const link = inMemoryLinks.get(recordId);
+  const link = getLinksMap().get(recordId);
   if (!link) {
     const err = new Error(`Capability link for record ${recordId} not found.`);
     err.code = "ERR_LINK_NOT_FOUND";
@@ -755,5 +778,5 @@ module.exports = {
   generateProofUploadUrl,
   upgradeGuestToAccount,
   resolveAndVerifyLink,
-  _inMemoryLinks: inMemoryLinks
+  _inMemoryLinks
 };

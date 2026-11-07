@@ -6,18 +6,34 @@
 const crypto = require("crypto");
 const { getPushProvider } = require("../providers/push");
 
-// In-memory devices store: uid -> Map(deviceId -> deviceData)
-const inMemoryUserDevices = new Map();
+const { getSessionRepository } = require("../repositories");
+
+const proxyMap = (getMapFn) => new Proxy({}, {
+  get(target, prop) {
+    const repo = getSessionRepository();
+    const map = (repo && getMapFn(repo)) || {};
+    if (typeof map[prop] === "function") {
+      return map[prop].bind(map);
+    }
+    return map[prop];
+  }
+});
+
+const _inMemoryUserDevices = proxyMap((repo) => repo.devices);
 
 function getUserDevicesMap(uid) {
-  if (!inMemoryUserDevices.has(uid)) {
-    inMemoryUserDevices.set(uid, new Map());
+  const repo = getSessionRepository();
+  if (repo && typeof repo.getUserDevicesMap === "function") {
+    return repo.getUserDevicesMap(uid);
   }
-  return inMemoryUserDevices.get(uid);
+  return { get: () => null, set: () => {}, values: () => [] };
 }
 
 function resetDevicesStore() {
-  inMemoryUserDevices.clear();
+  const repo = getSessionRepository();
+  if (repo && typeof repo.clear === "function") {
+    repo.clear();
+  }
 }
 
 /**
@@ -147,5 +163,5 @@ module.exports = {
   revokeDevice,
   sendPushNotification,
   resetDevicesStore,
-  _inMemoryUserDevices: inMemoryUserDevices
+  _inMemoryUserDevices
 };

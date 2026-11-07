@@ -2,21 +2,26 @@
  * Ledger Installment Plans Service (functions/src/ledger/planService.js)
  * Implements installment schedule generation with exact integer paise splitting,
  * remainder absorption, and installment payment tracking.
+ * Backed by persistent repositories with zero module-level Map storage.
  */
 
 const crypto = require("crypto");
 const { getRecord } = require("./recordService");
 const { recordPayment } = require("./paymentService");
+const { getLedgerRepository } = require("../repositories");
 
-// In-memory plans store: uid -> Map(planId -> plan)
-const inMemoryPlans = new Map();
-
-function getUserPlansMap(uid) {
-  if (!inMemoryPlans.has(uid)) {
-    inMemoryPlans.set(uid, new Map());
+const proxyMap = (getMapFn) => new Proxy({}, {
+  get(target, prop) {
+    const repo = getLedgerRepository();
+    const map = (repo && repo.plans) || {};
+    if (typeof map[prop] === "function") {
+      return map[prop].bind(map);
+    }
+    return map[prop];
   }
-  return inMemoryPlans.get(uid);
-}
+});
+
+const _inMemoryPlans = proxyMap(() => getLedgerRepository().plans);
 
 /**
  * Generate installment schedule with integer paise division and remainder absorption
@@ -61,8 +66,9 @@ async function createInstallmentPlan({ uid, recordId, totalInstallments = 3, sta
   const record = await getRecord({ uid, recordId });
   const start = Number(startDateMs) || record.createdAtMs || Date.now();
 
-  const plansMap = getUserPlansMap(uid);
-  const existingForRecord = Array.from(plansMap.values()).find(p => p.recordId === recordId);
+  const repo = getLedgerRepository();
+  const existingPlans = await repo.listPlans(uid);
+  const existingForRecord = existingPlans.find(p => p.recordId === recordId);
   if (existingForRecord) {
     const err = new Error("An installment plan already exists for this record");
     err.code = "ERR_PLAN_ALREADY_EXISTS";
@@ -75,6 +81,7 @@ async function createInstallmentPlan({ uid, recordId, totalInstallments = 3, sta
 
   const plan = {
     planId,
+    id: planId,
     recordId,
     totalInstallments: count,
     frequency,
@@ -83,7 +90,7 @@ async function createInstallmentPlan({ uid, recordId, totalInstallments = 3, sta
     createdAtMs: Date.now()
   };
 
-  plansMap.set(planId, plan);
+  await repo.createPlan(uid, plan);
   return plan;
 }
 
@@ -91,8 +98,9 @@ async function createInstallmentPlan({ uid, recordId, totalInstallments = 3, sta
  * Get installment plan for a record
  */
 async function getPlanByRecordId({ uid, recordId }) {
-  const plansMap = getUserPlansMap(uid);
-  const plan = Array.from(plansMap.values()).find(p => p.recordId === recordId);
+  const repo = getLedgerRepository();
+  const plans = await repo.listPlans(uid);
+  const plan = plans.find(p => p.recordId === recordId);
   if (!plan) {
     const err = new Error(`No installment plan found for record ${recordId}`);
     err.code = "ERR_PLAN_NOT_FOUND";
@@ -106,8 +114,8 @@ async function getPlanByRecordId({ uid, recordId }) {
  * Pay a specific installment
  */
 async function payInstallment({ uid, planId, installmentId, paymentMode = "UPI" }) {
-  const plansMap = getUserPlansMap(uid);
-  const plan = plansMap.get(planId);
+  const repo = getLedgerRepository();
+  const plan = await repo.getPlan(uid, planId);
 
   if (!plan) {
     const err = new Error(`Plan ${planId} not found`);
@@ -143,6 +151,8 @@ async function payInstallment({ uid, planId, installmentId, paymentMode = "UPI" 
   inst.status = "PAID";
   inst.paidAtMs = Date.now();
 
+  await repo.updatePlan(uid, planId, { installments: plan.installments });
+
   return {
     success: true,
     installment: inst,
@@ -151,7 +161,10 @@ async function payInstallment({ uid, planId, installmentId, paymentMode = "UPI" 
 }
 
 function resetPlansStore() {
-  inMemoryPlans.clear();
+  const repo = getLedgerRepository();
+  if (repo && typeof repo.clear === "function") {
+    repo.clear();
+  }
 }
 
 module.exports = {
@@ -160,5 +173,5 @@ module.exports = {
   payInstallment,
   calculateInstallmentSchedule,
   resetPlansStore,
-  _inMemoryPlans: inMemoryPlans
+  _inMemoryPlans
 };

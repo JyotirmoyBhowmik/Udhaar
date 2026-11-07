@@ -23,7 +23,8 @@ function createAuthRouter() {
   // 1. POST /auth/signup/start
   router.post("/auth/signup/start", async (req, res, next) => {
     try {
-      const { phoneNumber, locale, botCheckToken } = req.body || {};
+      const phoneNumber = req.body?.phoneNumber || req.body?.phone;
+      const { locale, botCheckToken } = req.body || {};
       const clientIp = req.ip || req.headers["x-forwarded-for"] || "127.0.0.1";
 
       const result = await startSignup({

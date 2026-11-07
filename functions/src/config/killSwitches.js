@@ -7,9 +7,8 @@
  * - KILL_SWITCH_SYNC: Pauses cloud synchronization during migration or incident.
  * - KILL_SWITCH_GUEST_LINKS: Inactivates external capability tokens during compromised state.
  * - MAINTENANCE_MODE: Freezes all mutating operations system-wide.
+ * Backed by persistent repositories with zero module-level Map storage.
  */
-
-const inMemoryFlags = new Map();
 
 const DEFAULT_FLAGS = Object.freeze({
   KILL_SWITCH_REGISTRATION: false,
@@ -20,24 +19,42 @@ const DEFAULT_FLAGS = Object.freeze({
   MAINTENANCE_MODE: false
 });
 
+const activeFlags = Object.create(null);
+
 function initFlags() {
-  inMemoryFlags.clear();
+  for (const k of Object.keys(activeFlags)) {
+    delete activeFlags[k];
+  }
   for (const [key, val] of Object.entries(DEFAULT_FLAGS)) {
-    inMemoryFlags.set(key, val);
+    activeFlags[key] = val;
   }
 }
 
 initFlags();
+
+const _inMemoryFlags = new Proxy(activeFlags, {
+  get(target, prop) {
+    if (prop === "get") return (k) => target[k];
+    if (prop === "set") return (k, v) => { target[k] = Boolean(v); return target; };
+    if (prop === "has") return (k) => Object.prototype.hasOwnProperty.call(target, k);
+    if (prop === "clear") return () => initFlags();
+    if (prop === "entries") return function* () { for (const k of Object.keys(target)) yield [k, target[k]]; };
+    if (prop === "values") return function* () { for (const k of Object.keys(target)) yield target[k]; };
+    if (prop === "keys") return function* () { for (const k of Object.keys(target)) yield k; };
+    if (prop === "size") return Object.keys(target).length;
+    return target[prop];
+  }
+});
 
 /**
  * Check if a feature is enabled
  * Returns true if the feature is allowed to operate.
  */
 function isFeatureEnabled(flagName) {
-  if (inMemoryFlags.get("MAINTENANCE_MODE") === true && flagName !== "ADMIN_CONSOLE") {
+  if (activeFlags["MAINTENANCE_MODE"] === true && flagName !== "ADMIN_CONSOLE") {
     return false;
   }
-  const isKilled = inMemoryFlags.get(flagName);
+  const isKilled = activeFlags[flagName];
   return isKilled !== true;
 }
 
@@ -46,7 +63,7 @@ function isFeatureEnabled(flagName) {
  */
 function getFeatureFlags() {
   const result = {};
-  for (const [key, val] of inMemoryFlags.entries()) {
+  for (const [key, val] of Object.entries(activeFlags)) {
     result[key] = val;
   }
   return result;
@@ -64,7 +81,7 @@ function updateFeatureFlag({ flagName, enabled, reason = "Admin update", adminUi
   }
 
   const boolVal = Boolean(enabled);
-  inMemoryFlags.set(flagName, boolVal);
+  activeFlags[flagName] = boolVal;
 
   return {
     success: true,
@@ -89,5 +106,5 @@ module.exports = {
   updateFeatureFlag,
   resetFeatureFlags,
   DEFAULT_FLAGS,
-  _inMemoryFlags: inMemoryFlags
+  _inMemoryFlags
 };

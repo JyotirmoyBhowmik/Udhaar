@@ -30,6 +30,9 @@ jobs:
           npm ci --ignore-scripts || npm install --ignore-scripts
           npm --prefix functions ci --ignore-scripts || npm --prefix functions install --ignore-scripts
 
+      - name: Verify Launch Checklist & Documentation Truth
+        run: node scripts/verify-launch-checklist.js
+
       - name: Verify Web Production Build & Asset Integrity
         run: npm run build
 

@@ -14,41 +14,55 @@ const { appendLedgerEvent } = require("../ledger/eventService");
 const { compareHlc } = require("./hlc");
 const { USER_QUOTAS } = require("../config/quotas");
 
-// In-memory server changeLog store: uid -> Array<{ seq, entity, syncId, op, fields, serverRev, hlc, deviceId, timestampMs }>
-const inMemoryChangeLogs = new Map();
-// In-memory records by syncId: uid -> Map(syncId -> record)
-const inMemorySyncedRecords = new Map();
-// In-memory people by syncId: uid -> Map(syncId -> person)
-const inMemorySyncedPeople = new Map();
-// In-memory payments by paymentId: uid -> Map(paymentId -> payment)
-const inMemorySyncedPayments = new Map();
+const { getSyncRepository } = require("../repositories");
+
+const proxyMap = (getMapFn) => new Proxy({}, {
+  get(target, prop) {
+    const repo = getSyncRepository();
+    const map = (repo && getMapFn(repo)) || {};
+    if (typeof map[prop] === "function") {
+      return map[prop].bind(map);
+    }
+    return map[prop];
+  }
+});
+
+const _inMemoryChangeLogs = proxyMap((repo) => repo.changeLogs);
+const _inMemorySyncedRecords = proxyMap((repo) => repo.syncedRecords);
 
 function getUserChangeLog(uid) {
-  if (!inMemoryChangeLogs.has(uid)) {
-    inMemoryChangeLogs.set(uid, []);
+  const repo = getSyncRepository();
+  if (repo && repo.changeLogs) {
+    if (!repo.changeLogs.has(uid)) {
+      repo.changeLogs.set(uid, []);
+    }
+    return repo.changeLogs.get(uid);
   }
-  return inMemoryChangeLogs.get(uid);
+  return [];
 }
 
 function getUserSyncedRecords(uid) {
-  if (!inMemorySyncedRecords.has(uid)) {
-    inMemorySyncedRecords.set(uid, new Map());
+  const repo = getSyncRepository();
+  if (repo && typeof repo.getUserSyncedRecords === "function") {
+    return repo.getUserSyncedRecords(uid);
   }
-  return inMemorySyncedRecords.get(uid);
+  return { get: () => null, set: () => {}, has: () => false };
 }
 
 function getUserSyncedPeople(uid) {
-  if (!inMemorySyncedPeople.has(uid)) {
-    inMemorySyncedPeople.set(uid, new Map());
+  const repo = getSyncRepository();
+  if (repo && typeof repo.getUserSyncedPeople === "function") {
+    return repo.getUserSyncedPeople(uid);
   }
-  return inMemorySyncedPeople.get(uid);
+  return { get: () => null, set: () => {}, has: () => false };
 }
 
 function getUserSyncedPayments(uid) {
-  if (!inMemorySyncedPayments.has(uid)) {
-    inMemorySyncedPayments.set(uid, new Map());
+  const repo = getSyncRepository();
+  if (repo && typeof repo.getUserSyncedPayments === "function") {
+    return repo.getUserSyncedPayments(uid);
   }
-  return inMemorySyncedPayments.get(uid);
+  return { get: () => null, set: () => {}, has: () => false };
 }
 
 /**
@@ -445,16 +459,16 @@ async function processSyncPull({ uid, cursor = 0, limit = 100 }) {
 }
 
 function resetSyncStore() {
-  inMemoryChangeLogs.clear();
-  inMemorySyncedRecords.clear();
-  inMemorySyncedPeople.clear();
-  inMemorySyncedPayments.clear();
+  const repo = getSyncRepository();
+  if (repo && typeof repo.clear === "function") {
+    repo.clear();
+  }
 }
 
 module.exports = {
   processSyncPush,
   processSyncPull,
   resetSyncStore,
-  _inMemoryChangeLogs: inMemoryChangeLogs,
-  _inMemorySyncedRecords: inMemorySyncedRecords
+  _inMemoryChangeLogs,
+  _inMemorySyncedRecords
 };

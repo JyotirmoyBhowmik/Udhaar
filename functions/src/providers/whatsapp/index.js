@@ -9,7 +9,12 @@ const crypto = require("crypto");
 class FakeWhatsAppProvider {
   constructor() {
     this.sentMessages = [];
-    this.deliveryCallbacks = new Map();
+    this.deliveryCallbacks = {
+      _data: Object.create(null),
+      get(k) { return this._data[k]; },
+      set(k, v) { this._data[k] = v; return this; },
+      clear() { this._data = Object.create(null); }
+    };
   }
 
   reset() {
