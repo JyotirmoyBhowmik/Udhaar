@@ -7,6 +7,7 @@
 const express = require("express");
 const { createAuthRouter } = require("./auth/authEndpoints");
 const { createLedgerRouter } = require("./ledger/ledgerEndpoints");
+const { createSyncRouter } = require("./sync/syncEndpoints");
 const { problemDetailsErrorHandler } = require("./middleware/authMiddleware");
 
 function createApiApp() {
@@ -41,6 +42,8 @@ function createApiApp() {
   apiV1Router.use(createAuthRouter());
   apiV1Router.use("/ledger", createLedgerRouter());
   apiV1Router.use(createLedgerRouter());
+  apiV1Router.use("/sync", createSyncRouter());
+  apiV1Router.use(createSyncRouter());
 
   app.use("/api/v1", apiV1Router);
   app.use("/api", apiV1Router); // rewrite fallback

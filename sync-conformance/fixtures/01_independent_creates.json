@@ -1,0 +1,65 @@
+{
+  "name": "01_independent_creates",
+  "description": "Two disconnected devices create independent records offline. Both sync and converge without collision.",
+  "initialState": {
+    "server": [],
+    "deviceA": [],
+    "deviceB": []
+  },
+  "actions": [
+    {
+      "step": 1,
+      "actor": "deviceA",
+      "op": "CREATE_RECORD",
+      "payload": {
+        "syncId": "sync_rec_a1",
+        "partyName": "Rahul Sharma",
+        "principalAmountPaise": 500000,
+        "counterpartyRole": "BORROWER"
+      }
+    },
+    {
+      "step": 2,
+      "actor": "deviceB",
+      "op": "CREATE_RECORD",
+      "payload": {
+        "syncId": "sync_rec_b1",
+        "partyName": "Priya Singh",
+        "principalAmountPaise": 750000,
+        "counterpartyRole": "LENDER"
+      }
+    },
+    {
+      "step": 3,
+      "actor": "deviceA",
+      "op": "SYNC"
+    },
+    {
+      "step": 4,
+      "actor": "deviceB",
+      "op": "SYNC"
+    },
+    {
+      "step": 5,
+      "actor": "deviceA",
+      "op": "SYNC"
+    }
+  ],
+  "expectedState": {
+    "recordCount": 2,
+    "records": [
+      {
+        "syncId": "sync_rec_a1",
+        "partyName": "Rahul Sharma",
+        "principalAmountPaise": 500000,
+        "syncStatus": "SYNCED"
+      },
+      {
+        "syncId": "sync_rec_b1",
+        "partyName": "Priya Singh",
+        "principalAmountPaise": 750000,
+        "syncStatus": "SYNCED"
+      }
+    ]
+  }
+}

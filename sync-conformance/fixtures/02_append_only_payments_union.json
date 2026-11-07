@@ -1,0 +1,64 @@
+{
+  "name": "02_append_only_payments_union",
+  "description": "Two disconnected devices record partial payments against the same record offline. When both reconnect and sync, all payments merge by mathematical set union without data loss, and remaining balance converges.",
+  "initialState": {
+    "records": [
+      {
+        "syncId": "sync_rec_p1",
+        "partyName": "Vikas Patel",
+        "principalAmountPaise": 1000000,
+        "remainingAmountPaise": 1000000,
+        "counterpartyRole": "BORROWER",
+        "serverRev": 1
+      }
+    ],
+    "payments": []
+  },
+  "actions": [
+    {
+      "step": 1,
+      "actor": "deviceA",
+      "op": "CREATE_PAYMENT",
+      "payload": {
+        "paymentId": "pay_a1",
+        "recordSyncId": "sync_rec_p1",
+        "amountPaise": 300000,
+        "paymentMode": "UPI",
+        "note": "First installment via GPay"
+      }
+    },
+    {
+      "step": 2,
+      "actor": "deviceB",
+      "op": "CREATE_PAYMENT",
+      "payload": {
+        "paymentId": "pay_b1",
+        "recordSyncId": "sync_rec_p1",
+        "amountPaise": 400000,
+        "paymentMode": "CASH",
+        "note": "Second installment in cash"
+      }
+    },
+    {
+      "step": 3,
+      "actor": "deviceA",
+      "op": "SYNC"
+    },
+    {
+      "step": 4,
+      "actor": "deviceB",
+      "op": "SYNC"
+    },
+    {
+      "step": 5,
+      "actor": "deviceA",
+      "op": "SYNC"
+    }
+  ],
+  "expectedState": {
+    "recordSyncId": "sync_rec_p1",
+    "totalPaymentsCount": 2,
+    "expectedRemainingAmountPaise": 300000,
+    "paymentIds": ["pay_a1", "pay_b1"]
+  }
+}

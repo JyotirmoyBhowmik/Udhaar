@@ -1,0 +1,57 @@
+{
+  "name": "04_edit_beats_delete",
+  "description": "Device A deletes a record offline while Device B updates it offline. On synchronization, the edit prevails over deletion (Edit-Beats-Delete), resurrecting the record with active status and updated fields.",
+  "initialState": {
+    "records": [
+      {
+        "syncId": "sync_rec_d1",
+        "partyName": "Amit Kumar",
+        "principalAmountPaise": 250000,
+        "note": "Original note before offline split",
+        "serverRev": 1
+      }
+    ]
+  },
+  "actions": [
+    {
+      "step": 1,
+      "actor": "deviceA",
+      "op": "DELETE_RECORD",
+      "payload": {
+        "syncId": "sync_rec_d1",
+        "clientRev": 1
+      }
+    },
+    {
+      "step": 2,
+      "actor": "deviceB",
+      "op": "UPDATE_RECORD",
+      "payload": {
+        "syncId": "sync_rec_d1",
+        "note": "Updated note while offline",
+        "clientRev": 1
+      }
+    },
+    {
+      "step": 3,
+      "actor": "deviceA",
+      "op": "SYNC"
+    },
+    {
+      "step": 4,
+      "actor": "deviceB",
+      "op": "SYNC"
+    },
+    {
+      "step": 5,
+      "actor": "deviceA",
+      "op": "SYNC"
+    }
+  ],
+  "expectedState": {
+    "recordSyncId": "sync_rec_d1",
+    "isDeleted": false,
+    "note": "Updated note while offline",
+    "syncStatus": "SYNCED"
+  }
+}

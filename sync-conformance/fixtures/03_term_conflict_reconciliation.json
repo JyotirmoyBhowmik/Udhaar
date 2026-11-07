@@ -1,0 +1,55 @@
+{
+  "name": "03_term_conflict_reconciliation",
+  "description": "Two disconnected devices concurrently modify core financial terms (principalAmountPaise) on the same record. The server flags CONFLICT without clobbering, retaining both server and client versions.",
+  "initialState": {
+    "records": [
+      {
+        "syncId": "sync_rec_c1",
+        "partyName": "Sunita Rao",
+        "principalAmountPaise": 500000,
+        "remainingAmountPaise": 500000,
+        "dueDateMs": 1750000000000,
+        "serverRev": 1
+      }
+    ]
+  },
+  "actions": [
+    {
+      "step": 1,
+      "actor": "deviceA",
+      "op": "UPDATE_RECORD",
+      "payload": {
+        "syncId": "sync_rec_c1",
+        "principalAmountPaise": 600000,
+        "clientRev": 1
+      }
+    },
+    {
+      "step": 2,
+      "actor": "deviceB",
+      "op": "UPDATE_RECORD",
+      "payload": {
+        "syncId": "sync_rec_c1",
+        "principalAmountPaise": 400000,
+        "clientRev": 1
+      }
+    },
+    {
+      "step": 3,
+      "actor": "deviceA",
+      "op": "SYNC"
+    },
+    {
+      "step": 4,
+      "actor": "deviceB",
+      "op": "SYNC"
+    }
+  ],
+  "expectedState": {
+    "recordSyncId": "sync_rec_c1",
+    "deviceBStatus": "CONFLICT",
+    "serverPrincipalAmountPaise": 600000,
+    "conflictServerAmount": 600000,
+    "conflictClientAmount": 400000
+  }
+}

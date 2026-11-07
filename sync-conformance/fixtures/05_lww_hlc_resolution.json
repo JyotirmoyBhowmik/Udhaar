@@ -1,0 +1,60 @@
+{
+  "name": "05_lww_hlc_resolution",
+  "description": "Concurrent non-term metadata edits (notes, contact info) resolve deterministically via Last-Writer-Wins governed by Hybrid Logical Clock (HLC) timestamps.",
+  "initialState": {
+    "records": [
+      {
+        "syncId": "sync_rec_l1",
+        "partyName": "Suresh Raina",
+        "principalAmountPaise": 300000,
+        "note": "Initial note",
+        "hlc": "1700000000000:0:server",
+        "serverRev": 1
+      }
+    ]
+  },
+  "actions": [
+    {
+      "step": 1,
+      "actor": "deviceA",
+      "op": "UPDATE_RECORD",
+      "payload": {
+        "syncId": "sync_rec_l1",
+        "note": "Device A update with lower HLC",
+        "hlc": "1700000005000:0:deviceA",
+        "clientRev": 1
+      }
+    },
+    {
+      "step": 2,
+      "actor": "deviceB",
+      "op": "UPDATE_RECORD",
+      "payload": {
+        "syncId": "sync_rec_l1",
+        "note": "Device B update with higher HLC",
+        "hlc": "1700000008000:0:deviceB",
+        "clientRev": 1
+      }
+    },
+    {
+      "step": 3,
+      "actor": "deviceA",
+      "op": "SYNC"
+    },
+    {
+      "step": 4,
+      "actor": "deviceB",
+      "op": "SYNC"
+    },
+    {
+      "step": 5,
+      "actor": "deviceA",
+      "op": "SYNC"
+    }
+  ],
+  "expectedState": {
+    "recordSyncId": "sync_rec_l1",
+    "finalNote": "Device B update with higher HLC",
+    "syncStatus": "SYNCED"
+  }
+}

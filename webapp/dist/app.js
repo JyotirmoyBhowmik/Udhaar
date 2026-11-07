@@ -1,6 +1,6 @@
 /**
  * Udhaar Web App Production Bundle
- * Generated: 2026-11-07T07:39:09.796Z
+ * Generated: 2026-11-07T07:51:19.899Z
  */
 (function() {
   "use strict";
@@ -564,6 +564,911 @@ if (typeof module !== "undefined" && module.exports) {
 }
 
     __modules["i18n"] = module;
+  })();
+
+  // --- Module: hlc ---
+  (function() {
+    const module = { exports: {} };
+    const exports = module.exports;
+/**
+ * Hybrid Logical Clock (HLC) Implementation (webapp/src/sync/hlc.js)
+ * Implements Kulkarni et al. physical-logical clock combining wall clock monotonicity
+ * with Lamport logical causality and deterministic device tie-breaking.
+ */
+
+function createHlc(deviceId, wallTimeMs = Date.now()) {
+  return {
+    millis: wallTimeMs,
+    counter: 0,
+    deviceId: String(deviceId || "unknown")
+  };
+}
+
+function packHlc(hlc) {
+  if (!hlc) return "";
+  return `${hlc.millis}:${hlc.counter}:${hlc.deviceId}`;
+}
+
+function unpackHlc(str) {
+  if (!str || typeof str !== "string") {
+    return createHlc("unknown", 0);
+  }
+  const parts = str.split(":");
+  if (parts.length < 3) {
+    return createHlc("unknown", 0);
+  }
+  return {
+    millis: Number(parts[0]) || 0,
+    counter: Number(parts[1]) || 0,
+    deviceId: parts.slice(2).join(":")
+  };
+}
+
+function incrementHlc(currentHlc, wallTimeMs = Date.now()) {
+  const current = typeof currentHlc === "string" ? unpackHlc(currentHlc) : currentHlc;
+  if (wallTimeMs > current.millis) {
+    return {
+      millis: wallTimeMs,
+      counter: 0,
+      deviceId: current.deviceId
+    };
+  }
+  return {
+    millis: current.millis,
+    counter: current.counter + 1,
+    deviceId: current.deviceId
+  };
+}
+
+function updateHlc(localHlc, remoteHlc, wallTimeMs = Date.now()) {
+  const l = typeof localHlc === "string" ? unpackHlc(localHlc) : localHlc;
+  const r = typeof remoteHlc === "string" ? unpackHlc(remoteHlc) : remoteHlc;
+
+  const maxMillis = Math.max(l.millis, r.millis, wallTimeMs);
+  let counter = 0;
+
+  if (maxMillis === l.millis && maxMillis === r.millis) {
+    counter = Math.max(l.counter, r.counter) + 1;
+  } else if (maxMillis === l.millis) {
+    counter = l.counter + 1;
+  } else if (maxMillis === r.millis) {
+    counter = r.counter + 1;
+  } else {
+    counter = 0;
+  }
+
+  return {
+    millis: maxMillis,
+    counter,
+    deviceId: l.deviceId
+  };
+}
+
+function compareHlc(hlcA, hlcB) {
+  const a = typeof hlcA === "string" ? unpackHlc(hlcA) : hlcA;
+  const b = typeof hlcB === "string" ? unpackHlc(hlcB) : hlcB;
+
+  if (a.millis !== b.millis) {
+    return a.millis - b.millis;
+  }
+  if (a.counter !== b.counter) {
+    return a.counter - b.counter;
+  }
+  return a.deviceId.localeCompare(b.deviceId);
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    createHlc,
+    packHlc,
+    unpackHlc,
+    incrementHlc,
+    updateHlc,
+    compareHlc
+  };
+}
+
+    __modules["hlc"] = module;
+  })();
+
+  // --- Module: ledgerDb ---
+  (function() {
+    const module = { exports: {} };
+    const exports = module.exports;
+/**
+ * Client-Side IndexedDB Database Layer (webapp/src/db/ledgerDb.js)
+ * Implements asynchronous, non-blocking local storage for Udhaar Platform v2.
+ * Compatible with modern browser IndexedDB and in-memory mock for Node unit tests.
+ */
+
+const DB_NAME = "udhaar_ledger_db";
+const DB_VERSION = 2;
+
+class MockObjectStore {
+  constructor(name, keyPath, autoIncrement = false) {
+    this.name = name;
+    this.keyPath = keyPath;
+    this.autoIncrement = autoIncrement;
+    this.data = new Map();
+    this.autoId = 1;
+  }
+
+  async put(item) {
+    let key;
+    if (this.autoIncrement && !item[this.keyPath]) {
+      key = this.autoId++;
+      item = { ...item, [this.keyPath]: key };
+    } else {
+      key = item[this.keyPath];
+    }
+    this.data.set(key, JSON.parse(JSON.stringify(item)));
+    return key;
+  }
+
+  async get(key) {
+    const found = this.data.get(key);
+    return found ? JSON.parse(JSON.stringify(found)) : null;
+  }
+
+  async delete(key) {
+    this.data.delete(key);
+    return true;
+  }
+
+  async getAll() {
+    return Array.from(this.data.values()).map(item => JSON.parse(JSON.stringify(item)));
+  }
+
+  async clear() {
+    this.data.clear();
+    this.autoId = 1;
+  }
+}
+
+class LedgerDatabase {
+  constructor() {
+    this.isMock = typeof indexedDB === "undefined";
+    this.mockStores = {
+      records: new MockObjectStore("records", "syncId"),
+      people: new MockObjectStore("people", "syncId"),
+      payments: new MockObjectStore("payments", "paymentId"),
+      plans: new MockObjectStore("plans", "planId"),
+      sync_outbox: new MockObjectStore("sync_outbox", "id", true),
+      sync_state: new MockObjectStore("sync_state", "key")
+    };
+    this.db = null;
+  }
+
+  async open() {
+    if (this.isMock) {
+      return this;
+    }
+
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+
+        // 1. Records store
+        if (!db.objectStoreNames.contains("records")) {
+          const recStore = db.createObjectStore("records", { keyPath: "syncId" });
+          recStore.createIndex("recordId", "recordId", { unique: false });
+          recStore.createIndex("syncStatus", "syncStatus", { unique: false });
+          recStore.createIndex("status", "status", { unique: false });
+        }
+
+        // 2. People store
+        if (!db.objectStoreNames.contains("people")) {
+          const pStore = db.createObjectStore("people", { keyPath: "syncId" });
+          pStore.createIndex("personId", "personId", { unique: false });
+          pStore.createIndex("syncStatus", "syncStatus", { unique: false });
+        }
+
+        // 3. Payments store
+        if (!db.objectStoreNames.contains("payments")) {
+          const payStore = db.createObjectStore("payments", { keyPath: "paymentId" });
+          payStore.createIndex("recordSyncId", "recordSyncId", { unique: false });
+        }
+
+        // 4. Plans store
+        if (!db.objectStoreNames.contains("plans")) {
+          db.createObjectStore("plans", { keyPath: "planId" });
+        }
+
+        // 5. Sync Outbox store
+        if (!db.objectStoreNames.contains("sync_outbox")) {
+          const outboxStore = db.createObjectStore("sync_outbox", { keyPath: "id", autoIncrement: true });
+          outboxStore.createIndex("status", "status", { unique: false });
+          outboxStore.createIndex("nextRetryAtMs", "nextRetryAtMs", { unique: false });
+        }
+
+        // 6. Sync State store
+        if (!db.objectStoreNames.contains("sync_state")) {
+          db.createObjectStore("sync_state", { keyPath: "key" });
+        }
+      };
+
+      request.onsuccess = (event) => {
+        this.db = event.target.result;
+        resolve(this);
+      };
+
+      request.onerror = (event) => {
+        reject(event.target.error);
+      };
+    });
+  }
+
+  _getStore(storeName, mode = "readonly") {
+    if (this.isMock) {
+      return this.mockStores[storeName];
+    }
+    const tx = this.db.transaction([storeName], mode);
+    return tx.objectStore(storeName);
+  }
+
+  // Record operations
+  async putRecord(record) {
+    if (this.isMock) return this.mockStores.records.put(record);
+    return new Promise((resolve, reject) => {
+      const store = this._getStore("records", "readwrite");
+      const req = store.put(record);
+      req.onsuccess = () => resolve(record.syncId);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async getRecord(syncId) {
+    if (this.isMock) return this.mockStores.records.get(syncId);
+    return new Promise((resolve, reject) => {
+      const store = this._getStore("records", "readonly");
+      const req = store.get(syncId);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async getAllRecords() {
+    if (this.isMock) return this.mockStores.records.getAll();
+    return new Promise((resolve, reject) => {
+      const store = this._getStore("records", "readonly");
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  // Payment operations
+  async putPayment(payment) {
+    if (this.isMock) return this.mockStores.payments.put(payment);
+    return new Promise((resolve, reject) => {
+      const store = this._getStore("payments", "readwrite");
+      const req = store.put(payment);
+      req.onsuccess = () => resolve(payment.paymentId);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async getPayment(paymentId) {
+    if (this.isMock) return this.mockStores.payments.get(paymentId);
+    return new Promise((resolve, reject) => {
+      const store = this._getStore("payments", "readonly");
+      const req = store.get(paymentId);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async getAllPayments() {
+    if (this.isMock) return this.mockStores.payments.getAll();
+    return new Promise((resolve, reject) => {
+      const store = this._getStore("payments", "readonly");
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  // Person operations
+  async putPerson(person) {
+    if (this.isMock) return this.mockStores.people.put(person);
+    return new Promise((resolve, reject) => {
+      const store = this._getStore("people", "readwrite");
+      const req = store.put(person);
+      req.onsuccess = () => resolve(person.syncId);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async getPerson(syncId) {
+    if (this.isMock) return this.mockStores.people.get(syncId);
+    return new Promise((resolve, reject) => {
+      const store = this._getStore("people", "readonly");
+      const req = store.get(syncId);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async getAllPeople() {
+    if (this.isMock) return this.mockStores.people.getAll();
+    return new Promise((resolve, reject) => {
+      const store = this._getStore("people", "readonly");
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  // Outbox operations
+  async enqueueMutation(mutation) {
+    const entry = {
+      ...mutation,
+      status: "PENDING",
+      attempts: 0,
+      nextRetryAtMs: 0,
+      createdAtMs: Date.now()
+    };
+    if (this.isMock) return this.mockStores.sync_outbox.put(entry);
+    return new Promise((resolve, reject) => {
+      const store = this._getStore("sync_outbox", "readwrite");
+      const req = store.put(entry);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async getPendingMutations() {
+    if (this.isMock) {
+      const all = await this.mockStores.sync_outbox.getAll();
+      const now = Date.now();
+      return all.filter(m => (m.status === "PENDING" || m.status === "FAILED") && m.nextRetryAtMs <= now);
+    }
+    return new Promise((resolve, reject) => {
+      const store = this._getStore("sync_outbox", "readonly");
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const all = req.result || [];
+        const now = Date.now();
+        const pending = all.filter(m => (m.status === "PENDING" || m.status === "FAILED") && m.nextRetryAtMs <= now);
+        resolve(pending);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async removeMutation(id) {
+    if (this.isMock) return this.mockStores.sync_outbox.delete(id);
+    return new Promise((resolve, reject) => {
+      const store = this._getStore("sync_outbox", "readwrite");
+      const req = store.delete(id);
+      req.onsuccess = () => resolve(true);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async updateMutation(mutation) {
+    if (this.isMock) return this.mockStores.sync_outbox.put(mutation);
+    return new Promise((resolve, reject) => {
+      const store = this._getStore("sync_outbox", "readwrite");
+      const req = store.put(mutation);
+      req.onsuccess = () => resolve(true);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  // State operations
+  async setSyncState(key, value) {
+    const record = { key, value, updatedAtMs: Date.now() };
+    if (this.isMock) return this.mockStores.sync_state.put(record);
+    return new Promise((resolve, reject) => {
+      const store = this._getStore("sync_state", "readwrite");
+      const req = store.put(record);
+      req.onsuccess = () => resolve(true);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async getSyncState(key) {
+    if (this.isMock) {
+      const res = await this.mockStores.sync_state.get(key);
+      return res ? res.value : null;
+    }
+    return new Promise((resolve, reject) => {
+      const store = this._getStore("sync_state", "readonly");
+      const req = store.get(key);
+      req.onsuccess = () => resolve(req.result ? req.result.value : null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async clearAll() {
+    if (this.isMock) {
+      for (const s of Object.values(this.mockStores)) {
+        await s.clear();
+      }
+      return;
+    }
+    const storeNames = ["records", "people", "payments", "plans", "sync_outbox", "sync_state"];
+    const tx = this.db.transaction(storeNames, "readwrite");
+    for (const name of storeNames) {
+      tx.objectStore(name).clear();
+    }
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+}
+
+const ledgerDb = new LedgerDatabase();
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    LedgerDatabase,
+    ledgerDb
+  };
+}
+
+    __modules["ledgerDb"] = module;
+  })();
+
+  // --- Module: syncEngine ---
+  (function() {
+    const module = { exports: {} };
+    const exports = module.exports;
+/**
+ * Client-Side Synchronization Engine (webapp/src/sync/syncEngine.js)
+ * Implements Local-First write paths, optimistic UI updates, outbox mutation queue,
+ * exponential backoff retry with jitter, and delta sync pull.
+ */
+
+const { ledgerDb } = __require("ledgerDb");
+const { createHlc, incrementHlc, updateHlc, packHlc } = __require("hlc");
+
+class SyncEngine {
+  constructor({ db = ledgerDb, authClient, deviceId = "web_replica_1", transport = null }) {
+    this.db = db;
+    this.authClient = authClient;
+    this.deviceId = deviceId;
+    this.transport = transport; // Custom transport for in-process testing or direct sync
+    this.currentHlc = createHlc(deviceId);
+    this.isSyncing = false;
+    this.syncListeners = new Set();
+  }
+
+  async init() {
+    await this.db.open();
+    const savedHlc = await this.db.getSyncState("local_hlc");
+    if (savedHlc) {
+      this.currentHlc = savedHlc;
+    }
+  }
+
+  _tickHlc() {
+    this.currentHlc = incrementHlc(this.currentHlc);
+    this.db.setSyncState("local_hlc", this.currentHlc).catch(() => {});
+    return packHlc(this.currentHlc);
+  }
+
+  _generateIdempotencyKey() {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return `idem_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  }
+
+  _isOnline() {
+    if (this.transport && typeof this.transport.isOnline === "function") {
+      return this.transport.isOnline();
+    }
+    return typeof navigator === "undefined" ? true : navigator.onLine;
+  }
+
+  // -----------------------------------------------------------
+  // Local-First Optimistic Write Methods: Record
+  // -----------------------------------------------------------
+  async createRecord(recordData) {
+    const syncId = recordData.syncId || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `sync_${Date.now()}`);
+    const hlcStr = recordData.hlc || this._tickHlc();
+    const idempotencyKey = recordData.idempotencyKey || this._generateIdempotencyKey();
+    const clientRev = recordData.clientRev !== undefined ? Number(recordData.clientRev) : 1;
+    const now = Date.now();
+
+    const localRecord = {
+      ...recordData,
+      syncId,
+      recordId: recordData.recordId || `rec_${syncId.slice(0, 10)}`,
+      partyName: recordData.partyName || "Counterparty",
+      principalAmountPaise: Number(recordData.principalAmountPaise) || 0,
+      remainingAmountPaise: Number(recordData.remainingAmountPaise !== undefined ? recordData.remainingAmountPaise : recordData.principalAmountPaise) || 0,
+      counterpartyRole: recordData.counterpartyRole || "BORROWER",
+      status: recordData.status || "PENDING",
+      clientRev,
+      serverRev: 0,
+      hlc: hlcStr,
+      syncStatus: "LOCAL_ONLY",
+      createdAtMs: now,
+      updatedAtMs: now,
+      deletedAtMs: null
+    };
+
+    // 1. Write immediately to local replica database
+    await this.db.putRecord(localRecord);
+
+    // 2. Enqueue mutation in local outbox
+    await this.db.enqueueMutation({
+      entity: "record",
+      syncId,
+      op: "CREATE",
+      fields: localRecord,
+      clientRev,
+      hlc: hlcStr,
+      idempotencyKey
+    });
+
+    this._notifyListeners("RECORD_CREATED", localRecord);
+
+    // 3. Trigger sync in background if online
+    if (this._isOnline()) {
+      this.sync().catch(() => {});
+    }
+
+    return localRecord;
+  }
+
+  async updateRecord(syncId, updates) {
+    const existing = await this.db.getRecord(syncId);
+    if (!existing) {
+      throw new Error(`Record ${syncId} not found in local database`);
+    }
+
+    const hlcStr = updates.hlc || this._tickHlc();
+    const newClientRev = updates.clientRev !== undefined ? Number(updates.clientRev) : (existing.clientRev || 1) + 1;
+    const now = Date.now();
+
+    const updated = {
+      ...existing,
+      ...updates,
+      clientRev: newClientRev,
+      hlc: hlcStr,
+      syncStatus: "LOCAL_ONLY",
+      updatedAtMs: now
+    };
+
+    await this.db.putRecord(updated);
+
+    await this.db.enqueueMutation({
+      entity: "record",
+      syncId,
+      op: "UPDATE",
+      fields: updates,
+      clientRev: newClientRev,
+      hlc: hlcStr,
+      idempotencyKey: updates.idempotencyKey || this._generateIdempotencyKey()
+    });
+
+    this._notifyListeners("RECORD_UPDATED", updated);
+
+    if (this._isOnline()) {
+      this.sync().catch(() => {});
+    }
+
+    return updated;
+  }
+
+  async deleteRecord(syncId, options = {}) {
+    const existing = await this.db.getRecord(syncId);
+    if (!existing) return null;
+
+    const hlcStr = options.hlc || this._tickHlc();
+    const newClientRev = options.clientRev !== undefined ? Number(options.clientRev) : (existing.clientRev || 1) + 1;
+    const now = Date.now();
+
+    const updated = {
+      ...existing,
+      deletedAtMs: now,
+      clientRev: newClientRev,
+      hlc: hlcStr,
+      syncStatus: "LOCAL_ONLY",
+      updatedAtMs: now
+    };
+
+    await this.db.putRecord(updated);
+
+    await this.db.enqueueMutation({
+      entity: "record",
+      syncId,
+      op: "DELETE",
+      fields: { deletedAtMs: now },
+      clientRev: newClientRev,
+      hlc: hlcStr,
+      idempotencyKey: options.idempotencyKey || this._generateIdempotencyKey()
+    });
+
+    this._notifyListeners("RECORD_DELETED", updated);
+
+    if (this._isOnline()) {
+      this.sync().catch(() => {});
+    }
+
+    return updated;
+  }
+
+  // -----------------------------------------------------------
+  // Local-First Optimistic Write Methods: Payment
+  // -----------------------------------------------------------
+  async createPayment(paymentData) {
+    const paymentId = paymentData.paymentId || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `pay_${Date.now()}`);
+    const hlcStr = paymentData.hlc || this._tickHlc();
+    const idempotencyKey = paymentData.idempotencyKey || this._generateIdempotencyKey();
+    const now = Date.now();
+    const recordSyncId = paymentData.recordSyncId;
+
+    const paymentRecord = {
+      ...paymentData,
+      paymentId,
+      recordSyncId,
+      amountPaise: Number(paymentData.amountPaise) || 0,
+      paymentMode: paymentData.paymentMode || "UPI",
+      note: paymentData.note || "",
+      timestampMs: paymentData.timestampMs || now,
+      hlc: hlcStr,
+      syncStatus: "LOCAL_ONLY"
+    };
+
+    await this.db.putPayment(paymentRecord);
+
+    // Optimistically update local record remaining balance
+    if (recordSyncId) {
+      const rec = await this.db.getRecord(recordSyncId);
+      if (rec) {
+        rec.remainingAmountPaise = Math.max(0, (rec.remainingAmountPaise !== undefined ? rec.remainingAmountPaise : rec.principalAmountPaise) - paymentRecord.amountPaise);
+        if (rec.remainingAmountPaise === 0) {
+          rec.status = "SETTLED";
+        }
+        rec.updatedAtMs = now;
+        await this.db.putRecord(rec);
+      }
+    }
+
+    await this.db.enqueueMutation({
+      entity: "payment",
+      syncId: paymentId,
+      op: "CREATE",
+      fields: paymentRecord,
+      clientRev: 1,
+      hlc: hlcStr,
+      idempotencyKey
+    });
+
+    this._notifyListeners("PAYMENT_CREATED", paymentRecord);
+
+    if (this._isOnline()) {
+      this.sync().catch(() => {});
+    }
+
+    return paymentRecord;
+  }
+
+  // -----------------------------------------------------------
+  // Sync Worker & Outbox Drainage
+  // -----------------------------------------------------------
+  async sync() {
+    if (this.isSyncing) return;
+    this.isSyncing = true;
+
+    try {
+      await this.drainOutbox();
+      await this.pullDeltas();
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
+  async drainOutbox() {
+    const pending = await this.db.getPendingMutations();
+    if (pending.length === 0) return;
+
+    const changes = pending.map(m => ({
+      entity: m.entity,
+      syncId: m.syncId,
+      op: m.op,
+      fields: m.fields,
+      clientRev: m.clientRev,
+      hlc: m.hlc,
+      idempotencyKey: m.idempotencyKey
+    }));
+
+    try {
+      let results;
+
+      if (this.transport) {
+        const res = await this.transport.push({
+          deviceId: this.deviceId,
+          changes
+        });
+        results = res.results;
+      } else {
+        const response = await fetch("/api/v1/sync/push", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            deviceId: this.deviceId,
+            changes
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Sync push failed with status ${response.status}`);
+        }
+
+        const data = await response.json();
+        results = data.results;
+      }
+
+      for (let i = 0; i < results.length; i++) {
+        const res = results[i];
+        const mutation = pending[i];
+        if (!mutation) continue;
+
+        if (res.status === "ACCEPTED") {
+          // Success: Remove from outbox & update record to SYNCED
+          await this.db.removeMutation(mutation.id);
+          if (mutation.entity === "record") {
+            const localRecord = await this.db.getRecord(mutation.syncId);
+            if (localRecord) {
+              localRecord.serverRev = res.serverRev;
+              localRecord.syncStatus = "SYNCED";
+              await this.db.putRecord(localRecord);
+            }
+          } else if (mutation.entity === "payment") {
+            const localPayment = await this.db.getPayment(mutation.syncId);
+            if (localPayment) {
+              localPayment.syncStatus = "SYNCED";
+              await this.db.putPayment(localPayment);
+            }
+          }
+        } else if (res.status === "CONFLICT") {
+          // Conflict: mark conflict on record
+          await this.db.removeMutation(mutation.id);
+          const localRecord = await this.db.getRecord(mutation.syncId);
+          if (localRecord) {
+            localRecord.syncStatus = "CONFLICT";
+            localRecord.conflictDetails = res.conflictDetails;
+            await this.db.putRecord(localRecord);
+          }
+        } else if (res.status === "REJECTED") {
+          await this.db.removeMutation(mutation.id);
+        }
+      }
+
+      this._notifyListeners("OUTBOX_DRAINED", { count: results.length });
+    } catch (err) {
+      // Exponential backoff retry with jitter: 1s, 2s, 4s, 8s (max 30s)
+      const now = Date.now();
+      for (const m of pending) {
+        const attempts = (m.attempts || 0) + 1;
+        const baseDelayMs = Math.min(1000 * Math.pow(2, attempts - 1), 30000);
+        const jitterMs = Math.floor(Math.random() * 500);
+        m.attempts = attempts;
+        m.status = "FAILED";
+        m.nextRetryAtMs = now + baseDelayMs + jitterMs;
+        await this.db.updateMutation(m);
+      }
+      this._notifyListeners("SYNC_FAILED", { error: err.message });
+    }
+  }
+
+  async pullDeltas() {
+    const cursor = (await this.db.getSyncState("last_pulled_cursor")) || 0;
+
+    try {
+      let changes;
+      let nextCursor;
+
+      if (this.transport) {
+        const pullRes = await this.transport.pull({ cursor, limit: 100 });
+        changes = pullRes.changes;
+        nextCursor = pullRes.nextCursor;
+      } else {
+        const response = await fetch(`/api/v1/sync/pull?cursor=${cursor}&limit=100`, {
+          method: "GET",
+          headers: { "Accept": "application/json" }
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        changes = data.changes;
+        nextCursor = data.nextCursor;
+      }
+
+      if (!Array.isArray(changes) || changes.length === 0) return;
+
+      for (const entry of changes) {
+        if (entry.entity === "record") {
+          const existing = await this.db.getRecord(entry.syncId);
+          if (!existing) {
+            // New record from server
+            await this.db.putRecord({
+              ...entry.fields,
+              syncId: entry.syncId,
+              serverRev: entry.serverRev,
+              syncStatus: "SYNCED"
+            });
+          } else {
+            // If local record is in CONFLICT, preserve the conflict state until user resolves it
+            if (existing.syncStatus === "CONFLICT") {
+              continue;
+            }
+            // Merge server delta
+            if (entry.serverRev >= (existing.serverRev || 0)) {
+              await this.db.putRecord({
+                ...existing,
+                ...entry.fields,
+                serverRev: entry.serverRev,
+                syncStatus: "SYNCED"
+              });
+            }
+          }
+        } else if (entry.entity === "payment") {
+          await this.db.putPayment({
+            ...entry.fields,
+            syncStatus: "SYNCED"
+          });
+
+          // Recalculate remaining balance for the target record
+          const recSyncId = entry.fields.recordSyncId;
+          if (recSyncId) {
+            const targetRec = await this.db.getRecord(recSyncId);
+            if (targetRec) {
+              const allPayments = await this.db.getAllPayments();
+              const recPayments = allPayments.filter(p => p.recordSyncId === recSyncId);
+              const totalPaid = recPayments.reduce((acc, p) => acc + (p.amountPaise || 0), 0);
+              targetRec.remainingAmountPaise = Math.max(0, targetRec.principalAmountPaise - totalPaid);
+              if (targetRec.remainingAmountPaise === 0) {
+                targetRec.status = "SETTLED";
+              }
+              await this.db.putRecord(targetRec);
+            }
+          }
+        }
+
+        // Update local HLC with remote timestamp
+        if (entry.hlc) {
+          this.currentHlc = updateHlc(this.currentHlc, entry.hlc);
+        }
+      }
+
+      await this.db.setSyncState("last_pulled_cursor", nextCursor);
+      await this.db.setSyncState("local_hlc", this.currentHlc);
+      this._notifyListeners("DELTAS_PULLED", { count: changes.length });
+    } catch (_) {}
+  }
+
+  onSyncEvent(callback) {
+    this.syncListeners.add(callback);
+    return () => this.syncListeners.delete(callback);
+  }
+
+  _notifyListeners(type, data) {
+    for (const listener of this.syncListeners) {
+      try {
+        listener({ type, data });
+      } catch (_) {}
+    }
+  }
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = { SyncEngine };
+}
+
+    __modules["syncEngine"] = module;
   })();
 
   // --- Module: authClient ---

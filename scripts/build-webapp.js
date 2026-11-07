@@ -27,6 +27,9 @@ console.log("▶ [1/5] Bundling JavaScript modules into app.js...");
 
 const moduleFiles = [
   { name: "i18n", path: path.join(WEBAPP_DIR, "src/i18n/index.js") },
+  { name: "hlc", path: path.join(WEBAPP_DIR, "src/sync/hlc.js") },
+  { name: "ledgerDb", path: path.join(WEBAPP_DIR, "src/db/ledgerDb.js") },
+  { name: "syncEngine", path: path.join(WEBAPP_DIR, "src/sync/syncEngine.js") },
   { name: "authClient", path: path.join(WEBAPP_DIR, "src/api/authClient.js") },
   { name: "router", path: path.join(WEBAPP_DIR, "src/routes/router.js") },
   { name: "SignUpView", path: path.join(WEBAPP_DIR, "src/features/auth/SignUpView.js") },
@@ -55,6 +58,10 @@ for (const mod of moduleFiles) {
   let content = fs.readFileSync(mod.path, "utf8");
   // Normalize require paths inside modules
   content = content.replace(/require\(["']\.\.\/i18n["']\)/g, '__require("i18n")');
+  content = content.replace(/require\(["']\.\.\/db\/ledgerDb["']\)/g, '__require("ledgerDb")');
+  content = content.replace(/require\(["']\.\/hlc["']\)/g, '__require("hlc")');
+  content = content.replace(/require\(["']\.\.\/sync\/hlc["']\)/g, '__require("hlc")');
+  content = content.replace(/require\(["']\.\.\/sync\/syncEngine["']\)/g, '__require("syncEngine")');
   content = content.replace(/require\(["']\.\.\/api\/authClient["']\)/g, '__require("authClient")');
   content = content.replace(/require\(["']\.\.\/routes\/router["']\)/g, '__require("router")');
   content = content.replace(/require\(["']\.\.\/features\/auth\/SignUpView["']\)/g, '__require("SignUpView")');
