@@ -2,24 +2,11 @@
  * Ledger Event & Merkle Audit Trail Service (functions/src/ledger/eventService.js)
  * Implements append-only event logging, cryptographic Merkle hash chaining,
  * and user sync signaling.
- * Backed by persistent repositories with zero module-level Map storage.
+ * Backed by persistent LedgerRepository and SyncRepository with zero Proxy facades or module-level Map storage.
  */
 
 const crypto = require("crypto");
-const { getLedgerRepository, getSyncRepository } = require("../repositories");
-
-const proxyMap = (getMapFn) => new Proxy({}, {
-  get(target, prop) {
-    const repo = getLedgerRepository();
-    const map = (repo && repo.events) || {};
-    if (typeof map[prop] === "function") {
-      return map[prop].bind(map);
-    }
-    return map[prop];
-  }
-});
-
-const _inMemoryEvents = proxyMap(() => getLedgerRepository().events);
+const { getLedgerRepository, getSyncRepository, assertRepoMethod } = require("../repositories");
 
 function getGenesisHash(uid) {
   return crypto.createHash("sha256").update(`genesis:${uid}:udhaar_v2`).digest("hex");
@@ -42,7 +29,11 @@ async function appendLedgerEvent({ uid, recordId, eventType, amountPaise = 0, pa
   const ledgerRepo = getLedgerRepository();
   const syncRepo = getSyncRepository();
 
-  // Find previous block hash
+  assertRepoMethod(ledgerRepo, "listEvents", "LedgerRepository");
+  assertRepoMethod(ledgerRepo, "addEvent", "LedgerRepository");
+  assertRepoMethod(syncRepo, "getSyncSignal", "SyncRepository");
+  assertRepoMethod(syncRepo, "touchSyncSignal", "SyncRepository");
+
   let prevHash = getGenesisHash(uid);
   const existingEventsList = await ledgerRepo.listEvents(uid);
   if (existingEventsList.length > 0) {
@@ -75,7 +66,6 @@ async function appendLedgerEvent({ uid, recordId, eventType, amountPaise = 0, pa
 
   await ledgerRepo.addEvent(uid, eventRecord);
 
-  // Increment sync signal sequence
   const currentSignal = (await syncRepo.getSyncSignal(uid)) || { seq: 0 };
   const nextSeq = (currentSignal.seq || 0) + 1;
   await syncRepo.touchSyncSignal(uid, nextSeq);
@@ -88,6 +78,7 @@ async function appendLedgerEvent({ uid, recordId, eventType, amountPaise = 0, pa
  */
 async function listEvents({ uid, recordId = null }) {
   const ledgerRepo = getLedgerRepository();
+  assertRepoMethod(ledgerRepo, "listEvents", "LedgerRepository");
   return ledgerRepo.listEvents(uid, recordId);
 }
 
@@ -96,6 +87,7 @@ async function listEvents({ uid, recordId = null }) {
  */
 async function verifyAuditChain(uid) {
   const ledgerRepo = getLedgerRepository();
+  assertRepoMethod(ledgerRepo, "listEvents", "LedgerRepository");
   const all = await ledgerRepo.listEvents(uid);
 
   if (!all || all.length === 0) {
@@ -129,22 +121,18 @@ async function verifyAuditChain(uid) {
   return { valid: true, blockCount: all.length };
 }
 
-function getSyncSignal(uid) {
+async function getSyncSignal(uid) {
   const syncRepo = getSyncRepository();
-  if (syncRepo && typeof syncRepo.getSyncSignal === "function") {
-    // In synchronous contexts, if syncSignals map exists, return it
-    if (syncRepo.syncSignals && syncRepo.syncSignals.get) {
-      return syncRepo.syncSignals.get(uid) || { seq: 0, updatedAtMs: 0 };
-    }
-  }
-  return { seq: 0, updatedAtMs: 0 };
+  assertRepoMethod(syncRepo, "getSyncSignal", "SyncRepository");
+  return (await syncRepo.getSyncSignal(uid)) || { seq: 0, updatedAtMs: 0 };
 }
 
-function resetEventStore() {
+async function resetEventStore() {
   const ledgerRepo = getLedgerRepository();
   const syncRepo = getSyncRepository();
-  if (ledgerRepo && typeof ledgerRepo.clear === "function") ledgerRepo.clear();
-  if (syncRepo && typeof syncRepo.clear === "function") syncRepo.clear();
+  assertRepoMethod(ledgerRepo, "clear", "LedgerRepository");
+  assertRepoMethod(syncRepo, "clear", "SyncRepository");
+  await Promise.all([ledgerRepo.clear(), syncRepo.clear()]);
 }
 
 module.exports = {
@@ -152,6 +140,5 @@ module.exports = {
   listEvents,
   verifyAuditChain,
   getSyncSignal,
-  resetEventStore,
-  _inMemoryEvents
+  resetEventStore
 };

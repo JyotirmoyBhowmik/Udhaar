@@ -281,7 +281,7 @@ function createLedgerRouter() {
   router.get("/audit/verify", async (req, res, next) => {
     try {
       const auditResult = await verifyAuditChain(req.user.uid);
-      const syncSignal = getSyncSignal(req.user.uid);
+      const syncSignal = await getSyncSignal(req.user.uid);
       res.json({
         audit: auditResult,
         syncSignal

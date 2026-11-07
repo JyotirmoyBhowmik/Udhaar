@@ -1,12 +1,8 @@
-/**
- * Inbox REST API Endpoints (functions/src/inbox/inboxEndpoints.js)
- * Implements Stage S7 Inbox API: notifications list, read flags, and approve/decline actions.
- */
-
 const express = require("express");
 const { requireAuth } = require("../middleware/authMiddleware");
 const {
-  listUserInboxItems,
+  createInboxItem,
+  listInboxItems,
   markInboxItemRead,
   processInboxAction
 } = require("./inboxService");
@@ -15,48 +11,60 @@ function createInboxRouter() {
   const router = express.Router();
   router.use(requireAuth);
 
-  // 1. List user inbox notifications (supports /inbox and /inbox/)
-  router.get(["/", ""], async (req, res, next) => {
+  // List inbox items
+  router.get(["/", "/inbox"], async (req, res, next) => {
     try {
-      const { unread } = req.query;
-      const items = await listUserInboxItems({
-        uid: req.user.uid,
-        unreadOnly: unread === "true" || unread === "1"
+      const items = await listInboxItems(req.user.uid, {
+        status: req.query.status || null,
+        unreadOnly: req.query.unreadOnly === "true"
       });
-      res.status(200).json(items);
+      return res.status(200).json(items);
     } catch (err) {
-      next(err);
+      return next(err);
     }
   });
 
-  // 2. Mark notification as read
-  router.post("/:inboxId/read", async (req, res, next) => {
+  // Create inbox item
+  router.post(["/", "/inbox"], async (req, res, next) => {
     try {
-      const { inboxId } = req.params;
-      const result = await markInboxItemRead({
-        uid: req.user.uid,
-        inboxId
+      const item = await createInboxItem({
+        uid: req.body.targetUid || req.user.uid,
+        senderUid: req.user.uid,
+        senderName: req.body.senderName || "User",
+        recordId: req.body.recordId || req.body.remoteRecordId || null,
+        type: req.body.type || "RECORD_APPROVAL_REQUEST",
+        title: req.body.title || "Notification",
+        body: req.body.body || "",
+        metadata: req.body.metadata || req.body.payload || {}
       });
-      res.status(200).json(result);
+      return res.status(201).json(item);
     } catch (err) {
-      next(err);
+      return next(err);
     }
   });
 
-  // 3. Process action (APPROVE or DECLINE payment claim / date proposal)
-  router.post("/:inboxId/action", async (req, res, next) => {
+  // Mark item read
+  router.post(["/:itemId/read", "/inbox/:itemId/read"], async (req, res, next) => {
     try {
-      const { inboxId } = req.params;
-      const { decision, note } = req.body || {};
+      const item = await markInboxItemRead(req.user.uid, req.params.itemId);
+      return res.status(200).json(item);
+    } catch (err) {
+      return next(err);
+    }
+  });
+
+  // Process inbox action
+  router.post(["/:itemId/action", "/inbox/:itemId/action"], async (req, res, next) => {
+    try {
       const result = await processInboxAction({
         uid: req.user.uid,
-        inboxId,
-        decision,
-        note
+        itemId: req.params.itemId,
+        action: req.body.action || req.body.decision,
+        note: req.body.note || ""
       });
-      res.status(200).json(result);
+      return res.status(200).json(result);
     } catch (err) {
-      next(err);
+      return next(err);
     }
   });
 

@@ -49,6 +49,10 @@ function sendProblemDetails(res, { status = 500, code = "ERR_INTERNAL", title = 
     status,
     code,
     detail,
+    error: {
+      code,
+      message: detail
+    },
     instance: instance || res.req?.originalUrl || "",
     invalidParams: invalidParams.length > 0 ? invalidParams : undefined
   });

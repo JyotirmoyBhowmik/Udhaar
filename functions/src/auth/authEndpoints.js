@@ -9,9 +9,9 @@ const {
   submitSignupEmail,
   completeSignup,
   startSignin,
-  verifySignin,
-  _inMemoryUsers
+  verifySignin
 } = require("./authService");
+const { getAuthRepository } = require("../repositories");
 const { listUserDevices, revokeDeviceSession } = require("../sessions/sessionManager");
 const { sendProblemDetails, requireAuth } = require("../middleware/authMiddleware");
 const { requireStepUpAuth, generateStepUpToken } = require("../middleware/stepUpMiddleware");
@@ -21,6 +21,39 @@ const { constantTimeEquals } = require("../crypto/serverCrypto");
 function createAuthRouter() {
   const express = require("express");
   const router = express.Router();
+
+  // 0. POST /auth/otp/send
+  router.post("/auth/otp/send", async (req, res, next) => {
+    try {
+      const channel = String(req.body?.channel || "EMAIL").toUpperCase();
+      const destination = req.body?.destination || req.body?.phone || req.body?.email;
+      const purpose = req.body?.purpose || "LOGIN";
+
+      const { isKillSwitchActive } = require("../config/killSwitches");
+      if (channel === "WHATSAPP" && (await isKillSwitchActive("KILL_WHATSAPP_OTP"))) {
+        return res.status(503).json({
+          type: "https://udhaar.app/errors/feature-disabled",
+          title: "Service Unavailable",
+          status: 503,
+          detail: "WhatsApp OTP service is temporarily suspended.",
+          error: {
+            code: "ERR_FEATURE_DISABLED",
+            message: "WhatsApp OTP service is temporarily suspended."
+          }
+        });
+      }
+
+      const flowId = `flow_otp_${Date.now()}`;
+      return res.status(200).json({
+        flowId,
+        channel,
+        sent: true,
+        destinationMasked: destination
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
 
   // 1. POST /auth/signup/start
   router.post("/auth/signup/start", async (req, res, next) => {
@@ -181,7 +214,8 @@ function createAuthRouter() {
   // 7. GET /me (Profile)
   router.get("/me", requireAuth, async (req, res, next) => {
     try {
-      const user = _inMemoryUsers.get(req.user.uid);
+      const authRepo = getAuthRepository();
+      const user = await authRepo.getUser(req.user.uid);
       if (!user) {
         return sendProblemDetails(res, {
           status: 404,

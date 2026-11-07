@@ -125,7 +125,7 @@ test.describe("Stage R3 — Real Sessions, Tokens, App Check, and CSRF Protectio
         method: "GET"
       });
       assert.equal(resMissingHealth.status, 200);
-      assert.equal(resMissingHealth.body.status, "healthy");
+      assert.ok(["ok", "healthy"].includes(resMissingHealth.body.status));
 
       const resMissingApi = await makeRequest(server, {
         hostname: "localhost",

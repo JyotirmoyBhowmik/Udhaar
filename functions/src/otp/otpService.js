@@ -1,296 +1,228 @@
 /**
- * OTP Code & Verification Service (functions/src/otp/otpService.js)
- * Implements cryptographic OTP challenge lifecycle, multi-layer rate limiting,
- * brute-force lockout, timing-safe validation, and fallback delivery.
- * Backed by persistent repositories with zero module-level Map storage.
+ * Core OTP Challenge, Rate Limiting, Brute-Force Lockout & Budget Service (functions/src/otp/otpService.js)
+ * Implements Stage S1 / R4:
+ * - 6-digit CSPRNG OTP generation
+ * - 10-minute TTL
+ * - 30-second resend cooldown
+ * - Max 3 sends/hour, 10 sends/day per destination
+ * - Max 20 requests/hour per IP
+ * - Max 5 verify attempts per challenge -> 15-minute lockout
+ * - Global daily send budget with 50% / 80% / 100% kill-switch
+ * - Strictly backed by async OtpRepository without Proxy facades or module-level maps.
  */
 
-const crypto = require("crypto");
+const { OTP_LIMITS } = require("../config");
+const { isFeatureSuspended } = require("../config/killSwitches");
+const { checkProviderCircuit, recordProviderSpend } = require("../config/circuitBreakers");
 const {
-  generateOtpCode,
-  computeOtpHash,
   computePhoneHash,
   computeEmailHash,
-  constantTimeEquals,
+  computeOtpHash,
+  generateSixDigitOtp,
   hashIp
 } = require("../crypto/serverCrypto");
-const { OTP_LIMITS } = require("../config");
-const { isFeatureEnabled } = require("../config/killSwitches");
 const { getWhatsAppProvider, getEmailProvider, getSmsProvider } = require("../providers");
-const { getOtpRepository } = require("../repositories");
+const { getOtpRepository, assertRepoMethod } = require("../repositories");
 
-/**
- * Backward-compatible proxy objects for legacy tests inspecting in-memory maps
- */
-const proxyMap = (getMapFn) => new Proxy({}, {
-  get(target, prop) {
-    const map = getMapFn() || {};
-    if (typeof map[prop] === "function") {
-      return map[prop].bind(map);
-    }
-    return map[prop];
-  }
-});
-
-const _inMemoryChallenges = proxyMap(() => getOtpRepository().challenges);
-const _inMemoryRateLimits = proxyMap(() => getOtpRepository().rateLimits);
-const _globalDailyBudget = new Proxy({}, {
-  get(target, prop) {
-    const repo = getOtpRepository();
-    const budget = repo.dailyBudget || {};
-    return budget[prop];
-  },
-  set(target, prop, value) {
-    const repo = getOtpRepository();
-    if (repo.dailyBudget) {
-      repo.dailyBudget[prop] = value;
-    }
-    return true;
-  }
-});
-
-function resetDailyBudget() {
+function getRequiredOtpRepo() {
   const repo = getOtpRepository();
-  if (typeof repo.clear === "function") {
-    repo.clear();
+  assertRepoMethod(repo, "saveChallenge", "OtpRepository");
+  assertRepoMethod(repo, "getChallengeByFlowId", "OtpRepository");
+  assertRepoMethod(repo, "verifyAndConsumeChallengeTransaction", "OtpRepository");
+  assertRepoMethod(repo, "checkAndIncrementIpLimit", "OtpRepository");
+  assertRepoMethod(repo, "checkAndIncrementDestinationLimit", "OtpRepository");
+  assertRepoMethod(repo, "checkAndIncrementDailyBudget", "OtpRepository");
+  return repo;
+}
+
+function resetDailyBudget(customMaxBudget = OTP_LIMITS.GLOBAL_DAILY_SEND_BUDGET) {
+  const repo = getOtpRepository();
+  assertRepoMethod(repo, "clear", "OtpRepository");
+  const clearPromise = repo.clear();
+  if (typeof repo.setMaxDailyBudgetOverride === "function" && customMaxBudget !== OTP_LIMITS.GLOBAL_DAILY_SEND_BUDGET) {
+    if (clearPromise && typeof clearPromise.then === "function") {
+      return clearPromise.then(() => repo.setMaxDailyBudgetOverride(customMaxBudget));
+    }
+    repo.setMaxDailyBudgetOverride(customMaxBudget);
   }
+  return clearPromise;
+}
+
+async function getDailyBudgetStatus() {
+  const repo = getOtpRepository();
+  assertRepoMethod(repo, "getDailyBudgetStatus", "OtpRepository");
+  return repo.getDailyBudgetStatus(OTP_LIMITS.GLOBAL_DAILY_SEND_BUDGET);
 }
 
 /**
- * Check and increment rate limits for destination and IP
+ * Check and increment multi-layer rate limits (IP + Destination + Global Budget)
+ * Atomically persisted via OtpRepository transactions
  */
-async function checkRateLimits(destinationHash, ipHashed) {
-  const otpRepo = getOtpRepository();
+async function enforceSendRateLimits(destinationHash, ipHashed) {
+  const repo = getRequiredOtpRepo();
 
-  // 1. Global budget check & increment
-  await otpRepo.checkAndIncrementDailyBudget(OTP_LIMITS.MAX_DAILY_GLOBAL_BUDGET);
-
-  // 2. IP rate limit check (20 per hour)
-  await otpRepo.checkAndIncrementIpLimit(ipHashed, OTP_LIMITS.MAX_HOURLY_PER_IP, 3600000);
-
-  // 3. Destination cooldown, hourly (3/hr) and daily (10/day) limit check
-  await otpRepo.checkAndIncrementDestinationLimit(destinationHash, OTP_LIMITS);
+  await repo.checkAndIncrementDailyBudget(OTP_LIMITS.GLOBAL_DAILY_SEND_BUDGET);
+  await repo.checkAndIncrementIpLimit(ipHashed, OTP_LIMITS.MAX_HOURLY_PER_IP, 3600000);
+  await repo.checkAndIncrementDestinationLimit(destinationHash, OTP_LIMITS);
 }
 
 /**
- * Dispatch OTP and store challenge
+ * Create and dispatch a 6-digit OTP challenge for a specific flowId and purpose
  */
 async function sendOtpChallenge({
   flowId,
   destination,
   channel = "WHATSAPP",
-  purpose = "SIGNUP",
+  purpose = "LOGIN",
   locale = "en",
-  clientIp = "127.0.0.1",
-  deviceHash = "unknown"
+  clientIp = "127.0.0.1"
 }) {
-  if (!flowId) throw new Error("flowId is required");
-  if (!destination) throw new Error("destination is required");
-
-  if (!isFeatureEnabled("KILL_SWITCH_OTP_DISPATCH")) {
-    const err = new Error("Verification code dispatch is temporarily paused by emergency kill switch.");
+  if (await isFeatureSuspended("KILL_SWITCH_OTP_DISPATCH")) {
+    const err = new Error("OTP dispatch is temporarily suspended by administrator.");
     err.code = "ERR_DISPATCH_SUSPENDED";
     err.status = 503;
     throw err;
   }
 
-  const isEmail = channel === "EMAIL";
-  const destinationHash = isEmail ? computeEmailHash(destination) : computePhoneHash(destination);
-  const ipHashed = hashIp(clientIp);
-
-  // Enforce rate limits via repository
-  await checkRateLimits(destinationHash, ipHashed);
-
-  // Generate 6-digit code
-  const code = generateOtpCode();
-  const codeHash = computeOtpHash(code, flowId);
-  const challengeId = `chal_${crypto.randomUUID()}`;
-  const now = Date.now();
-
-  const expiryMinutes = isEmail
-    ? OTP_LIMITS.EMAIL_EXPIRY_MINUTES
-    : channel === "SMS"
-    ? OTP_LIMITS.SMS_EXPIRY_MINUTES
-    : OTP_LIMITS.WHATSAPP_EXPIRY_MINUTES;
-
-  const expiresAtMs = now + expiryMinutes * 60 * 1000;
-
-  // Dispatch via appropriate provider
-  let sendResult = null;
-  if (channel === "WHATSAPP") {
-    const provider = getWhatsAppProvider();
-    sendResult = await provider.sendCode({
-      destination,
-      code,
-      locale,
-      purpose,
-      expiresInMinutes: expiryMinutes
-    });
-  } else if (channel === "SMS") {
-    const provider = getSmsProvider();
-    sendResult = await provider.sendCode({
-      destination,
-      code,
-      locale,
-      purpose
-    });
-  } else if (channel === "EMAIL") {
-    const provider = getEmailProvider();
-    sendResult = await provider.sendEmail({
-      toEmail: destination,
-      code,
-      locale,
-      category: "OTP_VERIFICATION"
-    });
+  if (channel === "WHATSAPP" && (await isFeatureSuspended("KILL_SWITCH_WHATSAPP_OTP"))) {
+    const err = new Error("WhatsApp OTP dispatch is temporarily suspended by administrator.");
+    err.code = "ERR_WHATSAPP_OTP_SUSPENDED";
+    err.status = 503;
+    throw err;
   }
 
-  // Record challenge metadata in repository
-  const challenge = {
-    challengeId,
-    flowId,
-    purpose,
-    channel,
-    destinationHash,
-    codeHash,
-    createdAtMs: now,
-    expiresAtMs,
-    expiresAt: expiresAtMs,
-    attempts: 0,
-    maxAttempts: OTP_LIMITS.MAX_FAILED_ATTEMPTS,
-    lockedUntilMs: null,
-    consumed: false,
-    ipHash: ipHashed,
-    deviceHash,
-    providerMessageId: (sendResult && (sendResult.providerMessageId || sendResult.messageId)) || null,
-    deliveryStatus: (sendResult && sendResult.deliveryStatus) || "SENT",
-    ttl: Math.floor((expiresAtMs + 86400000) / 1000)
-  };
+  const circuitCheck = await checkProviderCircuit(channel);
+  if (!circuitCheck.allowed) {
+    const err = new Error(`Service temporarily unavailable due to cost circuit breaker (${circuitCheck.reason}).`);
+    err.code = "ERR_CIRCUIT_BREAKER_OPEN";
+    err.status = 503;
+    throw err;
+  }
 
-  const otpRepo = getOtpRepository();
-  await otpRepo.saveChallenge(challenge);
-
-  return {
-    challengeId,
-    channel,
-    resendAfterSeconds: OTP_LIMITS.RESEND_COOLDOWN_SECONDS,
-    expiresAtMs
-  };
-}
-
-/**
- * Verify submitted OTP code against active challenge
- */
-async function verifyOtpChallenge({ flowId, code, purpose, destination = null }) {
-  if (!flowId || !code) {
-    const err = new Error("flowId and 6-digit code are required");
-    err.code = "ERR_INVALID_PARAMETERS";
+  if (!flowId || typeof flowId !== "string") {
+    const err = new Error("flowId is required for OTP challenge.");
+    err.code = "ERR_INVALID_FLOW_ID";
     err.status = 400;
     throw err;
   }
 
-  const otpRepo = getOtpRepository();
-  if (typeof otpRepo.verifyAndConsumeChallengeTransaction === "function") {
-    return await otpRepo.verifyAndConsumeChallengeTransaction({ flowId, code, purpose, destination });
-  }
+  const isEmail = channel === "EMAIL" || String(destination).includes("@");
+  const isSms = channel === "SMS";
+  const destinationHash = isEmail ? computeEmailHash(destination) : computePhoneHash(destination);
+  const ipHashed = hashIp(clientIp);
+  const repo = getRequiredOtpRepo();
 
-  const now = Date.now();
-
-  // Find active challenge matching flowId and purpose
-  let targetChallenge = null;
-  if (otpRepo.challenges && typeof otpRepo.challenges.values === "function") {
-    for (const chal of otpRepo.challenges.values()) {
-      if (chal.flowId === flowId && chal.purpose === purpose && !chal.consumed) {
-        targetChallenge = chal;
-        break;
-      }
-    }
-  } else if (otpRepo.db) {
-    // Firestore query
-    const snap = await otpRepo.db
-      .collection("otpChallenges")
-      .where("flowId", "==", flowId)
-      .where("purpose", "==", purpose)
-      .where("consumed", "==", false)
-      .limit(1)
-      .get();
-    if (!snap.empty) {
-      targetChallenge = snap.docs[0].data();
-    }
-  }
-
-  if (!targetChallenge) {
-    const err = new Error("No active verification challenge found for this flow.");
-    err.code = "ERR_CHALLENGE_NOT_FOUND";
-    err.status = 404;
-    throw err;
-  }
-
-  // Lockout check (15 minutes after 5 wrong attempts)
-  if (targetChallenge.lockedUntilMs && targetChallenge.lockedUntilMs > now) {
-    const remainingMins = Math.ceil((targetChallenge.lockedUntilMs - now) / 60000);
-    const err = new Error(`Too many incorrect attempts. Account verification is locked for ${remainingMins} more minutes.`);
+  const existing = await repo.getChallengeByFlowId(flowId, purpose);
+  if (existing && existing.lockedUntilMs && existing.lockedUntilMs > Date.now()) {
+    const remainingMins = Math.ceil((existing.lockedUntilMs - Date.now()) / 60000);
+    const err = new Error(`Too many failed attempts. Please try again in ${remainingMins} minutes.`);
     err.code = "ERR_ACCOUNT_LOCKED";
     err.status = 403;
     throw err;
   }
 
-  // Expiration check
-  if (now > targetChallenge.expiresAtMs) {
-    const err = new Error("Verification code has expired. Please request a new code.");
-    err.code = "ERR_OTP_EXPIRED";
-    err.status = 400;
-    throw err;
+  await enforceSendRateLimits(destinationHash, ipHashed);
+  await recordProviderSpend(channel, 1);
+
+  const code = generateSixDigitOtp();
+  const codeHash = computeOtpHash(code, flowId);
+  const now = Date.now();
+  const expiresAtMs = now + OTP_LIMITS.CODE_TTL_MINUTES * 60 * 1000;
+
+  let providerRes;
+  if (isEmail) {
+    const emailProvider = getEmailProvider();
+    const { subject, textContent, htmlContent } = emailProvider.buildContent
+      ? emailProvider.buildContent(code, locale)
+      : {
+          subject: `${code} is your Udhaar verification code`,
+          textContent: `Your Udhaar verification code is ${code}`,
+          htmlContent: `<p>Your Udhaar verification code is <strong>${code}</strong></p>`
+        };
+
+    providerRes = await emailProvider.sendEmail({
+      toEmail: destination,
+      subject,
+      textContent,
+      htmlContent,
+      code,
+      category: "OTP"
+    });
+  } else if (isSms && typeof getSmsProvider === "function") {
+    const smsProvider = getSmsProvider();
+    providerRes = await smsProvider.sendCode({
+      destination,
+      code,
+      locale,
+      purpose
+    });
+  } else {
+    const whatsAppProvider = getWhatsAppProvider();
+    providerRes = await whatsAppProvider.sendCode({
+      destination,
+      code,
+      locale,
+      purpose
+    });
   }
 
-  // Timing-safe HMAC check
-  const candidateHash = computeOtpHash(code.trim(), flowId);
-  const isValid = constantTimeEquals(candidateHash, targetChallenge.codeHash);
+  const challengeId = `chal_${flowId}_${purpose}`;
+  const challengeRecord = {
+    challengeId,
+    flowId,
+    destinationHash,
+    channel: isEmail ? "EMAIL" : (isSms ? "SMS" : "WHATSAPP"),
+    purpose,
+    codeHash,
+    attempts: 0,
+    maxAttempts: OTP_LIMITS.MAX_VERIFY_ATTEMPTS,
+    createdAtMs: now,
+    expiresAtMs,
+    expiresAt: new Date(expiresAtMs).toISOString(),
+    lockedUntilMs: null,
+    consumed: false,
+    providerMessageId: providerRes.providerMessageId || providerRes.messageId,
+    deliveryStatus: "SENT"
+  };
 
-  if (!isValid) {
-    const newAttempts = (targetChallenge.attempts || 0) + 1;
-    const updates = { attempts: newAttempts };
-
-    if (newAttempts >= targetChallenge.maxAttempts) {
-      updates.lockedUntilMs = now + OTP_LIMITS.LOCKOUT_DURATION_MINUTES * 60 * 1000;
-      await otpRepo.consumeChallenge(targetChallenge.challengeId, updates);
-      const err = new Error("Too many incorrect attempts. Account verification locked for 15 minutes.");
-      err.code = "ERR_MAX_ATTEMPTS_EXCEEDED";
-      err.status = 403;
-      throw err;
-    }
-
-    await otpRepo.consumeChallenge(targetChallenge.challengeId, updates);
-    const attemptsLeft = targetChallenge.maxAttempts - newAttempts;
-    const err = new Error(`Incorrect verification code. ${attemptsLeft} attempts remaining.`);
-    err.code = "ERR_INVALID_OTP";
-    err.status = 400;
-    err.attemptsRemaining = attemptsLeft;
-    throw err;
-  }
-
-  // Code matches: mark consumed (single-use only)
-  const flowToken = crypto
-    .createHmac("sha256", targetChallenge.codeHash)
-    .update(`verified:${flowId}:${purpose}:${now}`)
-    .digest("hex");
-
-  await otpRepo.consumeChallenge(targetChallenge.challengeId, {
-    consumed: true,
-    consumedAtMs: now,
-    flowToken
-  });
+  await repo.saveChallenge(challengeRecord);
 
   return {
-    verified: true,
-    flowToken
+    challengeId,
+    flowId,
+    channel: challengeRecord.channel,
+    expiresAtMs,
+    expiresInSeconds: OTP_LIMITS.CODE_TTL_MINUTES * 60
   };
 }
 
+/**
+ * Verify a 6-digit OTP code strictly scoped to a flowId and purpose
+ * Executed atomically inside a repository transaction
+ */
+async function verifyFlowOtp({ flowId, code, purpose = null, destination = null }) {
+  if (!flowId || !code || typeof code !== "string") {
+    const err = new Error("flowId and 6-digit code are required.");
+    err.code = "ERR_INVALID_OTP_INPUT";
+    err.status = 400;
+    throw err;
+  }
+
+  const repo = getRequiredOtpRepo();
+  return repo.verifyAndConsumeChallengeTransaction({
+    flowId,
+    code,
+    purpose,
+    destination
+  });
+}
+
+const verifyOtpChallenge = verifyFlowOtp;
+
 module.exports = {
   sendOtpChallenge,
+  verifyFlowOtp,
   verifyOtpChallenge,
   resetDailyBudget,
-  _inMemoryChallenges,
-  _inMemoryRateLimits,
-  _globalDailyBudget
+  getDailyBudgetStatus
 };

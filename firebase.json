@@ -209,6 +209,26 @@
     ],
     "rewrites": [
       {
+        "source": "/assets/guide-03-expanded-card.webp",
+        "destination": "/assets/guide-03-card-expanded.webp"
+      },
+      {
+        "source": "/assets/guide-05-installments.webp",
+        "destination": "/assets/guide-05-installment-planner.webp"
+      },
+      {
+        "source": "/assets/guide-06-verification-attachments.webp",
+        "destination": "/assets/guide-06-attachments-audit.webp"
+      },
+      {
+        "source": "/assets/guide-09-party-khata.webp",
+        "destination": "/assets/guide-09-party-statement.webp"
+      },
+      {
+        "source": "/assets/guide-11-web-link-settings.webp",
+        "destination": "/assets/guide-11-private-weblink.webp"
+      },
+      {
         "source": "/guide",
         "destination": "/guide/index.html"
       },

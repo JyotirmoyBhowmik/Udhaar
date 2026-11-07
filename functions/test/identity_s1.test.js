@@ -13,19 +13,20 @@ const {
   completeSignup,
   startSignin,
   verifySignin,
-  resetAuthStore,
-  _inMemoryUsers,
-  _inMemoryPhoneIndex,
-  _inMemoryEmailIndex
+  resetAuthStore
 } = require("../src/auth/authService");
 
 const {
   resetDailyBudget,
   sendOtpChallenge,
-  verifyOtpChallenge,
-  _globalDailyBudget,
-  _inMemoryRateLimits
+  verifyOtpChallenge
 } = require("../src/otp/otpService");
+
+const {
+  getAuthRepository,
+  getOtpRepository,
+  resetTestRepositories
+} = require("../src/repositories");
 
 const {
   computePhoneHash,
@@ -45,9 +46,10 @@ const {
   listUserDevices
 } = require("../src/sessions/sessionManager");
 
-test.beforeEach(() => {
-  resetAuthStore();
-  resetDailyBudget();
+test.beforeEach(async () => {
+  resetTestRepositories();
+  await resetAuthStore();
+  await resetDailyBudget();
   fakeWhatsApp.reset();
   fakeEmail.reset();
   fakeSms.reset();
@@ -169,10 +171,11 @@ test("Identity S1: Full Sign-Up Flow (Phone OTP -> Email OTP -> Complete Registr
   assert.ok(completeRes.sessionCookieValue);
   assert.equal(completeRes.user.displayName, "Ravi Sharma");
 
-  // Verify unique index creation
-  assert.equal(_inMemoryUsers.size, 1);
-  assert.equal(_inMemoryPhoneIndex.size, 1);
-  assert.equal(_inMemoryEmailIndex.size, 1);
+  // Verify unique index creation in repository
+  const authRepo = getAuthRepository();
+  assert.equal(await authRepo.countUsers(), 1);
+  assert.ok(await authRepo.getUserByPhoneHash(computePhoneHash("+919876543210")));
+  assert.ok(await authRepo.getUserByEmailHash(completeRes.user.emailHash));
 
   // Duplicate registration collision check
   await assert.rejects(
@@ -257,23 +260,26 @@ test("Identity S1: Rate Limiting: 30s Cooldown, Destination Limits, and IP Caps"
 
   // 3. Hourly Destination Limit (max 3/hr)
   // Clear lastSentAt to bypass cooldown for subsequent sends
+  const otpRepo = getOtpRepository();
   const destHash = computePhoneHash("+919811122233");
-  const destRec = _inMemoryRateLimits.get(`dest_${destHash}`);
+  const destRec = await otpRepo.getRateLimit(`dest_${destHash}`);
   assert.ok(destRec);
   assert.equal(destRec.hourlyCount, 1);
 
   // Send #2 (cooldown bypassed)
-  destRec.lastSentAt = 0;
+  await otpRepo.setRateLimit(`dest_${destHash}`, { ...destRec, lastSentAt: 0 });
   await sendOtpChallenge({ flowId: "f_rate2", destination: "+919811122233", clientIp: "1.2.3.4" });
-  assert.equal(destRec.hourlyCount, 2);
+  const destRec2 = await otpRepo.getRateLimit(`dest_${destHash}`);
+  assert.equal(destRec2.hourlyCount, 2);
 
   // Send #3 (cooldown bypassed)
-  destRec.lastSentAt = 0;
+  await otpRepo.setRateLimit(`dest_${destHash}`, { ...destRec2, lastSentAt: 0 });
   await sendOtpChallenge({ flowId: "f_rate3", destination: "+919811122233", clientIp: "1.2.3.4" });
-  assert.equal(destRec.hourlyCount, 3);
+  const destRec3 = await otpRepo.getRateLimit(`dest_${destHash}`);
+  assert.equal(destRec3.hourlyCount, 3);
 
   // Send #4: Hourly cap reached!
-  destRec.lastSentAt = 0;
+  await otpRepo.setRateLimit(`dest_${destHash}`, { ...destRec3, lastSentAt: 0 });
   await assert.rejects(
     async () => {
       await sendOtpChallenge({ flowId: "f_rate4", destination: "+919811122233", clientIp: "1.2.3.4" });
@@ -282,8 +288,7 @@ test("Identity S1: Rate Limiting: 30s Cooldown, Destination Limits, and IP Caps"
   );
 
   // 4. Daily Destination Limit (max 10/day)
-  destRec.hourlyCount = 0; // reset hourly counter
-  destRec.dailyCount = 10; // saturate daily counter
+  await otpRepo.setRateLimit(`dest_${destHash}`, { ...destRec3, lastSentAt: 0, hourlyCount: 0, dailyCount: 10 });
   await assert.rejects(
     async () => {
       await sendOtpChallenge({ flowId: "f_rate_daily", destination: "+919811122233", clientIp: "1.2.3.4" });
@@ -294,9 +299,7 @@ test("Identity S1: Rate Limiting: 30s Cooldown, Destination Limits, and IP Caps"
   // 5. IP Rate Limit (max 20/hr per IP)
   const clientIp = "192.168.1.100";
   const ipHashed = hashIp(clientIp);
-  const ipRec = _inMemoryRateLimits.get(`ip_${ipHashed}`) || { count: 0, resetAt: Date.now() + 3600000 };
-  ipRec.count = 20; // saturate IP
-  _inMemoryRateLimits.set(`ip_${ipHashed}`, ipRec);
+  await otpRepo.setRateLimit(`ip_${ipHashed}`, { count: 20, resetAt: Date.now() + 3600000 });
 
   await assert.rejects(
     async () => {
@@ -307,7 +310,8 @@ test("Identity S1: Rate Limiting: 30s Cooldown, Destination Limits, and IP Caps"
 });
 
 test("Identity S1: Global Daily Send Budget Kill Switch", async () => {
-  _globalDailyBudget.maxDailyBudget = 2;
+  const otpRepo = getOtpRepository();
+  await otpRepo.setDailyBudgetMax(2);
 
   await sendOtpChallenge({ flowId: "f1", destination: "+919800000001", clientIp: "10.0.0.1" });
   await sendOtpChallenge({ flowId: "f2", destination: "+919800000002", clientIp: "10.0.0.2" });
@@ -321,8 +325,7 @@ test("Identity S1: Global Daily Send Budget Kill Switch", async () => {
   );
 
   // Reset budget for remaining tests
-  _globalDailyBudget.maxDailyBudget = 1000;
-  resetDailyBudget();
+  await resetDailyBudget();
 });
 
 // =========================================================================

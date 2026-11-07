@@ -1,349 +1,381 @@
-/**
- * Counterparty Chat & Due Date Extension Service (functions/src/chat/chatService.js)
- * Implements Stage S7 Chat Threads:
- * 1. Multi-party conversation threads bound to shared ledger records.
- * 2. Message Types: TEXT, PAYMENT_PROOF, EXTENSION_REQUEST, QUICK_REPLY.
- * 3. Interactive Due Date Extension Requests (ACCEPT/DECLINE with ledger sync).
- * 4. Mute & Block enforcement.
- * 5. Automated Push Notification dispatch to recipient.
- */
-
 const crypto = require("crypto");
+const { getChatRepository, assertRepoMethod } = require("../repositories");
 const { getRecord, updateRecord } = require("../ledger/recordService");
 const { sendPushNotification } = require("../push/pushService");
 
-const { getChatRepository } = require("../repositories");
+const VALID_MESSAGE_TYPES = [
+  "TEXT",
+  "PAYMENT_PROOF",
+  "EXTENSION_REQUEST",
+  "EXTENSION_RESPONSE",
+  "SYSTEM_EVENT"
+];
 
-const proxyMap = (getMapFn) => new Proxy({}, {
-  get(target, prop) {
-    const repo = getChatRepository();
-    const map = (repo && getMapFn(repo)) || {};
-    if (typeof map[prop] === "function") {
-      return map[prop].bind(map);
-    }
-    return map[prop];
-  }
-});
-
-const _inMemoryThreads = proxyMap((repo) => repo.threads);
-const _inMemoryMessages = proxyMap((repo) => repo.messages);
-
-function getThreadsMap() {
+function chatRepo() {
   const repo = getChatRepository();
-  return (repo && repo.threads) || { get: () => null, set: () => {}, values: () => [] };
+  assertRepoMethod(repo, "saveThread", "ChatRepository");
+  assertRepoMethod(repo, "getThread", "ChatRepository");
+  assertRepoMethod(repo, "listUserThreads", "ChatRepository");
+  assertRepoMethod(repo, "findThreadByRecordAndParties", "ChatRepository");
+  assertRepoMethod(repo, "saveMessage", "ChatRepository");
+  assertRepoMethod(repo, "getMessage", "ChatRepository");
+  assertRepoMethod(repo, "updateMessage", "ChatRepository");
+  assertRepoMethod(repo, "listMessages", "ChatRepository");
+  return repo;
 }
 
-function getThreadMessagesMap(threadId) {
-  const repo = getChatRepository();
-  if (repo && typeof repo.getThreadMessagesMap === "function") {
-    return repo.getThreadMessagesMap(threadId);
-  }
-  return { get: () => null, set: () => {}, values: () => [] };
-}
-
-function resetChatStore() {
-  const repo = getChatRepository();
-  if (repo && typeof repo.clear === "function") {
-    repo.clear();
-  }
-}
-
-/**
- * Get or create a chat thread between counterparties for a record
- */
-async function getOrCreateChatThread({ uid, recordId, partyUid = null, partyName = "Counterparty" }) {
+async function getOrCreateChatThread({
+  uid,
+  recordId,
+  counterpartyUid = null,
+  partyUid = null,
+  counterpartyName = "Contact",
+  partyName = null
+}) {
   if (!uid || !recordId) {
-    const err = new Error("User ID and Record ID are required.");
-    err.code = "ERR_INVALID_INPUT";
+    const err = new Error("uid and recordId are required");
+    err.code = "ERR_INVALID_ARGS";
     err.status = 400;
     throw err;
   }
 
-  // Check if thread already exists for this record
-  for (const thread of getThreadsMap().values()) {
-    if (thread.remoteRecordId === recordId && thread.participantUids.includes(uid)) {
-      return thread;
-    }
+  const resolvedPartyUid = partyUid || counterpartyUid || null;
+  const resolvedPartyName = partyName || counterpartyName || "Contact";
+
+  const cRepo = chatRepo();
+  const existing = await cRepo.findThreadByRecordAndParties(recordId, uid, resolvedPartyUid);
+  if (existing) {
+    const participants = new Set(existing.participants || existing.participantUids || []);
+    participants.add(uid);
+    if (resolvedPartyUid) participants.add(resolvedPartyUid);
+    const participantList = Array.from(participants);
+    const updated = {
+      ...existing,
+      participants: participantList,
+      participantUids: participantList,
+      updatedAtMs: Date.now()
+    };
+    await cRepo.saveThread(existing.threadId, updated);
+    return updated;
   }
 
-  const threadId = `th_${recordId}_${crypto.randomBytes(3).toString("hex")}`;
+  const threadId = "th_" + crypto.randomBytes(8).toString("hex");
   const now = Date.now();
-  const participantUids = [uid];
-  if (partyUid && partyUid !== uid) {
-    participantUids.push(partyUid);
-  }
-
+  const participantList = [uid, ...(resolvedPartyUid ? [resolvedPartyUid] : [])];
   const thread = {
     threadId,
-    remoteRecordId: recordId,
-    participantUids,
-    partyName,
-    mutedByUids: [],
-    blockedByUid: null,
-    lastMessage: null,
+    recordId,
+    creatorUid: uid,
+    ownerUid: uid,
+    partyUid: resolvedPartyUid,
+    counterpartyUid: resolvedPartyUid,
+    partyName: resolvedPartyName,
+    counterpartyName: resolvedPartyName,
+    participants: participantList,
+    participantUids: participantList,
+    mutedBy: {},
+    messageCount: 0,
+    lastMessageAtMs: now,
     createdAtMs: now,
     updatedAtMs: now
   };
 
-  getThreadsMap().set(threadId, thread);
+  await cRepo.saveThread(threadId, thread);
   return thread;
 }
 
-/**
- * List chat threads for an authenticated user
- */
-async function listUserChatThreads({ uid }) {
-  if (!uid) return [];
-  const results = [];
-  for (const thread of getThreadsMap().values()) {
-    if (thread.participantUids.includes(uid)) {
-      results.push({
-        ...thread,
-        isMuted: thread.mutedByUids.includes(uid),
-        isBlocked: Boolean(thread.blockedByUid)
-      });
-    }
-  }
-  return results.sort((a, b) => b.updatedAtMs - a.updatedAtMs);
+async function listUserChatThreads(uidOrParams) {
+  const uid = typeof uidOrParams === "object" && uidOrParams !== null ? uidOrParams.uid : uidOrParams;
+  const cRepo = chatRepo();
+  return await cRepo.listUserThreads(uid);
 }
 
-/**
- * Post a message to a thread
- */
 async function postChatMessage({
   uid,
   threadId,
-  senderName = "Udhaar User",
+  senderName = "User",
   messageType = "TEXT",
   bodyText = "",
   attachment = null,
   extensionData = null
 }) {
-  const thread = getThreadsMap().get(threadId);
-  if (!thread || !thread.participantUids.includes(uid)) {
-    const err = new Error(`Chat thread ${threadId} not found or access denied.`);
-    err.code = "ERR_THREAD_NOT_FOUND";
-    err.status = 404;
+  if (!uid || !threadId) {
+    const err = new Error("uid and threadId are required");
+    err.code = "ERR_INVALID_ARGS";
+    err.status = 400;
     throw err;
   }
 
-  if (thread.blockedByUid) {
-    const err = new Error("This conversation is blocked.");
-    err.code = "ERR_CHAT_BLOCKED";
-    err.status = 403;
-    throw err;
-  }
-
-  const validTypes = ["TEXT", "PAYMENT_PROOF", "EXTENSION_REQUEST", "QUICK_REPLY"];
-  const type = String(messageType || "TEXT").toUpperCase();
-  if (!validTypes.includes(type)) {
-    const err = new Error(`Invalid message type '${messageType}'.`);
+  if (!VALID_MESSAGE_TYPES.includes(messageType)) {
+    const err = new Error(`Invalid messageType: ${messageType}`);
     err.code = "ERR_INVALID_MESSAGE_TYPE";
     err.status = 400;
     throw err;
   }
 
-  const now = Date.now();
-  const messageId = `msg_${now}_${crypto.randomBytes(4).toString("hex")}`;
+  const cRepo = chatRepo();
+  const thread = await cRepo.getThread(threadId);
+  if (!thread) {
+    const err = new Error("Chat thread not found");
+    err.code = "ERR_THREAD_NOT_FOUND";
+    err.status = 404;
+    throw err;
+  }
 
-  const message = {
-    messageId,
-    threadId,
-    senderUid: uid,
-    senderName,
-    participantUids: thread.participantUids,
-    messageType: type,
-    bodyText: String(bodyText || "").trim().slice(0, 1000),
-    attachment: attachment || null,
-    createdAtMs: now
-  };
+  const participantList = thread.participants || thread.participantUids || [];
+  if (participantList.length > 0 && !participantList.includes(uid) && thread.creatorUid !== uid && thread.ownerUid !== uid) {
+    const err = new Error("User is not a participant in this chat thread");
+    err.code = "ERR_FORBIDDEN";
+    err.status = 403;
+    throw err;
+  }
 
-  // Extension request specifics
-  if (type === "EXTENSION_REQUEST") {
-    const proposedDueDateMs = Number(extensionData?.proposedDueDateMs);
-    if (!Number.isFinite(proposedDueDateMs) || proposedDueDateMs <= now) {
-      const err = new Error("Proposed due date must be a valid future timestamp.");
+  if (messageType === "PAYMENT_PROOF") {
+    if (!attachment || (!attachment.utr && !attachment.mediaUrl && !attachment.fileUrl && !attachment.url && !attachment.fileHash && !attachment.storagePath)) {
+      const err = new Error("PAYMENT_PROOF requires attachment with utr, mediaUrl, fileUrl, fileHash, or storagePath");
+      err.code = "ERR_MISSING_PROOF_ATTACHMENT";
+      err.status = 400;
+      throw err;
+    }
+  }
+
+  let normalizedExtension = null;
+  if (messageType === "EXTENSION_REQUEST") {
+    const proposedDueDateMs = Number(extensionData?.proposedDueDateMs || 0);
+    if (!proposedDueDateMs || proposedDueDateMs <= 0) {
+      const err = new Error("EXTENSION_REQUEST requires a valid proposedDueDateMs");
       err.code = "ERR_INVALID_EXTENSION_DATE";
       err.status = 400;
       throw err;
     }
-    message.proposedDueDateMs = proposedDueDateMs;
-    message.extensionStatus = "PENDING"; // PENDING | ACCEPTED | DECLINED
-    message.note = extensionData?.note || "";
-    message.bodyText = message.bodyText || `Due date extension requested to ${new Date(proposedDueDateMs).toLocaleDateString("en-IN")}.`;
+    normalizedExtension = {
+      proposedDueDateMs,
+      reason: extensionData?.reason || "",
+      status: "PENDING",
+      requestedByUid: uid,
+      requestedAtMs: Date.now()
+    };
   }
 
-  const messagesMap = getThreadMessagesMap(threadId);
-  messagesMap.set(messageId, message);
-
-  // Update thread lastMessage
-  thread.lastMessage = {
+  const now = Date.now();
+  const messageId = "msg_" + crypto.randomBytes(8).toString("hex");
+  const message = {
     messageId,
+    threadId,
+    recordId: thread.recordId,
+    senderUid: uid,
     senderName,
-    messageType: type,
-    bodyText: message.bodyText,
+    messageType,
+    bodyText: String(bodyText || "").slice(0, 2000),
+    attachment: attachment || null,
+    extensionData: normalizedExtension,
+    ...(normalizedExtension ? {
+      extensionStatus: "PENDING",
+      proposedDueDateMs: normalizedExtension.proposedDueDateMs
+    } : {}),
     createdAtMs: now
   };
-  thread.updatedAtMs = now;
 
-  // Dispatch push to recipients
-  const recipients = thread.participantUids.filter(pUid => pUid !== uid && !thread.mutedByUids.includes(pUid));
+  await cRepo.saveMessage(threadId, messageId, message);
+
+  const updatedThread = {
+    ...thread,
+    messageCount: (thread.messageCount || 0) + 1,
+    lastMessageAtMs: now,
+    lastMessagePreview: message.bodyText || messageType,
+    updatedAtMs: now
+  };
+  await cRepo.saveThread(threadId, updatedThread);
+
+  const mutedBy = thread.mutedBy || {};
+  const recipients = participantList.filter(p => p && p !== uid && !mutedBy[p]);
   for (const recipientUid of recipients) {
-    const title = type === "EXTENSION_REQUEST"
-      ? `Due Date Extension Request • ${senderName}`
-      : type === "PAYMENT_PROOF"
-        ? `Payment Proof Shared • ${senderName}`
-        : `New Message • ${senderName}`;
-
-    await sendPushNotification({
-      targetUid: recipientUid,
-      title,
-      body: message.bodyText,
-      data: {
-        type: "CHAT_MESSAGE",
-        threadId,
-        messageId,
-        remoteRecordId: thread.remoteRecordId
-      }
-    });
+    try {
+      await sendPushNotification({
+        targetUid: recipientUid,
+        title: `New message from ${senderName}`,
+        body: message.bodyText || `Sent a ${messageType}`,
+        data: {
+          type: "CHAT_MESSAGE",
+          threadId,
+          recordId: thread.recordId,
+          messageId
+        }
+      });
+    } catch (_) {
+      // Non-fatal push error
+    }
   }
 
   return message;
 }
 
-/**
- * List messages in a thread with pagination
- */
-async function listThreadMessages({ uid, threadId, limit = 50, beforeMs = null }) {
-  const thread = getThreadsMap().get(threadId);
-  if (!thread || !thread.participantUids.includes(uid)) {
-    const err = new Error("Thread not found or access denied.");
-    err.code = "ERR_THREAD_NOT_FOUND";
-    err.status = 404;
-    throw err;
-  }
-
-  const messagesMap = getThreadMessagesMap(threadId);
-  let messages = Array.from(messagesMap.values());
-
-  if (beforeMs) {
-    messages = messages.filter(m => m.createdAtMs < Number(beforeMs));
-  }
-
-  messages.sort((a, b) => a.createdAtMs - b.createdAtMs);
-  return messages.slice(-Math.min(100, Math.max(1, Number(limit) || 50)));
-}
-
-/**
- * Respond to an Extension Request (ACCEPT or DECLINE)
- */
-async function respondToExtensionRequest({ uid, threadId, messageId, decision = "ACCEPT" }) {
-  const thread = getThreadsMap().get(threadId);
-  if (!thread || !thread.participantUids.includes(uid)) {
-    const err = new Error("Thread not found or access denied.");
-    err.code = "ERR_THREAD_NOT_FOUND";
-    err.status = 404;
-    throw err;
-  }
-
-  const messagesMap = getThreadMessagesMap(threadId);
-  const message = messagesMap.get(messageId);
-  if (!message || message.messageType !== "EXTENSION_REQUEST") {
-    const err = new Error("Extension request message not found.");
-    err.code = "ERR_MESSAGE_NOT_FOUND";
-    err.status = 404;
-    throw err;
-  }
-
-  if (message.senderUid === uid) {
-    const err = new Error("Cannot accept or decline your own extension request.");
-    err.code = "ERR_SELF_DECISION";
+async function respondToExtensionRequest({
+  uid,
+  threadId,
+  messageId,
+  decision, // "APPROVE" | "ACCEPT" | "DECLINE"
+  responderName = "User"
+}) {
+  if (!["APPROVE", "ACCEPT", "DECLINE"].includes(decision)) {
+    const err = new Error("decision must be APPROVE, ACCEPT, or DECLINE");
+    err.code = "ERR_INVALID_DECISION";
     err.status = 400;
     throw err;
   }
 
-  if (message.extensionStatus !== "PENDING") {
-    return {
-      success: true,
-      alreadyDecided: true,
-      extensionStatus: message.extensionStatus
-    };
-  }
-
-  const isAccepted = decision.toUpperCase() === "ACCEPT";
-  const newStatus = isAccepted ? "ACCEPTED" : "DECLINED";
-  message.extensionStatus = newStatus;
-  message.respondedByUid = uid;
-  message.respondedAtMs = Date.now();
-
-  // If accepted, update the linked record's due date on the ledger
-  if (isAccepted && thread.remoteRecordId && message.proposedDueDateMs) {
-    try {
-      await updateRecord({
-        uid,
-        recordId: thread.remoteRecordId,
-        updates: {
-          dueDateMs: message.proposedDueDateMs,
-          note: `Due date extended via counterparty chat agreement`
-        }
-      });
-    } catch (_) {
-      // Record may belong to counterparty, will update during sync
-    }
-  }
-
-  // Notify original requester
-  await sendPushNotification({
-    targetUid: message.senderUid,
-    title: isAccepted ? "Due Date Extension Accepted" : "Extension Request Declined",
-    body: isAccepted
-      ? `Your counterparty accepted the new due date (${new Date(message.proposedDueDateMs).toLocaleDateString("en-IN")}).`
-      : `Your requested due date extension was declined.`,
-    data: {
-      type: "EXTENSION_DECISION",
-      threadId,
-      messageId,
-      status: newStatus
-    }
-  });
-
-  return {
-    success: true,
-    messageId,
-    extensionStatus: newStatus,
-    proposedDueDateMs: message.proposedDueDateMs
-  };
-}
-
-/**
- * Mute or un-mute a chat thread
- */
-async function toggleThreadMute({ uid, threadId, isMuted = true }) {
-  const thread = getThreadsMap().get(threadId);
-  if (!thread || !thread.participantUids.includes(uid)) {
-    const err = new Error("Thread not found.");
+  const cRepo = chatRepo();
+  const thread = await cRepo.getThread(threadId);
+  if (!thread) {
+    const err = new Error("Chat thread not found");
     err.code = "ERR_THREAD_NOT_FOUND";
     err.status = 404;
     throw err;
   }
 
-  if (isMuted && !thread.mutedByUids.includes(uid)) {
-    thread.mutedByUids.push(uid);
-  } else if (!isMuted) {
-    thread.mutedByUids = thread.mutedByUids.filter(id => id !== uid);
+  const origMsg = await cRepo.getMessage(threadId, messageId);
+  if (!origMsg || origMsg.messageType !== "EXTENSION_REQUEST" || !origMsg.extensionData) {
+    const err = new Error("Extension request message not found");
+    err.code = "ERR_EXTENSION_NOT_FOUND";
+    err.status = 404;
+    throw err;
   }
 
-  return { success: true, threadId, isMuted: thread.mutedByUids.includes(uid) };
+  if (origMsg.senderUid === uid) {
+    const err = new Error("Cannot respond to your own extension request");
+    err.code = "ERR_SELF_DECISION";
+    err.status = 403;
+    throw err;
+  }
+
+  if (origMsg.extensionData.status !== "PENDING" && origMsg.extensionStatus !== "PENDING") {
+    const err = new Error("Extension request already resolved");
+    err.code = "ERR_EXTENSION_ALREADY_RESOLVED";
+    err.status = 409;
+    throw err;
+  }
+
+  const isAccepted = decision === "APPROVE" || decision === "ACCEPT";
+  const newStatus = isAccepted ? "APPROVED" : "DECLINED";
+  const extensionStatusLabel = isAccepted ? "ACCEPTED" : "DECLINED";
+  const updatedExtensionData = {
+    ...origMsg.extensionData,
+    status: newStatus,
+    respondedByUid: uid,
+    respondedAtMs: Date.now()
+  };
+
+  const updatedMessage = await cRepo.updateMessage(threadId, messageId, {
+    extensionData: updatedExtensionData,
+    extensionStatus: extensionStatusLabel,
+    updatedAtMs: Date.now()
+  });
+
+  let updatedRecord = null;
+  if (isAccepted && thread.recordId) {
+    const candidateUids = Array.from(
+      new Set([thread.creatorUid, thread.ownerUid, uid, ...(thread.participants || thread.participantUids || [])].filter(Boolean))
+    );
+    for (const candidateUid of candidateUids) {
+      try {
+        const rec = await getRecord({ uid: candidateUid, recordId: thread.recordId });
+        if (rec) {
+          const nextRec = await updateRecord({
+            uid: candidateUid,
+            recordId: thread.recordId,
+            updates: { dueDateMs: origMsg.extensionData.proposedDueDateMs }
+          });
+          if (!updatedRecord) updatedRecord = nextRec;
+        }
+      } catch (_) {
+        // Record doesn't belong to this candidateUid
+      }
+    }
+  }
+
+  const responseMessage = await postChatMessage({
+    uid,
+    threadId,
+    senderName: responderName,
+    messageType: "EXTENSION_RESPONSE",
+    bodyText: isAccepted
+      ? `Approved due date extension to ${new Date(origMsg.extensionData.proposedDueDateMs).toISOString().slice(0, 10)}`
+      : "Declined due date extension request"
+  });
+
+  return {
+    ...updatedMessage,
+    extensionStatus: extensionStatusLabel,
+    updatedMessage: {
+      ...updatedMessage,
+      extensionStatus: extensionStatusLabel
+    },
+    responseMessage,
+    updatedRecord
+  };
 }
 
+async function listThreadMessages({ uid = null, threadId, limit = 50, beforeMs = null }) {
+  const cRepo = chatRepo();
+  const thread = await cRepo.getThread(threadId);
+  if (!thread) {
+    const err = new Error("Chat thread not found");
+    err.code = "ERR_THREAD_NOT_FOUND";
+    err.status = 404;
+    throw err;
+  }
+  return await cRepo.listMessages(threadId, limit, beforeMs);
+}
+
+async function listChatMessages(threadId, limit = 100) {
+  const cRepo = chatRepo();
+  const thread = await cRepo.getThread(threadId);
+  if (!thread) {
+    const err = new Error("Chat thread not found");
+    err.code = "ERR_THREAD_NOT_FOUND";
+    err.status = 404;
+    throw err;
+  }
+  const messages = await cRepo.listMessages(threadId, limit);
+  return { thread, messages };
+}
+
+async function toggleThreadMute({ uid, threadId, isMuted = true }) {
+  const cRepo = chatRepo();
+  const thread = await cRepo.getThread(threadId);
+  if (!thread) {
+    const err = new Error("Chat thread not found");
+    err.code = "ERR_THREAD_NOT_FOUND";
+    err.status = 404;
+    throw err;
+  }
+  const mutedBy = { ...(thread.mutedBy || {}), [uid]: Boolean(isMuted) };
+  const updated = await cRepo.saveThread(threadId, {
+    ...thread,
+    mutedBy,
+    isMuted: Boolean(isMuted),
+    updatedAtMs: Date.now()
+  });
+  return updated;
+}
+
+async function clearAllChatStore() {
+  const cRepo = chatRepo();
+  assertRepoMethod(cRepo, "clear", "ChatRepository");
+  await cRepo.clear();
+}
+
+const resetChatStore = clearAllChatStore;
+
 module.exports = {
-  resetChatStore,
+  VALID_MESSAGE_TYPES,
   getOrCreateChatThread,
   listUserChatThreads,
   postChatMessage,
-  listThreadMessages,
   respondToExtensionRequest,
+  listThreadMessages,
+  listChatMessages,
   toggleThreadMute,
-  _inMemoryThreads,
-  _inMemoryMessages
+  clearAllChatStore,
+  resetChatStore
 };

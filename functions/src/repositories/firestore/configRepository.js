@@ -1,9 +1,9 @@
 /**
- * Firestore System Config Repository (functions/src/repositories/firestore/configRepository.js)
- * Synchronizes Kill Switches and Circuit Breakers across all instances via Firestore.
+ * Firestore Config Repository (functions/src/repositories/firestore/configRepository.js)
+ * Persists kill switches and circuit breakers in system_config collection.
  */
 
-const { getDb } = require("./firestoreClient");
+const { getDb, clearCollection } = require("./firestoreClient");
 
 class FirestoreConfigRepository {
   constructor(db) {
@@ -15,23 +15,27 @@ class FirestoreConfigRepository {
   }
 
   async getKillSwitches() {
-    const snap = await this.db.collection("system_config").doc("killSwitches").get();
+    const snap = await this.db.collection("system_config").doc("kill_switches").get();
     return snap.exists ? snap.data() : {};
   }
 
   async setKillSwitches(switches) {
-    await this.db.collection("system_config").doc("killSwitches").set(switches, { merge: true });
+    await this.db.collection("system_config").doc("kill_switches").set(switches);
     return this.getKillSwitches();
   }
 
   async getCircuitBreakers() {
-    const snap = await this.db.collection("system_config").doc("circuitBreakers").get();
+    const snap = await this.db.collection("system_config").doc("circuit_breakers").get();
     return snap.exists ? snap.data() : {};
   }
 
   async setCircuitBreakers(breakers) {
-    await this.db.collection("system_config").doc("circuitBreakers").set(breakers, { merge: true });
+    await this.db.collection("system_config").doc("circuit_breakers").set(breakers);
     return this.getCircuitBreakers();
+  }
+
+  async clear() {
+    await clearCollection(this.db, "system_config");
   }
 }
 

@@ -4,7 +4,7 @@
  */
 
 const crypto = require("crypto");
-const { getDb } = require("./firestoreClient");
+const { getDb, clearCollection } = require("./firestoreClient");
 const { logger } = require("../../observability/logger");
 const { computeOtpHash, constantTimeEquals } = require("../../crypto/serverCrypto");
 const { OTP_LIMITS } = require("../../config");
@@ -12,6 +12,7 @@ const { OTP_LIMITS } = require("../../config");
 class FirestoreOtpRepository {
   constructor(db) {
     this._db = db;
+    this._maxDailyBudgetOverride = null;
   }
 
   get db() {
@@ -20,10 +21,10 @@ class FirestoreOtpRepository {
 
   async saveChallenge(challenge) {
     const id = challenge.challengeId;
-    const expiresAtDate = new Date(challenge.expiresAt);
+    const expiresAtDate = new Date(challenge.expiresAt || challenge.expiresAtMs || Date.now() + 600000);
     const docData = {
       ...challenge,
-      ttlExpiresAt: expiresAtDate // Firestore TTL field
+      ttlExpiresAt: expiresAtDate
     };
     await this.db.collection("otpChallenges").doc(id).set(docData);
     return challenge;
@@ -54,12 +55,16 @@ class FirestoreOtpRepository {
 
   async verifyAndConsumeChallengeTransaction({ flowId, code, purpose, destination = null }) {
     return this.db.runTransaction(async (t) => {
-      const snap = await this.db.collection("otpChallenges")
+      let query = this.db.collection("otpChallenges")
         .where("flowId", "==", flowId)
-        .where("purpose", "==", purpose)
-        .where("consumed", "==", false)
-        .limit(1)
-        .get();
+        .where("consumed", "==", false);
+
+      if (purpose) {
+        query = query.where("purpose", "==", purpose);
+      }
+      query = query.limit(1);
+
+      const snap = typeof t.get === "function" ? await t.get(query) : await query.get();
 
       if (snap.empty) {
         const err = new Error("No active verification challenge found for this flow.");
@@ -131,14 +136,14 @@ class FirestoreOtpRepository {
   }
 
   async getChallengeByFlowId(flowId, purpose) {
-    const snap = await this.db.collection("otpChallenges")
-      .where("flowId", "==", flowId)
-      .where("purpose", "==", purpose)
-      .where("consumed", "==", false)
-      .limit(1)
-      .get();
+    let query = this.db.collection("otpChallenges").where("flowId", "==", flowId);
+    if (purpose) {
+      query = query.where("purpose", "==", purpose);
+    }
+    const snap = await query.get();
     if (snap.empty) return null;
-    return snap.docs[0].data();
+    const unconsumed = snap.docs.map(d => d.data()).find(c => !c.consumed);
+    return unconsumed || snap.docs[0].data();
   }
 
   async updateChallengeDeliveryStatus(providerMessageId, status, timestamp, errors = null) {
@@ -158,9 +163,17 @@ class FirestoreOtpRepository {
     return { ...snap.docs[0].data(), ...updates };
   }
 
-  /**
-   * Atomic Firestore transaction for multi-instance distributed IP rate limiting with TTL
-   */
+  async getRateLimit(key) {
+    if (!key) return null;
+    const snap = await this.db.collection("rateLimits").doc(key).get();
+    return snap.exists ? snap.data() : null;
+  }
+
+  async setRateLimit(key, record) {
+    await this.db.collection("rateLimits").doc(key).set(record, { merge: true });
+    return this.getRateLimit(key);
+  }
+
   async checkAndIncrementIpLimit(ipHashed, maxLimit, windowMs = 3600000) {
     const key = `ip_${ipHashed}`;
     const docRef = this.db.collection("rateLimits").doc(key);
@@ -194,9 +207,6 @@ class FirestoreOtpRepository {
     });
   }
 
-  /**
-   * Atomic Firestore transaction for multi-instance destination limits (cooldown, hourly, daily)
-   */
   async checkAndIncrementDestinationLimit(destinationHash, limits) {
     const key = `dest_${destinationHash}`;
     const docRef = this.db.collection("rateLimits").doc(key);
@@ -212,7 +222,6 @@ class FirestoreOtpRepository {
         lastSentAt: 0
       };
 
-      // Cooldown check (30 seconds)
       if (now - record.lastSentAt < limits.RESEND_COOLDOWN_SECONDS * 1000) {
         const remainingSecs = Math.ceil((limits.RESEND_COOLDOWN_SECONDS * 1000 - (now - record.lastSentAt)) / 1000);
         const err = new Error(`Please wait ${remainingSecs} seconds before requesting another code.`);
@@ -221,7 +230,6 @@ class FirestoreOtpRepository {
         throw err;
       }
 
-      // Hourly limit
       if (now > record.hourlyResetAt) {
         record.hourlyCount = 0;
         record.hourlyResetAt = now + 3600000;
@@ -233,7 +241,6 @@ class FirestoreOtpRepository {
         throw err;
       }
 
-      // Daily limit
       if (now > record.dailyResetAt) {
         record.dailyCount = 0;
         record.dailyResetAt = now + 86400000;
@@ -255,9 +262,6 @@ class FirestoreOtpRepository {
     });
   }
 
-  /**
-   * Generic key increment for backward compatibility
-   */
   async checkAndIncrementRateLimit(key, maxLimit, windowMs) {
     const docRef = this.db.collection("rateLimits").doc(key);
     const now = Date.now();
@@ -270,7 +274,7 @@ class FirestoreOtpRepository {
         record = {
           count: 1,
           resetAt: now + windowMs,
-          ttlExpiresAt: new Date(now + windowMs + 3600000) // TTL cleans up after 1hr
+          ttlExpiresAt: new Date(now + windowMs + 3600000)
         };
         t.set(docRef, record);
         return record;
@@ -285,15 +289,35 @@ class FirestoreOtpRepository {
       }
 
       record.count += 1;
-      t.set(docRef, record, { merge: true });
+      t.set(docRef, { count: record.count }, { merge: true });
       return record;
     });
   }
 
-  /**
-   * Atomic Firestore transaction for global daily send budget across all Cloud Function instances
-   */
-  async checkAndIncrementDailyBudget(maxDailyBudget) {
+  setMaxDailyBudgetOverride(limit) {
+    this._maxDailyBudgetOverride = limit;
+  }
+
+  async getDailyBudgetStatus(defaultMaxDailyBudget = 5000) {
+    const maxDailyBudget = this._maxDailyBudgetOverride || defaultMaxDailyBudget;
+    const today = new Date().toISOString().split("T")[0];
+    const snap = await this.db.collection("system_counters").doc(`otp_daily_${today}`).get();
+    const counter = snap.exists ? snap.data() : {
+      dateStr: today,
+      sentCount: 0,
+      killSwitchTriggered: false,
+      alerted50: false,
+      alerted80: false,
+      alerted100: false
+    };
+    return {
+      ...counter,
+      maxDailyBudget
+    };
+  }
+
+  async checkAndIncrementDailyBudget(defaultMaxDailyBudget = 5000) {
+    const maxDailyBudget = this._maxDailyBudgetOverride || defaultMaxDailyBudget;
     const today = new Date().toISOString().split("T")[0];
     const docRef = this.db.collection("system_counters").doc(`otp_daily_${today}`);
 
@@ -309,8 +333,11 @@ class FirestoreOtpRepository {
           alerted50: false,
           alerted80: false,
           alerted100: false,
-          ttlExpiresAt: new Date(Date.now() + 7 * 86400000) // Keep for 7 days
+          ttlExpiresAt: new Date(Date.now() + 7 * 86400000)
         };
+        const pct = (counter.sentCount / maxDailyBudget) * 100;
+        if (pct >= 80) counter.alerted80 = true;
+        else if (pct >= 50) counter.alerted50 = true;
         t.set(docRef, counter);
         return counter;
       }
@@ -354,6 +381,24 @@ class FirestoreOtpRepository {
       t.set(docRef, counter, { merge: true });
       return counter;
     });
+  }
+
+  setMaxDailyBudgetOverride(limit) {
+    this._maxDailyBudgetOverride = limit;
+  }
+
+  async setDailyBudgetMax(limit) {
+    this.setMaxDailyBudgetOverride(limit);
+    return limit;
+  }
+
+  async clear() {
+    this._maxDailyBudgetOverride = null;
+    await Promise.all([
+      clearCollection(this.db, "otpChallenges"),
+      clearCollection(this.db, "rateLimits"),
+      clearCollection(this.db, "system_counters")
+    ]);
   }
 }
 

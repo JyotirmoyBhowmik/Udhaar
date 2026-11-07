@@ -1,247 +1,331 @@
 /**
- * Session & Device Management Engine (functions/src/sessions/sessionManager.js)
- * 
- * Implements sliding __session cookies for Web, Firebase custom tokens for Android,
- * device tracking, CSRF double-submit token generation, and instant revocation (checkRevoked).
- * Backed by persistent repositories with zero module-level Map storage.
+ * Session, Device Management & Step-Up Authentication Service (functions/src/sessions/sessionManager.js)
+ * Implements Stage S1 / R3:
+ * - Web `__session` cookie (HttpOnly, Secure, SameSite=Strict, Path=/) via Firebase Admin createSessionCookie
+ * - Android Firebase Custom Token + Refresh Token Rotation via Firebase Admin createCustomToken
+ * - Double-Submit CSRF Token bound to session
+ * - Active Device Session Listing & Remote Revocation in Firestore
+ * - 10-minute Step-Up Auth Token for high-risk actions (Account Deletion, Export, Recovery)
+ * - Strictly backed by async SessionRepository without Proxy facades or module-level maps.
  */
 
 const crypto = require("crypto");
-const { getSessionRepository } = require("../repositories");
+const { SESSION_CONFIG } = require("../config");
+const { getSessionRepository, assertRepoMethod } = require("../repositories");
 const { getAuthAdapter } = require("./authAdapter");
-const { getSecret } = require("../config/secrets");
+const { getServerSecret } = require("../crypto/serverCrypto");
 
-/**
- * Backward-compatible proxy objects for legacy tests inspecting in-memory maps
- */
-const proxyMap = (getMapFn) => new Proxy({}, {
-  get(target, prop) {
-    const map = getMapFn() || {};
-    if (typeof map[prop] === "function") {
-      return map[prop].bind(map);
-    }
-    return map[prop];
-  }
-});
-
-const _inMemorySessions = proxyMap(() => getSessionRepository().sessions);
-const _inMemoryDevices = proxyMap(() => getSessionRepository().devices);
-
-function resetSessionsStore() {
+function getRequiredSessionRepo() {
   const repo = getSessionRepository();
-  if (typeof repo.clear === "function") {
-    repo.clear();
-  }
+  assertRepoMethod(repo, "createSession", "SessionRepository");
+  assertRepoMethod(repo, "getSession", "SessionRepository");
+  assertRepoMethod(repo, "updateSession", "SessionRepository");
+  assertRepoMethod(repo, "revokeSession", "SessionRepository");
+  assertRepoMethod(repo, "listUserSessions", "SessionRepository");
+  assertRepoMethod(repo, "createDevice", "SessionRepository");
+  return repo;
 }
 
 /**
- * Computes a cryptographically bound CSRF token for a given session ID
- * @param {string} sessionId
- * @returns {string} Hex HMAC token
+ * Compute deterministic session-bound CSRF token
  */
 function computeSessionCsrfToken(sessionId) {
-  if (!sessionId) return "";
-  const serverSecret = getSecret("UDHAAR_SERVER_SECRET");
-  return crypto.createHmac("sha256", serverSecret).update(`csrf:${sessionId}`).digest("hex");
+  return crypto
+    .createHmac("sha256", getServerSecret())
+    .update(`csrf:${sessionId}`)
+    .digest("hex");
 }
 
 /**
- * Mint a session for Web or Android client using Firebase Admin
+ * Create a new authenticated session for Web (`__session` cookie) or Android (Custom Token + Refresh Token)
  */
 async function createSession({
   uid,
-  clientType = "WEB", // "WEB" | "ANDROID"
-  clientIp = "127.0.0.1",
-  userAgent = "",
-  cityLevelLocation = "India",
-  isPublicComputer = false
+  clientType = "WEB",
+  deviceInfo = {},
+  ipAddress = "127.0.0.1",
+  clientIp = null
 }) {
-  const sessionId = `sess_${crypto.randomUUID()}`;
-  const deviceId = `dev_${crypto.randomUUID()}`;
   const now = Date.now();
-
-  // Sliding 7-day expiration, 30-day absolute ceiling
-  const slidingTtlMs = 7 * 24 * 60 * 60 * 1000;
-  const absoluteMaxMs = 30 * 24 * 60 * 60 * 1000;
-
+  const sessionId = `sess_${crypto.randomBytes(16).toString("hex")}`;
+  const deviceId = deviceInfo.deviceId || `dev_${crypto.randomBytes(8).toString("hex")}`;
+  const expiresInMs = SESSION_CONFIG.COOKIE_MAX_AGE_SECONDS * 1000;
+  const expiresAtMs = now + expiresInMs;
   const csrfToken = computeSessionCsrfToken(sessionId);
 
-  const session = {
+  const authAdapter = getAuthAdapter();
+  const repo = getRequiredSessionRepo();
+
+  const customToken = await authAdapter.createCustomToken(uid, {
+    sessionId,
+    deviceId,
+    clientType
+  });
+
+  const sessionCookieValue = await authAdapter.createSessionCookie(
+    {
+      uid,
+      sessionId,
+      deviceId
+    },
+    {
+      expiresIn: expiresInMs,
+      uid,
+      sessionId
+    }
+  );
+
+  const sessionRecord = {
     sessionId,
     uid,
     deviceId,
     clientType,
-    clientIp,
-    cityLevelLocation,
-    createdAtMs: now,
-    expiresAtMs: now + slidingTtlMs,
-    absoluteExpiresAtMs: now + absoluteMaxMs,
-    isPublicComputer,
     csrfToken,
-    lastStepUpAtMs: now, // Fresh login automatically grants 10-minute step-up window
-    revoked: false
+    deviceName: deviceInfo.deviceName || (clientType === "ANDROID" ? "Android Phone" : "Web Browser"),
+    osVersion: deviceInfo.osVersion || "Unknown",
+    ipAddress: clientIp || ipAddress,
+    createdAtMs: now,
+    lastActiveAtMs: now,
+    lastStepUpAtMs: now,
+    expiresAtMs,
+    revoked: false,
+    stepUpVerifiedUntilMs: now + SESSION_CONFIG.STEP_UP_VALIDITY_MINUTES * 60 * 1000
   };
 
-  const sessionRepo = getSessionRepository();
-  await sessionRepo.createSession(session);
-
-  // Track in devices collection for Devices screen
-  const device = {
+  await repo.createSession(sessionRecord);
+  await repo.createDevice({
     deviceId,
-    uid,
-    deviceType: clientType,
-    userAgent,
-    cityLevelLocation,
-    lastActiveMs: now,
-    isCurrent: true,
-    revoked: false
-  };
-  await sessionRepo.createDevice(device);
-
-  const authAdapter = getAuthAdapter();
-
-  // Generate real Firebase Admin Custom Token for Android
-  const customToken = await authAdapter.createCustomToken(uid, {
-    deviceId,
-    clientType: "ANDROID"
-  });
-
-  // Generate real Firebase Admin Session Cookie for Web
-  const sessionCookieValue = await authAdapter.createSessionCookie({
     uid,
     sessionId,
-    deviceId
-  }, {
-    expiresIn: slidingTtlMs
+    deviceName: sessionRecord.deviceName,
+    clientType,
+    platform: clientType,
+    notificationsEnabled: true,
+    registeredAtMs: now,
+    lastActiveAtMs: now,
+    lastSeenAt: new Date(now).toISOString(),
+    revoked: false
   });
+
+  const cookieHeader = `${SESSION_CONFIG.COOKIE_NAME}=${sessionCookieValue}; Max-Age=${SESSION_CONFIG.COOKIE_MAX_AGE_SECONDS}; Path=${SESSION_CONFIG.COOKIE_OPTIONS.path}; HttpOnly; Secure; SameSite=${SESSION_CONFIG.COOKIE_OPTIONS.sameSite}`;
 
   return {
     sessionId,
     deviceId,
-    sessionCookieValue,
-    customToken,
+    uid,
+    clientType,
     csrfToken,
-    expiresAtMs: session.expiresAtMs
+    sessionCookieValue,
+    cookieHeader,
+    customToken,
+    accessToken: sessionCookieValue,
+    expiresAtMs,
+    expiresAt: new Date(expiresAtMs).toISOString()
   };
 }
 
 /**
- * Validate session token or cookie and enforce checkRevoked
+ * Validate a session cookie or JWT custom/ID token, returning the session object or null if invalid/revoked
  */
-async function validateSession(sessionCookieOrToken) {
-  if (!sessionCookieOrToken) return null;
+async function validateSession(tokenValue) {
+  if (!tokenValue || typeof tokenValue !== "string") {
+    return null;
+  }
 
+  let decoded;
   try {
     const authAdapter = getAuthAdapter();
-    const sessionRepo = getSessionRepository();
-
-    // Check if token is a JWT (either customToken or sessionCookie)
-    let claims = null;
-    try {
-      claims = await authAdapter.verifySessionCookie(sessionCookieOrToken, true);
-    } catch (_) {
-      // Fallback: check legacy JSON base64 format for transition tests
-      try {
-        const decoded = Buffer.from(sessionCookieOrToken, "base64").toString("utf8");
-        const parsed = JSON.parse(decoded);
-        claims = { uid: parsed.u, sessionId: parsed.s, deviceId: parsed.d, exp: Math.floor(parsed.exp / 1000) };
-      } catch (e2) {
-        return null;
-      }
-    }
-
-    if (!claims || !claims.uid) {
-      return null;
-    }
-
-    const sessionId = claims.sessionId;
-    const session = sessionId ? await sessionRepo.getSession(sessionId, claims.uid) : null;
-
-    if (session) {
-      if (session.revoked) return null;
-
-      const now = Date.now();
-      if (now > session.expiresAtMs || now > session.absoluteExpiresAtMs) {
-        return null;
-      }
-
-      // Slide expiration window if not public computer
-      if (!session.isPublicComputer) {
-        session.expiresAtMs = Math.min(now + 7 * 24 * 60 * 60 * 1000, session.absoluteExpiresAtMs);
-        await sessionRepo.updateSession(session.sessionId, { expiresAtMs: session.expiresAtMs }, session.uid);
-      }
-
-      return {
-        sessionId: session.sessionId,
-        uid: session.uid,
-        deviceId: session.deviceId,
-        clientType: session.clientType,
-        csrfToken: session.csrfToken || computeSessionCsrfToken(session.sessionId),
-        lastStepUpAtMs: session.lastStepUpAtMs || session.createdAtMs,
-        createdAtMs: session.createdAtMs
-      };
-    }
-
-    // Direct claims session
-    const authTime = claims.auth_time || claims.claims?.auth_time;
-    const authTimeMs = authTime ? authTime * 1000 : (claims.iat ? claims.iat * 1000 : Date.now());
-    return {
-      uid: claims.uid,
-      deviceId: claims.deviceId || claims.claims?.deviceId || "dev_auth",
-      clientType: claims.clientType || claims.claims?.clientType || "WEB",
-      sessionId: claims.sessionId || `sess_${claims.uid}`,
-      csrfToken: computeSessionCsrfToken(claims.sessionId || `sess_${claims.uid}`),
-      lastStepUpAtMs: authTimeMs,
-      createdAtMs: authTimeMs
-    };
+    decoded = await authAdapter.verifySessionCookie(tokenValue, true);
   } catch (_) {
     return null;
   }
+
+  if (!decoded || !decoded.uid) {
+    return null;
+  }
+
+  const uid = decoded.uid;
+  const sessionId = decoded.sessionId || decoded.claims?.sessionId;
+
+  if (sessionId) {
+    const repo = getRequiredSessionRepo();
+    const session = await repo.getSession(sessionId, uid);
+    if (!session || session.uid !== uid) {
+      return null;
+    }
+    if (session.revoked) {
+      return null;
+    }
+    if (Date.now() > session.expiresAtMs) {
+      return null;
+    }
+    await repo.updateSession(sessionId, { lastActiveAtMs: Date.now() }, uid);
+    return {
+      ...session,
+      csrfToken: session.csrfToken || computeSessionCsrfToken(sessionId)
+    };
+  }
+
+  // Raw customToken / ID token without a persistent sessionId record (e.g. aged token test)
+  const authTimeSec = decoded.auth_time || decoded.claims?.auth_time || decoded.iat || Math.floor(Date.now() / 1000);
+  const authTimeMs = authTimeSec * 1000;
+  return {
+    uid,
+    sessionId: null,
+    deviceId: decoded.deviceId || decoded.claims?.deviceId || null,
+    clientType: decoded.claims?.clientType || "WEB",
+    createdAtMs: authTimeMs,
+    lastStepUpAtMs: authTimeMs
+  };
 }
 
 /**
- * Revoke a specific device session
+ * Verify a session token or throw a structured 401 error
+ */
+async function verifySessionToken(tokenValue) {
+  const session = await validateSession(tokenValue);
+  if (!session) {
+    const err = new Error("Session is invalid, expired, or has been revoked.");
+    err.code = "ERR_UNAUTHORIZED";
+    err.status = 401;
+    throw err;
+  }
+  return session;
+}
+
+/**
+ * Revoke all sessions associated with a user's device and invalidate Firebase refresh tokens
  */
 async function revokeDeviceSession(uid, deviceId) {
-  const sessionRepo = getSessionRepository();
-  const sessions = await sessionRepo.listUserSessions(uid);
-  for (const session of sessions) {
-    if (session.deviceId === deviceId) {
-      await sessionRepo.revokeSession(session.sessionId, uid);
+  const repo = getRequiredSessionRepo();
+  const sessions = await repo.listUserSessions(uid);
+  for (const sess of sessions) {
+    if (!deviceId || sess.deviceId === deviceId || sess.sessionId === deviceId) {
+      await repo.revokeSession(sess.sessionId, uid);
     }
   }
-
-  const devices = await sessionRepo.listUserDevices(uid);
-  for (const dev of devices) {
-    if (dev.deviceId === deviceId) {
-      dev.revoked = true;
-      await sessionRepo.createDevice(dev);
-    }
+  if (deviceId && typeof repo.deleteDevice === "function") {
+    await repo.deleteDevice(uid, deviceId);
   }
 
-  // Revoke refresh tokens on Firebase Auth
   const authAdapter = getAuthAdapter();
   await authAdapter.revokeRefreshTokens(uid);
+
+  return { revoked: true, uid, deviceId };
+}
+
+/**
+ * Elevate an existing session with a 10-minute Step-Up Authentication window
+ */
+async function elevateSessionStepUp(sessionId) {
+  const repo = getRequiredSessionRepo();
+  const session = await repo.getSession(sessionId);
+  if (!session || session.revoked) {
+    const err = new Error("Valid session required for step-up authentication.");
+    err.code = "ERR_UNAUTHORIZED";
+    err.status = 401;
+    throw err;
+  }
+
+  const now = Date.now();
+  const stepUpVerifiedUntilMs = now + SESSION_CONFIG.STEP_UP_VALIDITY_MINUTES * 60 * 1000;
+  await repo.updateSession(
+    sessionId,
+    { stepUpVerifiedUntilMs, lastStepUpAtMs: now },
+    session.uid
+  );
+
+  return {
+    sessionId,
+    stepUpVerifiedUntil: new Date(stepUpVerifiedUntilMs).toISOString()
+  };
+}
+
+/**
+ * Check if session currently holds a valid 10-minute step-up elevation
+ */
+async function requireStepUpAuth(sessionId) {
+  const repo = getRequiredSessionRepo();
+  const session = await repo.getSession(sessionId);
+  if (!session || session.revoked) {
+    const err = new Error("Unauthorized session.");
+    err.code = "ERR_UNAUTHORIZED";
+    err.status = 401;
+    throw err;
+  }
+
+  if (!session.stepUpVerifiedUntilMs || Date.now() > session.stepUpVerifiedUntilMs) {
+    const err = new Error("Step-up OTP verification is required within the last 10 minutes for this sensitive action.");
+    err.code = "ERR_STEP_UP_REQUIRED";
+    err.status = 403;
+    throw err;
+  }
 
   return true;
 }
 
 /**
- * List registered devices for user (Devices Screen)
+ * List active device sessions for a user
  */
 async function listUserDevices(uid) {
-  const sessionRepo = getSessionRepository();
-  const list = await sessionRepo.listUserDevices(uid);
-  return list.filter(d => !d.revoked);
+  const repo = getRequiredSessionRepo();
+  const sessions = await repo.listUserSessions(uid);
+  const devices = [];
+  for (const sess of sessions) {
+    if (!sess.revoked && sess.expiresAtMs > Date.now()) {
+      devices.push({
+        sessionId: sess.sessionId,
+        deviceId: sess.deviceId,
+        deviceName: sess.deviceName,
+        clientType: sess.clientType,
+        createdAt: new Date(sess.createdAtMs).toISOString(),
+        lastActiveAt: new Date(sess.lastActiveAtMs).toISOString()
+      });
+    }
+  }
+  return devices;
+}
+
+/**
+ * Revoke a specific session or all sessions for a user, including Firebase refresh tokens
+ */
+async function revokeSession({ uid, sessionId }) {
+  const repo = getRequiredSessionRepo();
+  const session = await repo.getSession(sessionId, uid);
+  if (!session || session.uid !== uid) {
+    const err = new Error("Session not found or access denied.");
+    err.code = "ERR_SESSION_NOT_FOUND";
+    err.status = 404;
+    throw err;
+  }
+
+  await repo.revokeSession(sessionId, uid);
+
+  const authAdapter = getAuthAdapter();
+  await authAdapter.revokeRefreshTokens(uid);
+
+  return { revoked: true, sessionId };
+}
+
+async function resetSessionsStore() {
+  const repo = getSessionRepository();
+  assertRepoMethod(repo, "clear", "SessionRepository");
+  await repo.clear();
+  const authAdapter = getAuthAdapter();
+  if (authAdapter && typeof authAdapter.reset === "function") {
+    authAdapter.reset();
+  }
 }
 
 module.exports = {
   createSession,
   validateSession,
-  revokeDeviceSession,
-  listUserDevices,
+  verifySessionToken,
   computeSessionCsrfToken,
-  resetSessionsStore,
-  _inMemorySessions,
-  _inMemoryDevices
+  revokeDeviceSession,
+  elevateSessionStepUp,
+  requireStepUpAuth,
+  listUserDevices,
+  revokeSession,
+  resetSessionsStore
 };

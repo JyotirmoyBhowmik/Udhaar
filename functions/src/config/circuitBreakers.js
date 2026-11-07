@@ -1,204 +1,298 @@
 /**
- * Cost Controls & Provider Circuit Breakers (functions/src/config/circuitBreakers.js)
- * Implements Stage S8 automated spend caps on expensive third-party APIs (WhatsApp, SMS, Email):
- * - State: CLOSED (Normal), OPEN (Budget Tripped / Calls Blocked), HALF_OPEN (Trialing).
- * - Prevents cloud bill runaways by failing fast before calling provider HTTP endpoints.
+ * Cost Controls & External Provider Circuit Breakers
+ * (functions/src/config/circuitBreakers.js)
+ * Implements Stage S8 Spend & Rate Circuit Breakers:
+ * - Persisted in Firestore (system_config/circuit_breakers) via ConfigRepository.
+ * - Shared across instances with a 30-second TTL cache.
+ * - Automatically trips circuit to OPEN when hourly or daily spend caps are reached.
+ * - Zero module-level mutable maps or Proxy facades.
  */
 
-const circuitState = Object.create(null);
+const { getConfigRepository, assertRepoMethod } = require("../repositories");
 
-const DEFAULT_BUDGETS = Object.freeze({
-  WHATSAPP: {
-    dailyLimitUnits: 500, // Max 500 messages / ~₹2,500 daily cap
-    hourlyLimitUnits: 150
-  },
-  EMAIL: {
-    dailyLimitUnits: 2000,
-    hourlyLimitUnits: 500
-  },
-  SMS: {
-    dailyLimitUnits: 200,
-    hourlyLimitUnits: 50
-  }
+const CACHE_TTL_MS = 30 * 1000; // 30-second cache TTL
+
+const DEFAULT_LIMITS = Object.freeze({
+  WHATSAPP: Object.freeze({ hourlyLimit: 150, dailyLimit: 1000 }),
+  EMAIL: Object.freeze({ hourlyLimit: 300, dailyLimit: 2500 }),
+  FCM_PUSH: Object.freeze({ hourlyLimit: 2000, dailyLimit: 20000 })
 });
 
-function initCircuits() {
-  for (const k of Object.keys(circuitState)) {
-    delete circuitState[k];
-  }
-  for (const [provider, budget] of Object.entries(DEFAULT_BUDGETS)) {
-    circuitState[provider] = {
-      provider,
-      state: "CLOSED", // CLOSED | OPEN | HALF_OPEN
-      dailySpent: 0,
-      hourlySpent: 0,
-      dailyLimit: budget.dailyLimitUnits,
-      hourlyLimit: budget.hourlyLimitUnits,
-      lastResetDay: new Date().getUTCDate(),
-      lastResetHour: new Date().getUTCHours(),
-      trippedAtMs: null,
-      tripReason: null
+function getRequiredConfigRepo() {
+  const repo = getConfigRepository();
+  assertRepoMethod(repo, "getCircuitBreakers", "ConfigRepository");
+  assertRepoMethod(repo, "setCircuitBreakers", "ConfigRepository");
+  return repo;
+}
+
+function getCacheHolder(repo) {
+  if (!repo._circuitBreakerCacheState) {
+    repo._circuitBreakerCacheState = {
+      data: null,
+      expiresAtMs: 0
     };
+  }
+  return repo._circuitBreakerCacheState;
+}
+
+function invalidateCircuitCache() {
+  const repo = getConfigRepository();
+  if (repo && repo._circuitBreakerCacheState) {
+    repo._circuitBreakerCacheState.data = null;
+    repo._circuitBreakerCacheState.expiresAtMs = 0;
   }
 }
 
-initCircuits();
+function createFreshCircuit(providerName, now = Date.now()) {
+  const limits = DEFAULT_LIMITS[providerName] || { hourlyLimit: 100, dailyLimit: 1000 };
+  return {
+    providerName,
+    state: "CLOSED",
+    hourlySpent: 0,
+    dailySpent: 0,
+    hourlyLimit: limits.hourlyLimit,
+    dailyLimit: limits.dailyLimit,
+    hourWindowStartMs: now,
+    dayWindowStartMs: now,
+    trippedAtMs: null,
+    trippedReason: null
+  };
+}
 
-const _inMemoryCircuitState = new Proxy(circuitState, {
-  get(target, prop) {
-    if (prop === "get") return (k) => target[k];
-    if (prop === "set") return (k, v) => { target[k] = v; return target; };
-    if (prop === "has") return (k) => Object.prototype.hasOwnProperty.call(target, k);
-    if (prop === "clear") return () => initCircuits();
-    if (prop === "entries") return function* () { for (const k of Object.keys(target)) yield [k, target[k]]; };
-    if (prop === "values") return function* () { for (const k of Object.keys(target)) yield target[k]; };
-    if (prop === "keys") return function* () { for (const k of Object.keys(target)) yield k; };
-    if (prop === "size") return Object.keys(target).length;
-    return target[prop];
+function rotateWindowsIfNeeded(circuit, now = Date.now()) {
+  const updated = { ...circuit };
+  let changed = false;
+
+  if (now - updated.hourWindowStartMs >= 3600 * 1000) {
+    updated.hourlySpent = 0;
+    updated.hourWindowStartMs = now;
+    changed = true;
   }
-});
+  if (now - updated.dayWindowStartMs >= 24 * 3600 * 1000) {
+    updated.dailySpent = 0;
+    updated.dayWindowStartMs = now;
+    changed = true;
+  }
+  if (changed && updated.state === "OPEN" && !updated.consecutiveFailures && updated.hourlySpent < updated.hourlyLimit && updated.dailySpent < updated.dailyLimit) {
+    updated.state = "CLOSED";
+    updated.trippedAtMs = null;
+    updated.trippedReason = null;
+  }
+  return { circuit: updated, changed };
+}
 
-function checkRollingWindow(circuit) {
-  const now = new Date();
-  const currentDay = now.getUTCDate();
-  const currentHour = now.getUTCHours();
+async function loadAllCircuits(forceRefresh = false) {
+  const repo = getRequiredConfigRepo();
+  const cache = getCacheHolder(repo);
+  const now = Date.now();
 
-  if (circuit.lastResetDay !== currentDay) {
-    circuit.dailySpent = 0;
-    circuit.hourlySpent = 0;
-    circuit.lastResetDay = currentDay;
-    circuit.lastResetHour = currentHour;
-    if (circuit.state === "OPEN") {
-      circuit.state = "CLOSED";
-      circuit.trippedAtMs = null;
-      circuit.tripReason = null;
+  let raw = null;
+  if (!forceRefresh && cache.data && now < cache.expiresAtMs) {
+    raw = cache.data;
+  } else {
+    raw = (await repo.getCircuitBreakers()) || {};
+  }
+
+  const all = {};
+  let anyChanged = false;
+  for (const p of Object.keys(DEFAULT_LIMITS)) {
+    const base = raw[p] ? { ...createFreshCircuit(p, now), ...raw[p] } : createFreshCircuit(p, now);
+    const { circuit, changed } = rotateWindowsIfNeeded(base, now);
+    all[p] = circuit;
+    if (changed || !raw[p]) anyChanged = true;
+  }
+
+  for (const [k, v] of Object.entries(raw)) {
+    if (!all[k] && v && typeof v === "object") {
+      const { circuit, changed } = rotateWindowsIfNeeded({ ...createFreshCircuit(k, now), ...v }, now);
+      all[k] = circuit;
+      if (changed) anyChanged = true;
     }
-  } else if (circuit.lastResetHour !== currentHour) {
-    circuit.hourlySpent = 0;
-    circuit.lastResetHour = currentHour;
   }
+
+  if (anyChanged && forceRefresh) {
+    await repo.setCircuitBreakers(all);
+  }
+
+  cache.data = all;
+  cache.expiresAtMs = now + CACHE_TTL_MS;
+  return all;
 }
 
 /**
- * Check if the circuit breaker allows an operation
+ * Check if a provider circuit allows dispatch
  */
-function checkProviderCircuit(providerName) {
+async function checkProviderCircuit(providerName, now = Date.now()) {
   const key = String(providerName || "").toUpperCase();
-  const circuit = _inMemoryCircuitState.get(key);
-  if (!circuit) {
-    return { allowed: true, state: "CLOSED" };
-  }
-
-  checkRollingWindow(circuit);
+  const all = await loadAllCircuits(false);
+  const base = all[key] || createFreshCircuit(key, now);
+  const { circuit } = rotateWindowsIfNeeded(base, now);
 
   if (circuit.state === "OPEN") {
     return {
       allowed: false,
       state: "OPEN",
-      provider: key,
-      reason: circuit.tripReason || "Provider budget limit reached.",
-      dailySpent: circuit.dailySpent,
-      dailyLimit: circuit.dailyLimit
+      reason: circuit.trippedReason || `Circuit breaker OPEN for ${key}`,
+      hourlySpent: circuit.hourlySpent,
+      dailySpent: circuit.dailySpent
     };
   }
 
   return {
     allowed: true,
-    state: circuit.state,
-    provider: key,
-    dailySpent: circuit.dailySpent,
-    dailyLimit: circuit.dailyLimit
+    state: "CLOSED",
+    hourlySpent: circuit.hourlySpent,
+    dailySpent: circuit.dailySpent
   };
 }
 
 /**
- * Record usage/cost units against a provider
+ * Record spend units against a provider and trip circuit if threshold reached
  */
-function recordProviderSpend(providerName, units = 1) {
+async function recordProviderSpend(providerName, units = 1, now = Date.now()) {
   const key = String(providerName || "").toUpperCase();
-  const circuit = _inMemoryCircuitState.get(key);
-  if (!circuit) return;
+  const repo = getRequiredConfigRepo();
+  const all = await loadAllCircuits(true);
+  const base = all[key] || createFreshCircuit(key, now);
+  const { circuit } = rotateWindowsIfNeeded(base, now);
 
-  checkRollingWindow(circuit);
+  const amount = Math.max(1, Number(units) || 1);
+  circuit.hourlySpent += amount;
+  circuit.dailySpent += amount;
 
-  circuit.dailySpent += Number(units) || 1;
-  circuit.hourlySpent += Number(units) || 1;
-
-  if (circuit.dailySpent >= circuit.dailyLimit) {
+  if (circuit.hourlySpent >= circuit.hourlyLimit) {
     circuit.state = "OPEN";
-    circuit.trippedAtMs = Date.now();
-    circuit.tripReason = `Daily budget of ${circuit.dailyLimit} units exceeded (spent: ${circuit.dailySpent}).`;
-  } else if (circuit.hourlySpent >= circuit.hourlyLimit) {
+    circuit.trippedAtMs = now;
+    circuit.trippedReason = `Hourly quota exceeded (${circuit.hourlySpent}/${circuit.hourlyLimit})`;
+  } else if (circuit.dailySpent >= circuit.dailyLimit) {
     circuit.state = "OPEN";
-    circuit.trippedAtMs = Date.now();
-    circuit.tripReason = `Hourly rate of ${circuit.hourlyLimit} units exceeded (spent: ${circuit.hourlySpent}).`;
+    circuit.trippedAtMs = now;
+    circuit.trippedReason = `Daily quota exceeded (${circuit.dailySpent}/${circuit.dailyLimit})`;
   }
+
+  all[key] = circuit;
+  await repo.setCircuitBreakers(all);
+  const cache = getCacheHolder(repo);
+  cache.data = all;
+  cache.expiresAtMs = now + CACHE_TTL_MS;
+
+  return { ...circuit };
 }
 
 /**
- * Manually reset a provider's circuit breaker (Admin only)
+ * Admin manual reset or limit adjustment for a provider circuit breaker
  */
-function resetProviderCircuit({ providerName, newDailyLimit = null, reason = "Admin override", adminUid = "admin" }) {
+async function resetProviderCircuit({ providerName, newHourlyLimit, newDailyLimit, adminUid, reason }) {
   const key = String(providerName || "").toUpperCase();
-  const circuit = _inMemoryCircuitState.get(key);
-  if (!circuit) {
-    const err = new Error(`Unknown provider: '${providerName}'.`);
+  if (!DEFAULT_LIMITS[key]) {
+    const err = new Error(`Unknown provider '${providerName}'. Valid: ${Object.keys(DEFAULT_LIMITS).join(", ")}`);
     err.code = "ERR_INVALID_PROVIDER";
     err.status = 400;
     throw err;
   }
 
+  const repo = getRequiredConfigRepo();
+  const now = Date.now();
+  const all = await loadAllCircuits(true);
+  const circuit = all[key] || createFreshCircuit(key, now);
+
   circuit.state = "CLOSED";
-  circuit.dailySpent = 0;
   circuit.hourlySpent = 0;
+  circuit.dailySpent = 0;
   circuit.trippedAtMs = null;
-  circuit.tripReason = null;
-  if (newDailyLimit && Number(newDailyLimit) > 0) {
+  circuit.trippedReason = null;
+
+  if (Number.isFinite(Number(newHourlyLimit)) && Number(newHourlyLimit) > 0) {
+    circuit.hourlyLimit = Number(newHourlyLimit);
+  }
+  if (Number.isFinite(Number(newDailyLimit)) && Number(newDailyLimit) > 0) {
     circuit.dailyLimit = Number(newDailyLimit);
   }
 
+  all[key] = circuit;
+  await repo.setCircuitBreakers(all);
+  const cache = getCacheHolder(repo);
+  cache.data = all;
+  cache.expiresAtMs = now + CACHE_TTL_MS;
+
   return {
-    success: true,
-    provider: key,
-    state: "CLOSED",
-    reason,
-    adminUid,
-    dailyLimit: circuit.dailyLimit,
-    resetAtMs: Date.now()
+    ...circuit,
+    resetBy: adminUid || "admin",
+    resetReason: reason || "Manual circuit reset",
+    resetAtMs: now
   };
 }
 
 /**
- * Get snapshot of all circuit breaker statuses
+ * Get status of all provider circuit breakers
  */
-function getCircuitStatus() {
+async function getCircuitStatus({ forceRefresh = false } = {}) {
+  const now = Date.now();
+  const all = await loadAllCircuits(forceRefresh);
   const result = {};
-  for (const [key, c] of _inMemoryCircuitState.entries()) {
-    checkRollingWindow(c);
-    result[key] = {
-      provider: c.provider,
-      state: c.state,
-      dailySpent: c.dailySpent,
-      dailyLimit: c.dailyLimit,
-      hourlySpent: c.hourlySpent,
-      hourlyLimit: c.hourlyLimit,
-      trippedAtMs: c.trippedAtMs,
-      tripReason: c.tripReason
-    };
+  for (const p of Object.keys(DEFAULT_LIMITS)) {
+    const { circuit } = rotateWindowsIfNeeded(all[p] || createFreshCircuit(p, now), now);
+    result[p] = { ...circuit };
   }
   return result;
 }
 
-function resetAllCircuits() {
-  initCircuits();
+async function resetAllCircuits() {
+  const repo = getRequiredConfigRepo();
+  const now = Date.now();
+  const defaults = {};
+  for (const p of Object.keys(DEFAULT_LIMITS)) {
+    defaults[p] = createFreshCircuit(p, now);
+  }
+  await repo.setCircuitBreakers(defaults);
+  invalidateCircuitCache();
+  return defaults;
+}
+
+async function recordFailure(providerName, errorReason = "Failure") {
+  const key = String(providerName || "").toUpperCase();
+  const repo = getRequiredConfigRepo();
+  const now = Date.now();
+  const all = await loadAllCircuits(true);
+  const base = all[key] || createFreshCircuit(key, now);
+  const { circuit } = rotateWindowsIfNeeded(base, now);
+
+  circuit.consecutiveFailures = (circuit.consecutiveFailures || 0) + 1;
+  if (circuit.consecutiveFailures >= 5) {
+    circuit.state = "OPEN";
+    circuit.trippedAtMs = now;
+    circuit.trippedReason = errorReason;
+  }
+
+  all[key] = circuit;
+  await repo.setCircuitBreakers(all);
+  const cache = getCacheHolder(repo);
+  cache.data = all;
+  cache.expiresAtMs = now + CACHE_TTL_MS;
+  return circuit;
+}
+
+async function canExecute(providerName) {
+  return await checkProviderCircuit(providerName);
+}
+
+async function getCircuitState(providerName) {
+  const key = String(providerName || "").toUpperCase();
+  const all = await loadAllCircuits(false);
+  const circuit = all[key] || createFreshCircuit(key);
+  return circuit;
 }
 
 module.exports = {
+  CACHE_TTL_MS,
+  DEFAULT_LIMITS,
   checkProviderCircuit,
   recordProviderSpend,
   resetProviderCircuit,
   getCircuitStatus,
   resetAllCircuits,
-  DEFAULT_BUDGETS,
-  _inMemoryCircuitState
+  invalidateCircuitCache,
+  recordFailure,
+  canExecute,
+  getCircuitState
 };

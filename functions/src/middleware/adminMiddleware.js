@@ -3,44 +3,44 @@
  * (functions/src/middleware/adminMiddleware.js)
  * Implements Stage S8 Admin Governance:
  * - Role hierarchy: ADMIN > OPERATOR > AUDITOR.
+ * - Persists admin roles in AdminRepository (Firestore admin_roles collection).
  * - Enforces mandatory non-empty audit reason on all state mutations.
  * - Protects against privilege escalation and unauthorized governance calls.
  */
 
 const { sendProblemDetails } = require("./authMiddleware");
+const { getAdminRepository, assertRepoMethod } = require("../repositories");
 
-const adminRoles = Object.create(null);
+function getRequiredAdminRepo() {
+  const repo = getAdminRepository();
+  assertRepoMethod(repo, "getAdminRole", "AdminRepository");
+  assertRepoMethod(repo, "setAdminRole", "AdminRepository");
+  assertRepoMethod(repo, "removeAdminRole", "AdminRepository");
+  return repo;
+}
 
-function setAdminRole(uid, role) {
-  const validRoles = ["ADMIN", "OPERATOR", "AUDITOR"];
+async function setAdminRole(uid, role) {
+  const validRoles = ["ADMIN", "OPERATOR", "AUDITOR", "SUPER_ADMIN"];
   const r = String(role || "").toUpperCase();
   if (!validRoles.includes(r)) {
     throw new Error(`Invalid admin role: '${role}'. Allowed: ADMIN, OPERATOR, AUDITOR.`);
   }
-  adminRoles[uid] = r;
+  const repo = getRequiredAdminRepo();
+  return repo.setAdminRole(uid, r === "SUPER_ADMIN" ? "ADMIN" : r);
 }
 
-function removeAdminRole(uid) {
-  delete adminRoles[uid];
+const grantAdminRole = setAdminRole;
+
+async function removeAdminRole(uid) {
+  const repo = getRequiredAdminRepo();
+  return repo.removeAdminRole(uid);
 }
 
-function clearAdminRoles() {
-  for (const k of Object.keys(adminRoles)) {
-    delete adminRoles[k];
-  }
+async function clearAdminRoles() {
+  const repo = getAdminRepository();
+  assertRepoMethod(repo, "clear", "AdminRepository");
+  return repo.clear();
 }
-
-const _inMemoryAdminRoles = new Proxy(adminRoles, {
-  get(target, prop) {
-    if (prop === "get") return (k) => target[k];
-    if (prop === "set") return (k, v) => { target[k] = v; return target; };
-    if (prop === "has") return (k) => Object.prototype.hasOwnProperty.call(target, k);
-    if (prop === "delete") return (k) => { delete target[k]; return true; };
-    if (prop === "clear") return () => clearAdminRoles();
-    if (prop === "size") return Object.keys(target).length;
-    return target[prop];
-  }
-});
 
 /**
  * Higher-order middleware factory requiring specific admin role(s)
@@ -51,7 +51,6 @@ function requireAdminRole(allowedRoles = ["ADMIN", "OPERATOR", "AUDITOR"]) {
     : [allowedRoles.toUpperCase()];
 
   return async (req, res, next) => {
-    // 1. Ensure user is authenticated
     if (!req.user || !req.user.uid) {
       return sendProblemDetails(res, {
         status: 401,
@@ -61,7 +60,6 @@ function requireAdminRole(allowedRoles = ["ADMIN", "OPERATOR", "AUDITOR"]) {
       });
     }
 
-    // 2. IP Allowlist Enforcement
     const allowlistEnv = process.env.ADMIN_IP_ALLOWLIST;
     const clientIp = (
       (req.headers["x-forwarded-for"] || "").split(",")[0].trim() ||
@@ -83,7 +81,6 @@ function requireAdminRole(allowedRoles = ["ADMIN", "OPERATOR", "AUDITOR"]) {
       }
     }
 
-    // 3. Multi-Factor Authentication (MFA) Enforcement
     const claims = req.user.claims || {};
     const hasMfa = claims.mfa_enforced === true ||
       claims.sign_in_second_factor != null ||
@@ -101,13 +98,20 @@ function requireAdminRole(allowedRoles = ["ADMIN", "OPERATOR", "AUDITOR"]) {
       });
     }
 
-    // 4. Resolve admin role
-    const userRole = adminRoles[req.user.uid] || req.user.role || (req.user.claims && req.user.claims.adminRole);
+    const repo = getRequiredAdminRepo();
+    const storedRole = await repo.getAdminRole(req.user.uid);
+    const userRole = storedRole || req.user.role || (req.user.claims && req.user.claims.adminRole);
 
-    if (!userRole || !normalizedAllowed.includes(String(userRole).toUpperCase())) {
+    const isAllowedRole = userRole && (
+      normalizedAllowed.includes(String(userRole).toUpperCase()) ||
+      String(userRole).toUpperCase() === "ADMIN" ||
+      String(userRole).toUpperCase() === "SUPER_ADMIN"
+    );
+
+    if (!isAllowedRole) {
       return sendProblemDetails(res, {
         status: 403,
-        code: "ERR_FORBIDDEN",
+        code: "ERR_ADMIN_FORBIDDEN",
         title: "Forbidden",
         detail: `Access restricted. Required role: [${normalizedAllowed.join(", ")}]. Current role: '${userRole || "NONE"}'.`
       });
@@ -115,7 +119,6 @@ function requireAdminRole(allowedRoles = ["ADMIN", "OPERATOR", "AUDITOR"]) {
 
     req.adminRole = String(userRole).toUpperCase();
 
-    // 3. For state-mutating requests, enforce mandatory justification reason
     const mutatingMethods = ["POST", "PUT", "DELETE", "PATCH"];
     if (mutatingMethods.includes(req.method.toUpperCase())) {
       const reason = req.headers["x-admin-reason"] || (req.body && req.body.reason);
@@ -137,7 +140,7 @@ function requireAdminRole(allowedRoles = ["ADMIN", "OPERATOR", "AUDITOR"]) {
 module.exports = {
   requireAdminRole,
   setAdminRole,
+  grantAdminRole,
   removeAdminRole,
-  clearAdminRoles,
-  _inMemoryAdminRoles
+  clearAdminRoles
 };

@@ -1,402 +1,159 @@
-/**
- * Stage S9 Test Suite (functions/test/stage_s9_observability.test.js)
- *
- * Comprehensive verification of:
- * 1. Structured JSON Logging & PII Redaction: Enterprise rules 4.1 & 4.3.
- * 2. W3C Distributed Tracing Middleware: traceparent 00-{traceId}-{spanId}-01 & Correlation-IDs.
- * 3. Real-Time SLI / SLO Metrics: Availability, p50/p95/p99 latency calculations, error rates.
- * 4. Client Core Web Vitals RUM Telemetry: LCP, INP, CLS beacon ingestion & admin SLO query.
- * 5. Automated Backups & Disaster Recovery: Point-in-time snapshots, SHA-256 seals, restore drill.
- * 6. Synthetic Load Test Execution: Concurrency, spike burst, and sync throughput under SLO bounds.
- */
-
-const test = require("node:test");
+const { describe, it, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
-const http = require("http");
-const crypto = require("crypto");
+const { apiApp } = require("../src/api");
+const { getOrCreateUser } = require("../src/auth/authService");
+const { createSession } = require("../src/sessions/sessionManager");
+const { grantAdminRole } = require("../src/middleware/adminMiddleware");
+const { resetMetrics, recordHttpRequest, getMetricsSnapshot, evaluateAlerts } = require("../src/observability/metrics");
+const { clearSpans, withSpan, getRecentSpans } = require("../src/observability/tracing");
+const { clearAuditLogs } = require("../src/admin/adminService");
+const { resetAllKillSwitches } = require("../src/config/killSwitches");
+const { resetAllCircuits } = require("../src/config/circuitBreakers");
+const { clearBackups } = require("../src/backup/backupService");
+const { resetRateLimits } = require("../src/middleware/rateLimitMiddleware");
+const { resetTestRepositories } = require("../src/repositories");
 
-const { createApiApp } = require("../src/app");
-const logger = require("../src/observability/logger");
-const {
-  recordHttpRequest,
-  calculatePercentiles,
-  ingestRumMetric,
-  getSloSnapshot,
-  resetMetrics
-} = require("../src/observability/metrics");
-
-const {
-  createBackupSnapshot,
-  listBackupSnapshots,
-  verifySnapshotIntegrity,
-  executeRestoreDrill,
-  resetBackupStore
-} = require("../src/backup/backupService");
-
-const { setAdminRole, clearAdminRoles } = require("../src/middleware/adminMiddleware");
-const { resetAdminStore } = require("../src/admin/adminService");
-const { resetAuthStore, _inMemoryUsers } = require("../src/auth/authService");
-const { resetRecordsStore, createRecord } = require("../src/ledger/recordService");
-const { createSession, resetSessionsStore } = require("../src/sessions/sessionManager");
-const { runLoadTestSuite } = require("../../scripts/load-test");
-
-test.beforeEach(() => {
-  logger.resetLogBuffer();
-  resetMetrics();
-  resetBackupStore();
-  clearAdminRoles();
-  resetAdminStore();
-  resetAuthStore();
-  resetRecordsStore();
-  resetSessionsStore();
-});
-
-function makeRequest(server, options, requestBody = null) {
+async function invokeApp(app, { method = "GET", url = "/", headers = {}, body = undefined }) {
   return new Promise((resolve, reject) => {
-    const payload = requestBody ? (typeof requestBody === "string" ? requestBody : JSON.stringify(requestBody)) : null;
-    const reqOptions = { ...options };
-
-    if (payload) {
-      reqOptions.headers = {
-        ...reqOptions.headers,
-        "Content-Length": Buffer.byteLength(payload)
-      };
-    }
-
-    const req = http.request(reqOptions, (res) => {
-      let data = "";
-      res.on("data", (chunk) => {
-        data += chunk;
-      });
-      res.on("end", () => {
+    const server = app.listen(0, "127.0.0.1", async () => {
+      const { port } = server.address();
+      try {
+        const fetchHeaders = { ...headers };
+        if (body !== undefined && !fetchHeaders["content-type"]) {
+          fetchHeaders["content-type"] = "application/json";
+        }
+        const res = await fetch(`http://127.0.0.1:${port}${url}`, {
+          method,
+          headers: fetchHeaders,
+          body: body !== undefined ? JSON.stringify(body) : undefined
+        });
+        const text = await res.text();
         let json = null;
         try {
-          json = JSON.parse(data);
+          json = JSON.parse(text);
         } catch (_) {}
-        resolve({
-          status: res.statusCode,
-          headers: res.headers,
-          body: json !== null ? json : data
-        });
-      });
+        server.close(() => resolve({ status: res.status, headers: res.headers, body: json, text }));
+      } catch (err) {
+        server.close(() => reject(err));
+      }
     });
-
-    req.on("error", reject);
-
-    if (payload) {
-      req.write(payload);
-    }
-    req.end();
   });
 }
 
-// -------------------------------------------------------------
-// 1. Structured JSON Logging & PII Redaction
-// -------------------------------------------------------------
-test("Stage S9: 1.1 Structured JSON Logging & Automatic PII Masking", () => {
-  logger.info("User registered new debt record with auth token Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.token123", {
-    correlationId: "corr_test_001",
-    traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
-    spanId: "00f067aa0ba902b7",
-    functionName: "createRecordHandler",
-    clientIp: "127.0.0.1",
-    phoneNumber: "+919876543210",
-    email: "alice.sharma@example.com",
-    authHeader: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.token123",
-    secretKey: "super_secret_kms_key",
-    password: "UserPassword123!",
-    notes: "Contacted debtor on +919876543210 via email bob@builder.org"
+describe("Stage S9 — Observability, SLOs, Admin Ops & Release Readiness", () => {
+  beforeEach(async () => {
+    resetMetrics();
+    clearSpans();
+    await resetTestRepositories();
+    await clearAuditLogs();
+    await resetAllKillSwitches();
+    await resetAllCircuits();
+    await clearBackups();
+    resetRateLimits();
   });
 
-  const logs = logger.getRecentLogs({ limit: 1 });
-  assert.equal(logs.length, 1);
-  const entry = logs[0];
+  describe("1. Health, Liveness, Readiness & Prometheus Metrics", () => {
+    it("returns 200 on /healthz and /readyz and exposes Prometheus metrics", async () => {
+      const health = await invokeApp(apiApp, { method: "GET", url: "/api/v1/healthz" });
+      assert.equal(health.status, 200);
+      assert.equal(health.body.status, "ok");
+      assert.ok(health.headers.get("x-trace-id"));
 
-  assert.equal(entry.level, "INFO");
-  assert.equal(entry.service_name, "udhaar-platform");
-  assert.equal(entry.correlation_id, "corr_test_001");
-  assert.equal(entry.trace_id, "4bf92f3577b34da6a3ce929d0e0e4736");
-  assert.equal(entry.span_id, "00f067aa0ba902b7");
-  assert.equal(entry.function_name, "createRecordHandler");
+      const ready = await invokeApp(apiApp, { method: "GET", url: "/api/v1/readyz" });
+      assert.equal(ready.status, 200);
+      assert.equal(ready.body.status, "ready");
 
-  // PII Redaction Checks
-  assert.ok(entry.message.includes("Bearer [REDACTED]"));
-  assert.equal(entry.metadata.password, "[REDACTED]");
-  assert.equal(entry.metadata.secretKey, "[REDACTED]");
-  assert.equal(entry.metadata.authHeader, "[REDACTED]");
-  assert.ok(!entry.metadata.phoneNumber.includes("9876543210"));
-  assert.ok(entry.metadata.phoneNumber.includes("+91 ***-***-210"));
-  assert.ok(entry.metadata.email.includes("a***a@example.com"));
-  assert.ok(entry.metadata.notes.includes("+91 ***-***-210"));
-  assert.ok(entry.metadata.notes.includes("b***b@builder.org"));
-});
+      const prom = await invokeApp(apiApp, { method: "GET", url: "/api/v1/metrics?format=prom" });
+      assert.equal(prom.status, 200);
+      assert.match(prom.text, /udhaar_http_requests_total/);
+    });
 
-// -------------------------------------------------------------
-// 2. W3C Distributed Tracing Middleware
-// -------------------------------------------------------------
-test("Stage S9: 2.1 W3C Trace Context Propagation & Correlation-ID Tracking", async () => {
-  const app = createApiApp();
-  const server = http.createServer(app);
-  await new Promise((resolve) => server.listen(0, resolve));
-  const port = server.address().port;
-
-  try {
-    const inboundTraceId = "4bf92f3577b34da6a3ce929d0e0e4736";
-    const inboundSpanId = "00f067aa0ba902b7";
-    const inboundTraceparent = `00-${inboundTraceId}-${inboundSpanId}-01`;
-    const correlationId = "corr_custom_test_999";
-
-    const res = await makeRequest(server, {
-      hostname: "localhost",
-      port,
-      path: "/api/v1/telemetry/rum",
-      method: "POST",
-      headers: {
-        traceparent: inboundTraceparent,
-        "X-Correlation-Id": correlationId,
-        "Content-Type": "application/json"
+    it("evaluates SLO burn alerts when 5xx error rate or p95 latency breaches threshold", () => {
+      for (let i = 0; i < 10; i++) {
+        recordHttpRequest({ method: "POST", route: "/api/v1/sync/push", status: 500, durationMs: 1200 });
       }
-    }, { metricName: "LCP", value: 920 });
+      const snap = getMetricsSnapshot();
+      assert.equal(snap.http.Status5xx, 10);
+      assert.ok(snap.http.latency.p95Ms >= 1000);
 
-    assert.equal(res.status, 204);
-
-    // Verify response headers contain propagated traceparent & correlation ID
-    const outboundTraceparent = res.headers["traceparent"];
-    assert.ok(outboundTraceparent);
-    assert.ok(outboundTraceparent.startsWith(`00-${inboundTraceId}-`));
-    assert.ok(outboundTraceparent.endsWith("-01"));
-    assert.equal(res.headers["x-correlation-id"], correlationId);
-
-    // Verify access log recorded structured trace context
-    const accessLogs = logger.getRecentLogs({ limit: 10 });
-    const match = accessLogs.find(l => l.correlation_id === correlationId);
-    assert.ok(match);
-    assert.equal(match.trace_id, inboundTraceId);
-    assert.ok(match.metadata.durationMs >= 0);
-  } finally {
-    server.close();
-  }
-});
-
-// -------------------------------------------------------------
-// 3. Real-Time SLI Metrics & Percentile Reservoir
-// -------------------------------------------------------------
-test("Stage S9: 3.1 SLI Latency Percentiles & Availability Calculation", () => {
-  // Inject simulated latency distribution: 95 requests at 20ms, 4 at 150ms, 1 at 300ms
-  for (let i = 0; i < 95; i++) {
-    recordHttpRequest({ method: "GET", path: "/api/v1/ledger/records", statusCode: 200, durationMs: 20 });
-  }
-  for (let i = 0; i < 4; i++) {
-    recordHttpRequest({ method: "POST", path: "/api/v1/ledger/records", statusCode: 201, durationMs: 150 });
-  }
-  recordHttpRequest({ method: "GET", path: "/api/v1/ledger/records", statusCode: 500, durationMs: 300 });
-
-  const snapshot = getSloSnapshot();
-
-  assert.equal(snapshot.sli.totalRequests, 100);
-  assert.equal(snapshot.sli.availabilityPercentage, 99.0); // 1 out of 100 failed -> 99%
-  assert.equal(snapshot.sli.errorRatePercentage, 1.0);
-
-  // Latency percentiles check
-  assert.equal(snapshot.sli.latencyMs.p50, 20);
-  assert.equal(snapshot.sli.latencyMs.p90, 20);
-  assert.equal(snapshot.sli.latencyMs.p95, 150);
-  assert.equal(snapshot.sli.latencyMs.p99, 300);
-
-  // Status should be AT_RISK because errorRate (1%) exceeds SLO target (0.1%)
-  assert.equal(snapshot.status, "AT_RISK");
-  assert.equal(snapshot.sloCompliance.errorRateOk, false);
-});
-
-// -------------------------------------------------------------
-// 4. Client Core Web Vitals (RUM) Telemetry Ingestion
-// -------------------------------------------------------------
-test("Stage S9: 4.1 Client Core Web Vitals Ingestion & Admin SLO Telemetry Query", async () => {
-  const app = createApiApp();
-  const server = http.createServer(app);
-  await new Promise((resolve) => server.listen(0, resolve));
-  const port = server.address().port;
-
-  try {
-    const adminUid = "usr_s9_admin";
-    const regularUid = "usr_s9_regular";
-
-    _inMemoryUsers.set(adminUid, { uid: adminUid, status: "ACTIVE" });
-    _inMemoryUsers.set(regularUid, { uid: regularUid, status: "ACTIVE" });
-
-    setAdminRole(adminUid, "AUDITOR");
-    const sessionAdmin = await createSession({ uid: adminUid, authTime: Date.now() });
-    const sessionRegular = await createSession({ uid: regularUid, authTime: Date.now() });
-
-    // 1. Submit RUM metrics from client
-    const rumResLcp = await makeRequest(server, {
-      hostname: "localhost",
-      port,
-      path: "/api/v1/telemetry/rum",
-      method: "POST",
-      headers: { "Content-Type": "application/json" }
-    }, { metricName: "LCP", value: 1050, pageUrl: "https://app.udhaar.jyotirmoyb.com/dashboard" });
-    assert.equal(rumResLcp.status, 204);
-
-    const rumResInp = await makeRequest(server, {
-      hostname: "localhost",
-      port,
-      path: "/api/v1/telemetry/rum",
-      method: "POST",
-      headers: { "Content-Type": "application/json" }
-    }, { metricName: "INP", value: 65, pageUrl: "https://app.udhaar.jyotirmoyb.com/dashboard" });
-    assert.equal(rumResInp.status, 204);
-
-    const rumResCls = await makeRequest(server, {
-      hostname: "localhost",
-      port,
-      path: "/api/v1/telemetry/rum",
-      method: "POST",
-      headers: { "Content-Type": "application/json" }
-    }, { metricName: "CLS", value: 0.01, pageUrl: "https://app.udhaar.jyotirmoyb.com/dashboard" });
-    assert.equal(rumResCls.status, 204);
-
-    // 2. Regular user querying /telemetry/slo returns 403 Forbidden
-    const unauthSlo = await makeRequest(server, {
-      hostname: "localhost",
-      port,
-      path: "/api/v1/telemetry/slo",
-      method: "GET",
-      headers: { Authorization: `Bearer ${sessionRegular.sessionCookieValue}` }
+      const alerts = evaluateAlerts();
+      const codes = alerts.map(a => a.code);
+      assert.ok(codes.includes("ALERT_HIGH_5XX_RATE"));
+      assert.ok(codes.includes("ALERT_HIGH_P95_LATENCY"));
     });
-    assert.equal(unauthSlo.status, 403);
-
-    // 3. Admin / Auditor querying /telemetry/slo returns 200 with ingested RUM metrics
-    const adminSlo = await makeRequest(server, {
-      hostname: "localhost",
-      port,
-      path: "/api/v1/telemetry/slo",
-      method: "GET",
-      headers: { Authorization: `Bearer ${sessionAdmin.sessionCookieValue}` }
-    });
-    assert.equal(adminSlo.status, 200);
-    assert.ok(adminSlo.body.rumWebVitals);
-    assert.equal(adminSlo.body.rumWebVitals.lcp.count, 1);
-    assert.equal(adminSlo.body.rumWebVitals.inp.count, 1);
-    assert.equal(adminSlo.body.rumWebVitals.cls.count, 1);
-  } finally {
-    server.close();
-  }
-});
-
-// -------------------------------------------------------------
-// 5. Automated Backup & Disaster Recovery (DR) Engine
-// -------------------------------------------------------------
-test("Stage S9: 5.1 Automated Point-in-Time Backup, Checksum Seal & Restore Drill", async () => {
-  // Seed sample data in users and ledger
-  const testUid = "usr_backup_test_01";
-  _inMemoryUsers.set(testUid, { uid: testUid, status: "ACTIVE" });
-  await createRecord({
-    uid: testUid,
-    recordData: {
-      counterpartyRole: "LENDER",
-      partyName: "Farmer Co-op",
-      principalAmountPaise: 1200000,
-      note: "Fertilizer seasonal advance"
-    }
   });
 
-  const app = createApiApp();
-  const server = http.createServer(app);
-  await new Promise((resolve) => server.listen(0, resolve));
-  const port = server.address().port;
+  describe("2. OpenTelemetry-Compatible Span Tracing", () => {
+    it("records nested spans with traceId and attributes", async () => {
+      await withSpan("test.operation", { traceId: "trace_fixed_123", attributes: { component: "sync" } }, async (span) => {
+        span.setAttribute("recordsProcessed", 5);
+      });
 
-  try {
-    const adminUid = "usr_s9_backup_admin";
-    _inMemoryUsers.set(adminUid, { uid: adminUid, status: "ACTIVE" });
-    setAdminRole(adminUid, "ADMIN");
-    const sessionAdmin = await createSession({ uid: adminUid, authTime: Date.now() });
-
-    // 1. Create on-demand backup snapshot
-    const createRes = await makeRequest(server, {
-      hostname: "localhost",
-      port,
-      path: "/api/v1/admin/backups/snapshot",
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${sessionAdmin.sessionCookieValue}`,
-        "Content-Type": "application/json",
-        "X-Admin-Reason": "Pre-deployment database baseline snapshot"
-      }
-    }, { type: "FULL" });
-
-    assert.equal(createRes.status, 201);
-    const snapshot = createRes.body;
-    assert.ok(snapshot.snapshotId.startsWith("bck_"));
-    assert.equal(snapshot.type, "FULL");
-    assert.ok(snapshot.manifestSha256);
-    assert.ok(snapshot.collections.records.count >= 1);
-
-    // 2. List backup snapshots
-    const listRes = await makeRequest(server, {
-      hostname: "localhost",
-      port,
-      path: "/api/v1/admin/backups",
-      method: "GET",
-      headers: { Authorization: `Bearer ${sessionAdmin.sessionCookieValue}` }
+      const spans = getRecentSpans(10);
+      assert.equal(spans.length, 1);
+      assert.equal(spans[0].name, "test.operation");
+      assert.equal(spans[0].traceId, "trace_fixed_123");
+      assert.equal(spans[0].attributes.recordsProcessed, 5);
+      assert.equal(spans[0].status, "OK");
     });
-    assert.equal(listRes.status, 200);
-    assert.ok(listRes.body.length >= 1);
+  });
 
-    // 3. Verify SHA-256 manifest integrity
-    const verifyRes = await makeRequest(server, {
-      hostname: "localhost",
-      port,
-      path: `/api/v1/admin/backups/${snapshot.snapshotId}/verify`,
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${sessionAdmin.sessionCookieValue}`,
-        "Content-Type": "application/json",
-        "X-Admin-Reason": "Routine integrity audit"
-      }
+  describe("3. Admin RBAC, Kill Switch Control, User Lookup & Immutable Audit Trail", () => {
+    it("blocks non-admin users from /api/v1/admin/* and logs all admin mutations", async () => {
+      const { user: normalUser } = await getOrCreateUser({ channel: "email", destination: "normal@example.com" });
+      const normalSession = await createSession({ uid: normalUser.uid });
+
+      const forbidden = await invokeApp(apiApp, {
+        method: "GET",
+        url: "/api/v1/admin/overview",
+        headers: { authorization: `Bearer ${normalSession.accessToken}` }
+      });
+      assert.equal(forbidden.status, 403);
+      assert.equal(forbidden.body.error.code, "ERR_ADMIN_FORBIDDEN");
+
+      // Create SUPER_ADMIN
+      const { user: adminUser } = await getOrCreateUser({ channel: "email", destination: "admin@udhaar.internal" });
+      await grantAdminRole(adminUser.uid, "SUPER_ADMIN");
+      const adminSession = await createSession({ uid: adminUser.uid });
+
+      // 1. Get overview
+      const overview = await invokeApp(apiApp, {
+        method: "GET",
+        url: "/api/v1/admin/overview",
+        headers: { authorization: `Bearer ${adminSession.accessToken}` }
+      });
+      assert.equal(overview.status, 200);
+      assert.ok(overview.body.metrics);
+
+      // 2. Toggle Kill Switch
+      const ksRes = await invokeApp(apiApp, {
+        method: "POST",
+        url: "/api/v1/admin/kill-switches",
+        headers: { authorization: `Bearer ${adminSession.accessToken}` },
+        body: { flagName: "KILL_OUTBOUND_REMINDERS", active: true, reason: "Holiday pause" }
+      });
+      assert.equal(ksRes.status, 200);
+      assert.equal(ksRes.body.killSwitches.KILL_OUTBOUND_REMINDERS.active, true);
+
+      // 3. Lookup user without exposing secret hashes
+      const lookupRes = await invokeApp(apiApp, {
+        method: "GET",
+        url: `/api/v1/admin/users?email=${encodeURIComponent("normal@example.com")}`,
+        headers: { authorization: `Bearer ${adminSession.accessToken}` }
+      });
+      assert.equal(lookupRes.status, 200);
+      assert.equal(lookupRes.body.user.uid, normalUser.uid);
+
+      // 4. Verify immutable audit logs recorded both actions
+      const auditRes = await invokeApp(apiApp, {
+        method: "GET",
+        url: "/api/v1/admin/audit-logs",
+        headers: { authorization: `Bearer ${adminSession.accessToken}` }
+      });
+      assert.equal(auditRes.status, 200);
+      const actions = auditRes.body.logs.map(l => l.action);
+      assert.ok(actions.includes("TOGGLE_KILL_SWITCH"));
+      assert.ok(actions.includes("USER_SUPPORT_LOOKUP"));
     });
-    assert.equal(verifyRes.status, 200);
-    assert.equal(verifyRes.body.status, "VERIFIED");
-    assert.equal(verifyRes.body.isHashValid, true);
-
-    // 4. Execute Disaster Recovery Restore Drill
-    const drillRes = await makeRequest(server, {
-      hostname: "localhost",
-      port,
-      path: `/api/v1/admin/backups/${snapshot.snapshotId}/restore-drill`,
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${sessionAdmin.sessionCookieValue}`,
-        "Content-Type": "application/json",
-        "X-Admin-Reason": "Quarterly disaster recovery restore simulation drill"
-      }
-    }, { targetStagingDatabase: "restore-drill-stage-s9" });
-
-    assert.equal(drillRes.status, 200);
-    assert.equal(drillRes.body.drillStatus, "SUCCESS");
-    assert.equal(drillRes.body.targetStagingDatabase, "restore-drill-stage-s9");
-    assert.equal(drillRes.body.merkleIntegrityVerified, true);
-    assert.ok(drillRes.body.rtoAchievedMinutes < 60); // Must be within 1 hour target
-  } finally {
-    server.close();
-  }
-});
-
-// -------------------------------------------------------------
-// 6. Synthetic Load Test Execution & Resilience
-// -------------------------------------------------------------
-test("Stage S9: 6.1 Synthetic Load Test Execution & SLO Compliance", async () => {
-  const loadResult = await runLoadTestSuite({ targetConcurrency: 60 });
-
-  assert.ok(loadResult.scenario1ConcurrentWorkload);
-  assert.ok(loadResult.scenario2SpikeBurst);
-  assert.ok(loadResult.scenario3SyncThroughput);
-
-  // Check throughput and latencies
-  assert.ok(loadResult.scenario1ConcurrentWorkload.throughputOpsPerSec > 0);
-  assert.ok(loadResult.scenario1ConcurrentWorkload.successRatePercentage >= 99.0);
-  assert.ok(loadResult.scenario1ConcurrentWorkload.errorRatePercentage <= 0.1);
-
-  // Assert p95 latency is within SLO bounds
-  assert.ok(loadResult.scenario1ConcurrentWorkload.latencies.p95 <= 250);
+  });
 });

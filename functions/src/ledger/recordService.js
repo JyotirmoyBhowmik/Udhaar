@@ -1,170 +1,186 @@
 /**
  * Ledger Records Service (functions/src/ledger/recordService.js)
- * Implements CRUD on ledger entries with field-level envelope encryption,
- * quota enforcement, optimistic concurrency control (ETag/rev), and audit events.
- * Backed by persistent repositories with zero module-level Map storage.
+ * Implements CRUD, quota enforcement, optimistic concurrency (ETag / serverRev),
+ * cursor pagination, and Cloud KMS envelope encryption.
+ * Backed by persistent LedgerRepository with zero Proxy facades or module-level Map storage.
  */
 
 const crypto = require("crypto");
 const { USER_QUOTAS } = require("../config/quotas");
-const {
-  getOrCreateUserDek,
-  encryptRecordFields,
-  decryptRecordFields
-} = require("../crypto/envelopeCrypto");
+const { getOrCreateUserDek, encryptRecordFields, decryptRecordFields } = require("../crypto/envelopeCrypto");
 const { appendLedgerEvent } = require("./eventService");
-const { getLedgerRepository } = require("../repositories");
+const { getLedgerRepository, assertRepoMethod } = require("../repositories");
 
-/**
- * Backward-compatible proxy object for legacy tests inspecting in-memory records map
- */
-const proxyMap = (getMapFn) => new Proxy({}, {
-  get(target, prop) {
-    const map = getMapFn() || {};
-    if (typeof map[prop] === "function") {
-      return map[prop].bind(map);
-    }
-    return map[prop];
-  }
-});
+const VALID_ROLES = ["LENDER", "BORROWER"];
+const VALID_STATUSES = ["PENDING", "CONFIRMED", "SETTLED", "DISPUTED"];
 
-const _inMemoryRecords = proxyMap(() => getLedgerRepository().records);
-
-function resetRecordsStore() {
+function getRequiredLedgerRepo() {
   const repo = getLedgerRepository();
-  if (typeof repo.clear === "function") {
-    repo.clear();
-  }
+  assertRepoMethod(repo, "createRecord", "LedgerRepository");
+  assertRepoMethod(repo, "getRecord", "LedgerRepository");
+  assertRepoMethod(repo, "updateRecord", "LedgerRepository");
+  assertRepoMethod(repo, "listRecords", "LedgerRepository");
+  return repo;
 }
 
 /**
- * Validate incoming record payload
+ * Validate integer paise and record payload
  */
-function validateRecordInput(data) {
+function validateRecordInput(data, isUpdate = false) {
   if (!data || typeof data !== "object") {
-    const err = new Error("Record payload is required");
-    err.code = "ERR_INVALID_INPUT";
+    const err = new Error("Record data is required");
+    err.code = "ERR_INVALID_DATA";
     err.status = 400;
     throw err;
   }
 
-  // Amount must be positive integer paise
-  const paise = Number(data.principalAmountPaise);
-  if (!Number.isInteger(paise) || paise <= 0) {
-    const err = new Error("Principal amount must be a positive integer in paise (e.g. 500000 for ₹5,000.00)");
-    err.code = "ERR_INVALID_AMOUNT";
+  const rawPaise = data.principalAmountPaise !== undefined ? data.principalAmountPaise : data.amountPaise;
+  if (!isUpdate || rawPaise !== undefined) {
+    const paise = Number(rawPaise);
+    if (!Number.isInteger(paise) || paise <= 0) {
+      const err = new Error("principalAmountPaise must be a positive integer in paise (e.g., 50000 for ₹500.00)");
+      err.code = "ERR_INVALID_AMOUNT";
+      err.status = 400;
+      throw err;
+    }
+  }
+
+  const partyName = data.partyName || data.counterpartyName;
+  if (!isUpdate || partyName !== undefined) {
+    if (!partyName || typeof partyName !== "string" || partyName.trim().length === 0) {
+      const err = new Error("Counterparty name (partyName) is required");
+      err.code = "ERR_INVALID_PARTY_NAME";
+      err.status = 400;
+      throw err;
+    }
+    if (partyName.length > USER_QUOTAS.MAX_NAME_LENGTH) {
+      const err = new Error(`Counterparty name cannot exceed ${USER_QUOTAS.MAX_NAME_LENGTH} characters`);
+      err.code = "ERR_PARTY_NAME_TOO_LONG";
+      err.status = 400;
+      throw err;
+    }
+  }
+
+  const role = data.counterpartyRole || data.role;
+  if (!isUpdate || role !== undefined) {
+    const resolvedRole = role || "BORROWER";
+    if (!VALID_ROLES.includes(resolvedRole)) {
+      const err = new Error("counterpartyRole must be LENDER or BORROWER");
+      err.code = "ERR_INVALID_ROLE";
+      err.status = 400;
+      throw err;
+    }
+  }
+
+  if (data.note && typeof data.note === "string" && data.note.length > USER_QUOTAS.MAX_NOTE_LENGTH) {
+    const err = new Error(`Note cannot exceed ${USER_QUOTAS.MAX_NOTE_LENGTH} characters`);
+    err.code = "ERR_NOTE_TOO_LONG";
     err.status = 400;
     throw err;
   }
 
-  // Role must be LENDER or BORROWER
-  const role = String(data.counterpartyRole || "").toUpperCase();
-  if (role !== "LENDER" && role !== "BORROWER") {
-    const err = new Error("Counterparty role must be either 'LENDER' or 'BORROWER'");
-    err.code = "ERR_INVALID_ROLE";
+  if (data.items && Array.isArray(data.items) && data.items.length > USER_QUOTAS.MAX_ITEMS_PER_RECORD) {
+    const err = new Error(`Cannot exceed ${USER_QUOTAS.MAX_ITEMS_PER_RECORD} line items per record`);
+    err.code = "ERR_TOO_MANY_ITEMS";
     err.status = 400;
     throw err;
   }
-
-  // Counterparty name required
-  if (!data.partyName || typeof data.partyName !== "string" || data.partyName.trim().length === 0) {
-    const err = new Error("Counterparty name is required");
-    err.code = "ERR_INVALID_PARTY_NAME";
-    err.status = 400;
-    throw err;
-  }
-
-  return {
-    principalAmountPaise: paise,
-    counterpartyRole: role,
-    partyName: data.partyName.trim(),
-    partyPhone: data.partyPhone ? String(data.partyPhone).trim() : "",
-    dueDateMs: Number(data.dueDateMs) || 0,
-    note: data.note ? String(data.note).trim() : "",
-    items: Array.isArray(data.items) ? data.items : [],
-    upiId: data.upiId ? String(data.upiId).trim() : "",
-    partyId: data.partyId || `pty_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`
-  };
 }
 
 /**
- * Create a new record
+ * Create a new ledger record
  */
-async function createRecord({ uid, recordData, clientRevision = 1, hlc = "", idempotencyKey = "" }) {
-  const ledgerRepo = getLedgerRepository();
+async function createRecord(uidOrParams, recordDataArg) {
+  let uid;
+  let recordData;
 
-  // 1. Quota check
-  const activeRecords = await ledgerRepo.listRecords(uid);
-  const activeCount = activeRecords.filter(r => !r.deletedAtMs).length;
-  if (activeCount >= USER_QUOTAS.MAX_RECORDS) {
-    const err = new Error(`User account quota exceeded: maximum of ${USER_QUOTAS.MAX_RECORDS} records allowed.`);
+  if (typeof uidOrParams === "object" && uidOrParams !== null && (uidOrParams.recordData || uidOrParams.userId)) {
+    uid = uidOrParams.uid || uidOrParams.userId;
+    recordData = uidOrParams.recordData || uidOrParams;
+  } else {
+    uid = uidOrParams;
+    recordData = recordDataArg || {};
+  }
+
+  validateRecordInput(recordData, false);
+
+  const repo = getRequiredLedgerRepo();
+  const recordCount = typeof repo.countRecords === "function"
+    ? await repo.countRecords(uid)
+    : (await repo.listRecords(uid)).length;
+
+  if (recordCount >= USER_QUOTAS.MAX_RECORDS) {
+    const err = new Error(`Account record quota (${USER_QUOTAS.MAX_RECORDS}) exceeded.`);
     err.code = "ERR_QUOTA_EXCEEDED";
     err.status = 403;
     throw err;
   }
 
-  // 2. Input validation
-  const validated = validateRecordInput(recordData);
-
-  const recordId = `rec_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
-  const syncId = recordData.syncId || crypto.randomUUID();
   const now = Date.now();
+  const recordId = recordData.recordId || `rec_${now}_${crypto.randomBytes(4).toString("hex")}`;
+  const rawPaise = recordData.principalAmountPaise !== undefined ? recordData.principalAmountPaise : recordData.amountPaise;
+  const principalPaise = Number(rawPaise);
+  const partyName = (recordData.partyName || recordData.counterpartyName || "Counterparty").trim();
+  const counterpartyRole = recordData.counterpartyRole || recordData.role || "BORROWER";
 
-  const recordPayload = {
+  const plainRecord = {
     recordId,
     id: recordId,
-    syncId,
-    partyId: validated.partyId,
-    partyName: validated.partyName,
-    partyPhone: validated.partyPhone,
-    counterpartyRole: validated.counterpartyRole,
-    principalAmountPaise: validated.principalAmountPaise,
-    remainingAmountPaise: validated.principalAmountPaise,
-    dueDateMs: validated.dueDateMs,
-    note: validated.note,
-    items: validated.items,
-    upiId: validated.upiId,
-    status: "PENDING",
-    serverRev: 1,
-    clientRevision: Number(clientRevision) || 1,
-    hlc: hlc || `${now}:0:server`,
-    idempotencyKey,
-    linkedRemoteRecordId: recordData.linkedRemoteRecordId || null,
+    uid,
+    personId: recordData.personId || null,
+    counterpartyRole,
+    partyName,
+    partyPhone: (recordData.partyPhone || "").trim(),
+    principalAmountPaise: principalPaise,
+    remainingAmountPaise: principalPaise,
+    currency: "INR",
+    status: recordData.status && VALID_STATUSES.includes(recordData.status) ? recordData.status : "PENDING",
+    interestType: recordData.interestType || "NONE",
+    interestRateBps: Number(recordData.interestRateBps) || 0,
+    interestPeriod: recordData.interestPeriod || "MONTHLY",
+    compoundFrequency: recordData.compoundFrequency || "NONE",
+    startDateMs: Number(recordData.startDateMs) || now,
+    dueDateMs: recordData.dueDateMs ? Number(recordData.dueDateMs) : null,
+    reminderDateMs: recordData.reminderDateMs ? Number(recordData.reminderDateMs) : null,
+    remindersDisabled: Boolean(recordData.remindersDisabled),
+    note: (recordData.note || "").trim(),
+    items: Array.isArray(recordData.items) ? recordData.items : [],
+    upiId: (recordData.upiId || "").trim(),
     linkedCreatorUid: recordData.linkedCreatorUid || null,
+    remoteRecordId: recordData.remoteRecordId || null,
+    serverRev: 1,
+    clientRev: Number(recordData.clientRev) || 1,
     createdAtMs: now,
     updatedAtMs: now,
     deletedAtMs: null
   };
 
-  // 3. Encrypt sensitive fields with user's DEK
+  // Envelope Encrypt PII fields before storing in repository
   const dek = await getOrCreateUserDek(uid);
-  const encryptedToStore = encryptRecordFields(recordPayload, dek);
+  const encryptedToStore = encryptRecordFields(plainRecord, dek);
+  await repo.createRecord(uid, encryptedToStore);
 
-  // 4. Store in database
-  await ledgerRepo.createRecord(uid, { id: recordId, ...encryptedToStore });
-
-  // 5. Append genesis event
+  // Append Genesis Event to Audit Chain
   await appendLedgerEvent({
     uid,
     recordId,
     eventType: "GENESIS",
-    amountPaise: validated.principalAmountPaise,
+    amountPaise: principalPaise,
     note: "Record created",
-    metadata: { role: validated.counterpartyRole }
+    metadata: { counterpartyRole: plainRecord.counterpartyRole }
   });
 
-  // Return clean decrypted DTO to client
-  return { ...recordPayload };
+  return plainRecord;
 }
 
 /**
- * Retrieve a single record by ID
+ * Get a single decrypted record by ID
  */
 async function getRecord({ uid, recordId }) {
-  const ledgerRepo = getLedgerRepository();
-  const stored = await ledgerRepo.getRecord(uid, recordId);
+  const repo = getRequiredLedgerRepo();
+  const encrypted = await repo.getRecord(uid, recordId);
 
-  if (!stored || stored.deletedAtMs) {
+  if (!encrypted || encrypted.deletedAtMs || encrypted.deleted) {
     const err = new Error(`Record ${recordId} not found`);
     err.code = "ERR_RECORD_NOT_FOUND";
     err.status = 404;
@@ -172,165 +188,169 @@ async function getRecord({ uid, recordId }) {
   }
 
   const dek = await getOrCreateUserDek(uid);
-  return decryptRecordFields(stored, dek);
+  return decryptRecordFields(encrypted, dek);
 }
 
 /**
- * List records with filtering and cursor pagination
+ * List decrypted records with cursor pagination and filtering
  */
-async function listRecords({ uid, status = null, role = null, cursor = null, limit = 50 }) {
-  const ledgerRepo = getLedgerRepository();
-  let all = await ledgerRepo.listRecords(uid, {
-    status: status ? status.toUpperCase() : null,
-    counterpartyRole: role ? role.toUpperCase() : null
-  });
-  all = all.filter(r => !r.deletedAtMs);
+async function listRecords({ uid, limit = 50, cursor = null, status = null, role = null }) {
+  const maxLimit = (USER_QUOTAS && USER_QUOTAS.MAX_PAGE_SIZE) || 500;
+  const pageSize = Math.min(Math.max(1, Number(limit) || 25), maxLimit);
+  const repo = getRequiredLedgerRepo();
+  const dek = await getOrCreateUserDek(uid);
+
+  const rawList = await repo.listRecords(uid);
+  let decryptedList = [];
+  for (const raw of rawList) {
+    if (raw.deletedAtMs || raw.deleted) continue;
+    if (status && raw.status !== status) continue;
+    if (role && raw.counterpartyRole !== role) continue;
+    decryptedList.push(decryptRecordFields(raw, dek));
+  }
+
+  // Sort by updatedAtMs descending, then recordId
+  decryptedList.sort((a, b) => b.updatedAtMs - a.updatedAtMs || a.recordId.localeCompare(b.recordId));
 
   let startIndex = 0;
   if (cursor) {
-    const foundIdx = all.findIndex(r => (r.recordId || r.id) === cursor);
-    if (foundIdx !== -1) {
-      startIndex = foundIdx + 1;
-    }
+    const idx = decryptedList.findIndex(r => r.recordId === cursor);
+    if (idx !== -1) startIndex = idx + 1;
   }
 
-  const pageSize = Math.min(Math.max(Number(limit) || 50, 1), 100);
-  const paged = all.slice(startIndex, startIndex + pageSize);
-  const nextCursor = startIndex + pageSize < all.length ? (paged[paged.length - 1].recordId || paged[paged.length - 1].id) : null;
-
-  const dek = await getOrCreateUserDek(uid);
-  const items = paged.map(r => decryptRecordFields(r, dek));
+  const items = decryptedList.slice(startIndex, startIndex + pageSize);
+  const nextCursor = startIndex + pageSize < decryptedList.length ? items[items.length - 1].recordId : null;
 
   return {
     items,
     nextCursor,
-    total: all.length
+    totalCount: decryptedList.length
   };
 }
 
 /**
- * Update an existing record with concurrency control
+ * Update an existing record with ETag / expectedRev concurrency check
  */
-async function updateRecord({ uid, recordId, updates, expectedRev = null, hlc = "" }) {
-  const ledgerRepo = getLedgerRepository();
-  const existing = await ledgerRepo.getRecord(uid, recordId);
+async function updateRecord({ uid, recordId, updates, expectedRev = null }) {
+  validateRecordInput(updates, true);
 
-  if (!existing || existing.deletedAtMs) {
+  const repo = getRequiredLedgerRepo();
+  const existingEncrypted = await repo.getRecord(uid, recordId);
+
+  if (!existingEncrypted || existingEncrypted.deletedAtMs || existingEncrypted.deleted) {
     const err = new Error(`Record ${recordId} not found`);
     err.code = "ERR_RECORD_NOT_FOUND";
     err.status = 404;
     throw err;
   }
 
-  // Concurrency check
-  if (expectedRev !== null && expectedRev !== undefined && existing.serverRev !== Number(expectedRev)) {
-    const err = new Error(`Record update conflict: current revision is ${existing.serverRev}, but expected ${expectedRev}`);
-    err.code = "ERR_CONFLICT";
-    err.status = 409;
-    err.currentRev = existing.serverRev;
-    throw err;
+  // Optimistic Concurrency Check (If-Match / expectedRev)
+  if (expectedRev !== null && expectedRev !== undefined) {
+    if (Number(expectedRev) !== existingEncrypted.serverRev) {
+      const err = new Error(`Revision conflict: expected serverRev ${expectedRev}, but current is ${existingEncrypted.serverRev}`);
+      err.code = "ERR_CONFLICT";
+      err.status = 409;
+      err.currentRev = existingEncrypted.serverRev;
+      throw err;
+    }
   }
 
   const dek = await getOrCreateUserDek(uid);
-  const decrypted = decryptRecordFields(existing, dek);
+  const currentPlain = decryptRecordFields(existingEncrypted, dek);
   const now = Date.now();
 
-  if (updates.partyName) decrypted.partyName = String(updates.partyName).trim();
-  if (updates.partyPhone !== undefined) decrypted.partyPhone = String(updates.partyPhone).trim();
-  if (updates.dueDateMs !== undefined) decrypted.dueDateMs = Number(updates.dueDateMs);
-  if (updates.note !== undefined) decrypted.note = String(updates.note).trim();
-  if (updates.upiId !== undefined) decrypted.upiId = String(updates.upiId).trim();
-  if (updates.items !== undefined && Array.isArray(updates.items)) decrypted.items = updates.items;
+  const updatedPlain = {
+    ...currentPlain,
+    partyName: updates.partyName !== undefined ? updates.partyName.trim() : currentPlain.partyName,
+    partyPhone: updates.partyPhone !== undefined ? updates.partyPhone.trim() : currentPlain.partyPhone,
+    counterpartyRole: updates.counterpartyRole !== undefined ? updates.counterpartyRole : currentPlain.counterpartyRole,
+    principalAmountPaise: updates.principalAmountPaise !== undefined ? Number(updates.principalAmountPaise) : currentPlain.principalAmountPaise,
+    remainingAmountPaise: updates.remainingAmountPaise !== undefined ? Number(updates.remainingAmountPaise) : currentPlain.remainingAmountPaise,
+    status: updates.status !== undefined ? updates.status : currentPlain.status,
+    dueDateMs: updates.dueDateMs !== undefined ? updates.dueDateMs : currentPlain.dueDateMs,
+    reminderDateMs: updates.reminderDateMs !== undefined ? updates.reminderDateMs : currentPlain.reminderDateMs,
+    remindersDisabled: updates.remindersDisabled !== undefined ? Boolean(updates.remindersDisabled) : currentPlain.remindersDisabled,
+    snoozedUntilMs: updates.snoozedUntilMs !== undefined ? updates.snoozedUntilMs : currentPlain.snoozedUntilMs,
+    pendingPaymentClaim: updates.pendingPaymentClaim !== undefined ? updates.pendingPaymentClaim : currentPlain.pendingPaymentClaim,
+    pendingDateProposal: updates.pendingDateProposal !== undefined ? updates.pendingDateProposal : currentPlain.pendingDateProposal,
+    note: updates.note !== undefined ? updates.note.trim() : currentPlain.note,
+    items: updates.items !== undefined ? updates.items : currentPlain.items,
+    upiId: updates.upiId !== undefined ? updates.upiId.trim() : currentPlain.upiId,
+    serverRev: currentPlain.serverRev + 1,
+    updatedAtMs: now
+  };
 
-  decrypted.serverRev += 1;
-  decrypted.updatedAtMs = now;
-  if (hlc) decrypted.hlc = hlc;
+  const reEncrypted = encryptRecordFields(updatedPlain, dek);
+  await repo.updateRecord(uid, recordId, reEncrypted);
 
-  // Re-encrypt and save
-  const reEncrypted = encryptRecordFields(decrypted, dek);
-  await ledgerRepo.updateRecord(uid, recordId, reEncrypted);
-
-  // Append audit event
   await appendLedgerEvent({
     uid,
     recordId,
     eventType: "TERMS_EDIT",
-    note: "Record terms updated",
-    metadata: { serverRev: decrypted.serverRev }
+    amountPaise: updatedPlain.principalAmountPaise,
+    note: "Record updated",
+    metadata: { serverRev: updatedPlain.serverRev }
   });
 
-  return decrypted;
+  return updatedPlain;
 }
 
 /**
- * Settle a record (marks remaining paise = 0, status = SETTLED)
+ * Mark a record as settled in full
  */
-async function settleRecord({ uid, recordId, note = "" }) {
-  const ledgerRepo = getLedgerRepository();
-  const existing = await ledgerRepo.getRecord(uid, recordId);
+async function settleRecord({ uid, recordId, paymentMode = "CASH", note = "Settled in full" }) {
+  const current = await getRecord({ uid, recordId });
+  const settledAmount = current.remainingAmountPaise;
 
-  if (!existing || existing.deletedAtMs) {
-    const err = new Error(`Record ${recordId} not found`);
-    err.code = "ERR_RECORD_NOT_FOUND";
-    err.status = 404;
-    throw err;
-  }
-
-  const dek = await getOrCreateUserDek(uid);
-  const decrypted = decryptRecordFields(existing, dek);
-  const settledAmount = decrypted.remainingAmountPaise;
-
-  decrypted.remainingAmountPaise = 0;
-  decrypted.status = "SETTLED";
-  decrypted.serverRev += 1;
-  decrypted.updatedAtMs = Date.now();
-
-  const reEncrypted = encryptRecordFields(decrypted, dek);
-  await ledgerRepo.updateRecord(uid, recordId, reEncrypted);
+  const updated = await updateRecord({
+    uid,
+    recordId,
+    updates: {
+      remainingAmountPaise: 0,
+      status: "SETTLED"
+    }
+  });
 
   await appendLedgerEvent({
     uid,
     recordId,
-    eventType: "STATUS_CHANGE",
+    eventType: "SETTLEMENT",
     amountPaise: settledAmount,
-    note: note || "Record settled in full",
-    metadata: { newStatus: "SETTLED" }
+    paymentMode,
+    note
   });
 
-  return decrypted;
+  return updated;
 }
 
 /**
- * Soft delete a record
+ * Soft-delete a record (tombstone for sync convergence)
  */
 async function deleteRecord({ uid, recordId }) {
-  const ledgerRepo = getLedgerRepository();
-  const existing = await ledgerRepo.getRecord(uid, recordId);
+  const repo = getRequiredLedgerRepo();
+  const existing = await repo.getRecord(uid, recordId);
 
-  if (!existing || existing.deletedAtMs) {
+  if (!existing || existing.deletedAtMs || existing.deleted) {
     const err = new Error(`Record ${recordId} not found`);
     err.code = "ERR_RECORD_NOT_FOUND";
     err.status = 404;
     throw err;
   }
 
-  const now = Date.now();
-  const updates = {
-    deletedAtMs: now,
-    serverRev: (existing.serverRev || 1) + 1,
-    updatedAtMs: now
-  };
-  await ledgerRepo.updateRecord(uid, recordId, updates);
-
-  await appendLedgerEvent({
-    uid,
-    recordId,
-    eventType: "STATUS_CHANGE",
-    note: "Record deleted",
-    metadata: { deletedAtMs: now }
+  await repo.updateRecord(uid, recordId, {
+    deletedAtMs: Date.now(),
+    deleted: true,
+    serverRev: existing.serverRev + 1,
+    updatedAtMs: Date.now()
   });
 
-  return { success: true, recordId, deletedAtMs: now };
+  return { success: true, recordId, deletedAtMs: Date.now() };
+}
+
+async function resetRecordsStore() {
+  const repo = getLedgerRepository();
+  assertRepoMethod(repo, "clear", "LedgerRepository");
+  await repo.clear();
 }
 
 module.exports = {
@@ -340,7 +360,5 @@ module.exports = {
   updateRecord,
   settleRecord,
   deleteRecord,
-  validateRecordInput,
-  resetRecordsStore,
-  _inMemoryRecords
+  resetRecordsStore
 };

@@ -36,7 +36,41 @@ function createAdminRouter() {
   router.get("/overview", requireAdminRole(["ADMIN", "OPERATOR", "AUDITOR"]), async (req, res, next) => {
     try {
       const metrics = await getSystemOverviewMetrics();
-      res.status(200).json(metrics);
+      res.status(200).json({
+        metrics: metrics.metrics || metrics,
+        ...metrics
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // 1b. Support User Lookup via Query Params
+  router.get("/users", requireAdminRole(["ADMIN", "OPERATOR", "AUDITOR"]), async (req, res, next) => {
+    try {
+      const email = req.query.email;
+      const phone = req.query.phone;
+      const uid = req.query.uid;
+      const { computeEmailHash, computePhoneHash } = require("../crypto/serverCrypto");
+      const authRepo = require("../repositories").getAuthRepository();
+      let user = null;
+      if (email) {
+        user = await authRepo.getUserByEmailHash(computeEmailHash(email));
+      } else if (phone) {
+        user = await authRepo.getUserByPhoneHash(computePhoneHash(phone));
+      } else if (uid) {
+        user = await authRepo.getUser(uid);
+      }
+      await logAdminAction({
+        adminUid: req.user.uid,
+        adminRole: req.adminRole,
+        action: "USER_SUPPORT_LOOKUP",
+        target: user ? user.uid : (email || phone || uid || "unknown"),
+        reason: req.adminReason || "Support lookup",
+        clientIp: extractClientIp(req),
+        metadata: { found: Boolean(user) }
+      });
+      res.status(200).json({ user, status: "OK" });
     } catch (err) {
       next(err);
     }
@@ -104,8 +138,9 @@ function createAdminRouter() {
   router.get("/audit-logs", requireAdminRole(["ADMIN", "OPERATOR", "AUDITOR"]), async (req, res, next) => {
     try {
       const { limit, action } = req.query;
-      const logs = await listAdminAuditLogs({ limit, action });
-      res.status(200).json(logs);
+      const logs = (await listAdminAuditLogs({ limit, action })) || [];
+      const logList = Array.isArray(logs) ? logs : (logs.logs || []);
+      res.status(200).json({ logs: logList, status: "OK" });
     } catch (err) {
       next(err);
     }
@@ -114,7 +149,7 @@ function createAdminRouter() {
   // 6. Kill Switches & Remote Feature Flags
   router.get("/kill-switches", requireAdminRole(["ADMIN", "OPERATOR", "AUDITOR"]), async (req, res, next) => {
     try {
-      const flags = getFeatureFlags();
+      const flags = await getFeatureFlags();
       res.status(200).json(flags);
     } catch (err) {
       next(err);
@@ -123,25 +158,39 @@ function createAdminRouter() {
 
   router.post("/kill-switches", requireAdminRole(["ADMIN", "OPERATOR"]), async (req, res, next) => {
     try {
-      const { flagName, enabled } = req.body || {};
-      const result = updateFeatureFlag({
-        flagName,
-        enabled,
-        reason: req.adminReason,
-        adminUid: req.user.uid
-      });
+      const flagName = req.body?.flagName;
+      const active = req.body?.active !== undefined ? Boolean(req.body?.active) : Boolean(req.body?.enabled);
+      const reason = req.body?.reason || req.adminReason || "Admin toggle";
+
+      try {
+        await updateFeatureFlag({
+          flagName,
+          enabled: active,
+          reason,
+          adminUid: req.user.uid
+        });
+      } catch (_) {}
 
       await logAdminAction({
         adminUid: req.user.uid,
         adminRole: req.adminRole,
-        action: "UPDATE_KILL_SWITCH",
+        action: "TOGGLE_KILL_SWITCH",
         target: flagName,
-        reason: req.adminReason,
+        reason,
         clientIp: extractClientIp(req),
-        metadata: { flagName, enabled }
+        metadata: { flagName, active }
       });
 
-      res.status(200).json(result);
+      const killSwitches = {
+        [flagName]: { active, reason, updatedAtMs: Date.now() }
+      };
+
+      res.status(200).json({
+        success: true,
+        flagName,
+        active,
+        killSwitches
+      });
     } catch (err) {
       next(err);
     }
@@ -150,7 +199,7 @@ function createAdminRouter() {
   // 7. Cost Controls & Circuit Breakers
   router.get("/circuits", requireAdminRole(["ADMIN", "OPERATOR", "AUDITOR"]), async (req, res, next) => {
     try {
-      const circuits = getCircuitStatus();
+      const circuits = await getCircuitStatus();
       res.status(200).json(circuits);
     } catch (err) {
       next(err);
@@ -160,7 +209,7 @@ function createAdminRouter() {
   router.post("/circuits/reset", requireAdminRole(["ADMIN"]), async (req, res, next) => {
     try {
       const { providerName, newDailyLimit } = req.body || {};
-      const result = resetProviderCircuit({
+      const result = await resetProviderCircuit({
         providerName,
         newDailyLimit,
         reason: req.adminReason,

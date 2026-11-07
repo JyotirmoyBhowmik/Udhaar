@@ -1,111 +1,178 @@
 /**
- * Emergency Kill Switches & Remote Feature Flags (functions/src/config/killSwitches.js)
- * Implements Stage S8 dynamic system kill switches for security and incident response:
- * - KILL_SWITCH_REGISTRATION: Instantly stops new user onboarding.
- * - KILL_SWITCH_WHATSAPP: Suspends outbound WhatsApp messaging.
- * - KILL_SWITCH_REMINDERS: Halts automated overdue reminder evaluation.
- * - KILL_SWITCH_SYNC: Pauses cloud synchronization during migration or incident.
- * - KILL_SWITCH_GUEST_LINKS: Inactivates external capability tokens during compromised state.
- * - MAINTENANCE_MODE: Freezes all mutating operations system-wide.
- * Backed by persistent repositories with zero module-level Map storage.
+ * Emergency Kill Switches & Remote Feature Flags Service
+ * (functions/src/config/killSwitches.js)
+ * Implements Stage S8 Operational Kill Switches:
+ * - Persisted in Firestore (system_config/kill_switches) via ConfigRepository.
+ * - Shared across instances with a 30-second TTL cache.
+ * - Zero module-level mutable maps or Proxy facades.
  */
+
+const { getConfigRepository, assertRepoMethod } = require("../repositories");
+
+const CACHE_TTL_MS = 30 * 1000; // 30-second cache TTL
 
 const DEFAULT_FLAGS = Object.freeze({
   KILL_SWITCH_REGISTRATION: false,
+  KILL_SWITCH_WHATSAPP_OTP: false,
   KILL_SWITCH_WHATSAPP: false,
   KILL_SWITCH_OTP_DISPATCH: false,
   KILL_SWITCH_REMINDERS: false,
-  KILL_SWITCH_SYNC: false,
   KILL_SWITCH_GUEST_LINKS: false,
-  MAINTENANCE_MODE: false
+  KILL_SWITCH_EXPORTS: false
 });
 
-const activeFlags = Object.create(null);
-
-function initFlags() {
-  for (const k of Object.keys(activeFlags)) {
-    delete activeFlags[k];
+function normalizeFlagName(flagName) {
+  if (flagName === "KILL_SWITCH_WHATSAPP") {
+    return "KILL_SWITCH_WHATSAPP_OTP";
   }
-  for (const [key, val] of Object.entries(DEFAULT_FLAGS)) {
-    activeFlags[key] = val;
+  return flagName;
+}
+
+function getRequiredConfigRepo() {
+  const repo = getConfigRepository();
+  assertRepoMethod(repo, "getKillSwitches", "ConfigRepository");
+  assertRepoMethod(repo, "setKillSwitches", "ConfigRepository");
+  return repo;
+}
+
+function getCacheHolder(repo) {
+  if (!repo._killSwitchCacheState) {
+    repo._killSwitchCacheState = {
+      data: null,
+      expiresAtMs: 0
+    };
+  }
+  return repo._killSwitchCacheState;
+}
+
+function invalidateKillSwitchCache() {
+  const repo = getConfigRepository();
+  if (repo && repo._killSwitchCacheState) {
+    repo._killSwitchCacheState.data = null;
+    repo._killSwitchCacheState.expiresAtMs = 0;
   }
 }
 
-initFlags();
+async function loadFlagsWithCache(forceRefresh = false) {
+  const repo = getRequiredConfigRepo();
+  const cache = getCacheHolder(repo);
+  const now = Date.now();
 
-const _inMemoryFlags = new Proxy(activeFlags, {
-  get(target, prop) {
-    if (prop === "get") return (k) => target[k];
-    if (prop === "set") return (k, v) => { target[k] = Boolean(v); return target; };
-    if (prop === "has") return (k) => Object.prototype.hasOwnProperty.call(target, k);
-    if (prop === "clear") return () => initFlags();
-    if (prop === "entries") return function* () { for (const k of Object.keys(target)) yield [k, target[k]]; };
-    if (prop === "values") return function* () { for (const k of Object.keys(target)) yield target[k]; };
-    if (prop === "keys") return function* () { for (const k of Object.keys(target)) yield k; };
-    if (prop === "size") return Object.keys(target).length;
-    return target[prop];
+  if (!forceRefresh && cache.data && now < cache.expiresAtMs) {
+    return { ...DEFAULT_FLAGS, ...cache.data };
   }
-});
 
-/**
- * Check if a feature is enabled
- * Returns true if the feature is allowed to operate.
- */
-function isFeatureEnabled(flagName) {
-  if (activeFlags["MAINTENANCE_MODE"] === true && flagName !== "ADMIN_CONSOLE") {
-    return false;
+  const stored = (await repo.getKillSwitches()) || {};
+  const merged = { ...DEFAULT_FLAGS, ...stored };
+  if (merged.KILL_SWITCH_WHATSAPP_OTP) {
+    merged.KILL_SWITCH_WHATSAPP = true;
   }
-  const isKilled = activeFlags[flagName];
-  return isKilled !== true;
+  cache.data = merged;
+  cache.expiresAtMs = now + CACHE_TTL_MS;
+  return { ...merged };
 }
 
 /**
- * Get all current feature flags
+ * Get all current kill switch states
  */
-function getFeatureFlags() {
-  const result = {};
-  for (const [key, val] of Object.entries(activeFlags)) {
-    result[key] = val;
-  }
-  return result;
+async function getFeatureFlags({ forceRefresh = false } = {}) {
+  return loadFlagsWithCache(forceRefresh);
 }
 
 /**
- * Update a feature flag or kill switch (Admin only)
+ * Check if a specific subsystem is currently killed/suspended
  */
-function updateFeatureFlag({ flagName, enabled, reason = "Admin update", adminUid = "admin" }) {
-  if (!Object.prototype.hasOwnProperty.call(DEFAULT_FLAGS, flagName)) {
-    const err = new Error(`Unknown feature flag: '${flagName}'.`);
-    err.code = "ERR_INVALID_FLAG";
+async function isFeatureSuspended(flagName) {
+  const canonical = normalizeFlagName(flagName);
+  if (!Object.prototype.hasOwnProperty.call(DEFAULT_FLAGS, canonical)) {
+    throw new Error(`Unknown kill-switch flag: ${flagName}`);
+  }
+  const flags = await loadFlagsWithCache(false);
+  return Boolean(flags[canonical]);
+}
+
+/**
+ * Check if a feature is enabled (i.e., NOT suspended by its kill switch)
+ */
+async function isFeatureEnabled(flagName) {
+  const suspended = await isFeatureSuspended(flagName);
+  return !suspended;
+}
+
+/**
+ * Toggle a kill switch (Admin/Operator only)
+ */
+async function updateFeatureFlag({ flagName, enabled, reason, adminUid }) {
+  const canonical = normalizeFlagName(flagName);
+  if (!Object.prototype.hasOwnProperty.call(DEFAULT_FLAGS, canonical)) {
+    const err = new Error(`Unknown feature flag '${flagName}'. Valid flags: ${Object.keys(DEFAULT_FLAGS).join(", ")}`);
+    err.code = "ERR_INVALID_FEATURE_FLAG";
     err.status = 400;
     throw err;
   }
 
-  const boolVal = Boolean(enabled);
-  activeFlags[flagName] = boolVal;
+  const repo = getRequiredConfigRepo();
+  const current = await loadFlagsWithCache(true);
+  const previousValue = Boolean(current[canonical]);
+  const newValue = Boolean(enabled);
+  const updatedFlags = {
+    ...current,
+    [canonical]: newValue
+  };
+  if (canonical === "KILL_SWITCH_WHATSAPP_OTP") {
+    updatedFlags.KILL_SWITCH_WHATSAPP = newValue;
+  }
+
+  await repo.setKillSwitches(updatedFlags);
+  const cache = getCacheHolder(repo);
+  cache.data = updatedFlags;
+  cache.expiresAtMs = Date.now() + CACHE_TTL_MS;
 
   return {
-    success: true,
     flagName,
-    isKilled: boolVal,
-    reason,
-    adminUid,
+    canonicalFlagName: canonical,
+    previousValue,
+    enabled: newValue,
+    isKilled: newValue,
+    updatedBy: adminUid || "system",
+    reason: reason || "Emergency override",
     updatedAtMs: Date.now()
   };
 }
 
 /**
- * Reset all flags to safe defaults
+ * Reset all kill switches to default (all false / operational)
  */
-function resetFeatureFlags() {
-  initFlags();
+async function resetFeatureFlags() {
+  const repo = getRequiredConfigRepo();
+  const defaults = { ...DEFAULT_FLAGS };
+  await repo.setKillSwitches(defaults);
+  invalidateKillSwitchCache();
+  return defaults;
 }
 
+async function setKillSwitch(flagName, value, options = {}) {
+  const norm = flagName.startsWith("KILL_SWITCH_") ? flagName : (flagName.startsWith("KILL_") ? "KILL_SWITCH_" + flagName.slice(5) : "KILL_SWITCH_" + flagName);
+  return await updateFeatureFlag({ flagName: norm, enabled: value, reason: options.reason, adminUid: options.updatedBy });
+}
+
+async function isKillSwitchActive(flagName) {
+  const norm = flagName.startsWith("KILL_SWITCH_") ? flagName : (flagName.startsWith("KILL_") ? "KILL_SWITCH_" + flagName.slice(5) : "KILL_SWITCH_" + flagName);
+  return await isFeatureSuspended(norm);
+}
+
+const resetAllKillSwitches = resetFeatureFlags;
+
 module.exports = {
-  isFeatureEnabled,
+  CACHE_TTL_MS,
+  DEFAULT_FLAGS,
   getFeatureFlags,
+  isFeatureSuspended,
+  isFeatureEnabled,
   updateFeatureFlag,
   resetFeatureFlags,
-  DEFAULT_FLAGS,
-  _inMemoryFlags
+  invalidateKillSwitchCache,
+  setKillSwitch,
+  isKillSwitchActive,
+  resetAllKillSwitches
 };

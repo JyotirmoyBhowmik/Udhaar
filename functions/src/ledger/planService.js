@@ -2,26 +2,22 @@
  * Ledger Installment Plans Service (functions/src/ledger/planService.js)
  * Implements installment schedule generation with exact integer paise splitting,
  * remainder absorption, and installment payment tracking.
- * Backed by persistent repositories with zero module-level Map storage.
+ * Backed by persistent LedgerRepository with zero Proxy facades or module-level Map storage.
  */
 
 const crypto = require("crypto");
 const { getRecord } = require("./recordService");
 const { recordPayment } = require("./paymentService");
-const { getLedgerRepository } = require("../repositories");
+const { getLedgerRepository, assertRepoMethod } = require("../repositories");
 
-const proxyMap = (getMapFn) => new Proxy({}, {
-  get(target, prop) {
-    const repo = getLedgerRepository();
-    const map = (repo && repo.plans) || {};
-    if (typeof map[prop] === "function") {
-      return map[prop].bind(map);
-    }
-    return map[prop];
-  }
-});
-
-const _inMemoryPlans = proxyMap(() => getLedgerRepository().plans);
+function getRequiredLedgerRepo() {
+  const repo = getLedgerRepository();
+  assertRepoMethod(repo, "createPlan", "LedgerRepository");
+  assertRepoMethod(repo, "getPlan", "LedgerRepository");
+  assertRepoMethod(repo, "updatePlan", "LedgerRepository");
+  assertRepoMethod(repo, "listPlans", "LedgerRepository");
+  return repo;
+}
 
 /**
  * Generate installment schedule with integer paise division and remainder absorption
@@ -34,7 +30,6 @@ function calculateInstallmentSchedule(principalPaise, count, startDateMs, freque
   const installments = [];
 
   for (let i = 0; i < count; i++) {
-    // Absorb remainder onto the first installment
     const amountPaise = i === 0 ? basePaise + remainderPaise : basePaise;
     const dueDateMs = startDateMs + (i + 1) * intervalMs;
 
@@ -66,7 +61,7 @@ async function createInstallmentPlan({ uid, recordId, totalInstallments = 3, sta
   const record = await getRecord({ uid, recordId });
   const start = Number(startDateMs) || record.createdAtMs || Date.now();
 
-  const repo = getLedgerRepository();
+  const repo = getRequiredLedgerRepo();
   const existingPlans = await repo.listPlans(uid);
   const existingForRecord = existingPlans.find(p => p.recordId === recordId);
   if (existingForRecord) {
@@ -98,7 +93,7 @@ async function createInstallmentPlan({ uid, recordId, totalInstallments = 3, sta
  * Get installment plan for a record
  */
 async function getPlanByRecordId({ uid, recordId }) {
-  const repo = getLedgerRepository();
+  const repo = getRequiredLedgerRepo();
   const plans = await repo.listPlans(uid);
   const plan = plans.find(p => p.recordId === recordId);
   if (!plan) {
@@ -114,7 +109,7 @@ async function getPlanByRecordId({ uid, recordId }) {
  * Pay a specific installment
  */
 async function payInstallment({ uid, planId, installmentId, paymentMode = "UPI" }) {
-  const repo = getLedgerRepository();
+  const repo = getRequiredLedgerRepo();
   const plan = await repo.getPlan(uid, planId);
 
   if (!plan) {
@@ -139,7 +134,6 @@ async function payInstallment({ uid, planId, installmentId, paymentMode = "UPI" 
     throw err;
   }
 
-  // Deduct from record
   const paymentRes = await recordPayment({
     uid,
     recordId: plan.recordId,
@@ -160,11 +154,10 @@ async function payInstallment({ uid, planId, installmentId, paymentMode = "UPI" 
   };
 }
 
-function resetPlansStore() {
+async function resetPlansStore() {
   const repo = getLedgerRepository();
-  if (repo && typeof repo.clear === "function") {
-    repo.clear();
-  }
+  assertRepoMethod(repo, "clear", "LedgerRepository");
+  await repo.clear();
 }
 
 module.exports = {
@@ -172,6 +165,5 @@ module.exports = {
   getPlanByRecordId,
   payInstallment,
   calculateInstallmentSchedule,
-  resetPlansStore,
-  _inMemoryPlans
+  resetPlansStore
 };

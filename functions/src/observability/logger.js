@@ -185,4 +185,6 @@ const logger = {
   redactString
 };
 
+logger.logger = logger;
+
 module.exports = logger;

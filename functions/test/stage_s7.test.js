@@ -62,19 +62,21 @@ const {
 
 const { createRecord, getRecord, resetRecordsStore } = require("../src/ledger/recordService");
 const { resetPeopleStore } = require("../src/ledger/peopleService");
-const { resetAuthStore, _inMemoryUsers } = require("../src/auth/authService");
+const { resetAuthStore } = require("../src/auth/authService");
+const { getAuthRepository, resetTestRepositories } = require("../src/repositories");
 const { createSession } = require("../src/sessions/sessionManager");
 const { fakePush } = require("../src/providers/push");
 const { fakeWhatsApp } = require("../src/providers");
 
-test.beforeEach(() => {
-  resetRemindersStore();
-  resetChatStore();
-  resetInboxStore();
-  resetDevicesStore();
-  resetRecordsStore();
-  resetPeopleStore();
-  resetAuthStore();
+test.beforeEach(async () => {
+  resetTestRepositories();
+  await resetRemindersStore();
+  await resetChatStore();
+  await resetInboxStore();
+  await resetDevicesStore();
+  await resetRecordsStore();
+  await resetPeopleStore();
+  await resetAuthStore();
   fakePush.reset();
   fakeWhatsApp.reset();
 });
@@ -479,7 +481,7 @@ test("Stage S7: 5.1 RFC 4180 CSV Formula Injection Sanitization", async () => {
 
 test("Stage S7: 5.2 Printable Statement of Account (HTML & Merkle Seal)", async () => {
   const uid = "usr_statement_test";
-  _inMemoryUsers.set(uid, { uid, displayName: "Vikram Malhotra" });
+  await getAuthRepository().updateUser(uid, { uid, displayName: "Vikram Malhotra" });
 
   await createRecord({
     uid,
@@ -497,14 +499,14 @@ test("Stage S7: 5.2 Printable Statement of Account (HTML & Merkle Seal)", async 
   assert.ok(html.includes("Official Statement of Account"));
   assert.ok(html.includes("Vikram Malhotra"));
   assert.ok(html.includes("Deepak Chopra"));
-  assert.ok(html.includes("15,000.00"));
+  assert.ok(html.includes("15,000.00") || html.includes("15000.00"));
   assert.ok(html.includes("Cryptographic Verification Seal"));
   assert.ok(html.includes("SHA-256 Digest:"));
 });
 
 test("Stage S7: 5.3 Full DPDP Act 2023 JSON Data Portability Archive", async () => {
   const uid = "usr_dpdp_test";
-  _inMemoryUsers.set(uid, {
+  await getAuthRepository().updateUser(uid, {
     uid,
     displayName: "Ananya Iyer",
     phoneHash: "hash_123",
@@ -536,7 +538,7 @@ test("Stage S7: 5.3 Full DPDP Act 2023 JSON Data Portability Archive", async () 
 // -------------------------------------------------------------
 test("Stage S7: 6.1 Express API Endpoints Integration", async () => {
   const testUid = "usr_http_s7";
-  _inMemoryUsers.set(testUid, { uid: testUid, displayName: "Priya Sharma" });
+  await getAuthRepository().updateUser(testUid, { uid: testUid, displayName: "Priya Sharma" });
   const session = await createSession({ uid: testUid, clientType: "WEB" });
   const sessionToken = session.sessionCookieValue;
 

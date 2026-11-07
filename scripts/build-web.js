@@ -28,6 +28,8 @@ const CRITICAL_FILES = [
   "privacy.css",
   "privacy.js",
   "404.html",
+  "guide/index.html",
+  "guide/guide.js",
   "u/index.html",
   "u/guest.css",
   "u/guest.js",
@@ -36,7 +38,19 @@ const CRITICAL_FILES = [
   "assets/e2ee-crypto.js",
   "assets/image-processor.js",
   "assets/telemetry.js",
-  "assets/webauthn-lock.js"
+  "assets/webauthn-lock.js",
+  "assets/guide-01-onboarding.webp",
+  "assets/guide-02-dashboard.webp",
+  "assets/guide-03-card-expanded.webp",
+  "assets/guide-04-record-detail.webp",
+  "assets/guide-05-installment-planner.webp",
+  "assets/guide-06-attachments-audit.webp",
+  "assets/guide-07-add-edit-record.webp",
+  "assets/guide-08-people-directory.webp",
+  "assets/guide-09-party-statement.webp",
+  "assets/guide-10-qr-verification.webp",
+  "assets/guide-11-private-weblink.webp",
+  "assets/guide-12-group-split.webp"
 ];
 
 let hasErrors = false;
@@ -94,7 +108,7 @@ if (totalGuestBytes <= GUEST_LIMIT) {
 }
 
 console.log("\n▶ [3/4] Verifying Strict Content-Security Policy & Zero Inline Code...");
-const htmlFiles = ["index.html", "privacy.html", "404.html", "u/index.html", "trust/index.html", "updates/index.html", "ledger/index.html"];
+const htmlFiles = ["index.html", "privacy.html", "404.html", "guide/index.html", "u/index.html", "trust/index.html", "updates/index.html", "ledger/index.html"];
 
 for (const relHtml of htmlFiles) {
   const fullHtmlPath = path.join(WEB_DIR, relHtml);
@@ -124,7 +138,7 @@ for (const relHtml of htmlFiles) {
 console.log("\n▶ [4/4] Writing Build Metadata Manifest (web/dist-manifest.json)...");
 const manifestPath = path.join(WEB_DIR, "dist-manifest.json");
 fs.writeFileSync(manifestPath, JSON.stringify({
-  version: "21.0.0",
+  version: "24.0.0",
   timestamp: new Date().toISOString(),
   budgets: {
     landingKb: parseFloat(landingKb),

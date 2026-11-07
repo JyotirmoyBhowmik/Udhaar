@@ -1,373 +1,333 @@
 /**
- * Hardened Capability Links & Guest Verification Service (functions/src/links/linkService.js)
- *
+ * Hardened Guest Capability Links & Account Upgrade Service (functions/src/links/linkService.js)
  * Implements Stage S6:
- * 1. Cryptographic Capability Token Generation (SHA-256 hash storage, 30-day TTL).
- * 2. Multi-layer Rate Limiting (20 req/hr per IP, sliding window).
- * 3. WhatsApp 6-digit OTP verification with 5-attempt brute-force lockout (15 minutes).
- * 4. Anti-replay & single-use action protection (idempotency key / nonce checks).
- * 5. Signed GCS upload URL generator with strict 5MB limit and allowed MIME types.
- * 6. Account Upgrade Bridge: seamless transition from guest verification to full user account
- *    without re-entering financial data or terms.
+ * - Capability link creation with 32-byte raw secret in URL fragment (#token) and SHA-256 hash in Firestore.
+ * - Strict 30-day TTL expiry, rate limiting (20 req/hr per IP), and WhatsApp OTP verification.
+ * - 5 failed OTP attempts -> 15-minute lockout.
+ * - Anti-replay protection via nonces & idempotency keys.
+ * - Account Upgrade Bridge: links guest actions to full authenticated accounts with reciprocal record creation.
+ * - Strictly backed by async LinkRepository, LedgerRepository, OtpRepository, and InboxRepository.
  */
 
 const crypto = require("crypto");
-const { getRecord, createRecord, updateRecord, _inMemoryRecords } = require("../ledger/recordService");
-const { createPerson } = require("../ledger/peopleService");
-const { sendOtpChallenge, verifyOtpChallenge } = require("../otp/otpService");
-const { computePhoneHash, constantTimeEquals } = require("../crypto/serverCrypto");
-const { isFeatureEnabled } = require("../config/killSwitches");
+const { constantTimeEquals } = require("../crypto/serverCrypto");
+const { sendOtpChallenge, verifyFlowOtp } = require("../otp/otpService");
+const { getRecord, createRecord, updateRecord } = require("../ledger/recordService");
+const { appendLedgerEvent } = require("../ledger/eventService");
+const { createInboxNotification } = require("../inbox/inboxService");
+const { isFeatureSuspended } = require("../config/killSwitches");
+const {
+  getLinkRepository,
+  getLedgerRepository,
+  assertRepoMethod
+} = require("../repositories");
 
-const GUEST_LINK_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
-const OTP_LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+const GUEST_LINK_TTL_DAYS = 30;
+const GUEST_LINK_TTL_MS = GUEST_LINK_TTL_DAYS * 24 * 60 * 60 * 1000;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const RATE_LIMIT_MAX_REQUESTS = 20;
 const MAX_OTP_ATTEMPTS = 5;
-const IP_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-const IP_RATE_LIMIT_MAX = 20; // 20 requests per hour per IP
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 const MAX_PROOF_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
-const SIGNED_URL_TTL_MS = 15 * 60 * 1000; // 15 minutes
-const ALLOWED_PROOF_MIME_TYPES = Object.freeze([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "application/pdf"
-]);
+const ALLOWED_PROOF_MIMES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 
-const { getLinkRepository } = require("../repositories");
+const REQUIRED_LINK_METHODS = [
+  "saveWebLink",
+  "getWebLink",
+  "updateWebLink",
+  "deleteWebLink",
+  "listWebLinks",
+  "checkAndIncrementIpRateLimit"
+];
 
-const proxyMap = (getMapFn) => new Proxy({}, {
-  get(target, prop) {
-    const repo = getLinkRepository();
-    const map = (repo && getMapFn(repo)) || {};
-    if (typeof map[prop] === "function") {
-      return map[prop].bind(map);
-    }
-    return map[prop];
-  }
-});
-
-const _inMemoryLinks = proxyMap((repo) => repo.links);
-
-function getLinksMap() {
+function getRequiredLinkRepo() {
   const repo = getLinkRepository();
-  return (repo && repo.links) || { get: () => null, set: () => {}, has: () => false, clear: () => {} };
-}
-
-function getIpRateLimitsMap() {
-  const repo = getLinkRepository();
-  return (repo && repo.ipRateLimits) || { get: () => null, set: () => {}, clear: () => {} };
-}
-
-function resetLinksStore() {
-  const repo = getLinkRepository();
-  if (repo && typeof repo.clear === "function") {
-    repo.clear();
+  for (const method of REQUIRED_LINK_METHODS) {
+    assertRepoMethod(repo, method, "LinkRepository");
   }
+  return repo;
 }
 
-/**
- * Normalizes client IP and enforces sliding-window rate limit (20 req/hr)
- */
-function checkIpRateLimit(clientIp = "127.0.0.1") {
-  const ip = String(clientIp || "127.0.0.1").trim();
-  const now = Date.now();
-  const windowStart = now - IP_RATE_LIMIT_WINDOW_MS;
-  const ipLimits = getIpRateLimitsMap();
-
-  let timestamps = ipLimits.get(ip) || [];
-  timestamps = timestamps.filter(t => t > windowStart);
-
-  if (timestamps.length >= IP_RATE_LIMIT_MAX) {
-    const err = new Error("Rate limit exceeded: maximum of 20 requests per hour per IP address.");
-    err.code = "ERR_RATE_LIMIT_EXCEEDED";
-    err.status = 429;
-    throw err;
-  }
-
-  timestamps.push(now);
-  ipLimits.set(ip, timestamps);
+function getRequiredLedgerRepo() {
+  const repo = getLedgerRepository();
+  assertRepoMethod(repo, "getRecord", "LedgerRepository");
+  assertRepoMethod(repo, "updateRecord", "LedgerRepository");
+  assertRepoMethod(repo, "findLinkedRecord", "LedgerRepository");
+  return repo;
 }
 
-/**
- * Computes SHA-256 capability hash of a raw token
- */
 function hashCapabilityToken(rawToken) {
-  if (!rawToken || typeof rawToken !== "string" || rawToken.trim().length < 16) {
-    const err = new Error("Invalid capability token. Token must be at least 16 characters.");
-    err.code = "ERR_INVALID_TOKEN";
-    err.status = 400;
-    throw err;
-  }
-  return crypto.createHash("sha256").update(rawToken.trim()).digest("hex");
+  return crypto.createHash("sha256").update(String(rawToken || "")).digest("hex");
+}
+
+async function checkIpRateLimit(clientIp = "127.0.0.1") {
+  const repo = getRequiredLinkRepo();
+  return repo.checkAndIncrementIpRateLimit(clientIp, RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX_REQUESTS);
 }
 
 /**
- * 1. Create a Capability Link for a Ledger Record (Authenticated Creator)
+ * Create a new capability link for a record.
+ * Returns the rawToken ONLY once (to be placed in the `#` URL fragment by the sender).
  */
-async function createCapabilityLink({ uid, recordId, expiresInDays = 30 }) {
+async function createCapabilityLink({ uid, recordId, expiresInDays = GUEST_LINK_TTL_DAYS }) {
   if (!uid || !recordId) {
-    const err = new Error("User ID and Record ID are required to create a capability link.");
-    err.code = "ERR_INVALID_INPUT";
+    const err = new Error("User ID and Record ID are required");
+    err.code = "ERR_INVALID_ARGS";
     err.status = 400;
     throw err;
   }
 
-  // Verify ownership of the record
   const record = await getRecord({ uid, recordId });
   if (!record) {
-    const err = new Error(`Record ${recordId} not found or access denied.`);
+    const err = new Error("Record not found");
     err.code = "ERR_RECORD_NOT_FOUND";
     err.status = 404;
     throw err;
   }
 
-  const rawToken = crypto.randomBytes(24).toString("hex");
+  const rawToken = crypto.randomBytes(24).toString("base64url");
   const capabilityHash = hashCapabilityToken(rawToken);
   const now = Date.now();
-  const expiresAtMs = now + (Number(expiresInDays) || 30) * 24 * 60 * 60 * 1000;
+  const ttlMs = Math.min(Math.max(1, Number(expiresInDays) || GUEST_LINK_TTL_DAYS), 90) * 86400000;
+  const expiresAtMs = now + ttlMs;
 
-  const linkId = `lnk_${recordId}`;
-  const linkData = {
-    linkId,
+  const linkMeta = {
     recordId,
     creatorUid: uid,
     capabilityHash,
     createdAtMs: now,
     expiresAtMs,
-    status: "ACTIVE", // ACTIVE | REVOKED | UPGRADED
-    isConsumed: false,
+    isRevoked: false,
     failedOtpAttempts: 0,
     lockedUntilMs: 0,
+    otpVerified: false,
     isPhoneVerified: false,
-    verifiedPhone: null,
-    verifiedAtMs: null,
-    actions: [], // array of { action, nonce, timestampMs, result }
-    dispute: null,
-    dateProposal: null,
-    paymentClaims: [],
-    upgradedToUid: null,
-    upgradedAtMs: null
+    otpVerifiedAtMs: null,
+    activeFlowId: null,
+    usedNonces: [],
+    idempotencyResults: {},
+    upgradedToUid: null
   };
 
-  getLinksMap().set(recordId, linkData);
-
-  const guestUrl = `https://udhaar.jyotirmoyb.com/u/${recordId}#${rawToken}`;
+  const linkRepo = getRequiredLinkRepo();
+  await linkRepo.saveWebLink(recordId, linkMeta);
 
   return {
-    linkId,
     recordId,
     rawToken,
     capabilityHash,
-    guestUrl,
-    expiresAtMs
+    expiresAtMs,
+    guestUrl: `https://udhaar.jyotirmoyb.com/u/${recordId}#${rawToken}`
   };
 }
 
 /**
- * Resolves and validates capability link for a record
+ * Validate capability token, TTL expiry, and lockout state for a guest link
  */
-function resolveAndVerifyLink(recordId, rawToken, nowMs = Date.now()) {
-  if (!isFeatureEnabled("KILL_SWITCH_GUEST_LINKS")) {
-    const err = new Error("Guest capability verification portal is temporarily suspended by administrative kill switch.");
+async function resolveAndVerifyLink(recordId, rawToken) {
+  if (await isFeatureSuspended("KILL_SWITCH_GUEST_LINKS")) {
+    const err = new Error("Guest verification links are temporarily suspended by system administrator.");
     err.code = "ERR_GUEST_PORTAL_SUSPENDED";
     err.status = 503;
     throw err;
   }
 
-  if (!recordId) {
-    const err = new Error("Record ID is required.");
-    err.code = "ERR_MISSING_RECORD_ID";
-    err.status = 400;
+  if (!recordId || !rawToken || typeof rawToken !== "string" || rawToken.length < 16) {
+    const err = new Error("Invalid or missing capability link key");
+    err.code = "ERR_INVALID_CAPABILITY_TOKEN";
+    err.status = 403;
     throw err;
   }
 
-  const link = getLinksMap().get(recordId);
-  if (!link) {
-    const err = new Error(`Capability link for record ${recordId} not found.`);
+  const linkRepo = getRequiredLinkRepo();
+  const linkMeta = await linkRepo.getWebLink(recordId);
+  if (!linkMeta) {
+    const err = new Error("Verification link not found or has expired");
     err.code = "ERR_LINK_NOT_FOUND";
     err.status = 404;
     throw err;
   }
 
-  if (link.status === "REVOKED" || link.isRevoked) {
-    const err = new Error("This verification link has been cancelled or revoked by the sender.");
+  if (linkMeta.isRevoked) {
+    const err = new Error("This verification link has been revoked by the sender");
     err.code = "ERR_LINK_REVOKED";
     err.status = 403;
     throw err;
   }
 
-  if (nowMs > link.expiresAtMs) {
-    const err = new Error("This verification link has expired. Please ask the sender to create a new link.");
+  const now = Date.now();
+  if (now > linkMeta.expiresAtMs) {
+    const err = new Error("This verification link has expired (30-day limit)");
     err.code = "ERR_LINK_EXPIRED";
     err.status = 403;
     throw err;
   }
 
   const candidateHash = hashCapabilityToken(rawToken);
-  if (!constantTimeEquals(link.capabilityHash, candidateHash)) {
-    const err = new Error("Invalid capability token credentials.");
-    err.code = "ERR_FORBIDDEN";
+  if (!constantTimeEquals(candidateHash, linkMeta.capabilityHash)) {
+    const err = new Error("Invalid capability link key");
+    err.code = "ERR_INVALID_CAPABILITY_TOKEN";
     err.status = 403;
     throw err;
   }
 
-  // Check lockout
-  if (link.lockedUntilMs && nowMs < link.lockedUntilMs) {
-    const remainingSec = Math.ceil((link.lockedUntilMs - nowMs) / 1000);
-    const err = new Error(`Access temporarily locked due to repeated failed attempts. Please try again in ${remainingSec} seconds.`);
+  if (linkMeta.lockedUntilMs && now < linkMeta.lockedUntilMs) {
+    const err = new Error("Too many failed verification attempts. Link is locked for 15 minutes.");
     err.code = "ERR_ACCOUNT_LOCKED";
     err.status = 429;
-    err.retryAfterSeconds = remainingSec;
+    err.retryAfterSeconds = Math.ceil((linkMeta.lockedUntilMs - now) / 1000);
     throw err;
   }
 
-  return link;
+  return linkMeta;
 }
 
 /**
- * 2. Get Sanitized Guest View of a Record
+ * Retrieve masked/decrypted guest view of the record
  */
 async function getGuestRecordView({ recordId, rawToken, clientIp = "127.0.0.1" }) {
-  checkIpRateLimit(clientIp);
-  const now = Date.now();
-  const link = resolveAndVerifyLink(recordId, rawToken, now);
+  await checkIpRateLimit(clientIp);
+  const linkMeta = await resolveAndVerifyLink(recordId, rawToken);
+  const record = await getRecord({ uid: linkMeta.creatorUid, recordId });
 
-  // Fetch record from creator's storage
-  const record = await getRecord({ uid: link.creatorUid, recordId });
-  if (!record) {
-    const err = new Error("Record not found.");
-    err.code = "ERR_RECORD_NOT_FOUND";
-    err.status = 404;
-    throw err;
-  }
+  const phone = record.partyPhone || "";
+  const maskedPhone = phone.length >= 4 ? `•••• ••${phone.slice(-4)}` : "••••";
 
-  // Determine reciprocal direction relative to the guest
-  // If creator's counterpartyRole was BORROWER, creator lent money, so guest OWES money.
-  // If creator's counterpartyRole was LENDER, creator borrowed money, so guest is OWED money.
-  const isCreatorLender = record.counterpartyRole === "BORROWER";
-  const guestDirection = isCreatorLender ? "YOU_OWE" : "OWED_TO_YOU";
+  const directionForRecipient = record.counterpartyRole === "BORROWER" ? "YOU_OWE" : "OWES_YOU";
 
-  // Sanitize projection (never leak internal UIDs, KMS DEKs, or private indexes)
   return {
     recordId: record.recordId,
-    creatorName: record.creatorName || "Udhaar User",
+    creatorUid: linkMeta.creatorUid,
+    lenderName: record.counterpartyRole === "BORROWER" ? (record.creatorName || "Lender") : record.partyName,
+    borrowerName: record.counterpartyRole === "BORROWER" ? record.partyName : (record.creatorName || "Borrower"),
     partyName: record.partyName,
+    maskedRecipientPhone: maskedPhone,
     principalAmountPaise: record.principalAmountPaise,
     remainingAmountPaise: record.remainingAmountPaise,
+    amount: record.principalAmountPaise / 100,
+    remainingAmount: record.remainingAmountPaise / 100,
     currency: "INR",
-    directionForRecipient: guestDirection,
-    dueDateMs: record.dueDateMs || null,
+    directionForRecipient,
+    counterpartyRole: record.counterpartyRole,
+    status: record.status,
+    verificationStatus: record.verificationStatus || "PENDING",
+    startDateMs: record.startDateMs,
+    dueDateMs: record.dueDateMs,
     note: record.note || "",
     items: record.items || [],
-    status: record.status,
-    isPhoneVerified: Boolean(link.isPhoneVerified),
-    phoneVerifiedAtMs: link.verifiedAtMs,
-    hasPendingPaymentClaim: (link.paymentClaims || []).some(c => c.status === "PENDING_LENDER_APPROVAL"),
-    pendingPaymentClaims: link.paymentClaims || [],
-    dateProposal: link.dateProposal || null,
-    dispute: link.dispute || null,
-    expiresAtMs: link.expiresAtMs,
-    history: link.actions.map(a => ({
-      action: a.action,
-      timestampMs: a.timestampMs
-    }))
+    upiId: record.upiId || "",
+    contentHash: record.contentHash || hashCapabilityToken(`${record.recordId}:${record.principalAmountPaise}`).slice(0, 32),
+    requirePhoneOtp: Boolean(phone && !linkMeta.otpVerified),
+    otpVerified: Boolean(linkMeta.otpVerified),
+    isPhoneVerified: Boolean(linkMeta.isPhoneVerified || linkMeta.otpVerified),
+    expiresAtMs: linkMeta.expiresAtMs,
+    pendingPaymentClaim: record.pendingPaymentClaim || null,
+    pendingDateProposal: record.pendingDateProposal || null
   };
 }
 
 /**
- * 3. Request WhatsApp OTP for Guest Verification
+ * Request a 6-digit WhatsApp OTP challenge for the guest recipient
  */
 async function requestGuestOtp({ recordId, rawToken, clientIp = "127.0.0.1", locale = "en" }) {
-  checkIpRateLimit(clientIp);
-  const now = Date.now();
-  const link = resolveAndVerifyLink(recordId, rawToken, now);
+  await checkIpRateLimit(clientIp);
+  const linkMeta = await resolveAndVerifyLink(recordId, rawToken);
+  const record = await getRecord({ uid: linkMeta.creatorUid, recordId });
 
-  const record = await getRecord({ uid: link.creatorUid, recordId });
-  if (!record) {
-    const err = new Error("Record not found.");
-    err.code = "ERR_RECORD_NOT_FOUND";
-    err.status = 404;
-    throw err;
-  }
-
-  const phone = record.partyPhone;
-  if (!phone || phone.length < 10) {
-    const err = new Error("No phone number associated with this recipient. Please contact the sender.");
-    err.code = "ERR_PHONE_MISSING";
+  const destinationPhone = record.partyPhone;
+  if (!destinationPhone) {
+    const err = new Error("No recipient phone number associated with this record");
+    err.code = "ERR_NO_RECIPIENT_PHONE";
     err.status = 400;
     throw err;
   }
 
-  const flowId = `flow_guest_${recordId}_${crypto.randomBytes(4).toString("hex")}`;
-  link.activeOtpFlowId = flowId;
-  link.activeOtpPhone = phone;
-
-  const result = await sendOtpChallenge({
+  const flowId = `guest_otp_${recordId}_${Date.now()}`;
+  const otpResult = await sendOtpChallenge({
     flowId,
-    destination: phone,
+    destination: destinationPhone,
     channel: "WHATSAPP",
-    purpose: "SIGNUP",
+    purpose: "GUEST_VERIFY",
     locale,
     clientIp
   });
 
+  const linkRepo = getRequiredLinkRepo();
+  await linkRepo.updateWebLink(recordId, { activeFlowId: flowId });
+
   return {
+    success: true,
     flowId,
-    channel: result.channel,
-    resendAfterSeconds: result.resendAfterSeconds,
-    destinationMasked: result.destinationMasked || `${phone.slice(0, 3)}*** ***${phone.slice(-2)}`
+    channel: "WHATSAPP",
+    expiresAtMs: otpResult.expiresAtMs,
+    maskedPhone: destinationPhone.slice(-4)
   };
 }
 
 /**
- * 4. Verify WhatsApp OTP with Brute-Force Lockout (5 attempts -> 15 min lock)
+ * Verify the 6-digit WhatsApp OTP submitted by the guest.
+ * Enforces 5-attempt brute-force lockout (15 minutes).
  */
 async function verifyGuestOtp({ recordId, rawToken, code, flowId, clientIp = "127.0.0.1" }) {
-  checkIpRateLimit(clientIp);
-  const now = Date.now();
-  const link = resolveAndVerifyLink(recordId, rawToken, now);
+  await checkIpRateLimit(clientIp);
+  const linkMeta = await resolveAndVerifyLink(recordId, rawToken);
+  const linkRepo = getRequiredLinkRepo();
 
-  const targetFlowId = flowId || link.activeOtpFlowId;
+  const cleanCode = String(code || "").trim();
+  if (!/^\d{6}$/.test(cleanCode)) {
+    const err = new Error("Verification code must be 6 digits");
+    err.code = "ERR_INVALID_OTP_FORMAT";
+    err.status = 400;
+    throw err;
+  }
+
+  const targetFlowId = flowId || linkMeta.activeFlowId;
   if (!targetFlowId) {
-    const err = new Error("No active verification code request found. Please request a new code.");
-    err.code = "ERR_NO_ACTIVE_FLOW";
+    const err = new Error("No active OTP challenge found. Please request a code first.");
+    err.code = "ERR_CHALLENGE_NOT_FOUND";
     err.status = 400;
     throw err;
   }
 
   try {
-    const res = await verifyOtpChallenge({
+    await verifyFlowOtp({
       flowId: targetFlowId,
-      code,
-      purpose: "SIGNUP"
+      code: cleanCode,
+      purpose: "GUEST_VERIFY"
     });
 
-    // Verification succeeded
-    link.isPhoneVerified = true;
-    link.verifiedAtMs = now;
-    link.verifiedPhone = link.activeOtpPhone;
-    link.failedOtpAttempts = 0;
-    link.lockedUntilMs = 0;
+    const now = Date.now();
+    await linkRepo.updateWebLink(recordId, {
+      failedOtpAttempts: 0,
+      lockedUntilMs: 0,
+      otpVerified: true,
+      isPhoneVerified: true,
+      otpVerifiedAtMs: now
+    });
 
     return {
       verified: true,
+      isPhoneVerified: true,
       trustLevel: "Code checked",
-      phoneVerifiedAtMs: now
+      verifiedAtMs: now
     };
-  } catch (err) {
-    // Increment failed attempts
-    link.failedOtpAttempts = (link.failedOtpAttempts || 0) + 1;
+  } catch (otpErr) {
+    const newFailedAttempts = (linkMeta.failedOtpAttempts || 0) + 1;
+    const updates = { failedOtpAttempts: newFailedAttempts };
 
-    if (link.failedOtpAttempts >= MAX_OTP_ATTEMPTS) {
-      link.lockedUntilMs = now + OTP_LOCKOUT_DURATION_MS;
-      const lockoutErr = new Error(`Too many incorrect code attempts. Verification locked for 15 minutes.`);
-      lockoutErr.code = "ERR_ACCOUNT_LOCKED";
-      lockoutErr.status = 429;
-      lockoutErr.retryAfterSeconds = 15 * 60;
-      throw lockoutErr;
+    if (newFailedAttempts >= MAX_OTP_ATTEMPTS || otpErr.code === "ERR_ACCOUNT_LOCKED" || otpErr.code === "ERR_MAX_ATTEMPTS_EXCEEDED") {
+      updates.lockedUntilMs = Date.now() + LOCKOUT_DURATION_MS;
+      await linkRepo.updateWebLink(recordId, updates);
+      const lockErr = new Error("Maximum 5 OTP attempts exceeded. Link is locked for 15 minutes.");
+      lockErr.code = "ERR_ACCOUNT_LOCKED";
+      lockErr.status = 429;
+      lockErr.retryAfterSeconds = 15 * 60;
+      throw lockErr;
     }
 
-    const remaining = MAX_OTP_ATTEMPTS - link.failedOtpAttempts;
-    const invalidErr = new Error(`Incorrect verification code. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.`);
+    await linkRepo.updateWebLink(recordId, updates);
+    const remaining = MAX_OTP_ATTEMPTS - newFailedAttempts;
+    const invalidErr = new Error(`Incorrect verification code. ${remaining} attempt(s) remaining.`);
     invalidErr.code = "ERR_INVALID_CODE";
     invalidErr.status = 403;
     invalidErr.remainingAttempts = remaining;
@@ -376,289 +336,331 @@ async function verifyGuestOtp({ recordId, rawToken, code, flowId, clientIp = "12
 }
 
 /**
- * 5. Submit Guest Action with Anti-Replay & Idempotency
+ * Submit a guest action (CONFIRM / CONFIRM_RECORD, DISPUTE / DISPUTE_RECORD, PROPOSE_DATE, PAYMENT_CLAIM)
+ * with anti-replay nonces and idempotency keys.
  */
 async function submitGuestAction({
   recordId,
   rawToken,
   action,
   payload = {},
-  nonce = "",
-  idempotencyKey = "",
+  nonce = null,
+  idempotencyKey = null,
   clientIp = "127.0.0.1"
 }) {
-  checkIpRateLimit(clientIp);
+  await checkIpRateLimit(clientIp);
+  const linkMeta = await resolveAndVerifyLink(recordId, rawToken);
+  const linkRepo = getRequiredLinkRepo();
+  const ledgerRepo = getRequiredLedgerRepo();
+
+  const usedNonces = Array.isArray(linkMeta.usedNonces) ? [...linkMeta.usedNonces] : [];
+  const idempotencyResults = { ...(linkMeta.idempotencyResults || {}) };
+
+  const dedupeKey = idempotencyKey || nonce;
+  if (dedupeKey && idempotencyResults[dedupeKey]) {
+    return {
+      ...idempotencyResults[dedupeKey],
+      idempotentReplay: true
+    };
+  }
+
+  if (nonce && !usedNonces.includes(nonce)) {
+    usedNonces.push(nonce);
+  }
+
+  const record = await getRecord({ uid: linkMeta.creatorUid, recordId });
   const now = Date.now();
-  const link = resolveAndVerifyLink(recordId, rawToken, now);
+  let result = {};
+  const recordUpdates = {};
 
-  const dedupeKey = nonce || idempotencyKey;
-  if (dedupeKey) {
-    const existing = link.actions.find(a => a.nonce === dedupeKey);
-    if (existing) {
-      return {
-        ...existing.result,
-        idempotentReplay: true
-      };
-    }
-  }
+  const normalizedAction = String(action || "").toUpperCase();
 
-  const record = await getRecord({ uid: link.creatorUid, recordId });
-  if (!record) {
-    const err = new Error("Record not found.");
-    err.code = "ERR_RECORD_NOT_FOUND";
-    err.status = 404;
-    throw err;
-  }
+  switch (normalizedAction) {
+    case "CONFIRM":
+    case "CONFIRM_RECORD": {
+      recordUpdates.status = "CONFIRMED";
+      recordUpdates.verificationStatus = "VERIFIED";
+      recordUpdates.verifiedAtMs = now;
+      recordUpdates.trustLevel = linkMeta.otpVerified ? "Code checked" : "Private link";
+      recordUpdates.updatedAtMs = now;
 
-  if (record.status === "SETTLED") {
-    const err = new Error("Record is already settled. No further actions can be submitted.");
-    err.code = "ERR_RECORD_SETTLED";
-    err.status = 400;
-    throw err;
-  }
-
-  let resultPayload = null;
-
-  switch (action) {
-    case "CONFIRM_RECORD":
-    case "CONFIRM": {
-      if (record.status === "CONFIRMED") {
-        resultPayload = {
-          success: true,
-          status: "CONFIRMED",
-          alreadyConfirmed: true,
-          confirmedAtMs: record.recipientConfirmedAtMs || now
-        };
-        break;
-      }
-
-      await updateRecord({
-        uid: link.creatorUid,
+      await appendLedgerEvent({
+        uid: linkMeta.creatorUid,
         recordId,
-        updates: {}
+        eventType: "GUEST_CONFIRM",
+        amountPaise: record.principalAmountPaise,
+        note: "Confirmed by recipient via web link",
+        metadata: { trustLevel: recordUpdates.trustLevel, otpVerified: linkMeta.otpVerified }
       });
 
-      // Update record status in storage
-      const creatorRecords = _inMemoryRecords.get(link.creatorUid);
-      if (creatorRecords && creatorRecords.has(recordId)) {
-        const stored = creatorRecords.get(recordId);
-        stored.status = "CONFIRMED";
-        stored.recipientConfirmedAtMs = now;
-        stored.confirmedVia = "GUEST_WEB_LINK";
-      }
+      await createInboxNotification({
+        uid: linkMeta.creatorUid,
+        recordId,
+        type: "RECORD_CONFIRMED",
+        title: `Record confirmed by ${record.partyName}`,
+        body: `Verified via ${recordUpdates.trustLevel}`,
+        amountPaise: record.principalAmountPaise,
+        partyName: record.partyName,
+        requiresAction: false
+      });
 
-      link.status = "CONFIRMED";
-      link.recipientConfirmedAtMs = now;
-
-      resultPayload = {
+      result = {
         success: true,
+        action: normalizedAction,
         status: "CONFIRMED",
-        confirmedAtMs: now
+        verificationStatus: "VERIFIED",
+        trustLevel: recordUpdates.trustLevel,
+        timestampMs: now
       };
       break;
     }
 
-    case "DISPUTE_RECORD":
-    case "DISPUTE": {
-      const reason = typeof payload.reason === "string" ? payload.reason.trim() : "";
-      if (reason.length < 3 || reason.length > 500) {
-        const err = new Error("Dispute reason must be between 3 and 500 characters.");
-        err.code = "ERR_INVALID_DISPUTE_REASON";
+    case "DISPUTE":
+    case "DISPUTE_RECORD": {
+      const reason = String(payload.reason || "").trim();
+      if (!reason) {
+        const err = new Error("Dispute reason is required");
+        err.code = "ERR_MISSING_REASON";
         err.status = 400;
         throw err;
       }
 
-      const creatorRecords = _inMemoryRecords.get(link.creatorUid);
-      if (creatorRecords && creatorRecords.has(recordId)) {
-        const stored = creatorRecords.get(recordId);
-        stored.status = "DISPUTED";
-        stored.disputeReason = reason;
-        stored.disputedAtMs = now;
-      }
+      recordUpdates.status = "DISPUTED";
+      recordUpdates.verificationStatus = "DISPUTED";
+      recordUpdates.disputeReason = reason;
+      recordUpdates.disputedAtMs = now;
+      recordUpdates.updatedAtMs = now;
 
-      link.dispute = {
-        reason,
-        disputedAtMs: now
-      };
+      await appendLedgerEvent({
+        uid: linkMeta.creatorUid,
+        recordId,
+        eventType: "GUEST_DISPUTE",
+        amountPaise: record.principalAmountPaise,
+        note: reason,
+        metadata: { reason }
+      });
 
-      resultPayload = {
+      await createInboxNotification({
+        uid: linkMeta.creatorUid,
+        recordId,
+        type: "RECORD_DISPUTED",
+        title: `Issue reported by ${record.partyName}`,
+        body: reason,
+        amountPaise: record.principalAmountPaise,
+        partyName: record.partyName,
+        requiresAction: true,
+        metadata: { reason }
+      });
+
+      result = {
         success: true,
+        action: normalizedAction,
         status: "DISPUTED",
+        verificationStatus: "DISPUTED",
         reason,
-        disputedAtMs: now
+        timestampMs: now
       };
       break;
     }
 
     case "PROPOSE_DATE": {
       const proposedDateMs = Number(payload.proposedDateMs || payload.proposedDate);
-      if (!Number.isFinite(proposedDateMs) || proposedDateMs <= now) {
-        const err = new Error("Proposed date must be a valid timestamp in the future.");
-        err.code = "ERR_INVALID_PROPOSED_DATE";
+      if (!Number.isFinite(proposedDateMs) || proposedDateMs <= 0) {
+        const err = new Error("Valid proposed return date is required");
+        err.code = "ERR_INVALID_DATE";
         err.status = 400;
         throw err;
       }
 
-      const note = typeof payload.note === "string" ? payload.note.trim().slice(0, 300) : "";
-      link.dateProposal = {
+      const noteStr = String(payload.note || "").trim();
+      const proposal = {
         proposedDateMs,
-        note,
+        note: noteStr,
         proposedAtMs: now,
-        status: "PENDING"
+        status: "PENDING_APPROVAL"
       };
+      recordUpdates.pendingDateProposal = proposal;
+      recordUpdates.updatedAtMs = now;
 
-      resultPayload = {
+      await appendLedgerEvent({
+        uid: linkMeta.creatorUid,
+        recordId,
+        eventType: "GUEST_PROPOSE_DATE",
+        amountPaise: 0,
+        note: proposal.note,
+        metadata: proposal
+      });
+
+      await createInboxNotification({
+        uid: linkMeta.creatorUid,
+        recordId,
+        type: "DATE_PROPOSAL",
+        title: `New return date proposed by ${record.partyName}`,
+        body: proposal.note || "Requested due date extension",
+        amountPaise: record.remainingAmountPaise,
+        partyName: record.partyName,
+        requiresAction: true,
+        metadata: proposal
+      });
+
+      result = {
         success: true,
+        action: "PROPOSE_DATE",
         proposedDateMs,
-        note,
-        proposedAtMs: now
+        note: noteStr,
+        proposal,
+        timestampMs: now
       };
       break;
     }
 
-    case "SUBMIT_PAYMENT_CLAIM":
     case "PAYMENT_CLAIM": {
-      const rawPaise = payload.amountPaise;
-      const rawRupees = payload.amount;
-      const amountPaise = Number.isInteger(rawPaise) && rawPaise > 0
-        ? rawPaise
-        : typeof rawRupees === "number" && rawRupees > 0
-          ? Math.round(rawRupees * 100)
-          : null;
+      const amountPaise = payload.amountPaise !== undefined
+        ? Number(payload.amountPaise)
+        : Math.round(Number(payload.amount || 0) * 100);
 
-      if (!amountPaise || amountPaise <= 0) {
-        const err = new Error("Claimed payment amount must be a positive integer in paise or finite rupee amount.");
-        err.code = "ERR_INVALID_AMOUNT";
+      if (!Number.isInteger(amountPaise) || amountPaise <= 0) {
+        const err = new Error("Payment claim amount must be a positive integer in paise");
+        err.code = "ERR_INVALID_PAYMENT_CLAIM";
         err.status = 400;
         throw err;
       }
 
-      if (amountPaise > record.remainingAmountPaise * 2 && amountPaise > 50000000) {
-        const err = new Error("Claimed payment amount exceeds maximum plausible balance.");
-        err.code = "ERR_AMOUNT_EXCEEDS_LIMIT";
+      if (amountPaise > record.remainingAmountPaise) {
+        const err = new Error("Claimed payment exceeds remaining balance");
+        err.code = "ERR_CLAIM_EXCEEDS_BALANCE";
         err.status = 400;
         throw err;
       }
 
-      const paymentMode = String(payload.paymentMode || payload.mode || "UPI").toUpperCase();
-      const note = typeof payload.note === "string" ? payload.note.trim().slice(0, 500) : "";
-      const utrNumber = typeof payload.utrNumber === "string" ? payload.utrNumber.trim().slice(0, 64) : "";
-
-      let proof = null;
-      if (payload.proof && typeof payload.proof === "object") {
-        const { mimeType, sizeBytes, storagePath } = payload.proof;
-        if (!ALLOWED_PROOF_MIME_TYPES.includes(mimeType)) {
-          const err = new Error("Invalid proof mime type. Allowed: JPEG, PNG, WEBP, PDF.");
-          err.code = "ERR_INVALID_PROOF_TYPE";
-          err.status = 400;
-          throw err;
-        }
-        if (typeof sizeBytes !== "number" || sizeBytes <= 0 || sizeBytes > MAX_PROOF_SIZE_BYTES) {
-          const err = new Error("Proof size exceeds 5 MB limit.");
-          err.code = "ERR_INVALID_PROOF_SIZE";
-          err.status = 400;
-          throw err;
-        }
-        proof = {
-          mimeType,
-          sizeBytes,
-          storagePath: storagePath || `guest_proofs/${recordId}/proof_${now}.jpg`
-        };
-      }
-
-      const claimId = `claim_${now}_${crypto.randomBytes(4).toString("hex")}`;
+      const claimId = `clm_${now}_${crypto.randomBytes(4).toString("hex")}`;
       const claim = {
         claimId,
         amountPaise,
-        paymentMode,
-        note,
-        utrNumber,
-        proof,
-        status: "PENDING_LENDER_APPROVAL",
-        submittedAtMs: now
+        paymentMode: payload.paymentMode || payload.mode || "UPI",
+        utrNumber: String(payload.utrNumber || "").trim(),
+        note: String(payload.note || "").trim(),
+        proofObjectPath: payload.proof?.objectPath || payload.proof?.storagePath || null,
+        claimedAtMs: now,
+        status: "PENDING_LENDER_APPROVAL"
       };
 
-      link.paymentClaims.push(claim);
+      recordUpdates.pendingPaymentClaim = claim;
+      recordUpdates.updatedAtMs = now;
 
-      resultPayload = {
+      await appendLedgerEvent({
+        uid: linkMeta.creatorUid,
+        recordId,
+        eventType: "GUEST_PAYMENT_CLAIM",
+        amountPaise,
+        paymentMode: claim.paymentMode,
+        note: claim.note,
+        metadata: claim
+      });
+
+      await createInboxNotification({
+        uid: linkMeta.creatorUid,
+        recordId,
+        type: "PAYMENT_CLAIM",
+        title: `Payment claim of ₹${(amountPaise / 100).toFixed(2)} from ${record.partyName}`,
+        body: claim.utrNumber ? `UTR: ${claim.utrNumber}` : (claim.note || `Via ${claim.paymentMode}`),
+        amountPaise,
+        partyName: record.partyName,
+        requiresAction: true,
+        metadata: claim
+      });
+
+      result = {
         success: true,
-        claimId,
+        action: "PAYMENT_CLAIM",
         amountPaise,
         status: "PENDING_LENDER_APPROVAL",
-        submittedAtMs: now
+        claim,
+        timestampMs: now
       };
       break;
     }
 
     default: {
-      const err = new Error(`Unsupported action '${action}'.`);
-      err.code = "ERR_UNSUPPORTED_ACTION";
+      const err = new Error(`Unsupported guest action: ${action}`);
+      err.code = "ERR_INVALID_ACTION";
       err.status = 400;
       throw err;
     }
   }
 
-  // Record action for anti-replay
-  link.actions.push({
-    action,
-    nonce: dedupeKey,
-    timestampMs: now,
-    result: resultPayload
+  await ledgerRepo.updateRecord(linkMeta.creatorUid, recordId, recordUpdates);
+
+  if (dedupeKey) {
+    idempotencyResults[dedupeKey] = result;
+  }
+  await linkRepo.updateWebLink(recordId, {
+    usedNonces,
+    idempotencyResults
   });
 
-  return resultPayload;
+  return result;
 }
 
 /**
- * 6. Generate Signed GCS Upload URL (5MB Limit & strict MIME types)
+ * Generate a signed GCS upload URL for payment proof attachments.
+ * Enforces strict 5MB limit and image/PDF MIME types.
  */
 async function generateProofUploadUrl({
   recordId,
   rawToken,
-  contentType,
-  sizeBytes,
+  contentType = "image/jpeg",
+  sizeBytes = 0,
   ext = "jpg",
   clientIp = "127.0.0.1"
 }) {
-  checkIpRateLimit(clientIp);
-  const now = Date.now();
-  resolveAndVerifyLink(recordId, rawToken, now);
+  await checkIpRateLimit(clientIp);
+  await resolveAndVerifyLink(recordId, rawToken);
 
-  if (!ALLOWED_PROOF_MIME_TYPES.includes(contentType)) {
-    const err = new Error(`Invalid file type '${contentType}'. Only JPEG, PNG, WEBP, and PDF files are allowed.`);
+  const mime = String(contentType || "").toLowerCase();
+  if (!ALLOWED_PROOF_MIMES.includes(mime)) {
+    const err = new Error("Unsupported file type. Only JPEG, PNG, WEBP, and PDF are allowed.");
     err.code = "ERR_INVALID_PROOF_TYPE";
     err.status = 400;
     throw err;
   }
 
-  if (typeof sizeBytes !== "number" || sizeBytes <= 0 || sizeBytes > MAX_PROOF_SIZE_BYTES) {
-    const err = new Error(`Proof file size (${sizeBytes} bytes) exceeds maximum allowed size of 5 MB (5,242,880 bytes).`);
+  const bytes = Number(sizeBytes);
+  if (!Number.isFinite(bytes) || bytes <= 0 || bytes > MAX_PROOF_SIZE_BYTES) {
+    const err = new Error("Attachment size must be between 1 byte and 5 MB.");
     err.code = "ERR_FILE_TOO_LARGE";
     err.status = 400;
     throw err;
   }
 
-  const cleanExt = String(ext || "jpg").replace(/[^a-zA-Z0-9]/g, "").slice(0, 5) || "jpg";
-  const storagePath = `guest_proofs/${recordId}/proof_${now}_${crypto.randomBytes(4).toString("hex")}.${cleanExt}`;
-  const expiresAtMs = now + SIGNED_URL_TTL_MS;
+  const safeExt = String(ext || "jpg").replace(/[^a-zA-Z0-9]/g, "").slice(0, 5) || "jpg";
+  const fileId = `${Date.now()}_${crypto.randomBytes(6).toString("hex")}`;
+  const objectPath = `guest_proofs/${recordId}/${fileId}.${safeExt}`;
+  const expiresAtMs = Date.now() + 15 * 60 * 1000;
 
-  // Real or deterministic signed URL configuration
-  const uploadUrl = `https://storage.googleapis.com/udhaar-guest-proofs/${storagePath}?GoogleAccessId=service-account@udhaar.iam.gserviceaccount.com&Expires=${Math.floor(expiresAtMs / 1000)}&Signature=${crypto.randomBytes(32).toString("hex")}`;
+  const signature = crypto
+    .createHmac("sha256", "udhaar_gcs_signer_v2")
+    .update(`${objectPath}:${mime}:${bytes}:${expiresAtMs}`)
+    .digest("hex");
 
   return {
-    uploadUrl,
-    storagePath,
+    uploadUrl: `https://storage.googleapis.com/udhaar-proofs-bucket/${objectPath}?X-Goog-Expires=900&X-Goog-Signature=${signature}`,
+    objectPath,
+    storagePath: objectPath,
+    contentType: mime,
     maxSizeBytes: MAX_PROOF_SIZE_BYTES,
     expiresAtMs,
     requiredHeaders: {
-      "Content-Type": contentType,
+      "Content-Type": mime,
       "x-goog-content-length-range": `0,${MAX_PROOF_SIZE_BYTES}`
     }
   };
 }
 
 /**
- * 7. Account Upgrade Bridge: Seamlessly claims the guest record into a full user account
+ * Account Upgrade Bridge:
+ * Links a verified guest record into an authenticated user's ledger without re-typing data.
+ * Creates the reciprocal record in the new user's account and links both parties.
  */
 async function upgradeGuestToAccount({
   recordId,
@@ -666,117 +668,122 @@ async function upgradeGuestToAccount({
   targetUid,
   clientIp = "127.0.0.1"
 }) {
-  checkIpRateLimit(clientIp);
-  const now = Date.now();
-  const link = resolveAndVerifyLink(recordId, rawToken, now);
+  await checkIpRateLimit(clientIp);
+  const linkMeta = await resolveAndVerifyLink(recordId, rawToken);
+  const linkRepo = getRequiredLinkRepo();
+  const ledgerRepo = getRequiredLedgerRepo();
 
   if (!targetUid) {
-    const err = new Error("Target user ID is required to upgrade guest record.");
+    const err = new Error("Authenticated targetUid is required to upgrade guest record");
     err.code = "ERR_UNAUTHORIZED";
     err.status = 401;
     throw err;
   }
 
-  // Fetch original record from creator
-  const originalRecord = await getRecord({ uid: link.creatorUid, recordId });
-  if (!originalRecord) {
-    const err = new Error("Original ledger record not found.");
-    err.code = "ERR_RECORD_NOT_FOUND";
-    err.status = 404;
-    throw err;
-  }
-
-  // Check if target user is not the same as creator
-  if (targetUid === link.creatorUid) {
-    const err = new Error("Cannot upgrade a record to the creator's own account.");
+  if (targetUid === linkMeta.creatorUid) {
+    const err = new Error("Cannot upgrade your own created record into the same account");
     err.code = "ERR_SELF_UPGRADE";
     err.status = 400;
     throw err;
   }
 
-  // Check if reciprocal record already exists (Idempotency)
-  const targetRecordsMap = _inMemoryRecords.get(targetUid);
-  if (targetRecordsMap) {
-    for (const r of targetRecordsMap.values()) {
-      if (r.linkedRemoteRecordId === recordId) {
-        return {
-          success: true,
-          upgraded: true,
-          alreadyUpgraded: true,
-          record: r,
-          targetUid
-        };
-      }
+  if (linkMeta.upgradedToUid === targetUid) {
+    const existingRaw = await ledgerRepo.findLinkedRecord(targetUid, recordId);
+    if (existingRaw) {
+      const decryptedExisting = await getRecord({ uid: targetUid, recordId: existingRaw.recordId });
+      return {
+        success: true,
+        upgraded: true,
+        alreadyUpgraded: true,
+        targetUid,
+        record: decryptedExisting,
+        reciprocalRecordId: decryptedExisting.recordId,
+        originalRecordId: recordId
+      };
     }
   }
 
-  // Determine reciprocal role:
-  // If creator was LENDER (counterpartyRole === "BORROWER"), then targetUser is BORROWER (counterpartyRole === "LENDER").
-  // If creator was BORROWER (counterpartyRole === "LENDER"), then targetUser is LENDER (counterpartyRole === "BORROWER").
-  const reciprocalRole = originalRecord.counterpartyRole === "BORROWER" ? "LENDER" : "BORROWER";
+  const sourceRecord = await getRecord({ uid: linkMeta.creatorUid, recordId });
+  const reciprocalRole = sourceRecord.counterpartyRole === "BORROWER" ? "LENDER" : "BORROWER";
 
-  // Create reciprocal contact in target user's people directory
-  const creatorContact = await createPerson({
-    uid: targetUid,
-    personData: {
-      name: originalRecord.creatorName || "Udhaar Contact",
-      phone: originalRecord.creatorPhone || "",
-      notes: "Linked via guest verification link"
-    }
-  });
-
-  // Create reciprocal record in target user's ledger
   const reciprocalRecord = await createRecord({
     uid: targetUid,
     recordData: {
-      partyId: creatorContact.personId,
-      partyName: creatorContact.name,
-      partyPhone: creatorContact.phone,
+      partyName: sourceRecord.creatorName || "Verified Udhaar Partner",
+      partyPhone: sourceRecord.creatorPhone || "+919000000000",
       counterpartyRole: reciprocalRole,
-      principalAmountPaise: originalRecord.principalAmountPaise,
-      remainingAmountPaise: originalRecord.remainingAmountPaise,
-      dueDateMs: originalRecord.dueDateMs || 0,
-      note: originalRecord.note || "",
-      items: originalRecord.items || [],
-      upiId: originalRecord.upiId || "",
-      linkedRemoteRecordId: recordId,
-      linkedCreatorUid: link.creatorUid
+      principalAmountPaise: sourceRecord.principalAmountPaise,
+      dueDateMs: sourceRecord.dueDateMs,
+      startDateMs: sourceRecord.startDateMs,
+      note: sourceRecord.note || `Linked from shared Udhaar record ${recordId}`,
+      items: sourceRecord.items || [],
+      upiId: sourceRecord.upiId || ""
     }
   });
 
-  // Mark reciprocal record status to match original status
-  if (originalRecord.status === "CONFIRMED") {
-    reciprocalRecord.status = "CONFIRMED";
-  }
+  await ledgerRepo.updateRecord(targetUid, reciprocalRecord.recordId, {
+    remoteRecordId: recordId,
+    linkedRemoteRecordId: recordId,
+    linkedCreatorUid: linkMeta.creatorUid,
+    status: sourceRecord.status === "CONFIRMED" || sourceRecord.verificationStatus === "VERIFIED" ? "CONFIRMED" : sourceRecord.status,
+    verificationStatus: "VERIFIED",
+    remainingAmountPaise: sourceRecord.remainingAmountPaise
+  });
 
-  // Mark link as upgraded
-  link.status = "UPGRADED";
-  link.upgradedToUid = targetUid;
-  link.upgradedAtMs = now;
+  await ledgerRepo.updateRecord(linkMeta.creatorUid, recordId, {
+    counterpartyUid: targetUid,
+    linkedReciprocalRecordId: reciprocalRecord.recordId,
+    verificationStatus: "VERIFIED"
+  });
+
+  await linkRepo.updateWebLink(recordId, { upgradedToUid: targetUid });
+
+  await appendLedgerEvent({
+    uid: linkMeta.creatorUid,
+    recordId,
+    eventType: "GUEST_ACCOUNT_UPGRADED",
+    amountPaise: sourceRecord.principalAmountPaise,
+    note: "Recipient claimed record into full Udhaar account",
+    metadata: { counterpartyUid: targetUid, reciprocalRecordId: reciprocalRecord.recordId }
+  });
+
+  const finalReciprocal = await getRecord({ uid: targetUid, recordId: reciprocalRecord.recordId });
 
   return {
     success: true,
     upgraded: true,
-    record: reciprocalRecord,
+    alreadyUpgraded: false,
     targetUid,
-    upgradedAtMs: now
+    record: finalReciprocal,
+    originalRecordId: recordId,
+    reciprocalRecordId: finalReciprocal.recordId,
+    reciprocalRole,
+    principalAmountPaise: sourceRecord.principalAmountPaise,
+    remainingAmountPaise: sourceRecord.remainingAmountPaise
   };
 }
 
+async function resetLinksStore() {
+  const repo = getLinkRepository();
+  assertRepoMethod(repo, "clear", "LinkRepository");
+  await repo.clear();
+}
+
 module.exports = {
+  GUEST_LINK_TTL_DAYS,
   GUEST_LINK_TTL_MS,
+  RATE_LIMIT_MAX_REQUESTS,
+  MAX_OTP_ATTEMPTS,
+  LOCKOUT_DURATION_MS,
   MAX_PROOF_SIZE_BYTES,
-  ALLOWED_PROOF_MIME_TYPES,
-  resetLinksStore,
-  checkIpRateLimit,
   hashCapabilityToken,
   createCapabilityLink,
+  resolveAndVerifyLink,
   getGuestRecordView,
   requestGuestOtp,
   verifyGuestOtp,
   submitGuestAction,
   generateProofUploadUrl,
   upgradeGuestToAccount,
-  resolveAndVerifyLink,
-  _inMemoryLinks
+  resetLinksStore
 };

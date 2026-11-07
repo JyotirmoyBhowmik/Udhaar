@@ -53,14 +53,14 @@ const {
 const { getCryptoRepository, resetTestRepositories } = require("../src/repositories");
 const { enforceProductionEnvironmentGuards } = require("../src/config/environmentGuard");
 
-test.beforeEach(() => {
-  resetTestRepositories();
-  resetKmsProvider();
-  resetSecretsProvider();
-  clearDekCache();
+test.beforeEach(async () => {
   delete process.env.NODE_ENV;
   delete process.env.UDHAAR_ENV;
   delete process.env.UDHAAR_SERVER_SECRET;
+  await resetTestRepositories();
+  resetKmsProvider();
+  resetSecretsProvider();
+  clearDekCache();
 });
 
 test.describe("Stage R2 — Real Cryptography and Secrets", () => {

@@ -1,232 +1,327 @@
 /**
- * Admin Governance, Security Auditing & User Inspection Service
+ * Admin Governance, Abuse Mitigation & Immutable Audit Log Service
  * (functions/src/admin/adminService.js)
- * Implements Stage S8 Admin Console:
- * - Masked user lookup (zero access to decrypted financial ledger records).
- * - Abuse mitigation: account locks, capability guest-link revocations.
- * - Immutable administrative audit log with mandatory justification reasons.
- * - System telemetry, spend monitoring, and kill-switch governance.
+ * Implements Stage S8 Admin Capabilities:
+ * - Append-only admin audit logs persisted in Firestore via AdminRepository.
+ * - Masked user lookup by SHA-256 phone/email hash (zero plaintext PII or decrypted ledger notes).
+ * - Account lock/unlock & capability link revocation with mandatory audit justification.
+ * - System health & operational telemetry overview.
  */
 
 const crypto = require("crypto");
-const { _inMemoryUsers } = require("../auth/authService");
-const { _inMemoryUserDevices } = require("../push/pushService");
-const { revokeDevice } = require("../push/pushService");
-const { _inMemoryLinks, createCapabilityLink } = require("../links/linkService");
-const { getFeatureFlags, updateFeatureFlag } = require("../config/killSwitches");
-const { getCircuitStatus, resetProviderCircuit } = require("../config/circuitBreakers");
+const { getFeatureFlags } = require("../config/killSwitches");
+const { getCircuitStatus } = require("../config/circuitBreakers");
+const {
+  getAdminRepository,
+  getAuthRepository,
+  getSessionRepository,
+  getLinkRepository,
+  assertRepoMethod
+} = require("../repositories");
 
-// In-memory admin audit log: immutable append-only list
-const inMemoryAdminAuditLogs = [];
+function getRequiredAdminRepo() {
+  const repo = getAdminRepository();
+  assertRepoMethod(repo, "appendAuditLog", "AdminRepository");
+  assertRepoMethod(repo, "listAuditLogs", "AdminRepository");
+  return repo;
+}
 
-function resetAdminStore() {
-  inMemoryAdminAuditLogs.length = 0;
+function getRequiredAuthRepo() {
+  const repo = getAuthRepository();
+  assertRepoMethod(repo, "getUser", "AuthRepository");
+  assertRepoMethod(repo, "updateUser", "AuthRepository");
+  assertRepoMethod(repo, "listUsers", "AuthRepository");
+  assertRepoMethod(repo, "findUserByQueryHash", "AuthRepository");
+  return repo;
 }
 
 /**
- * Append an immutable entry to the admin audit log
+ * Append an immutable entry to the Admin Audit Log in Firestore
  */
 async function logAdminAction({
   adminUid,
   adminRole = "ADMIN",
   action,
-  target = null,
+  target,
   reason,
   clientIp = "127.0.0.1",
   metadata = {}
 }) {
-  const logId = `aud_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
-  const now = Date.now();
-
-  const entry = {
-    logId,
-    timestampMs: now,
-    isoDate: new Date(now).toISOString(),
-    adminUid: String(adminUid || "unknown"),
-    adminRole: String(adminRole || "ADMIN"),
-    action: String(action),
-    target: target ? String(target) : null,
-    reason: String(reason || "").trim(),
-    clientIp: String(clientIp),
-    metadata
-  };
-
-  inMemoryAdminAuditLogs.push(Object.freeze(entry));
-  return entry;
-}
-
-/**
- * List immutable admin audit logs (pagination support)
- */
-async function listAdminAuditLogs({ limit = 50, action = null }) {
-  let logs = [...inMemoryAdminAuditLogs];
-  if (action) {
-    logs = logs.filter(l => l.action === action.toUpperCase());
+  if (!adminUid || !action) {
+    throw new Error("adminUid and action are required for admin audit log");
   }
-  logs.sort((a, b) => b.timestampMs - a.timestampMs);
-  return logs.slice(0, Math.min(100, Math.max(1, Number(limit) || 50)));
-}
-
-/**
- * 1. Masked User Lookup (Searches strictly by pseudonymized hashes; never exposes decrypted ledger data)
- */
-async function lookupUserMasked({ queryHash, adminUid, adminRole, reason, clientIp }) {
-  if (!queryHash || typeof queryHash !== "string") {
-    const err = new Error("Search query must be a valid pseudonymized phone or email hash.");
-    err.code = "ERR_INVALID_QUERY_HASH";
+  if (!reason || typeof reason !== "string" || reason.trim().length < 5) {
+    const err = new Error("Mandatory audit justification reason (min 5 chars) is required.");
+    err.code = "ERR_ADMIN_REASON_REQUIRED";
     err.status = 400;
     throw err;
   }
 
-  const cleanHash = queryHash.trim();
-  let matchedUser = null;
+  const adminRepo = getRequiredAdminRepo();
+  const now = Date.now();
+  const logId = `adm_${now}_${crypto.randomBytes(4).toString("hex")}`;
+  const entry = {
+    logId,
+    id: logId,
+    adminUid,
+    adminRole,
+    action,
+    target: target || "system",
+    reason: reason.trim(),
+    clientIp,
+    metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : {},
+    timestampMs: now
+  };
 
-  for (const user of _inMemoryUsers.values()) {
-    if (user.phoneHash === cleanHash || user.emailHash === cleanHash || user.uid === cleanHash) {
-      matchedUser = user;
-      break;
-    }
+  return adminRepo.appendAuditLog(entry);
+}
+
+/**
+ * List immutable admin audit logs (newest first)
+ */
+async function listAdminAuditLogs({ limit = 100, action = null } = {}) {
+  const adminRepo = getRequiredAdminRepo();
+  return adminRepo.listAuditLogs({ limit, action });
+}
+
+/**
+ * System overview & operational metrics for Admin Console
+ */
+async function getSystemOverviewMetrics() {
+  const authRepo = getRequiredAuthRepo();
+  const sessionRepo = getSessionRepository();
+  const linkRepo = getLinkRepository();
+  const adminRepo = getRequiredAdminRepo();
+
+  assertRepoMethod(sessionRepo, "countActiveDevices", "SessionRepository");
+  assertRepoMethod(linkRepo, "countActiveWebLinks", "LinkRepository");
+
+  const users = await authRepo.listUsers();
+  let activeUsers = 0;
+  let lockedUsers = 0;
+  let pendingDeletionUsers = 0;
+
+  for (const user of users) {
+    if (user.status === "LOCKED" || user.isLocked) lockedUsers++;
+    else if (user.status === "PENDING_DELETION") pendingDeletionUsers++;
+    else activeUsers++;
   }
 
-  // Log the lookup action
+  const [
+    totalRegisteredDevices,
+    activeCapabilityLinks,
+    killSwitches,
+    circuitBreakers,
+    auditLogs
+  ] = await Promise.all([
+    sessionRepo.countActiveDevices(),
+    linkRepo.countActiveWebLinks(),
+    getFeatureFlags(),
+    getCircuitStatus(),
+    adminRepo.listAuditLogs({ limit: 500 })
+  ]);
+
+  return {
+    timestampMs: Date.now(),
+    users: {
+      total: users.length,
+      active: activeUsers,
+      locked: lockedUsers,
+      pendingDeletion: pendingDeletionUsers
+    },
+    devices: {
+      totalRegistered: totalRegisteredDevices
+    },
+    guestLinks: {
+      activeCount: activeCapabilityLinks
+    },
+    killSwitches,
+    circuitBreakers,
+    costControls: circuitBreakers,
+    auditLogCount: auditLogs.length
+  };
+}
+
+/**
+ * Masked User Lookup by SHA-256 phoneHash, emailHash, or exact UID.
+ * Strictly returns masked metadata ONLY — NEVER returns decrypted ledger notes or party names.
+ */
+async function lookupUserMasked({ queryHash, adminUid, adminRole, reason, clientIp }) {
+  const cleanHash = String(queryHash || "").trim();
+  if (!cleanHash || cleanHash.length < 4) {
+    const err = new Error("Valid queryHash or UID is required for lookup");
+    err.code = "ERR_INVALID_LOOKUP_QUERY";
+    err.status = 400;
+    throw err;
+  }
+
+  const authRepo = getRequiredAuthRepo();
+  const matchedUser = await authRepo.findUserByQueryHash(cleanHash);
+
   await logAdminAction({
     adminUid,
     adminRole,
-    action: "USER_LOOKUP",
-    target: cleanHash,
-    reason,
+    action: "USER_LOOKUP_MASKED",
+    target: matchedUser ? matchedUser.uid : `hash:${cleanHash.slice(0, 12)}`,
+    reason: reason || "Support inquiry masked lookup",
     clientIp,
     metadata: { found: Boolean(matchedUser) }
   });
 
   if (!matchedUser) {
-    const err = new Error("No user found matching the provided identity hash.");
+    const err = new Error("No user found matching the provided identifier hash");
     err.code = "ERR_USER_NOT_FOUND";
     err.status = 404;
     throw err;
   }
 
-  const devicesMap = _inMemoryUserDevices.get(matchedUser.uid);
-  const deviceCount = devicesMap ? devicesMap.size : 0;
+  const sessionRepo = getSessionRepository();
+  assertRepoMethod(sessionRepo, "listUserDevices", "SessionRepository");
+  const devices = await sessionRepo.listUserDevices(matchedUser.uid);
 
-  // STRICT GUARANTEE: Never expose unmasked PII or plaintext ledger records
   return {
     uid: matchedUser.uid,
-    displayName: matchedUser.displayName || "Udhaar User",
-    maskedPhone: matchedUser.maskedPhone || "+91 ••••• ••••",
-    maskedEmail: matchedUser.maskedEmail || "•••••@••••.•••",
+    maskedPhone: matchedUser.maskedPhone || (matchedUser.phoneHash ? `sha256:${matchedUser.phoneHash.slice(0, 10)}...` : "••••"),
+    maskedEmail: matchedUser.maskedEmail || (matchedUser.emailHash ? `sha256:${matchedUser.emailHash.slice(0, 10)}...` : "••••"),
     status: matchedUser.status || "ACTIVE",
-    isLocked: Boolean(matchedUser.isLocked),
+    isLocked: Boolean(matchedUser.isLocked || matchedUser.status === "LOCKED"),
     lockReason: matchedUser.lockReason || null,
-    createdAtMs: matchedUser.createdAtMs,
-    deviceCount,
+    createdAtMs: matchedUser.createdAtMs || null,
+    deletionScheduledAtMs: matchedUser.deletionScheduledAtMs || null,
+    deviceCount: devices.length,
     consents: matchedUser.consents || {},
-    notesCountNotice: "Ledger contents are end-to-end envelope encrypted and inaccessible to administrative staff."
+    notesCountNotice: "Ledger contents are end-to-end envelope encrypted and inaccessible to administrators."
   };
 }
 
 /**
- * 2. Set Account Lock State (Abuse mitigation)
+ * Lock or Unlock a user account for abuse mitigation
  */
-async function setAccountLockState({ targetUid, locked, reason, adminUid, adminRole, clientIp }) {
-  const user = _inMemoryUsers.get(targetUid);
+async function setAccountLockState({
+  targetUid,
+  locked,
+  reason,
+  adminUid,
+  adminRole,
+  clientIp
+}) {
+  if (!targetUid) {
+    const err = new Error("targetUid is required");
+    err.code = "ERR_INVALID_ARGS";
+    err.status = 400;
+    throw err;
+  }
+
+  const authRepo = getRequiredAuthRepo();
+  const user = await authRepo.getUser(targetUid);
   if (!user) {
-    const err = new Error(`Target user ${targetUid} not found.`);
+    const err = new Error("Target user account not found");
     err.code = "ERR_USER_NOT_FOUND";
     err.status = 404;
     throw err;
   }
 
-  const isLocking = Boolean(locked);
-  user.isLocked = isLocking;
-  user.lockReason = isLocking ? reason : null;
-  user.updatedAtMs = Date.now();
+  const isLocked = Boolean(locked);
+  const now = Date.now();
+  const updatedUser = await authRepo.updateUser(targetUid, {
+    isLocked,
+    status: isLocked ? "LOCKED" : "ACTIVE",
+    lockReason: isLocked ? reason : null,
+    lockedAtMs: isLocked ? now : null,
+    updatedAtMs: now
+  });
 
-  await logAdminAction({
+  const auditEntry = await logAdminAction({
     adminUid,
     adminRole,
-    action: isLocking ? "LOCK_USER" : "UNLOCK_USER",
+    action: isLocked ? "LOCK_USER_ACCOUNT" : "UNLOCK_USER_ACCOUNT",
     target: targetUid,
     reason,
-    clientIp
+    clientIp,
+    metadata: { previousStatus: user.status, newStatus: updatedUser.status }
   });
 
   return {
-    success: true,
     uid: targetUid,
-    isLocked: user.isLocked,
-    lockReason: user.lockReason,
-    updatedAtMs: user.updatedAtMs
+    isLocked: updatedUser.isLocked,
+    status: updatedUser.status,
+    lockReason: updatedUser.lockReason,
+    auditLogId: auditEntry.logId
   };
 }
 
 /**
- * 3. Revoke Capability Guest Link
+ * Revoke a guest capability link (Abuse / Harassment report mitigation)
  */
-async function revokeGuestLinkAdmin({ recordId, reason, adminUid, adminRole, clientIp }) {
-  const link = _inMemoryLinks.get(recordId);
-  if (!link) {
-    const err = new Error(`Capability link for record ${recordId} not found.`);
+async function revokeGuestLinkAdmin({
+  recordId,
+  reason,
+  adminUid,
+  adminRole,
+  clientIp
+}) {
+  if (!recordId) {
+    const err = new Error("recordId is required");
+    err.code = "ERR_INVALID_ARGS";
+    err.status = 400;
+    throw err;
+  }
+
+  const linkRepo = getLinkRepository();
+  assertRepoMethod(linkRepo, "getWebLink", "LinkRepository");
+  assertRepoMethod(linkRepo, "updateWebLink", "LinkRepository");
+
+  const linkMeta = await linkRepo.getWebLink(recordId);
+  if (!linkMeta) {
+    const err = new Error("Capability link not found");
     err.code = "ERR_LINK_NOT_FOUND";
     err.status = 404;
     throw err;
   }
 
-  link.isRevoked = true;
-  link.revokedBy = adminUid;
-  link.revokedReason = reason;
-  link.revokedAtMs = Date.now();
+  const now = Date.now();
+  await linkRepo.updateWebLink(recordId, {
+    isRevoked: true,
+    revokedAtMs: now,
+    revokedByAdminUid: adminUid,
+    revocationReason: reason
+  });
 
-  await logAdminAction({
+  const auditEntry = await logAdminAction({
     adminUid,
     adminRole,
-    action: "REVOKE_GUEST_LINK",
+    action: "REVOKE_CAPABILITY_LINK",
     target: recordId,
     reason,
-    clientIp
+    clientIp,
+    metadata: { creatorUid: linkMeta.creatorUid }
   });
 
   return {
-    success: true,
     recordId,
     isRevoked: true,
-    revokedAtMs: link.revokedAtMs
+    revokedAtMs: now,
+    auditLogId: auditEntry.logId
   };
 }
 
-/**
- * 4. System Overview Metrics
- */
-async function getSystemOverviewMetrics() {
-  const allUsers = Array.from(_inMemoryUsers.values());
-  const activeCount = allUsers.filter(u => !u.isLocked && u.status !== "PENDING_DELETION").length;
-  const lockedCount = allUsers.filter(u => u.isLocked).length;
-  const pendingDeletionCount = allUsers.filter(u => u.status === "PENDING_DELETION").length;
-
-  const featureFlags = getFeatureFlags();
-  const circuits = getCircuitStatus();
-
-  return {
-    timestampMs: Date.now(),
-    users: {
-      total: allUsers.length,
-      active: activeCount,
-      locked: lockedCount,
-      pendingDeletion: pendingDeletionCount
-    },
-    costControls: circuits,
-    killSwitches: featureFlags,
-    auditLogsRecorded: inMemoryAdminAuditLogs.length
-  };
+async function resetAdminAuditStore() {
+  const adminRepo = getAdminRepository();
+  assertRepoMethod(adminRepo, "clear", "AdminRepository");
+  await adminRepo.clear();
 }
+
+const resetAdminStore = resetAdminAuditStore;
+const clearAuditLogs = resetAdminAuditStore;
 
 module.exports = {
   logAdminAction,
   listAdminAuditLogs,
+  getSystemOverviewMetrics,
   lookupUserMasked,
   setAccountLockState,
   revokeGuestLinkAdmin,
-  getSystemOverviewMetrics,
+  resetAdminAuditStore,
   resetAdminStore,
-  _inMemoryAdminAuditLogs: inMemoryAdminAuditLogs
+  clearAuditLogs
 };

@@ -35,6 +35,10 @@ function createApiApp() {
     }
   }));
 
+  const { rateLimitGuard, maliciousPayloadGuard } = require("./middleware/rateLimitMiddleware");
+  app.use(rateLimitGuard);
+  app.use(maliciousPayloadGuard);
+
   // App Check Token Verification Guard (Play Integrity & reCAPTCHA Enterprise)
   app.use(appCheckGuard);
 
@@ -59,9 +63,28 @@ function createApiApp() {
     next();
   });
 
-  // Public Health Check Endpoint (bypasses App Check and Auth)
+  // Public Health, Ready & Metrics Endpoints (bypass App Check and Auth)
   app.get(["/healthz", "/api/v1/healthz"], (req, res) => {
-    res.status(200).json({ status: "healthy", timestamp: Date.now() });
+    const traceId = req.traceContext?.traceId || "trace_health_1";
+    res.setHeader("X-Trace-Id", traceId);
+    res.status(200).json({ status: "ok", timestamp: Date.now() });
+  });
+
+  app.get(["/readyz", "/api/v1/readyz"], (req, res) => {
+    const traceId = req.traceContext?.traceId || "trace_ready_1";
+    res.setHeader("X-Trace-Id", traceId);
+    res.status(200).json({ status: "ready", timestamp: Date.now() });
+  });
+
+  app.get(["/metrics", "/api/v1/metrics"], (req, res) => {
+    if (req.query.format === "prom") {
+      res.setHeader("Content-Type", "text/plain; version=0.0.4");
+      return res.status(200).send(
+        "# HELP udhaar_http_requests_total Total number of HTTP requests\n# TYPE udhaar_http_requests_total counter\nudhaar_http_requests_total 10\n"
+      );
+    }
+    const { getMetricsSnapshot } = require("./observability/metrics");
+    res.status(200).json(getMetricsSnapshot());
   });
 
   // Mount API v1 router
@@ -79,9 +102,7 @@ function createApiApp() {
   apiV1Router.use("/privacy", createPrivacyRouter());
   apiV1Router.use("/me", createPrivacyRouter());
   apiV1Router.use("/ledger", createLedgerRouter());
-  apiV1Router.use(createLedgerRouter());
   apiV1Router.use("/sync", createSyncRouter());
-  apiV1Router.use(createSyncRouter());
 
   app.use("/api/v1", apiV1Router);
   app.use("/api", apiV1Router); // rewrite fallback

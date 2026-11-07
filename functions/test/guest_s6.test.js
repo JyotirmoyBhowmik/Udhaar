@@ -25,24 +25,29 @@ const {
   generateProofUploadUrl,
   upgradeGuestToAccount,
   GUEST_LINK_TTL_MS,
-  MAX_PROOF_SIZE_BYTES,
-  _inMemoryLinks
+  MAX_PROOF_SIZE_BYTES
 } = require("../src/links/linkService");
 const { createRecord, resetRecordsStore, getRecord } = require("../src/ledger/recordService");
 const { resetPeopleStore } = require("../src/ledger/peopleService");
 const { resetAuthStore, completeSignup } = require("../src/auth/authService");
-const { resetDailyBudget, _inMemoryChallenges } = require("../src/otp/otpService");
+const { resetDailyBudget } = require("../src/otp/otpService");
+const {
+  getLinkRepository,
+  getOtpRepository,
+  resetTestRepositories
+} = require("../src/repositories");
 const { fakeWhatsApp } = require("../src/providers");
 const { setTestServerSecret } = require("../guestWebFlow");
 
 // Setup test environment
-test.beforeEach(() => {
+test.beforeEach(async () => {
   setTestServerSecret("test_server_secret_for_guest_s6_testing_32_bytes_long!");
-  resetLinksStore();
-  resetRecordsStore();
-  resetPeopleStore();
-  resetAuthStore();
-  resetDailyBudget();
+  resetTestRepositories();
+  await resetLinksStore();
+  await resetRecordsStore();
+  await resetPeopleStore();
+  await resetAuthStore();
+  await resetDailyBudget();
   fakeWhatsApp.reset();
 });
 
@@ -86,8 +91,8 @@ test("Stage S6: 1. Capability Token Generation & 30-Day TTL Expiry", async () =>
   assert.equal(view.directionForRecipient, "YOU_OWE"); // Creator is LENDER, so guest owes
 
   // Verify expired link fails closed
-  const storedLink = _inMemoryLinks.get(record.recordId);
-  storedLink.expiresAtMs = Date.now() - 1000; // Expired 1 second ago
+  const linkRepo = getLinkRepository();
+  await linkRepo.updateWebLink(record.recordId, { expiresAtMs: Date.now() - 1000 }); // Expired 1 second ago
 
   await assert.rejects(
     async () => {
@@ -181,7 +186,8 @@ test("Stage S6: 3. WhatsApp OTP Verification & 5-Attempt Brute-Force Lockout (15
   // Retrieve actual generated OTP for this test via fakeWhatsApp provider
   const correctCode = fakeWhatsApp.getLastCodeFor(record.partyPhone);
   assert.ok(correctCode && correctCode.length === 6, "Must generate valid 6-digit WhatsApp OTP");
-  const challenge = Array.from(_inMemoryChallenges.values()).find(c => c.flowId === otpRes.flowId);
+  const otpRepo = getOtpRepository();
+  const challenge = await otpRepo.getChallengeByFlowId(otpRes.flowId, "GUEST_VERIFY");
   assert.ok(challenge, "Challenge must exist in challenge store");
 
   // 2. Submit 4 incorrect attempts
@@ -243,11 +249,9 @@ test("Stage S6: 3. WhatsApp OTP Verification & 5-Attempt Brute-Force Lockout (15
   );
 
   // 4. Reset lockout manually for verification test
-  const storedLink = _inMemoryLinks.get(record.recordId);
-  storedLink.lockedUntilMs = 0;
-  storedLink.failedOtpAttempts = 0;
-  challenge.lockedUntilMs = null;
-  challenge.attempts = 0;
+  const linkRepo = getLinkRepository();
+  await linkRepo.updateWebLink(record.recordId, { lockedUntilMs: 0, failedOtpAttempts: 0 });
+  await otpRepo.updateChallenge(challenge.challengeId, { lockedUntilMs: null, attempts: 0 });
 
   const successVerify = await verifyGuestOtp({
     recordId: record.recordId,
@@ -258,7 +262,8 @@ test("Stage S6: 3. WhatsApp OTP Verification & 5-Attempt Brute-Force Lockout (15
   });
   assert.equal(successVerify.verified, true);
   assert.equal(successVerify.trustLevel, "Code checked");
-  assert.equal(storedLink.isPhoneVerified, true);
+  const updatedLink = await linkRepo.getWebLink(record.recordId);
+  assert.equal(updatedLink.isPhoneVerified, true);
 });
 
 test("Stage S6: 4. Anti-Replay Guarantees & Guest Actions", async () => {

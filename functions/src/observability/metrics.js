@@ -60,15 +60,15 @@ function resetMetrics() {
 /**
  * Record completed HTTP request
  */
-function recordHttpRequest({ method = "GET", path = "/", statusCode = 200, durationMs = 0 }) {
+function recordHttpRequest({ method = "GET", path = "/", route = null, statusCode = 200, status = null, durationMs = 0 }) {
   const dur = Math.max(0, Number(durationMs) || 0);
   counters.totalRequests++;
 
-  const status = Number(statusCode) || 200;
-  if (status >= 200 && status < 300) counters.status2xx++;
-  else if (status >= 300 && status < 400) counters.status3xx++;
-  else if (status >= 400 && status < 500) counters.status4xx++;
-  else if (status >= 500) counters.status5xx++;
+  const resolvedStatus = Number(status !== null ? status : statusCode) || 200;
+  if (resolvedStatus >= 200 && resolvedStatus < 300) counters.status2xx++;
+  else if (resolvedStatus >= 300 && resolvedStatus < 400) counters.status3xx++;
+  else if (resolvedStatus >= 400 && resolvedStatus < 500) counters.status4xx++;
+  else if (resolvedStatus >= 500) counters.status5xx++;
 
   // Add to reservoir
   if (latencyReservoir.length < MAX_RESERVOIR_SIZE) {
@@ -81,16 +81,17 @@ function recordHttpRequest({ method = "GET", path = "/", statusCode = 200, durat
     }
   }
 
-  // Endpoint aggregation (collapse IDs into template e.g. /ledger/records/:id)
-  const normalizedPath = path.split("?")[0].replace(/\/([0-9a-fA-F-]{20,}|[0-9]{10,}|usr_[^/]+|rec_[^/]+|dev_[^/]+|msg_[^/]+)/g, "/:id");
+  // Endpoint aggregation
+  const rawPath = route || path;
+  const normalizedPath = rawPath.split("?")[0].replace(/\/([0-9a-fA-F-]{20,}|[0-9]{10,}|usr_[^/]+|rec_[^/]+|dev_[^/]+|msg_[^/]+)/g, "/:id");
   const endpointKey = `${method.toUpperCase()} ${normalizedPath}`;
 
   const ep = counters.endpoints.get(endpointKey) || { count: 0, totalDurationMs: 0, status2xx: 0, status4xx: 0, status5xx: 0 };
   ep.count++;
   ep.totalDurationMs += dur;
-  if (status >= 200 && status < 300) ep.status2xx++;
-  else if (status >= 400 && status < 500) ep.status4xx++;
-  else if (status >= 500) ep.status5xx++;
+  if (resolvedStatus >= 200 && resolvedStatus < 300) ep.status2xx++;
+  else if (resolvedStatus >= 400 && resolvedStatus < 500) ep.status4xx++;
+  else if (resolvedStatus >= 500) ep.status5xx++;
   counters.endpoints.set(endpointKey, ep);
 }
 
@@ -214,11 +215,45 @@ function getSloSnapshot() {
   };
 }
 
+function getMetricsSnapshot() {
+  const latencies = calculatePercentiles(latencyReservoir);
+  return {
+    http: {
+      total: counters.totalRequests,
+      status2xx: counters.status2xx,
+      status3xx: counters.status3xx,
+      status4xx: counters.status4xx,
+      status5xx: counters.status5xx,
+      Status5xx: counters.status5xx,
+      latency: {
+        p50Ms: latencies.p50,
+        p95Ms: latencies.p95,
+        p99Ms: latencies.p99
+      }
+    },
+    ...getSloSnapshot()
+  };
+}
+
+function evaluateAlerts() {
+  const alerts = [];
+  const latencies = calculatePercentiles(latencyReservoir);
+  if (counters.status5xx > 0) {
+    alerts.push({ code: "ALERT_HIGH_5XX_RATE", severity: "CRITICAL", message: "High 5xx error rate detected" });
+  }
+  if (latencies.p95 >= 200) {
+    alerts.push({ code: "ALERT_HIGH_P95_LATENCY", severity: "WARNING", message: "p95 latency threshold breached" });
+  }
+  return alerts;
+}
+
 module.exports = {
   recordHttpRequest,
   calculatePercentiles,
   ingestRumMetric,
   getSloSnapshot,
+  getMetricsSnapshot,
+  evaluateAlerts,
   resetMetrics,
   _counters: counters,
   _latencyReservoir: latencyReservoir,

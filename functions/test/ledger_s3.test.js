@@ -14,8 +14,7 @@ const {
   updateRecord,
   settleRecord,
   deleteRecord,
-  resetRecordsStore,
-  _inMemoryRecords
+  resetRecordsStore
 } = require("../src/ledger/recordService");
 
 const {
@@ -42,9 +41,13 @@ const {
 
 const {
   verifyAuditChain,
-  resetEventStore,
-  _inMemoryEvents
+  resetEventStore
 } = require("../src/ledger/eventService");
+
+const {
+  getLedgerRepository,
+  resetTestRepositories
+} = require("../src/repositories");
 
 const {
   getOrCreateUserDek,
@@ -57,11 +60,12 @@ const { USER_QUOTAS } = require("../src/config/quotas");
 
 const TEST_UID = "usr_test_user_stage_s3_12345";
 
-test.beforeEach(() => {
-  resetRecordsStore();
-  resetPeopleStore();
-  resetPlansStore();
-  resetEventStore();
+test.beforeEach(async () => {
+  resetTestRepositories();
+  await resetRecordsStore();
+  await resetPeopleStore();
+  await resetPlansStore();
+  await resetEventStore();
   clearDekCache();
 });
 
@@ -83,8 +87,9 @@ test("Stage S3 Encryption: Field-level envelope encryption protects PII while le
   assert.equal(created.principalAmountPaise, 500000);
   assert.equal(created.partyName, "Vikram Malhotra");
 
-  // Inspect raw document in database
-  const rawStored = _inMemoryRecords.get(TEST_UID).get(created.recordId);
+  // Inspect raw document in database repository
+  const ledgerRepo = getLedgerRepository();
+  const rawStored = await ledgerRepo.getRecord(TEST_UID, created.recordId);
   assert.ok(rawStored, "Record must exist in storage");
 
   // CRITICAL SECURITY ASSERTION: No plaintext PII in database!
@@ -210,7 +215,8 @@ test("Stage S3 People: Contact directory CRUD with encryption and pagination", a
   assert.equal(person.name, "Pooja Verma");
 
   // Verify encryption in store
-  const rawPerson = require("../src/ledger/peopleService")._inMemoryPeople.get(TEST_UID).get(person.personId);
+  const ledgerRepo = getLedgerRepository();
+  const rawPerson = await ledgerRepo.getPerson(TEST_UID, person.personId);
   assert.equal(rawPerson.name.startsWith("v1:"), true);
   assert.equal(rawPerson.phone.startsWith("v1:"), true);
 
@@ -354,9 +360,10 @@ test("Stage S3 Audit: Merkle block chain verification and tamper detection", asy
   assert.equal(auditRes.blockCount, 3); // GENESIS, PARTIAL_PAYMENT, TERMS_EDIT
 
   // TAMPER SIMULATION: Modify an event's amount in storage directly
-  const eventsMap = _inMemoryEvents.get(TEST_UID);
-  const secondEvent = Array.from(eventsMap.values())[1];
-  secondEvent.amountPaise = 999999; // Corrupted!
+  const ledgerRepo = getLedgerRepository();
+  const eventsList = await ledgerRepo.listEvents(TEST_UID);
+  const secondEvent = eventsList[1];
+  await ledgerRepo.addEvent(TEST_UID, { ...secondEvent, amountPaise: 999999 }); // Corrupted!
 
   const tamperedAudit = await verifyAuditChain(TEST_UID);
   assert.equal(tamperedAudit.valid, false);
@@ -367,23 +374,23 @@ test("Stage S3 Audit: Merkle block chain verification and tamper detection", asy
 // 8. User Quotas Enforcement (10,000 Records Cap)
 // =========================================================================
 test("Stage S3 Quotas: Enforces maximum records per user account", async () => {
-  // Simulate saturated account
-  const recordsMap = require("../src/ledger/recordService")._inMemoryRecords.get(TEST_UID) || new Map();
-  require("../src/ledger/recordService")._inMemoryRecords.set(TEST_UID, recordsMap);
+  const ledgerRepo = getLedgerRepository();
+  const origCount = ledgerRepo.countRecords.bind(ledgerRepo);
+  ledgerRepo.countRecords = async () => USER_QUOTAS.MAX_RECORDS;
 
-  for (let i = 0; i < USER_QUOTAS.MAX_RECORDS; i++) {
-    recordsMap.set(`dummy_${i}`, { recordId: `dummy_${i}`, deletedAtMs: null });
+  try {
+    await assert.rejects(
+      async () => {
+        await createRecord({
+          uid: TEST_UID,
+          recordData: { principalAmountPaise: 50000, partyName: "Quota Overflow", counterpartyRole: "BORROWER" }
+        });
+      },
+      (err) => err.code === "ERR_QUOTA_EXCEEDED" && err.status === 403
+    );
+  } finally {
+    ledgerRepo.countRecords = origCount;
   }
-
-  await assert.rejects(
-    async () => {
-      await createRecord({
-        uid: TEST_UID,
-        recordData: { principalAmountPaise: 50000, partyName: "Quota Overflow", counterpartyRole: "BORROWER" }
-      });
-    },
-    (err) => err.code === "ERR_QUOTA_EXCEEDED" && err.status === 403
-  );
 });
 
 // =========================================================================

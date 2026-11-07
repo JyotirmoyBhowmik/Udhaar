@@ -1,76 +1,88 @@
 /**
- * Ledger People & Contacts Directory Service (functions/src/ledger/peopleService.js)
- * Implements CRUD on counterparties with field-level envelope encryption and quota checks.
- * Backed by persistent repositories with zero module-level Map storage.
+ * Ledger People (Contacts Directory) Service (functions/src/ledger/peopleService.js)
+ * Implements CRUD, quota enforcement (5,000 max), and Cloud KMS field-level encryption.
+ * Backed by persistent LedgerRepository with zero Proxy facades or module-level Map storage.
  */
 
 const crypto = require("crypto");
 const { USER_QUOTAS } = require("../config/quotas");
-const {
-  getOrCreateUserDek,
-  encryptPersonFields,
-  decryptPersonFields
-} = require("../crypto/envelopeCrypto");
-const { getLedgerRepository } = require("../repositories");
+const { getOrCreateUserDek, encryptPersonFields, decryptPersonFields } = require("../crypto/envelopeCrypto");
+const { getLedgerRepository, assertRepoMethod } = require("../repositories");
 
-const proxyMap = (getMapFn) => new Proxy({}, {
-  get(target, prop) {
-    const repo = getLedgerRepository();
-    const map = (repo && repo.people) || {};
-    if (typeof map[prop] === "function") {
-      return map[prop].bind(map);
-    }
-    return map[prop];
-  }
-});
-
-const _inMemoryPeople = proxyMap(() => getLedgerRepository().people);
-
-async function createPerson({ uid, personData }) {
+function getRequiredLedgerRepo() {
   const repo = getLedgerRepository();
-  const existingPeople = await repo.listPeople(uid);
-  const activeCount = existingPeople.filter(p => !p.deletedAtMs).length;
-  if (activeCount >= USER_QUOTAS.MAX_PEOPLE) {
-    const err = new Error(`User account quota exceeded: maximum of ${USER_QUOTAS.MAX_PEOPLE} contacts allowed.`);
-    err.code = "ERR_QUOTA_EXCEEDED";
-    err.status = 403;
-    throw err;
+  assertRepoMethod(repo, "createPerson", "LedgerRepository");
+  assertRepoMethod(repo, "getPerson", "LedgerRepository");
+  assertRepoMethod(repo, "updatePerson", "LedgerRepository");
+  assertRepoMethod(repo, "listPeople", "LedgerRepository");
+  return repo;
+}
+
+/**
+ * Create a new counterparty contact in user's directory
+ */
+async function createPerson(uidOrParams, personDataArg) {
+  let uid;
+  let personData;
+  if (typeof uidOrParams === "object" && uidOrParams !== null && (uidOrParams.personData || uidOrParams.name)) {
+    uid = uidOrParams.uid;
+    personData = uidOrParams.personData || uidOrParams;
+  } else {
+    uid = uidOrParams;
+    personData = personDataArg || {};
   }
 
-  if (!personData || !personData.name || typeof personData.name !== "string" || personData.name.trim().length === 0) {
+  if (!personData || !personData.name || typeof personData.name !== "string" || !personData.name.trim()) {
     const err = new Error("Contact name is required");
-    err.code = "ERR_INVALID_NAME";
+    err.code = "ERR_INVALID_PERSON_NAME";
     err.status = 400;
     throw err;
   }
 
-  const personId = personData.personId || `per_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
-  const now = Date.now();
+  const repo = getRequiredLedgerRepo();
+  const activeCount = (await repo.listPeople(uid)).length;
 
-  const personPayload = {
+  if (activeCount >= USER_QUOTAS.MAX_PEOPLE) {
+    const err = new Error(`Account people quota (${USER_QUOTAS.MAX_PEOPLE}) exceeded.`);
+    err.code = "ERR_PEOPLE_QUOTA_EXCEEDED";
+    err.status = 403;
+    throw err;
+  }
+
+  const now = Date.now();
+  const personId = personData.personId || `per_${now}_${crypto.randomBytes(4).toString("hex")}`;
+
+  const plainPerson = {
     personId,
     id: personId,
+    uid,
     name: personData.name.trim(),
-    phone: personData.phone ? String(personData.phone).trim() : "",
-    email: personData.email ? String(personData.email).trim().toLowerCase() : "",
-    notes: personData.notes ? String(personData.notes).trim() : "",
+    phone: (personData.phone || "").trim(),
+    email: (personData.email || "").trim(),
+    upiId: (personData.upiId || "").trim(),
+    notes: (personData.notes || "").trim(),
+    isBlocked: Boolean(personData.isBlocked),
+    isMuted: Boolean(personData.isMuted),
     createdAtMs: now,
     updatedAtMs: now,
     deletedAtMs: null
   };
 
   const dek = await getOrCreateUserDek(uid);
-  const encrypted = encryptPersonFields(personPayload, dek);
-  await repo.createPerson(uid, { id: personId, ...encrypted });
+  const encrypted = encryptPersonFields(plainPerson, dek);
+  await repo.createPerson(uid, encrypted);
 
-  return { ...personPayload };
+  return plainPerson;
 }
 
+/**
+ * Get a single decrypted person by ID
+ */
 async function getPerson({ uid, personId }) {
-  const repo = getLedgerRepository();
-  const stored = await repo.getPerson(uid, personId);
+  const repo = getRequiredLedgerRepo();
+  const encrypted = await repo.getPerson(uid, personId);
 
-  if (!stored || stored.deletedAtMs) {
+  if (!encrypted || encrypted.deletedAtMs || encrypted.deleted) {
     const err = new Error(`Person ${personId} not found`);
     err.code = "ERR_PERSON_NOT_FOUND";
     err.status = 404;
@@ -78,85 +90,96 @@ async function getPerson({ uid, personId }) {
   }
 
   const dek = await getOrCreateUserDek(uid);
-  return decryptPersonFields(stored, dek);
+  return decryptPersonFields(encrypted, dek);
 }
 
-async function listPeople({ uid, cursor = null, limit = 50 }) {
-  const repo = getLedgerRepository();
-  let all = (await repo.listPeople(uid)).filter(p => !p.deletedAtMs);
+/**
+ * List all active people for a user
+ */
+async function listPeople({ uid, limit = USER_QUOTAS.DEFAULT_PAGE_SIZE, cursor = null }) {
+  const pageSize = Math.min(Math.max(1, Number(limit) || 25), USER_QUOTAS.MAX_PAGE_SIZE);
+  const repo = getRequiredLedgerRepo();
+  const dek = await getOrCreateUserDek(uid);
 
-  all.sort((a, b) => b.createdAtMs - a.createdAtMs);
+  const rawList = await repo.listPeople(uid);
+  const decrypted = [];
+  for (const raw of rawList) {
+    if (raw.deletedAtMs || raw.deleted) continue;
+    decrypted.push(decryptPersonFields(raw, dek));
+  }
+
+  decrypted.sort((a, b) => a.name.localeCompare(b.name));
 
   let startIndex = 0;
   if (cursor) {
-    const foundIdx = all.findIndex(p => (p.personId || p.id) === cursor);
-    if (foundIdx !== -1) {
-      startIndex = foundIdx + 1;
-    }
+    const idx = decrypted.findIndex(p => p.personId === cursor);
+    if (idx !== -1) startIndex = idx + 1;
   }
 
-  const pageSize = Math.min(Math.max(Number(limit) || 50, 1), 100);
-  const paged = all.slice(startIndex, startIndex + pageSize);
-  const nextCursor = startIndex + pageSize < all.length ? (paged[paged.length - 1].personId || paged[paged.length - 1].id) : null;
-
-  const dek = await getOrCreateUserDek(uid);
-  const items = paged.map(p => decryptPersonFields(p, dek));
+  const items = decrypted.slice(startIndex, startIndex + pageSize);
+  const nextCursor = startIndex + pageSize < decrypted.length ? items[items.length - 1].personId : null;
 
   return {
     items,
     nextCursor,
-    total: all.length
+    total: decrypted.length
   };
 }
 
+/**
+ * Update a person contact
+ */
 async function updatePerson({ uid, personId, updates }) {
-  const repo = getLedgerRepository();
-  const existing = await repo.getPerson(uid, personId);
+  const current = await getPerson({ uid, personId });
+  const now = Date.now();
 
-  if (!existing || existing.deletedAtMs) {
-    const err = new Error(`Person ${personId} not found`);
-    err.code = "ERR_PERSON_NOT_FOUND";
-    err.status = 404;
-    throw err;
-  }
+  const updatedPlain = {
+    ...current,
+    name: updates.name !== undefined ? updates.name.trim() : current.name,
+    phone: updates.phone !== undefined ? updates.phone.trim() : current.phone,
+    email: updates.email !== undefined ? updates.email.trim() : current.email,
+    upiId: updates.upiId !== undefined ? updates.upiId.trim() : current.upiId,
+    notes: updates.notes !== undefined ? updates.notes.trim() : current.notes,
+    isBlocked: updates.isBlocked !== undefined ? Boolean(updates.isBlocked) : current.isBlocked,
+    isMuted: updates.isMuted !== undefined ? Boolean(updates.isMuted) : current.isMuted,
+    updatedAtMs: now
+  };
 
   const dek = await getOrCreateUserDek(uid);
-  const decrypted = decryptPersonFields(existing, dek);
+  const encrypted = encryptPersonFields(updatedPlain, dek);
+  const repo = getRequiredLedgerRepo();
+  await repo.updatePerson(uid, personId, encrypted);
 
-  if (updates.name) decrypted.name = String(updates.name).trim();
-  if (updates.phone !== undefined) decrypted.phone = String(updates.phone).trim();
-  if (updates.email !== undefined) decrypted.email = String(updates.email).trim().toLowerCase();
-  if (updates.notes !== undefined) decrypted.notes = String(updates.notes).trim();
-  decrypted.updatedAtMs = Date.now();
-
-  const reEncrypted = encryptPersonFields(decrypted, dek);
-  await repo.updatePerson(uid, personId, reEncrypted);
-
-  return decrypted;
+  return updatedPlain;
 }
 
+/**
+ * Soft-delete a person contact
+ */
 async function deletePerson({ uid, personId }) {
-  const repo = getLedgerRepository();
+  const repo = getRequiredLedgerRepo();
   const existing = await repo.getPerson(uid, personId);
 
-  if (!existing || existing.deletedAtMs) {
+  if (!existing || existing.deletedAtMs || existing.deleted) {
     const err = new Error(`Person ${personId} not found`);
     err.code = "ERR_PERSON_NOT_FOUND";
     err.status = 404;
     throw err;
   }
 
-  const now = Date.now();
-  await repo.updatePerson(uid, personId, { deletedAtMs: now, updatedAtMs: now });
+  await repo.updatePerson(uid, personId, {
+    deletedAtMs: Date.now(),
+    deleted: true,
+    updatedAtMs: Date.now()
+  });
 
-  return { success: true, personId, deletedAtMs: now };
+  return { success: true, personId };
 }
 
-function resetPeopleStore() {
+async function resetPeopleStore() {
   const repo = getLedgerRepository();
-  if (repo && typeof repo.clear === "function") {
-    repo.clear();
-  }
+  assertRepoMethod(repo, "clear", "LedgerRepository");
+  await repo.clear();
 }
 
 module.exports = {
@@ -165,6 +188,5 @@ module.exports = {
   listPeople,
   updatePerson,
   deletePerson,
-  resetPeopleStore,
-  _inMemoryPeople
+  resetPeopleStore
 };

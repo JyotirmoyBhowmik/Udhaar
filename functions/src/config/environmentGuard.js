@@ -14,6 +14,10 @@ function isProductionOrStaging() {
          nodeEnv === "production" || nodeEnv === "staging";
 }
 
+function isStrictCloudEnvironment() {
+  return isProductionOrStaging();
+}
+
 /**
  * Validates runtime environment configuration against production safety invariants.
  * Throws a fatal Error if any insecure, fallback, fake, or in-memory component is active.
@@ -79,6 +83,7 @@ function enforceProductionEnvironmentGuards(options = {}) {
 
 module.exports = {
   isProductionOrStaging,
+  isStrictCloudEnvironment,
   enforceProductionEnvironmentGuards,
   FALLBACK_SECRET_VALUE
 };

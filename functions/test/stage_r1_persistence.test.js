@@ -155,6 +155,53 @@ describe("Stage R1: Multi-Instance Distributed Persistence & Cold-Start Tests", 
       const userOnB = await authRepo.getUser(completeRes.body.uid);
       assert.ok(userOnB);
       assert.equal(userOnB.displayName, "Distributed Pilot");
+
+      // Step 7: Push sync record to Instance A
+      const token = completeRes.body.accessToken || completeRes.body.sessionCookieValue;
+      const pushRes = await makeRequest(serverA, {
+        hostname: "localhost",
+        port: portA,
+        path: "/api/v1/sync/push",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        }
+      }, {
+        deviceId: "dev_inst_a",
+        changes: [
+          {
+            entity: "record",
+            op: "CREATE",
+            syncId: "rec_persisted_multi_inst",
+            fields: {
+              recordId: "rec_persisted_multi_inst",
+              personName: "Ramesh Sharma",
+              principalAmountPaise: 500000,
+              type: "LENT",
+              status: "ACTIVE"
+            }
+          }
+        ]
+      });
+      assert.equal(pushRes.status, 200);
+      assert.equal(pushRes.body.success, true);
+
+      // Step 8: Pull sync record from Instance B
+      const pullRes = await makeRequest(serverB, {
+        hostname: "localhost",
+        port: portB,
+        path: "/api/v1/sync/pull?cursor=0&limit=50",
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      assert.equal(pullRes.status, 200);
+      assert.ok(pullRes.body.changes, "Sync pull must return changes list");
+      const found = pullRes.body.changes.find((c) => c.syncId === "rec_persisted_multi_inst");
+      assert.ok(found, "Record pushed to Instance A must be pulled from Instance B");
+      assert.equal(found.record.personName, "Ramesh Sharma");
     } finally {
       serverA.close();
       serverB.close();
@@ -323,7 +370,7 @@ describe("Stage R1: Multi-Instance Distributed Persistence & Cold-Start Tests", 
       assert.equal(completeRes.status, 201);
       assert.ok(completeRes.body.uid);
 
-      // --- Cold Start 6: Instance 5 dies, Instance 6 queries user profile ---
+      // --- Cold Start 6: Instance 5 dies, Instance 6 queries user profile & pushes sync change ---
       port = await startNewAppInstance();
 
       const authRepo = getAuthRepository();
@@ -331,6 +378,53 @@ describe("Stage R1: Multi-Instance Distributed Persistence & Cold-Start Tests", 
       assert.ok(user, "User must survive multiple cold starts");
       assert.equal(user.displayName, "Cold Start Survivor");
       assert.equal(user.status, "ACTIVE");
+
+      const token = completeRes.body.accessToken || completeRes.body.sessionCookieValue;
+      const pushRes = await makeRequest(activeServer, {
+        hostname: "localhost",
+        port,
+        path: "/api/v1/sync/push",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        }
+      }, {
+        deviceId: "dev_coldstart",
+        changes: [
+          {
+            entity: "record",
+            op: "CREATE",
+            syncId: "rec_coldstart_1",
+            fields: {
+              recordId: "rec_coldstart_1",
+              personName: "Priya Patel",
+              principalAmountPaise: 1200000,
+              type: "BORROWED",
+              status: "ACTIVE"
+            }
+          }
+        ]
+      });
+      assert.equal(pushRes.status, 200);
+
+      // --- Cold Start 7: Instance 6 dies, Instance 7 spins up and pulls sync ---
+      port = await startNewAppInstance();
+
+      const pullRes = await makeRequest(activeServer, {
+        hostname: "localhost",
+        port,
+        path: "/api/v1/sync/pull?cursor=0&limit=50",
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      assert.equal(pullRes.status, 200);
+      assert.ok(pullRes.body.changes, "Sync changes list must be returned");
+      const foundRec = pullRes.body.changes.find((c) => c.syncId === "rec_coldstart_1");
+      assert.ok(foundRec, "Sync record must survive process termination and cold start");
+      assert.equal(foundRec.record.personName, "Priya Patel");
     } finally {
       if (activeServer) {
         activeServer.close();

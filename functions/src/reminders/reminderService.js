@@ -1,406 +1,365 @@
-/**
- * Reminders Centre Service (functions/src/reminders/reminderService.js)
- * Implements Stage S7 Reminders:
- * 1. 4 Polite Escalation Levels (Gentle, Follow-up, Firm, Final Notice).
- * 2. Quiet Hours (21:00 to 08:00 default) & Snooze Options (1d, 3d, 7d, STOP).
- * 3. Automated Stop Conditions (settled, claim pending, snoozed, disabled).
- * 4. Multi-lingual Templates (English, Hindi, Bengali, Assamese, Nepali).
- * 5. Safe WhatsApp dispatch with recorded consent & wa.me fallback generation.
- */
+const crypto = require("crypto");
+const { getReminderRepository, assertRepoMethod } = require("../repositories");
+const { listRecords, getRecord } = require("../ledger/recordService");
 
-const { getRecord, listRecords, updateRecord, _inMemoryRecords } = require("../ledger/recordService");
-const { getWhatsAppProvider } = require("../providers");
-const { isFeatureEnabled } = require("../config/killSwitches");
-
-const { getReminderRepository } = require("../repositories");
-
-const proxyMap = (getMapFn) => new Proxy({}, {
-  get(target, prop) {
-    const repo = getReminderRepository();
-    const map = (repo && getMapFn(repo)) || {};
-    if (typeof map[prop] === "function") {
-      return map[prop].bind(map);
-    }
-    return map[prop];
-  }
-});
-
-const _inMemoryReminderPolicies = proxyMap((repo) => repo.policies);
-const _inMemoryRecordReminderStates = proxyMap((repo) => repo.states);
-
-function getPoliciesMap() {
-  const repo = getReminderRepository();
-  return (repo && repo.policies) || { get: () => null, set: () => {}, clear: () => {} };
-}
-
-function getStatesMap() {
-  const repo = getReminderRepository();
-  return (repo && repo.states) || { get: () => null, set: () => {}, clear: () => {} };
-}
-
-const DEFAULT_POLICY = Object.freeze({
-  quietHoursStartHour: 21, // 9:00 PM
-  quietHoursEndHour: 8,    // 8:00 AM
-  level1DaysBefore: 3,
-  level2DaysOverdue: 7,
-  level3DaysOverdue: 30,
-  maxRemindersPerDay: 1,
-  defaultLocale: "en"
-});
-
-const REMINDER_TEMPLATES = {
+const ESCALATION_TEMPLATES = {
   en: {
-    LEVEL_1: "Hi {name}, a gentle reminder from {my_name} that ₹{amount} for our Udhaar record is due on {due_date}. Hope all is well!",
-    LEVEL_2: "Hi {name}, following up regarding ₹{amount} which was due on {due_date} ({days_overdue} days ago). Please let me know when you can return it.",
-    LEVEL_3: "Hi {name}, checking in on ₹{amount} which is now {days_overdue} days overdue. Let's arrange a time or installment plan to settle this.",
-    LEVEL_4: "Hi {name}, our record for ₹{amount} is now over 30 days overdue. Please share a clear return date or contact me so we can resolve this."
+    1: "Hi {name}, a friendly reminder that ₹{amount} is due on {due_date}. — {my_name} via Udhaar",
+    2: "Hi {name}, ₹{amount} was due on {due_date}. Please let me know when convenient. — {my_name} via Udhaar",
+    3: "Hi {name}, checking in regarding the overdue balance of ₹{amount} (due {due_date}). — {my_name} via Udhaar",
+    4: "Notice: Final reminder for overdue Udhaar record of ₹{amount} (due {due_date}) with {my_name}."
   },
   hi: {
-    LEVEL_1: "नमस्ते {name}, {my_name} की तरफ से एक विनम्र याद दिलाना: ₹{amount} की देय तिथि {due_date} है।",
-    LEVEL_2: "नमस्ते {name}, ₹{amount} के संबंध में जो {due_date} को देय था ({days_overdue} दिन पहले)। कृपया बताएं कि आप इसे कब लौटा सकते हैं।",
-    LEVEL_3: "नमस्ते {name}, ₹{amount} का भुगतान {days_overdue} दिन से बाकी है। कृपया इसे निपटाने के लिए एक समय बताएं।",
-    LEVEL_4: "नमस्ते {name}, ₹{amount} का हिसाब 30 दिनों से अधिक समय से लंबित है। कृपया जल्द से जल्द संपर्क करके समाधान करें।"
+    1: "नमस्ते {name}, याद दिलाना था कि ₹{amount} की देय तिथि {due_date} है। — {my_name} (Udhaar)",
+    2: "नमस्ते {name}, ₹{amount} {due_date} को देय था। कृपया सुविधा अनुसार बताएं। — {my_name} (Udhaar)",
+    3: "नमस्ते {name}, बकाया ₹{amount} (देय तिथि {due_date}) के संबंध में अनुस्मारक। — {my_name} (Udhaar)",
+    4: "सूचना: {my_name} के साथ ₹{amount} (देय {due_date}) के बकाया रिकॉर्ड के लिए अंतिम अनुस्मारक।"
   },
   bn: {
-    LEVEL_1: "নমস্কার {name}, {my_name}-এর পক্ষ থেকে একটি বিনীত অনুস্মারক: ₹{amount}-এর পরিশোধের তারিখ {due_date}।",
-    LEVEL_2: "নমস্কার {name}, ₹{amount}-এর বিষয়ে যোগাযোগ করছি যা {due_date}-এ প্রদেয় ছিল ({days_overdue} দিন আগে)। আপনি কবে দিতে পারবেন জানালে সুবিধা হয়।",
-    LEVEL_3: "নমস্কার {name}, ₹{amount}-এর হিসাব {days_overdue} দিন ধরে বাকি আছে। এটি পরিশোধের একটি তারিখ জানালে ভালো হয়।",
-    LEVEL_4: "নমস্কার {name}, ₹{amount}-এর হিসাব ৩০ দিনের বেশি সময় ধরে বাকি রয়েছে। দয়া করে শীঘ্রই যোগাযোগ করে সমাধান করুন।"
-  },
-  as: {
-    LEVEL_1: "নমস্কাৰ {name}, {my_name}ৰ তৰফৰ পৰা এটি বিনম্ৰ সোঁৱৰণি: ₹{amount} পৰিশোধৰ তাৰিখ {due_date}।",
-    LEVEL_2: "নমস্কাৰ {name}, ₹{amount}ৰ বিষয়ে যোগাযোগ কৰিছোঁ যিটো {due_date}ত দিবলগীয়া আছিল ({days_overdue} দিন আগতে)। কেতিয়া দিব পাৰিব জনালে সুবিধা হয়।",
-    LEVEL_3: "নমস্কাৰ {name}, ₹{amount}ৰ ধন {days_overdue} দিন ধৰি বাকী আছে। অনুগ্ৰহ কৰি এটি পৰিশোধৰ তাৰিখ জনাওক।",
-    LEVEL_4: "নমস্কাৰ {name}, ₹{amount}ৰ ধন ৩০ দিনতকৈ অধিক সময় বাকী হৈ আছে। অনুগ্ৰহ কৰি সোনকালে যোগাযোগ কৰি নিষ্পত্তি কৰক।"
-  },
-  ne: {
-    LEVEL_1: "नमस्ते {name}, {my_name} को तर्फबाट एउटा सानो सम्झना: ₹{amount} को भुक्तानी मिति {due_date} हो।",
-    LEVEL_2: "नमस्ते {name}, ₹{amount} को बारेमा फलो-अप जो {due_date} मा तिर्नुपर्ने थियो ({days_overdue} दिन अघि)। कहिले फिर्ता गर्न सक्नुहुन्छ कृपया बताउनुहोस्।",
-    LEVEL_3: "नमस्ते {name}, ₹{amount} को हिसाब {days_overdue} दिनदेखि बाँकी छ। कृपया यसलाई मिलाउने मिति तय गरौं।",
-    LEVEL_4: "नमस्ते {name}, ₹{amount} को हिसाब ३० दिनभन्दा बढी समयदेखि बाँकी छ। कृपया छिट्टै सम्पर्क गरेर समाधान गरौं।"
+    1: "হ্যালো {name}, মনে করিয়ে দিচ্ছি যে ₹{amount} আগামী {due_date} তারিখে পরিশোধযোগ্য। — {my_name} (Udhaar)",
+    2: "হ্যালো {name}, ₹{amount} গত {due_date} তারিখে পরিশোধযোগ্য ছিল। অনুগ্রহ করে জানাবেন। — {my_name} (Udhaar)",
+    3: "হ্যালো {name}, বকেয়া ₹{amount} (তারিখ {due_date}) সম্পর্কে অনুস্মারক। — {my_name} (Udhaar)",
+    4: "বিজ্ঞপ্তি: {my_name}-এর সাথে ₹{amount} (তারিখ {due_date}) বকেয়া রেকর্ডের চূড়ান্ত অনুস্মারক।"
   }
 };
 
-function resetRemindersStore() {
+function reminderRepo() {
   const repo = getReminderRepository();
-  if (repo && typeof repo.clear === "function") {
-    repo.clear();
-  }
+  assertRepoMethod(repo, "getPolicy", "ReminderRepository");
+  assertRepoMethod(repo, "savePolicy", "ReminderRepository");
+  assertRepoMethod(repo, "getReminderState", "ReminderRepository");
+  assertRepoMethod(repo, "saveReminderState", "ReminderRepository");
+  assertRepoMethod(repo, "saveReminderEvent", "ReminderRepository");
+  assertRepoMethod(repo, "listReminderEvents", "ReminderRepository");
+  return repo;
 }
 
-/**
- * Get or initialize user reminder policy
- */
-async function getUserReminderPolicy({ uid }) {
-  if (!uid) return { ...DEFAULT_POLICY };
-  const existing = getPoliciesMap().get(uid);
-  return existing ? { ...existing } : { ...DEFAULT_POLICY, uid };
+const DEFAULT_POLICY = {
+  enabled: true,
+  quietHoursStart: 21,
+  quietHoursEnd: 8,
+  quietHoursStartHour: 21,
+  quietHoursEndHour: 8,
+  maxRemindersPerRecordPerWeek: 2,
+  defaultLocale: "en",
+  allowEscalationLevel4: false,
+  tone: "POLITE"
+};
+
+async function getUserReminderPolicy(uidOrParams) {
+  const uid = typeof uidOrParams === "object" && uidOrParams !== null ? uidOrParams.uid : uidOrParams;
+  const rRepo = reminderRepo();
+  const saved = await rRepo.getPolicy(uid);
+  return {
+    ...DEFAULT_POLICY,
+    ...(saved || {}),
+    uid
+  };
 }
 
-/**
- * Update user reminder policy
- */
-async function updateUserReminderPolicy({ uid, policyUpdates }) {
-  if (!uid) {
-    const err = new Error("User ID is required.");
-    err.code = "ERR_UNAUTHORIZED";
-    err.status = 401;
-    throw err;
+async function updateUserReminderPolicy(uidOrParams, updatesArg = {}) {
+  let uid = uidOrParams;
+  let updates = updatesArg;
+  if (typeof uidOrParams === "object" && uidOrParams !== null) {
+    uid = uidOrParams.uid;
+    updates = uidOrParams.policyUpdates || uidOrParams;
   }
 
-  const current = await getUserReminderPolicy({ uid });
-  const updated = {
+  const rRepo = reminderRepo();
+  const current = await getUserReminderPolicy(uid);
+  const nextStart = updates.quietHoursStartHour !== undefined
+    ? Number(updates.quietHoursStartHour)
+    : (updates.quietHoursStart !== undefined ? Number(updates.quietHoursStart) : current.quietHoursStart);
+  const nextEnd = updates.quietHoursEndHour !== undefined
+    ? Number(updates.quietHoursEndHour)
+    : (updates.quietHoursEnd !== undefined ? Number(updates.quietHoursEnd) : current.quietHoursEnd);
+
+  const next = {
     ...current,
-    ...policyUpdates,
+    ...updates,
     uid,
+    quietHoursStart: nextStart,
+    quietHoursEnd: nextEnd,
+    quietHoursStartHour: nextStart,
+    quietHoursEndHour: nextEnd,
+    maxRemindersPerRecordPerWeek: updates.maxRemindersPerRecordPerWeek !== undefined
+      ? Math.max(1, Math.min(7, Number(updates.maxRemindersPerRecordPerWeek)))
+      : current.maxRemindersPerRecordPerWeek,
     updatedAtMs: Date.now()
   };
-
-  getPoliciesMap().set(uid, updated);
-  return updated;
+  await rRepo.savePolicy(uid, next);
+  return next;
 }
 
-/**
- * Check if the current time falls in quiet hours (e.g. 21:00 to 08:00)
- */
-function isQuietHours(policy = DEFAULT_POLICY, dateObj = new Date()) {
-  const hour = dateObj.getHours();
-  const start = policy.quietHoursStartHour !== undefined ? policy.quietHoursStartHour : 21;
-  const end = policy.quietHoursEndHour !== undefined ? policy.quietHoursEndHour : 8;
+async function getRecordReminderConfig(uid, recordId) {
+  const rRepo = reminderRepo();
+  const saved = await rRepo.getReminderState(recordId);
+  return {
+    uid,
+    recordId,
+    muted: false,
+    paused: false,
+    stopped: false,
+    snoozedUntilMs: 0,
+    preferredChannel: "WHATSAPP",
+    locale: "en",
+    lastSentAtMs: 0,
+    lastEscalationLevel: 0,
+    ...(saved || {})
+  };
+}
 
-  if (start > end) {
-    // Overnight: e.g. 21 to 8
-    return hour >= start || hour < end;
-  } else {
-    return hour >= start && hour < end;
+async function configureRecordReminder(uid, recordId, configUpdates = {}) {
+  const rRepo = reminderRepo();
+  const current = await getRecordReminderConfig(uid, recordId);
+  const next = {
+    ...current,
+    ...configUpdates,
+    uid,
+    recordId,
+    updatedAtMs: Date.now()
+  };
+  await rRepo.saveReminderState(recordId, next);
+  return next;
+}
+
+async function snoozeRecordReminders({ uid, recordId, snoozeDays = 0, stop = false, nowMs = Date.now() }) {
+  const updates = {};
+  if (stop) {
+    updates.muted = true;
+    updates.stopped = true;
+  } else if (Number(snoozeDays) > 0) {
+    updates.snoozedUntilMs = nowMs + Number(snoozeDays) * 24 * 60 * 60 * 1000;
   }
+  return await configureRecordReminder(uid, recordId, updates);
 }
 
-/**
- * Calculate the appropriate escalation level based on due date
- */
-function calculateEscalationLevel(dueDateMs, nowMs = Date.now(), policy = DEFAULT_POLICY) {
+function normalizeLevelNumber(level) {
+  if (typeof level === "number") {
+    return Math.min(4, Math.max(1, level));
+  }
+  if (typeof level === "string") {
+    const match = level.match(/(\d+)/);
+    if (match) {
+      return Math.min(4, Math.max(1, parseInt(match[1], 10)));
+    }
+  }
+  return 1;
+}
+
+function calculateEscalationLevel(dueDateMs, nowMs = Date.now(), allowLevel4 = true) {
   if (!dueDateMs || dueDateMs <= 0) return null;
-
-  const msPerDay = 86400000;
-  const daysDiff = Math.floor((nowMs - dueDateMs) / msPerDay);
-
-  if (daysDiff < -policy.level1DaysBefore) {
-    // Too early for reminders
-    return null;
-  } else if (daysDiff <= 0) {
-    // 3 days before up to on due date
-    return "LEVEL_1";
-  } else if (daysDiff <= policy.level2DaysOverdue) {
-    // 1 to 7 days overdue
-    return "LEVEL_2";
-  } else if (daysDiff <= policy.level3DaysOverdue) {
-    // 8 to 30 days overdue
-    return "LEVEL_3";
-  } else {
-    // > 30 days overdue
-    return "LEVEL_4";
-  }
+  const diffDays = (nowMs - dueDateMs) / (24 * 60 * 60 * 1000);
+  if (diffDays < -3) return null;
+  if (diffDays <= 0) return "LEVEL_1";
+  if (diffDays <= 3) return "LEVEL_2";
+  if (diffDays <= 30) return "LEVEL_3";
+  return allowLevel4 ? "LEVEL_4" : "LEVEL_3";
 }
 
-/**
- * Format a localized reminder message
- */
-function formatReminderMessage({ level, locale = "en", partyName, amountPaise, dueDateMs, myName = "Udhaar User", nowMs = Date.now() }) {
-  const langTemplates = REMINDER_TEMPLATES[locale] || REMINDER_TEMPLATES.en;
-  const template = langTemplates[level] || langTemplates.LEVEL_1;
+function isQuietHours(hourOrPolicy, startOrDate = 21, endHour = 8) {
+  let hour;
+  let startHour;
+  let end;
 
-  const amountRupees = (Number(amountPaise) / 100).toLocaleString("en-IN", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2
-  });
+  if (hourOrPolicy && typeof hourOrPolicy === "object" && !(hourOrPolicy instanceof Date)) {
+    const policy = hourOrPolicy;
+    startHour = policy.quietHoursStartHour !== undefined
+      ? Number(policy.quietHoursStartHour)
+      : (policy.quietHoursStart !== undefined ? Number(policy.quietHoursStart) : 21);
+    end = policy.quietHoursEndHour !== undefined
+      ? Number(policy.quietHoursEndHour)
+      : (policy.quietHoursEnd !== undefined ? Number(policy.quietHoursEnd) : 8);
+    if (startOrDate instanceof Date) {
+      hour = startOrDate.getHours();
+    } else if (typeof startOrDate === "number") {
+      hour = startOrDate;
+    } else {
+      hour = new Date().getHours();
+    }
+  } else {
+    hour = typeof hourOrPolicy === "number" ? hourOrPolicy : new Date().getHours();
+    startHour = Number(startOrDate);
+    end = Number(endHour);
+  }
 
-  const dueDateStr = dueDateMs ? new Date(dueDateMs).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric"
-  }) : "agreed date";
+  if (startHour === end) return false;
+  if (startHour > end) {
+    return hour >= startHour || hour < end;
+  }
+  return hour >= startHour && hour < end;
+}
 
-  const daysOverdue = dueDateMs && nowMs > dueDateMs ? Math.max(1, Math.floor((nowMs - dueDateMs) / 86400000)) : 0;
+function formatReminderMessage({
+  locale = "en",
+  level = 1,
+  counterpartyName,
+  partyName,
+  amountPaise = 0,
+  dueDateMs,
+  senderName,
+  myName
+}) {
+  const lang = ESCALATION_TEMPLATES[locale] ? locale : "en";
+  const lvl = normalizeLevelNumber(level);
+  const template = ESCALATION_TEMPLATES[lang][lvl] || ESCALATION_TEMPLATES.en[1];
+  const amountNum = Number(amountPaise || 0) / 100;
+  const amountInr = Number.isInteger(amountNum)
+    ? amountNum.toLocaleString("en-IN")
+    : amountNum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const dueDateStr = dueDateMs
+    ? new Date(dueDateMs).toISOString().slice(0, 10)
+    : "soon";
 
   return template
-    .replace("{name}", partyName || "Friend")
-    .replace("{my_name}", myName || "Udhaar User")
-    .replace("{amount}", amountRupees)
+    .replace("{name}", counterpartyName || partyName || "Friend")
+    .replace("{amount}", amountInr)
     .replace("{due_date}", dueDateStr)
-    .replace("{days_overdue}", String(daysOverdue));
+    .replace("{my_name}", senderName || myName || "Udhaar User");
 }
 
-/**
- * Snooze reminders for a specific record
- */
-async function snoozeRecordReminders({ uid, recordId, snoozeDays = 1, stop = false }) {
-  const record = await getRecord({ uid, recordId });
-  if (!record) {
-    const err = new Error(`Record ${recordId} not found.`);
-    err.code = "ERR_RECORD_NOT_FOUND";
-    err.status = 404;
-    throw err;
+async function evaluatePendingReminders(uidOrParams, nowMsArg = Date.now(), currentHourLocalArg = 12) {
+  let uid = uidOrParams;
+  let nowMs = nowMsArg;
+  let currentHourLocal = currentHourLocalArg;
+  if (uidOrParams && typeof uidOrParams === "object") {
+    uid = uidOrParams.uid;
+    nowMs = uidOrParams.nowMs !== undefined ? uidOrParams.nowMs : Date.now();
+    currentHourLocal = uidOrParams.currentHourLocal !== undefined ? uidOrParams.currentHourLocal : 12;
   }
 
-  const now = Date.now();
-  let state = getStatesMap().get(recordId) || {};
-
-  if (stop) {
-    state.remindersDisabled = true;
-    state.snoozedUntilMs = null;
-    state.stoppedAtMs = now;
-  } else {
-    const days = Math.max(1, Number(snoozeDays) || 1);
-    state.snoozedUntilMs = now + days * 86400000;
-    state.remindersDisabled = false;
-    state.snoozedAtMs = now;
+  const policy = await getUserReminderPolicy(uid);
+  if (!policy.enabled) {
+    return { skippedReason: "POLICY_DISABLED", candidates: [], pendingReminders: [] };
   }
 
-  getStatesMap().set(recordId, state);
-
-  return {
-    success: true,
-    recordId,
-    remindersDisabled: Boolean(state.remindersDisabled),
-    snoozedUntilMs: state.snoozedUntilMs
-  };
-}
-
-/**
- * Evaluate and schedule all pending reminders for a user
- */
-async function evaluatePendingReminders({ uid, nowMs = Date.now() }) {
-  if (!isFeatureEnabled("KILL_SWITCH_REMINDERS")) {
-    return {
-      evaluatedCount: 0,
-      inQuietHours: false,
-      pendingReminders: [],
-      remindersSuspended: true
-    };
+  if (isQuietHours(currentHourLocal, policy.quietHoursStart, policy.quietHoursEnd)) {
+    return { skippedReason: "QUIET_HOURS", candidates: [], pendingReminders: [] };
   }
 
-  const policy = await getUserReminderPolicy({ uid });
-  const inQuietHours = isQuietHours(policy, new Date(nowMs));
+  const { items: allRecords } = await listRecords({ uid, limit: 1000 });
+  const candidates = [];
 
-  const recordsResult = await listRecords({ uid });
-  const recordsList = recordsResult.items || recordsResult || [];
-  const pendingReminders = [];
+  for (const record of allRecords) {
+    if (record.status === "SETTLED" || record.deleted || record.isDeleted) continue;
+    if (record.counterpartyRole && record.counterpartyRole !== "BORROWER") continue;
+    const remaining = Number(
+      record.remainingAmountPaise !== undefined
+        ? record.remainingAmountPaise
+        : (record.remainingPaise !== undefined ? record.remainingPaise : record.principalAmountPaise || record.amountPaise || 0)
+    );
+    if (remaining <= 0) continue;
+    if (!record.dueDateMs) continue;
 
-  for (const record of recordsList) {
-    // Stop condition 1: Settled records
-    if (record.status === "SETTLED" || record.remainingAmountPaise <= 0) {
-      continue;
-    }
+    const cfg = await getRecordReminderConfig(uid, record.recordId);
+    if (cfg.muted || cfg.paused || cfg.stopped) continue;
+    if (cfg.snoozedUntilMs && cfg.snoozedUntilMs > nowMs) continue;
 
-    // Stop condition 2: Only remind borrowers when the user is the LENDER
-    // (If creator's counterpartyRole is BORROWER, user lent money to counterparty)
-    if (record.counterpartyRole !== "BORROWER") {
-      continue;
-    }
-
-    // Stop condition 3: Pending payment claims
-    if (record.hasPendingPaymentClaim) {
-      continue;
-    }
-
-    // Stop condition 4: Snoozed or disabled
-    const reminderState = getStatesMap().get(record.recordId) || {};
-    if (reminderState.remindersDisabled) {
-      continue;
-    }
-    if (reminderState.snoozedUntilMs && nowMs < reminderState.snoozedUntilMs) {
-      continue;
-    }
-
-    // Stop condition 5: Max 1 reminder per day
-    if (reminderState.lastReminderSentMs) {
-      const hoursSinceLast = (nowMs - reminderState.lastReminderSentMs) / (60 * 60 * 1000);
-      if (hoursSinceLast < 24) {
-        continue;
-      }
-    }
-
-    const level = calculateEscalationLevel(record.dueDateMs, nowMs, policy);
-    if (!level) {
-      continue;
-    }
+    const level = calculateEscalationLevel(record.dueDateMs, nowMs, policy.allowEscalationLevel4);
+    if (!level) continue;
 
     const message = formatReminderMessage({
+      locale: cfg.locale || policy.defaultLocale || "en",
       level,
-      locale: policy.defaultLocale,
-      partyName: record.partyName,
-      amountPaise: record.remainingAmountPaise,
+      counterpartyName: record.partyName || record.counterpartyName || "Friend",
+      amountPaise: remaining,
       dueDateMs: record.dueDateMs,
-      myName: "Udhaar User",
-      nowMs
+      senderName: "You"
     });
 
-    const cleanPhone = record.partyPhone ? String(record.partyPhone).replace(/\D+/g, "") : "";
-    const waMeUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}` : null;
+    const cleanPhone = String(record.partyPhone || "").replace(/[^0-9]/g, "");
+    const waMeUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
 
-    pendingReminders.push({
+    candidates.push({
       recordId: record.recordId,
-      partyName: record.partyName,
-      partyPhone: record.partyPhone,
-      remainingAmountPaise: record.remainingAmountPaise,
+      partyName: record.partyName || record.counterpartyName || "Friend",
+      counterpartyName: record.partyName || record.counterpartyName || "Friend",
+      remainingPaise: remaining,
+      remainingAmountPaise: remaining,
       dueDateMs: record.dueDateMs,
+      escalationLevel: level,
       level,
-      inQuietHours,
+      channel: cfg.preferredChannel || "WHATSAPP",
       message,
-      waMeUrl,
-      canSendAutomatedWhatsApp: Boolean(record.consentWhatsAppReminders)
+      waMeUrl
     });
   }
 
-  return {
-    evaluatedCount: recordsList.length,
-    inQuietHours,
-    pendingReminders
-  };
+  return { skippedReason: null, candidates, pendingReminders: candidates };
 }
 
-/**
- * Dispatch or prepare a reminder message for a record
- */
-async function sendRecordReminder({ uid, recordId, locale = "en", forceSendWhatsApp = false, nowMs = Date.now() }) {
-  if (!isFeatureEnabled("KILL_SWITCH_REMINDERS")) {
-    const err = new Error("Automated reminder dispatches are temporarily paused by administrative kill switch.");
-    err.code = "ERR_REMINDERS_SUSPENDED";
-    err.status = 503;
-    throw err;
-  }
-
+async function sendRecordReminder({ uid, recordId, locale = "en", nowMs = Date.now() }) {
   const record = await getRecord({ uid, recordId });
-  if (!record) {
-    const err = new Error(`Record ${recordId} not found.`);
-    err.code = "ERR_RECORD_NOT_FOUND";
-    err.status = 404;
-    throw err;
-  }
-
-  const policy = await getUserReminderPolicy({ uid });
-  const level = calculateEscalationLevel(record.dueDateMs, nowMs, policy) || "LEVEL_1";
-
+  const level = calculateEscalationLevel(record.dueDateMs, nowMs, true) || "LEVEL_1";
   const message = formatReminderMessage({
+    locale,
     level,
-    locale: locale || policy.defaultLocale,
     partyName: record.partyName,
-    amountPaise: record.remainingAmountPaise,
+    amountPaise: record.remainingAmountPaise || record.principalAmountPaise,
     dueDateMs: record.dueDateMs,
-    nowMs
+    myName: "Udhaar User"
   });
-
-  const cleanPhone = record.partyPhone ? String(record.partyPhone).replace(/\D+/g, "") : "";
-  const waMeUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}` : null;
-
-  let automatedSent = false;
-  let deliveryResult = null;
-
-  // Only dispatch automated WhatsApp if explicitly allowed & consent recorded
-  if (forceSendWhatsApp || record.consentWhatsAppReminders) {
-    if (record.partyPhone && cleanPhone.length >= 10) {
-      const waProvider = getWhatsAppProvider();
-      deliveryResult = await waProvider.sendCode({
-        destination: record.partyPhone,
-        code: "REMINDER",
-        locale,
-        purpose: "REMINDER"
-      });
-      automatedSent = true;
-    }
-  }
-
-  // Update last reminder sent timestamp
-  const state = getStatesMap().get(recordId) || {};
-  state.lastReminderSentMs = nowMs;
-  state.lastReminderLevel = level;
-  getStatesMap().set(recordId, state);
-
-  return {
-    success: true,
+  const cleanPhone = String(record.partyPhone || "").replace(/[^0-9]/g, "");
+  const waMeUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+  const dispatch = await logReminderDispatch(uid, {
     recordId,
     level,
-    message,
-    waMeUrl,
-    automatedSent,
-    deliveryResult,
-    lastReminderSentMs: nowMs
-  };
+    channel: "WHATSAPP",
+    message
+  });
+  return { ...dispatch, waMeUrl, message, level };
 }
 
+async function logReminderDispatch(uid, { recordId, level = 1, channel = "WHATSAPP", message = "", status = "SENT" }) {
+  const rRepo = reminderRepo();
+  const dispatchId = "rem_" + crypto.randomBytes(8).toString("hex");
+  const entry = {
+    id: dispatchId,
+    reminderId: dispatchId,
+    dispatchId,
+    uid,
+    recordId,
+    level,
+    channel,
+    message,
+    status,
+    dispatchedAtMs: Date.now()
+  };
+  await rRepo.saveReminderEvent(entry);
+  await configureRecordReminder(uid, recordId, {
+    lastSentAtMs: entry.dispatchedAtMs,
+    lastEscalationLevel: level
+  });
+  return entry;
+}
+
+async function getReminderDispatchHistory(uid, recordId = null) {
+  const rRepo = reminderRepo();
+  return await rRepo.listReminderEvents(recordId);
+}
+
+async function clearAllReminderStore() {
+  const rRepo = reminderRepo();
+  assertRepoMethod(rRepo, "clear", "ReminderRepository");
+  await rRepo.clear();
+}
+
+const resetRemindersStore = clearAllReminderStore;
+
 module.exports = {
-  DEFAULT_POLICY,
-  REMINDER_TEMPLATES,
-  resetRemindersStore,
+  ESCALATION_TEMPLATES,
   getUserReminderPolicy,
   updateUserReminderPolicy,
-  isQuietHours,
-  calculateEscalationLevel,
-  formatReminderMessage,
+  getRecordReminderConfig,
+  configureRecordReminder,
   snoozeRecordReminders,
-  evaluatePendingReminders,
   sendRecordReminder,
-  _inMemoryReminderPolicies,
-  _inMemoryRecordReminderStates
+  calculateEscalationLevel,
+  isQuietHours,
+  formatReminderMessage,
+  evaluatePendingReminders,
+  logReminderDispatch,
+  getReminderDispatchHistory,
+  clearAllReminderStore,
+  resetRemindersStore
 };

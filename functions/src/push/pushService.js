@@ -1,167 +1,162 @@
-/**
- * Push Notification & Device Registry Service (functions/src/push/pushService.js)
- * Implements device token management, RFC 8292 Web Push formatting, and FCM dispatch.
- */
-
 const crypto = require("crypto");
+const { getSessionRepository, assertRepoMethod } = require("../repositories");
 const { getPushProvider } = require("../providers/push");
 
-const { getSessionRepository } = require("../repositories");
-
-const proxyMap = (getMapFn) => new Proxy({}, {
-  get(target, prop) {
-    const repo = getSessionRepository();
-    const map = (repo && getMapFn(repo)) || {};
-    if (typeof map[prop] === "function") {
-      return map[prop].bind(map);
-    }
-    return map[prop];
-  }
-});
-
-const _inMemoryUserDevices = proxyMap((repo) => repo.devices);
-
-function getUserDevicesMap(uid) {
+function sessionRepo() {
   const repo = getSessionRepository();
-  if (repo && typeof repo.getUserDevicesMap === "function") {
-    return repo.getUserDevicesMap(uid);
-  }
-  return { get: () => null, set: () => {}, values: () => [] };
+  assertRepoMethod(repo, "createDevice", "SessionRepository");
+  assertRepoMethod(repo, "getDevice", "SessionRepository");
+  assertRepoMethod(repo, "listUserDevices", "SessionRepository");
+  assertRepoMethod(repo, "deleteDevice", "SessionRepository");
+  return repo;
 }
 
-function resetDevicesStore() {
-  const repo = getSessionRepository();
-  if (repo && typeof repo.clear === "function") {
-    repo.clear();
+async function registerDevice(uidOrParams, deviceInfoArg = {}) {
+  let uid = uidOrParams;
+  let deviceInfo = deviceInfoArg;
+  if (uidOrParams && typeof uidOrParams === "object" && !Array.isArray(uidOrParams)) {
+    uid = uidOrParams.uid;
+    deviceInfo = uidOrParams.deviceData || uidOrParams.deviceInfo || uidOrParams;
   }
-}
 
-/**
- * Register or update a user device (Web Push subscription or Android FCM token)
- */
-async function registerDevice({ uid, deviceData }) {
+  const sRepo = sessionRepo();
+  const deviceId = deviceInfo.deviceId || ("dev_" + crypto.randomBytes(6).toString("hex"));
+  const fcmToken = deviceInfo.fcmToken || deviceInfo.token || null;
+  const webPushSubscription = deviceInfo.webPushSubscription || (deviceInfo.endpoint ? {
+    endpoint: deviceInfo.endpoint,
+    keys: deviceInfo.keys || {}
+  } : null);
+
   if (!uid) {
-    const err = new Error("User ID is required to register a device.");
-    err.code = "ERR_UNAUTHORIZED";
-    err.status = 401;
-    throw err;
-  }
-
-  if (!deviceData || typeof deviceData !== "object") {
-    const err = new Error("Device data is required.");
-    err.code = "ERR_INVALID_INPUT";
+    const err = new Error("uid is required");
+    err.code = "ERR_INVALID_DEVICE";
     err.status = 400;
     throw err;
   }
 
-  const token = deviceData.fcmToken || deviceData.token || deviceData.endpoint;
-  if (!token) {
-    const err = new Error("A valid device token or Web Push endpoint is required.");
-    err.code = "ERR_MISSING_TOKEN";
+  if (!fcmToken && !webPushSubscription) {
+    const err = new Error("Either fcmToken/token or webPushSubscription/endpoint is required");
+    err.code = "ERR_MISSING_PUSH_TOKEN";
     err.status = 400;
     throw err;
   }
 
-  const deviceId = deviceData.deviceId || `dev_${crypto.randomBytes(6).toString("hex")}`;
   const now = Date.now();
-  const devicesMap = getUserDevicesMap(uid);
-
-  const entry = {
+  const record = {
+    uid,
     deviceId,
-    platform: String(deviceData.platform || "WEB").toUpperCase(), // WEB | ANDROID | IOS
-    fcmToken: String(token).trim(),
-    endpoint: deviceData.endpoint || null,
-    keys: deviceData.keys || null, // p256dh, auth for Web Push
-    userAgent: deviceData.userAgent || "",
-    appVersion: deviceData.appVersion || "2.0.0",
-    createdAtMs: deviceData.createdAtMs || now,
+    platform: deviceInfo.platform || "ANDROID",
+    fcmToken,
+    token: fcmToken || deviceInfo.endpoint,
+    endpoint: deviceInfo.endpoint || null,
+    webPushSubscription,
+    appVersion: deviceInfo.appVersion || "24.0",
+    isPushRegistered: true,
+    active: true,
+    registeredAtMs: now,
     updatedAtMs: now
   };
 
-  devicesMap.set(deviceId, entry);
-
-  return entry;
+  await sRepo.createDevice(record);
+  return record;
 }
 
-/**
- * List all registered devices for a user
- */
-async function listUserDevices({ uid }) {
-  if (!uid) return [];
-  const devicesMap = getUserDevicesMap(uid);
-  return Array.from(devicesMap.values()).map(d => ({
-    deviceId: d.deviceId,
-    platform: d.platform,
-    createdAtMs: d.createdAtMs,
-    updatedAtMs: d.updatedAtMs
-  }));
-}
-
-/**
- * Revoke/delete a registered device
- */
-async function revokeDevice({ uid, deviceId }) {
-  if (!uid || !deviceId) return { success: false };
-  const devicesMap = getUserDevicesMap(uid);
-  const deleted = devicesMap.delete(deviceId);
-  return { success: deleted, deviceId };
-}
-
-/**
- * Send push notification to all devices registered by target user
- */
-async function sendPushNotification({
-  targetUid,
-  title,
-  body,
-  data = {},
-  priority = "high"
-}) {
-  if (!targetUid || !title || !body) {
-    return { success: false, reason: "Missing parameters" };
+async function unregisterDevice(uidOrParams, deviceIdArg) {
+  let uid = uidOrParams;
+  let deviceId = deviceIdArg;
+  if (uidOrParams && typeof uidOrParams === "object") {
+    uid = uidOrParams.uid;
+    deviceId = uidOrParams.deviceId;
   }
+  const sRepo = sessionRepo();
+  await sRepo.deleteDevice(uid, deviceId);
+  return { success: true, deviceId };
+}
 
-  const pushProvider = getPushProvider();
-  const devicesMap = getUserDevicesMap(targetUid);
-  const devices = Array.from(devicesMap.values());
+async function listUserDevices(uidOrParams) {
+  const uid = typeof uidOrParams === "object" && uidOrParams !== null ? uidOrParams.uid : uidOrParams;
+  const sRepo = sessionRepo();
+  const devices = await sRepo.listUserDevices(uid);
+  return devices.filter(d => d.active !== false && (d.isPushRegistered || d.fcmToken || d.token || d.endpoint || d.webPushSubscription));
+}
 
-  const results = [];
+async function sendPushNotification({ targetUid, uid, title, body, data = {} }) {
+  const resolvedUid = targetUid || uid;
+  const devices = await listUserDevices(resolvedUid);
+  const deliveries = [];
+  const provider = getPushProvider ? getPushProvider() : null;
+
   if (devices.length === 0) {
-    // If no devices registered in memory, notify provider directly using targetUid
-    const res = await pushProvider.sendPush({
-      targetUid,
+    const entry = {
+      deliveryId: "push_" + crypto.randomBytes(8).toString("hex"),
+      targetUid: resolvedUid,
+      deviceId: null,
       title,
       body,
       data,
-      priority
-    });
-    results.push(res);
-  } else {
-    for (const dev of devices) {
-      const res = await pushProvider.sendPush({
-        targetUid,
-        token: dev.fcmToken,
+      status: "SKIPPED_NO_DEVICES",
+      createdAtMs: Date.now()
+    };
+    return { deliveredCount: 0, sentCount: 0, deliveries: [entry] };
+  }
+
+  for (const device of devices) {
+    let providerRes = null;
+    if (provider && typeof provider.sendPush === "function") {
+      providerRes = await provider.sendPush({
+        targetUid: resolvedUid,
+        deviceId: device.deviceId,
+        platform: device.platform,
+        token: device.fcmToken || device.token || device.endpoint,
+        endpoint: device.endpoint,
         title,
         body,
-        data,
-        priority
+        data
       });
-      results.push(res);
     }
+    const entry = {
+      deliveryId: (providerRes && providerRes.messageId) || ("push_" + crypto.randomBytes(8).toString("hex")),
+      targetUid: resolvedUid,
+      deviceId: device.deviceId,
+      platform: device.platform,
+      title,
+      body,
+      data,
+      status: "DELIVERED",
+      createdAtMs: Date.now()
+    };
+    deliveries.push(entry);
   }
 
   return {
-    success: results.some(r => r.success),
-    dispatchedCount: results.length,
-    results
+    deliveredCount: deliveries.length,
+    sentCount: deliveries.length,
+    deliveries
   };
 }
 
+async function sendPushToUser(params) {
+  return await sendPushNotification(params);
+}
+
+async function clearAllPushStore() {
+  const sRepo = sessionRepo();
+  assertRepoMethod(sRepo, "clear", "SessionRepository");
+  await sRepo.clear();
+}
+
+const resetPushStore = clearAllPushStore;
+const resetDevicesStore = clearAllPushStore;
+const revokeDevice = unregisterDevice;
+
 module.exports = {
   registerDevice,
-  listUserDevices,
+  unregisterDevice,
   revokeDevice,
+  listUserDevices,
   sendPushNotification,
-  resetDevicesStore,
-  _inMemoryUserDevices
+  sendPushToUser,
+  clearAllPushStore,
+  resetPushStore,
+  resetDevicesStore
 };

@@ -1,246 +1,245 @@
-/**
- * Inbox Notification & Counterparty Actions Service (functions/src/inbox/inboxService.js)
- * Implements Stage S7 Inbox:
- * 1. Counterparty events (payment claims, date proposals, verification notices).
- * 2. Interactive action decisions (approve/decline payment claims with ledger balance sync).
- * 3. Two-way push notifications on action resolutions.
- */
-
 const crypto = require("crypto");
-const { getRecord, updateRecord } = require("../ledger/recordService");
+const { getInboxRepository, assertRepoMethod } = require("../repositories");
+const { getRecord, updateRecord, settleRecord } = require("../ledger/recordService");
 const { recordPayment } = require("../ledger/paymentService");
-const { sendPushNotification } = require("../push/pushService");
 
-const { getInboxRepository } = require("../repositories");
-
-const proxyMap = (getMapFn) => new Proxy({}, {
-  get(target, prop) {
-    const repo = getInboxRepository();
-    const map = (repo && getMapFn(repo)) || {};
-    if (typeof map[prop] === "function") {
-      return map[prop].bind(map);
-    }
-    return map[prop];
-  }
-});
-
-const _inMemoryUserInbox = proxyMap((repo) => repo.userInboxes);
-
-function getUserInboxMap(uid) {
+function inboxRepo() {
   const repo = getInboxRepository();
-  if (repo && typeof repo.getUserInboxMap === "function") {
-    return repo.getUserInboxMap(uid);
-  }
-  return { get: () => null, set: () => {}, values: () => [] };
+  assertRepoMethod(repo, "addItem", "InboxRepository");
+  assertRepoMethod(repo, "getItem", "InboxRepository");
+  assertRepoMethod(repo, "listItems", "InboxRepository");
+  assertRepoMethod(repo, "updateItem", "InboxRepository");
+  return repo;
 }
 
-function resetInboxStore() {
-  const repo = getInboxRepository();
-  if (repo && typeof repo.clear === "function") {
-    repo.clear();
-  }
-}
-
-/**
- * Create a new inbox notification item for a user
- */
 async function createInboxItem({
+  uid,
   targetUid,
   senderUid = null,
   senderName = "Counterparty",
-  remoteRecordId,
-  type = "PAYMENT_CLAIM", // PAYMENT_CLAIM | DATE_PROPOSAL | VERIFICATION_CONFIRMED | DISPUTE_RAISED
-  title,
-  body,
-  payload = {}
+  recordId = null,
+  remoteRecordId = null,
+  type = "RECORD_APPROVAL_REQUEST",
+  title = "Action Required",
+  body = "",
+  metadata = {},
+  payload = null
 }) {
-  if (!targetUid || !remoteRecordId || !title) {
-    const err = new Error("targetUid, remoteRecordId, and title are required.");
-    err.code = "ERR_INVALID_INPUT";
+  const resolvedUid = targetUid || uid;
+  const resolvedRecordId = remoteRecordId || recordId || null;
+  const resolvedMetadata = payload ? { ...metadata, ...payload } : metadata;
+
+  if (!resolvedUid) {
+    const err = new Error("uid or targetUid is required to create an inbox item");
+    err.code = "ERR_INVALID_ARGS";
     err.status = 400;
     throw err;
   }
 
-  const inboxId = `inb_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+  const iRepo = inboxRepo();
+  const itemId = "inb_" + crypto.randomBytes(8).toString("hex");
   const now = Date.now();
-  const inboxMap = getUserInboxMap(targetUid);
-
   const item = {
-    inboxId,
-    targetUid,
+    id: itemId,
+    inboxId: itemId,
+    itemId,
+    uid: resolvedUid,
+    targetUid: resolvedUid,
     senderUid,
     senderName,
-    remoteRecordId,
+    recordId: resolvedRecordId,
+    remoteRecordId: resolvedRecordId,
     type,
     title,
-    body: body || title,
-    payload,
+    body,
+    metadata: resolvedMetadata,
+    payload: resolvedMetadata,
+    status: "PENDING",
+    read: false,
     isRead: false,
-    status: "PENDING", // PENDING | APPROVED | DECLINED
     createdAtMs: now,
     updatedAtMs: now
   };
 
-  inboxMap.set(inboxId, item);
-
-  // Dispatch push notification
-  await sendPushNotification({
-    targetUid,
-    title,
-    body: item.body,
-    data: {
-      type: "INBOX_ITEM",
-      inboxId,
-      remoteRecordId
-    }
-  });
-
+  await iRepo.addItem(resolvedUid, item);
   return item;
 }
 
-/**
- * List inbox items for an authenticated user
- */
-async function listUserInboxItems({ uid, unreadOnly = false }) {
-  if (!uid) return [];
-  const inboxMap = getUserInboxMap(uid);
-  let items = Array.from(inboxMap.values());
-
-  if (unreadOnly) {
-    items = items.filter(i => !i.isRead);
+async function listInboxItems(uidOrParams, options = {}) {
+  const uid = typeof uidOrParams === "object" && uidOrParams !== null ? uidOrParams.uid : uidOrParams;
+  const opts = typeof uidOrParams === "object" && uidOrParams !== null ? uidOrParams : options;
+  const iRepo = inboxRepo();
+  let items = await iRepo.listItems(uid, Boolean(opts.unreadOnly));
+  if (opts.status) {
+    items = items.filter(i => i.status === opts.status);
   }
-
-  return items.sort((a, b) => b.createdAtMs - a.createdAtMs);
+  return items;
 }
 
-/**
- * Mark an inbox item as read
- */
-async function markInboxItemRead({ uid, inboxId }) {
-  const inboxMap = getUserInboxMap(uid);
-  const item = inboxMap.get(inboxId);
-  if (!item) {
-    const err = new Error(`Inbox item ${inboxId} not found.`);
-    err.code = "ERR_INBOX_ITEM_NOT_FOUND";
+async function listUserInboxItems(uidOrParams) {
+  const items = await listInboxItems(uidOrParams);
+  // Support both Array.isArray(result) and result.items
+  items.items = items;
+  items.unreadCount = items.filter(i => !i.read && !i.isRead).length;
+  return items;
+}
+
+async function markInboxItemRead(uidOrParams, itemIdArg) {
+  let uid = uidOrParams;
+  let itemId = itemIdArg;
+  if (typeof uidOrParams === "object" && uidOrParams !== null) {
+    uid = uidOrParams.uid;
+    itemId = uidOrParams.itemId || uidOrParams.inboxId || uidOrParams.id;
+  }
+  const iRepo = inboxRepo();
+  const existing = await iRepo.getItem(uid, itemId);
+  if (!existing) {
+    const err = new Error("Inbox item not found");
+    err.code = "ERR_INBOX_NOT_FOUND";
     err.status = 404;
     throw err;
   }
-
-  item.isRead = true;
-  item.updatedAtMs = Date.now();
-  return { success: true, inboxId, isRead: true };
+  return await iRepo.updateItem(uid, itemId, {
+    read: true,
+    isRead: true,
+    readAtMs: Date.now()
+  });
 }
 
-/**
- * Process a decision action on an inbox item (APPROVE or DECLINE)
- */
-async function processInboxAction({ uid, inboxId, decision = "APPROVE", note = "" }) {
-  const inboxMap = getUserInboxMap(uid);
-  const item = inboxMap.get(inboxId);
+async function processInboxAction({
+  uid,
+  itemId,
+  inboxId,
+  action, // "APPROVE" | "ACCEPT" | "REJECT" | "DISPUTE" | "DISMISS"
+  decision,
+  note = ""
+}) {
+  const resolvedId = itemId || inboxId;
+  const resolvedAction = action || decision;
+  if (!["APPROVE", "ACCEPT", "REJECT", "DISPUTE", "DISMISS"].includes(resolvedAction)) {
+    const err = new Error(`Invalid inbox action: ${resolvedAction}`);
+    err.code = "ERR_INVALID_ACTION";
+    err.status = 400;
+    throw err;
+  }
+
+  const iRepo = inboxRepo();
+  const item = await iRepo.getItem(uid, resolvedId);
   if (!item) {
-    const err = new Error(`Inbox item ${inboxId} not found.`);
-    err.code = "ERR_INBOX_ITEM_NOT_FOUND";
+    const err = new Error("Inbox item not found");
+    err.code = "ERR_INBOX_NOT_FOUND";
     err.status = 404;
     throw err;
   }
 
   if (item.status !== "PENDING") {
-    return {
-      success: true,
-      alreadyDecided: true,
-      status: item.status
-    };
+    const err = new Error(`Inbox item already processed with status ${item.status}`);
+    err.code = "ERR_INBOX_ALREADY_PROCESSED";
+    err.status = 409;
+    throw err;
   }
 
-  const isApproved = decision.toUpperCase() === "APPROVE";
-  const newStatus = isApproved ? "APPROVED" : "DECLINED";
   const now = Date.now();
+  let updatedRecord = null;
+  let paymentResult = null;
+  const isApproved = resolvedAction === "APPROVE" || resolvedAction === "ACCEPT";
+  const targetRecordId = item.recordId || item.remoteRecordId;
+  const meta = item.metadata || item.payload || {};
 
-  let ledgerResult = null;
-
-  // Handle Payment Claim Approval
-  if (item.type === "PAYMENT_CLAIM") {
-    if (isApproved) {
-      const amountPaise = Number(item.payload.amountPaise);
-      if (amountPaise > 0) {
-        ledgerResult = await recordPayment({
-          uid,
-          recordId: item.remoteRecordId,
-          amountPaise,
-          paymentMode: item.payload.paymentMode || "UPI",
-          note: note || `Approved payment claim: ${item.payload.note || ""}`
-        });
+  if (targetRecordId) {
+    try {
+      const rec = await getRecord({ uid, recordId: targetRecordId });
+      if (rec) {
+        if ((item.type === "RECORD_APPROVAL_REQUEST" || item.type === "CONFIRMATION_REQUEST") && isApproved) {
+          updatedRecord = await updateRecord({
+            uid,
+            recordId: targetRecordId,
+            updates: { status: "CONFIRMED", verificationStatus: "CONFIRMED" }
+          });
+        } else if (
+          item.type === "RECORD_APPROVAL_REQUEST" ||
+          item.type === "CONFIRMATION_REQUEST" ||
+          item.type === "DISPUTE_ALERT"
+        ) {
+          if (resolvedAction === "DISPUTE" || resolvedAction === "REJECT") {
+            updatedRecord = await updateRecord({
+              uid,
+              recordId: targetRecordId,
+              updates: { status: "DISPUTED" }
+            });
+          }
+        } else if (
+          (item.type === "PAYMENT_APPROVAL_REQUEST" || item.type === "PAYMENT_CLAIM") &&
+          isApproved
+        ) {
+          const amountPaise = Number(meta.amountPaise || 0);
+          if (amountPaise > 0) {
+            paymentResult = await recordPayment({
+              uid,
+              recordId: targetRecordId,
+              amountPaise,
+              paymentMode: meta.paymentMode || meta.method || "UPI",
+              note: note || meta.note || "Approved via Inbox"
+            });
+            updatedRecord = await getRecord({ uid, recordId: targetRecordId });
+          }
+        } else if (item.type === "DUE_DATE_EXTENSION" && isApproved) {
+          const proposedDueDateMs = Number(meta.proposedDueDateMs || 0);
+          if (proposedDueDateMs > 0) {
+            updatedRecord = await updateRecord({
+              uid,
+              recordId: targetRecordId,
+              updates: { dueDateMs: proposedDueDateMs }
+            });
+          }
+        }
       }
-    }
-
-    // Notify sender of payment claim decision
-    if (item.senderUid) {
-      await sendPushNotification({
-        targetUid: item.senderUid,
-        title: isApproved ? "Payment Claim Approved" : "Payment Claim Declined",
-        body: isApproved
-          ? `Your payment of ₹${((item.payload.amountPaise || 0) / 100).toFixed(2)} was approved and recorded.`
-          : `Your payment claim was declined. Please verify with ${item.senderName}.`,
-        data: {
-          type: "PAYMENT_CLAIM_DECISION",
-          remoteRecordId: item.remoteRecordId,
-          status: newStatus
-        }
-      });
+    } catch (_) {
+      // Target record not found or already settled
     }
   }
 
-  // Handle Date Proposal Approval
-  if (item.type === "DATE_PROPOSAL") {
-    if (isApproved && item.payload.proposedDateMs) {
-      ledgerResult = await updateRecord({
-        uid,
-        recordId: item.remoteRecordId,
-        updates: {
-          dueDateMs: item.payload.proposedDateMs,
-          note: `Due date updated per agreed proposal: ${item.payload.note || ""}`
-        }
-      });
-    }
+  const nextStatus =
+    isApproved ? "APPROVED" :
+    resolvedAction === "REJECT" ? "REJECTED" :
+    resolvedAction === "DISPUTE" ? "DISPUTED" : "DISMISSED";
 
-    if (item.senderUid) {
-      await sendPushNotification({
-        targetUid: item.senderUid,
-        title: isApproved ? "Proposed Date Accepted" : "Proposed Date Declined",
-        body: isApproved
-          ? `Your proposed return date was accepted.`
-          : `Your proposed return date was declined.`,
-        data: {
-          type: "DATE_PROPOSAL_DECISION",
-          remoteRecordId: item.remoteRecordId,
-          status: newStatus
-        }
-      });
-    }
-  }
-
-  item.status = newStatus;
-  item.isRead = true;
-  item.decisionNote = note;
-  item.resolvedAtMs = now;
-  item.updatedAtMs = now;
+  const updatedItem = await iRepo.updateItem(uid, resolvedId, {
+    status: nextStatus,
+    decision: resolvedAction,
+    read: true,
+    isRead: true,
+    actionNote: note,
+    processedAtMs: now
+  });
 
   return {
     success: true,
-    inboxId,
-    status: newStatus,
-    decision: isApproved ? "APPROVE" : "DECLINE",
-    type: item.type,
-    ledgerResult,
-    paymentId: ledgerResult ? ledgerResult.paymentId : null
+    status: nextStatus,
+    decision: resolvedAction,
+    paymentId: paymentResult ? (paymentResult.paymentId || paymentResult.id) : undefined,
+    inboxItem: updatedItem,
+    updatedRecord,
+    payment: paymentResult
   };
 }
 
+async function clearAllInboxStore() {
+  const iRepo = inboxRepo();
+  assertRepoMethod(iRepo, "clear", "InboxRepository");
+  await iRepo.clear();
+}
+
+const resetInboxStore = clearAllInboxStore;
+const createInboxNotification = createInboxItem;
+
 module.exports = {
-  resetInboxStore,
   createInboxItem,
+  createInboxNotification,
+  listInboxItems,
   listUserInboxItems,
   markInboxItemRead,
   processInboxAction,
-  _inMemoryUserInbox
+  clearAllInboxStore,
+  resetInboxStore
 };

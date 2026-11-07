@@ -1,8 +1,8 @@
 /**
- * Firestore Privacy & Erasure Repository (functions/src/repositories/firestore/privacyRepository.js)
+ * Firestore Privacy Repository (functions/src/repositories/firestore/privacyRepository.js)
  */
 
-const { getDb } = require("./firestoreClient");
+const { getDb, clearCollection } = require("./firestoreClient");
 
 class FirestorePrivacyRepository {
   constructor(db) {
@@ -14,28 +14,39 @@ class FirestorePrivacyRepository {
   }
 
   async savePrivacyRequest(reqDoc) {
-    const docId = reqDoc.id || `priv_${Date.now()}`;
-    await this.db.collection("privacyRequests").doc(docId).set(reqDoc);
-    return reqDoc;
+    const id = reqDoc.id || reqDoc.requestId;
+    const docData = { ...reqDoc, id, requestId: id };
+    await this.db.collection("privacy_requests").doc(id).set(docData, { merge: true });
+    return docData;
   }
 
   async getPrivacyRequest(id) {
-    const snap = await this.db.collection("privacyRequests").doc(id).get();
+    if (!id) return null;
+    const snap = await this.db.collection("privacy_requests").doc(id).get();
     return snap.exists ? snap.data() : null;
+  }
+
+  async listPrivacyRequests(uid = null) {
+    let query = this.db.collection("privacy_requests");
+    if (uid) {
+      query = query.where("uid", "==", uid);
+    }
+    const snap = await query.get();
+    return snap.docs.map(d => d.data()).sort((a, b) => (b.createdAtMs || 0) - (a.createdAtMs || 0));
   }
 
   async deleteUserData(uid) {
     const userRef = this.db.collection("users").doc(uid);
-    // Mark tombstone on root doc and clear sensitive profile
-    await userRef.set({
-      isDeleted: true,
-      deletedAtMs: Date.now(),
-      displayName: "Deleted User",
-      phoneNumberHashed: null,
-      emailHashed: null,
-      upiIdEncrypted: null
-    }, { merge: true });
+    if (typeof this.db.recursiveDelete === "function") {
+      await this.db.recursiveDelete(userRef);
+    } else {
+      await userRef.delete();
+    }
     return true;
+  }
+
+  async clear() {
+    await clearCollection(this.db, "privacy_requests");
   }
 }
 

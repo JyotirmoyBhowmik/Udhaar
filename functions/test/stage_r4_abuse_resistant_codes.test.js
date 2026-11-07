@@ -442,7 +442,9 @@ test.describe("Stage R4 — Durable, Abuse-Resistant Codes & Anti-Enumeration", 
     );
 
     // Dynamic kill switch flag halts dispatch immediately
-    updateFeatureFlag({ flagName: "KILL_SWITCH_OTP_DISPATCH", enabled: true });
+    otpRepo.dailyBudget.sentCount = 0;
+    otpRepo.dailyBudget.killSwitchTriggered = false;
+    await updateFeatureFlag({ flagName: "KILL_SWITCH_OTP_DISPATCH", enabled: true });
     await assert.rejects(
       async () => {
         await sendOtpChallenge({

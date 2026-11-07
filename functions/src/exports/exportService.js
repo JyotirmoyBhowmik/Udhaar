@@ -1,76 +1,95 @@
 /**
- * Ledger Statements & Data Exports Service (functions/src/exports/exportService.js)
- * Implements Stage S7 Data Exports:
- * 1. RFC 4180 CSV Export with formula injection sanitization.
- * 2. Official Printable Statement of Account with Merkle audit seal.
- * 3. Full JSON Data Portability Archive (DPDP Act 2023 compliant).
+ * Compliance & Data Portability Export Engine (functions/src/exports/exportService.js)
+ * Implements Stage S7:
+ * - RFC 4180 CSV Ledger Export with strict Formula Injection Protection (`=`, `+`, `-`, `@`, `\t`, `\r`).
+ * - Printable Statement of Account HTML/PDF Template with Cryptographic Merkle Seal.
+ * - DPDP Act 2023 Full Personal Data Portability Archive (JSON).
+ * - Strictly backed by async AuthRepository, LedgerRepository, ChatRepository, InboxRepository, and ReminderRepository.
  */
 
 const crypto = require("crypto");
-const { listRecords, getRecord } = require("../ledger/recordService");
+const { listRecords } = require("../ledger/recordService");
 const { listPeople } = require("../ledger/peopleService");
-const { listPayments } = require("../ledger/paymentService");
-const { listEvents } = require("../ledger/eventService");
-const { _inMemoryUsers } = require("../auth/authService");
+const { listEvents, verifyAuditChain } = require("../ledger/eventService");
+const { listUserChatThreads } = require("../chat/chatService");
+const { listUserInboxItems } = require("../inbox/inboxService");
+const { getUserReminderPolicy } = require("../reminders/reminderService");
+const { getAuthRepository, assertRepoMethod } = require("../repositories");
+
+const FORMULA_DANGEROUS_PREFIXES = ["=", "+", "-", "@", "\t", "\r"];
+
+function getRequiredAuthRepo() {
+  const repo = getAuthRepository();
+  assertRepoMethod(repo, "getUser", "AuthRepository");
+  return repo;
+}
 
 /**
- * Neutralizes Excel / LibreOffice CSV formula injection characters (=, +, -, @, \t, \r)
+ * Sanitize cell against Spreadsheet Formula Injection (OWASP CSV Injection defense)
+ * and format according to RFC 4180.
  */
 function sanitizeCsvCell(value) {
   if (value === null || value === undefined) return '""';
   let str = String(value);
 
-  // If first character is a dangerous formula symbol, prefix with single quote
-  if (/^[=+\-@\t\r]/.test(str)) {
+  if (str.length > 0 && FORMULA_DANGEROUS_PREFIXES.includes(str[0])) {
     str = `'${str}`;
   }
 
-  // Escape double quotes per RFC 4180
-  const escaped = str.replace(/"/g, '""');
-  return `"${escaped}"`;
+  return `"${str.replace(/"/g, '""')}"`;
 }
 
 /**
- * 1. Generate RFC 4180 CSV Ledger Export
+ * Format integer paise to decimal Rupee string (e.g. 500050 -> "5000.50")
+ */
+function formatPaiseToRupees(paise) {
+  const num = Number(paise) || 0;
+  return (num / 100).toFixed(2);
+}
+
+/**
+ * Generate RFC 4180 compliant CSV export of user's ledger records
  */
 async function generateLedgerCsv({ uid }) {
-  const recordsRes = await listRecords({ uid });
-  const records = recordsRes.items || recordsRes || [];
+  if (!uid) {
+    const err = new Error("User ID is required");
+    err.code = "ERR_UNAUTHORIZED";
+    err.status = 401;
+    throw err;
+  }
+
+  const { items: records } = await listRecords({ uid, limit: 100 });
 
   const headers = [
     "Record ID",
-    "Created Date",
     "Counterparty Name",
     "Counterparty Phone",
     "Role",
     "Principal Amount (INR)",
     "Remaining Balance (INR)",
     "Status",
-    "Due Date",
+    "Verification Status",
+    "Start Date (ISO)",
+    "Due Date (ISO)",
     "Notes"
   ];
 
   const rows = [headers.map(sanitizeCsvCell).join(",")];
 
   for (const r of records) {
-    const createdDate = r.createdAtMs ? new Date(r.createdAtMs).toISOString().split("T")[0] : "";
-    const dueDate = r.dueDateMs ? new Date(r.dueDateMs).toISOString().split("T")[0] : "";
-    const principalRupees = (Number(r.principalAmountPaise || 0) / 100).toFixed(2);
-    const remainingRupees = (Number(r.remainingAmountPaise || 0) / 100).toFixed(2);
-
     const row = [
       r.recordId,
-      createdDate,
-      r.partyName,
-      r.partyPhone,
-      r.counterpartyRole,
-      principalRupees,
-      remainingRupees,
-      r.status,
-      dueDate,
-      r.note
+      r.partyName || "",
+      r.partyPhone || "",
+      r.counterpartyRole || "BORROWER",
+      formatPaiseToRupees(r.principalAmountPaise),
+      formatPaiseToRupees(r.remainingAmountPaise),
+      r.status || "PENDING",
+      r.verificationStatus || "UNVERIFIED",
+      r.startDateMs ? new Date(r.startDateMs).toISOString().split("T")[0] : "",
+      r.dueDateMs ? new Date(r.dueDateMs).toISOString().split("T")[0] : "",
+      r.note || ""
     ];
-
     rows.push(row.map(sanitizeCsvCell).join(","));
   }
 
@@ -78,91 +97,103 @@ async function generateLedgerCsv({ uid }) {
 }
 
 /**
- * 2. Generate Official Printable HTML Statement of Account
+ * Generate a printable HTML Statement of Account (for PDF printing) with Merkle Seal
  */
-async function generateStatementHtml({ uid, recordId = null, partyId = null }) {
-  const user = _inMemoryUsers.get(uid) || { displayName: "Udhaar User", uid };
-  const recordsRes = await listRecords({ uid });
-  let records = recordsRes.items || recordsRes || [];
-
-  if (recordId) {
-    records = records.filter(r => r.recordId === recordId);
-  } else if (partyId) {
-    records = records.filter(r => r.partyId === partyId);
+async function generateStatementHtml({ uid }) {
+  if (!uid) {
+    const err = new Error("User ID is required");
+    err.code = "ERR_UNAUTHORIZED";
+    err.status = 401;
+    throw err;
   }
 
-  const generatedDate = new Date().toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "long",
-    year: "numeric"
-  });
+  const authRepo = getRequiredAuthRepo();
+  const user = (await authRepo.getUser(uid)) || { uid, displayName: "Udhaar Account Holder" };
+  const { items: records } = await listRecords({ uid, limit: 100 });
+  const events = await listEvents({ uid });
+  const auditVerification = await verifyAuditChain(uid);
 
-  let totalPrincipalPaise = 0;
-  let totalRemainingPaise = 0;
+  let totalReceivablePaise = 0;
+  let totalPayablePaise = 0;
 
-  const rowsHtml = records.map(r => {
-    totalPrincipalPaise += (r.principalAmountPaise || 0);
-    totalRemainingPaise += (r.remainingAmountPaise || 0);
-    const pRupees = (r.principalAmountPaise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 });
-    const rRupees = (r.remainingAmountPaise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 });
-    const dDate = r.dueDateMs ? new Date(r.dueDateMs).toLocaleDateString("en-IN") : "—";
+  for (const r of records) {
+    if (r.status === "SETTLED") continue;
+    if (r.counterpartyRole === "BORROWER") {
+      totalReceivablePaise += r.remainingAmountPaise;
+    } else {
+      totalPayablePaise += r.remainingAmountPaise;
+    }
+  }
 
-    return `
+  const latestMerkleHash =
+    events.length > 0
+      ? events[events.length - 1].merkleHash
+      : crypto.createHash("sha256").update(`genesis:${uid}:udhaar_v2`).digest("hex");
+
+  const statementDate = new Date().toISOString().split("T")[0];
+
+  const escapeHtml = (str) =>
+    String(str || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+  const rowsHtml = records
+    .map(
+      (r) => `
       <tr>
-        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; font-family: monospace;">${r.recordId}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${r.partyName}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${r.counterpartyRole}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right;">₹${pRupees}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right; font-weight: bold;">₹${rRupees}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${dDate}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;"><span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; background: ${r.status === "SETTLED" ? "#d1fae5" : "#fef3c7"}; color: ${r.status === "SETTLED" ? "#065f46" : "#92400e"};">${r.status}</span></td>
-      </tr>
-    `;
-  }).join("");
-
-  const contentHash = crypto
-    .createHash("sha256")
-    .update(`${uid}|${records.length}|${totalPrincipalPaise}|${totalRemainingPaise}|${generatedDate}`)
-    .digest("hex");
+        <td><code>${escapeHtml(r.recordId.slice(0, 14))}</code></td>
+        <td><strong>${escapeHtml(r.partyName)}</strong></td>
+        <td>${r.counterpartyRole === "BORROWER" ? "Receivable (You Lent)" : "Payable (You Borrowed)"}</td>
+        <td style="text-align:right;">₹${formatPaiseToRupees(r.principalAmountPaise)}</td>
+        <td style="text-align:right;"><strong>₹${formatPaiseToRupees(r.remainingAmountPaise)}</strong></td>
+        <td>${escapeHtml(r.status)}</td>
+        <td>${r.dueDateMs ? new Date(r.dueDateMs).toISOString().split("T")[0] : "—"}</td>
+      </tr>`
+    )
+    .join("");
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Udhaar Statement of Account • ${user.displayName}</title>
+  <meta charset="utf-8" />
+  <title>Udhaar Statement of Account — ${escapeHtml(user.displayName || uid)}</title>
   <style>
-    body { font-family: system-ui, -apple-system, sans-serif; color: #0f172a; margin: 0; padding: 40px; background: #fff; }
-    .header { border-bottom: 2px solid #059669; padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; }
-    .brand { font-size: 26px; font-weight: 800; color: #059669; letter-spacing: -0.5px; }
-    .title { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; font-weight: 600; }
-    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; background: #f8fafc; padding: 16px; border-radius: 8px; font-size: 13px; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 30px; }
-    th { background: #f1f5f9; padding: 10px; text-align: left; font-weight: 600; color: #475569; border-bottom: 2px solid #cbd5e1; }
-    .seal { background: #ecfdf5; border: 1px solid #a7f3d0; padding: 14px; border-radius: 8px; font-size: 12px; color: #065f46; margin-top: 30px; }
-    .hash { font-family: monospace; word-break: break-all; color: #047857; margin-top: 4px; }
-    .footer { font-size: 11px; color: #94a3b8; text-align: center; margin-top: 40px; }
-    @media print { body { padding: 0; } }
+    body { font-family: system-ui, -apple-system, sans-serif; color: #0f172a; margin: 32px; line-height: 1.5; }
+    .header { display: flex; justify-content: space-between; border-bottom: 2px solid #059669; padding-bottom: 16px; margin-bottom: 24px; }
+    .summary-cards { display: flex; gap: 24px; margin-bottom: 24px; }
+    .card { border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; flex: 1; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 14px; }
+    th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; }
+    th { background: #f8fafc; font-weight: 600; }
+    .seal { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; font-size: 12px; color: #166534; }
   </style>
 </head>
 <body>
   <div class="header">
     <div>
-      <div class="brand">UDHAAR</div>
-      <div class="title">Official Statement of Account</div>
+      <h1 style="margin:0; color:#059669;">UDHAAR — Official Statement of Account</h1>
+      <p style="margin:4px 0 0 0; color:#475569;">Account Holder: <strong>${escapeHtml(user.displayName || "Udhaar User")}</strong> (${escapeHtml(uid)})</p>
     </div>
-    <div style="text-align: right; font-size: 12px; color: #64748b;">
-      Generated: <strong>${generatedDate}</strong>
+    <div style="text-align:right;">
+      <p style="margin:0;">Date: <strong>${statementDate}</strong></p>
+      <p style="margin:4px 0 0 0; color:#475569;">Currency: INR (₹)</p>
     </div>
   </div>
 
-  <div class="meta-grid">
-    <div>
-      <div>Account Name: <strong>${user.displayName}</strong></div>
-      <div>User ID: <span style="font-family: monospace;">${uid}</span></div>
+  <div class="summary-cards">
+    <div class="card">
+      <div style="color:#64748b; font-size:13px;">Total To Receive (Lent)</div>
+      <div style="font-size:22px; font-weight:700; color:#059669;">₹${formatPaiseToRupees(totalReceivablePaise)}</div>
     </div>
-    <div style="text-align: right;">
-      <div>Total Records: <strong>${records.length}</strong></div>
-      <div>Total Balance Outstanding: <strong>₹${(totalRemainingPaise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong></div>
+    <div class="card">
+      <div style="color:#64748b; font-size:13px;">Total To Pay (Borrowed)</div>
+      <div style="font-size:22px; font-weight:700; color:#dc2626;">₹${formatPaiseToRupees(totalPayablePaise)}</div>
+    </div>
+    <div class="card">
+      <div style="color:#64748b; font-size:13px;">Total Active Records</div>
+      <div style="font-size:22px; font-weight:700;">${records.length}</div>
     </div>
   </div>
 
@@ -171,62 +202,63 @@ async function generateStatementHtml({ uid, recordId = null, partyId = null }) {
       <tr>
         <th>Record ID</th>
         <th>Counterparty</th>
-        <th>Role</th>
-        <th style="text-align: right;">Principal</th>
-        <th style="text-align: right;">Balance</th>
-        <th>Due Date</th>
+        <th>Direction</th>
+        <th style="text-align:right;">Principal</th>
+        <th style="text-align:right;">Remaining</th>
         <th>Status</th>
+        <th>Due Date</th>
       </tr>
     </thead>
     <tbody>
-      ${rowsHtml || '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #94a3b8;">No records found.</td></tr>'}
+      ${rowsHtml || '<tr><td colspan="7" style="text-align:center;">No records found</td></tr>'}
     </tbody>
   </table>
 
   <div class="seal">
-    <strong>✓ Cryptographic Verification Seal</strong>
-    <div class="hash">SHA-256 Digest: ${contentHash}</div>
-    <div style="font-size: 11px; color: #059669; margin-top: 2px;">This document is an immutable statement generated by Udhaar Platform v2.</div>
-  </div>
-
-  <div class="footer">
-    Udhaar • Private, on-device financial records • https://udhaar.jyotirmoyb.com
+    <strong>Cryptographic Verification Seal (Merkle Audit Chain)</strong><br/>
+    Chain Integrity: <strong>${auditVerification.valid ? "VERIFIED (" + auditVerification.blockCount + " blocks)" : "UNVERIFIED"}</strong><br/>
+    Latest Block SHA-256 Digest: <code>${latestMerkleHash}</code>
   </div>
 </body>
 </html>`;
 }
 
 /**
- * 3. Generate Complete User Data Portability Archive (Full JSON)
+ * Generate full DPDP Act 2023 compliant Data Portability JSON Archive
  */
 async function generateFullDataArchive({ uid }) {
-  const user = _inMemoryUsers.get(uid) || { uid };
-  const recordsRes = await listRecords({ uid });
-  const records = recordsRes.items || recordsRes || [];
-  const peopleRes = await listPeople({ uid });
-  const people = peopleRes.items || peopleRes || [];
-
-  const allPayments = [];
-  const allEvents = [];
-
-  for (const r of records) {
-    const payments = await listPayments({ uid, recordId: r.recordId });
-    allPayments.push(...payments);
-
-    const events = await listEvents({ uid, recordId: r.recordId });
-    allEvents.push(...events);
+  if (!uid) {
+    const err = new Error("User ID is required");
+    err.code = "ERR_UNAUTHORIZED";
+    err.status = 401;
+    throw err;
   }
 
-  const now = Date.now();
-  const exportPayload = {
+  const authRepo = getRequiredAuthRepo();
+  const user = (await authRepo.getUser(uid)) || { uid };
+  const { items: records } = await listRecords({ uid, limit: 100 });
+  const { items: people } = await listPeople({ uid, limit: 100 });
+  const events = await listEvents({ uid });
+  const auditVerification = await verifyAuditChain(uid);
+  const chatThreads = await listUserChatThreads({ uid });
+  const inbox = await listUserInboxItems({ uid });
+  const reminderPolicy = await getUserReminderPolicy({ uid });
+
+  const exportedAtIso = new Date().toISOString();
+
+  const archivePayload = {
     archiveVersion: "2.0",
-    exportTimestampMs: now,
-    exportDate: new Date(now).toISOString(),
+    legalCompliance: {
+      act: "Digital Personal Data Protection Act 2023 (DPDP Act, India)",
+      right: "Right to Data Portability & Access (Section 11)",
+      exportedAtIso
+    },
     dataSubject: {
       uid: user.uid,
-      displayName: user.displayName || "",
-      phoneHash: user.phoneHash || "",
-      emailHash: user.emailHash || "",
+      displayName: user.displayName || "Udhaar User",
+      phoneHash: user.phoneHash || null,
+      emailHash: user.emailHash || null,
+      createdAtMs: user.createdAtMs || null,
       consents: user.consents || {}
     },
     ledger: {
@@ -234,30 +266,33 @@ async function generateFullDataArchive({ uid }) {
       records,
       peopleCount: people.length,
       people,
-      paymentsCount: allPayments.length,
-      payments: allPayments,
-      auditEventsCount: allEvents.length,
-      auditEvents: allEvents
+      eventsCount: events.length,
+      events,
+      merkleAuditVerification: auditVerification
     },
-    legalCompliance: {
-      act: "Digital Personal Data Protection Act 2023 (DPDP Act, India)",
-      rightInvoked: "Right to Data Portability & Access (Section 11)",
-      grievanceOfficer: "grievance@jyotirmoyb.com"
+    communications: {
+      chatThreadsCount: chatThreads.length,
+      chatThreads,
+      inboxItemsCount: inbox.items.length,
+      inboxItems: inbox.items,
+      reminderPolicy
     }
   };
 
   const archiveChecksum = crypto
     .createHash("sha256")
-    .update(JSON.stringify(exportPayload))
+    .update(JSON.stringify(archivePayload))
     .digest("hex");
 
-  exportPayload.checksumSha256 = archiveChecksum;
-
-  return exportPayload;
+  return {
+    ...archivePayload,
+    checksumSha256: archiveChecksum
+  };
 }
 
 module.exports = {
   sanitizeCsvCell,
+  formatPaiseToRupees,
   generateLedgerCsv,
   generateStatementHtml,
   generateFullDataArchive
