@@ -1,6 +1,48 @@
 # Udhaar Trust Center Claims & Technical Verification Proofs
 
-Every public statement published on the Udhaar Trust Center (`/trust/`), Landing Page, and Documentation is mathematically and technically verified against the open codebase. Below is the comprehensive proof mapping:
+Every public statement published on the Udhaar Trust Center (`/trust/`), Landing Page, and Documentation is mathematically and technically verified against the open codebase. Below is the comprehensive proof mapping across both Spark Mode (`UDHAAR_TIER="spark"`, zero-cost free plan) and Blaze Mode (`UDHAAR_TIER="blaze"`, enterprise cloud).
+
+---
+
+## Part 1: Spark Mode Guarantees (`UDHAAR_TIER = "spark"`)
+
+### Claim S1: "Phone numbers are unverified in Spark Mode"
+* **Plain Language Statement**: A free system cannot prove that a phone number belongs to someone. We never label a number as "verified" in Spark Mode. Phone numbers entered in the app are stored with `phoneStatus: "unverified"` and explicitly shown as "Number not verified". They are used only for contact matching and WhatsApp link templates, never for login or recovery.
+* **Technical Proof**:
+  - `webapp/src/features/auth/phoneValidation.js`: Always sets `phoneStatus: "unverified"` and label `"Number not verified"`.
+  - `firestore.rules`: Requires `phoneStatus == "unverified"` when `UDHAAR_TIER` is active on Spark.
+  - Tests: `functions/test/spark_sp0_sp1.test.js`.
+
+### Claim S2: "Your records in the cloud are stored in Google's Firebase"
+* **Plain Language Statement**: If you turn on optional cloud sync, your records are stored in Google Cloud Firestore (`asia-south1`) and can be read by Firebase as an infrastructure provider and by you only through your authenticated account (`request.auth.token.email_verified == true`). For zero-knowledge confidentiality against cloud service operators, you can turn on client-side passphrase encryption.
+* **Technical Proof**:
+  - `firestore.rules`: Enforces `isVerifiedOwner(userId)` ensuring only the verified email owner can read or write ledger paths.
+  - `webapp/src/features/crypto/clientFieldEncryption.js`: Client-side zero-knowledge AES-256-GCM + PBKDF2 (600,000 rounds) passphrase encryption for sensitive fields (`partyName`, `partyPhone`, `note`, `upiId`).
+  - Tests: `functions/test/spark_sp2_sp3.test.js`.
+
+### Claim S3: "Guest replies are proposals requiring lender approval"
+* **Plain Language Statement**: Opening a guest link (`/u/r/<recordId>#<secret>`) does not grant direct edit access to your ledger. Actions created by guests (agreements, payment claims, disputes) are strictly immutable proposals stored in `/guestLinks/{linkId}/actions/`. They never change your ledger until you review and tap "Accept" inside the app.
+* **Technical Proof**:
+  - `firestore.rules`: Anonymous guests cannot write to `/users/{userId}/records/`. They can only create fixed-ID proposals under `/guestLinks/{linkId}/actions/`.
+  - `webapp/src/features/links/capabilityLinkService.js`: Guest actions are strictly proposals; lender app performs client-side verification before applying.
+  - Tests: `functions/test/spark_sp2_sp3.test.js`.
+
+### Claim S4: "Alerts can be delayed (No server push on Spark)"
+* **Plain Language Statement**: Without paid Cloud Functions or FCM server triggers, your phone checks for new guest proposals in the background using Android WorkManager (at approximately 30-minute intervals while links are active). Notifications are generated locally by your phone, so alerts can be delayed if the phone is asleep or battery saver is active.
+* **Technical Proof**:
+  - `app/src/main/java/com/jyotirmoyb/udhaar/sync/GuestActionPollingWorker.kt`: Periodic ~30-min Android WorkManager query on `collectionGroup("actions")`.
+  - Tests: `functions/test/spark_sp4_sp5.test.js`.
+
+### Claim S5: "No cloud photo uploads in Spark Mode"
+* **Plain Language Statement**: Google Cloud Storage requires a paid billing account. In Spark Mode, payment receipts cannot be uploaded as photos to the cloud. Payment proof is recorded as a text reference or UTR transaction ID.
+* **Technical Proof**:
+  - `web/site-config.js`: `assertAllowedInTier("storage_upload")` throws `ERR_SPARK_TIER_RESTRICTION`.
+  - `web/u/index.html`: Displays transparent notice: "Cloud photo uploads are disabled in free mode. Please provide payment reference number."
+  - Tests: `functions/test/spark_sp0_sp1.test.js`.
+
+---
+
+## Part 2: Platform v2 (Blaze Mode) Guarantees (`UDHAAR_TIER = "blaze"`)
 
 ---
 

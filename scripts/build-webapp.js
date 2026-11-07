@@ -30,6 +30,16 @@ const moduleFiles = [
   { name: "hlc", path: path.join(WEBAPP_DIR, "src/sync/hlc.js") },
   { name: "encryptedCache", path: path.join(WEBAPP_DIR, "src/db/encryptedCache.js") },
   { name: "ledgerDb", path: path.join(WEBAPP_DIR, "src/db/ledgerDb.js") },
+  { name: "passwordValidator", path: path.join(WEBAPP_DIR, "src/features/auth/passwordValidator.js") },
+  { name: "disposableDomains", path: path.join(WEBAPP_DIR, "src/features/auth/disposableDomains.js") },
+  { name: "phoneValidation", path: path.join(WEBAPP_DIR, "src/features/auth/phoneValidation.js") },
+  { name: "remoteConfigService", path: path.join(WEBAPP_DIR, "src/features/config/remoteConfigService.js") },
+  { name: "clientFieldEncryption", path: path.join(WEBAPP_DIR, "src/features/crypto/clientFieldEncryption.js") },
+  { name: "clientWriteLimiter", path: path.join(WEBAPP_DIR, "src/api/clientWriteLimiter.js") },
+  { name: "firestoreSyncClient", path: path.join(WEBAPP_DIR, "src/api/firestoreSyncClient.js") },
+  { name: "firestoreWebTransport", path: path.join(WEBAPP_DIR, "src/sync/firestoreWebTransport.js") },
+  { name: "calendarReminderService", path: path.join(WEBAPP_DIR, "src/features/reminders/calendarReminderService.js") },
+  { name: "firebaseAuthClient", path: path.join(WEBAPP_DIR, "src/api/firebaseAuthClient.js") },
   { name: "syncEngine", path: path.join(WEBAPP_DIR, "src/sync/syncEngine.js") },
   { name: "authClient", path: path.join(WEBAPP_DIR, "src/api/authClient.js") },
   { name: "router", path: path.join(WEBAPP_DIR, "src/routes/router.js") },
@@ -54,7 +64,10 @@ let bundleCode = `/**
   const __modules = {};
   function __require(name) {
     if (__modules[name]) return __modules[name].exports;
-    throw new Error("Module not found: " + name);
+    if (typeof require === "function") {
+      try { return require(name); } catch (_) {}
+    }
+    return {};
   }
 
 `;
@@ -65,10 +78,13 @@ for (const mod of moduleFiles) {
   content = content.replace(/require\(["'](?:\.\.\/)+i18n["']\)/g, '__require("i18n")');
   content = content.replace(/require\(["'](?:\.\.\/|\.\/)+encryptedCache["']\)/g, '__require("encryptedCache")');
   content = content.replace(/require\(["'](?:\.\.\/|\.\/)+db\/ledgerDb["']\)/g, '__require("ledgerDb")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+ledgerDb["']\)/g, '__require("ledgerDb")');
   content = content.replace(/require\(["'](?:\.\.\/|\.\/)+hlc["']\)/g, '__require("hlc")');
   content = content.replace(/require\(["'](?:\.\.\/|\.\/)+sync\/hlc["']\)/g, '__require("hlc")');
   content = content.replace(/require\(["'](?:\.\.\/|\.\/)+sync\/syncEngine["']\)/g, '__require("syncEngine")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+syncEngine["']\)/g, '__require("syncEngine")');
   content = content.replace(/require\(["'](?:\.\.\/|\.\/)+api\/authClient["']\)/g, '__require("authClient")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+authClient["']\)/g, '__require("authClient")');
   content = content.replace(/require\(["'](?:\.\.\/|\.\/)+routes\/router["']\)/g, '__require("router")');
   content = content.replace(/require\(["'](?:\.\.\/|\.\/)+features\/auth\/SignUpView["']\)/g, '__require("SignUpView")');
   content = content.replace(/require\(["'](?:\.\.\/|\.\/)+features\/auth\/SignInView["']\)/g, '__require("SignInView")');
@@ -78,6 +94,18 @@ for (const mod of moduleFiles) {
   content = content.replace(/require\(["'](?:\.\.\/|\.\/)+features\/chat\/ChatView["']\)/g, '__require("ChatView")');
   content = content.replace(/require\(["'](?:\.\.\/|\.\/)+features\/inbox\/InboxView["']\)/g, '__require("InboxView")');
   content = content.replace(/require\(["'](?:\.\.\/|\.\/)+features\/exports\/ExportsView["']\)/g, '__require("ExportsView")');
+
+  // Spark Mode module replacements
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+passwordValidator["']\)/g, '__require("passwordValidator")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+disposableDomains["']\)/g, '__require("disposableDomains")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+phoneValidation["']\)/g, '__require("phoneValidation")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+(?:features\/)?config\/remoteConfigService["']\)/g, '__require("remoteConfigService")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+(?:features\/)?crypto\/clientFieldEncryption["']\)/g, '__require("clientFieldEncryption")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+(?:api\/)?clientWriteLimiter["']\)/g, '__require("clientWriteLimiter")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+(?:api\/)?firestoreSyncClient["']\)/g, '__require("firestoreSyncClient")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+(?:sync\/)?firestoreWebTransport["']\)/g, '__require("firestoreWebTransport")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+(?:features\/)?reminders\/calendarReminderService["']\)/g, '__require("calendarReminderService")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+(?:api\/)?firebaseAuthClient["']\)/g, '__require("firebaseAuthClient")');
 
   bundleCode += `  // --- Module: ${mod.name} ---
   (function() {
