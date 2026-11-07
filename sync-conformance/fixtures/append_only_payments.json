@@ -1,0 +1,39 @@
+{
+  "scenario": "Two devices append partial payments concurrently while offline",
+  "baseRecord": {
+    "syncId": "018d0000-0000-7000-8000-000000000001",
+    "principalAmountPaise": 1000000,
+    "payments": []
+  },
+  "deviceA": {
+    "mutation": {
+      "op": "INSERT_PAYMENT",
+      "payment": {
+        "syncId": "018d0000-0000-7000-8000-000000000002",
+        "amountPaise": 300000,
+        "paymentMode": "UPI",
+        "timestampMs": 1762498000000
+      }
+    }
+  },
+  "deviceB": {
+    "mutation": {
+      "op": "INSERT_PAYMENT",
+      "payment": {
+        "syncId": "018d0000-0000-7000-8000-000000000003",
+        "amountPaise": 200000,
+        "paymentMode": "CASH",
+        "timestampMs": 1762498100000
+      }
+    }
+  },
+  "expectedOutcome": {
+    "status": "ACCEPTED",
+    "mergedPaymentsCount": 2,
+    "remainingAmountPaise": 500000,
+    "paymentSyncIds": [
+      "018d0000-0000-7000-8000-000000000002",
+      "018d0000-0000-7000-8000-000000000003"
+    ]
+  }
+}

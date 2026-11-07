@@ -1,0 +1,34 @@
+{
+  "scenario": "Concurrent modification of monetary terms triggers explicit conflict",
+  "baseRecord": {
+    "syncId": "018d0000-0000-7000-8000-000000000010",
+    "principalAmountPaise": 500000,
+    "status": "CONFIRMED",
+    "clientRevision": 1
+  },
+  "deviceA": {
+    "mutation": {
+      "op": "UPDATE_TERMS",
+      "fields": {
+        "principalAmountPaise": 600000,
+        "clientRevision": 2,
+        "hlc": "1762498200000:0001:devA"
+      }
+    }
+  },
+  "deviceB": {
+    "mutation": {
+      "op": "UPDATE_TERMS",
+      "fields": {
+        "principalAmountPaise": 400000,
+        "clientRevision": 2,
+        "hlc": "1762498250000:0001:devB"
+      }
+    }
+  },
+  "expectedOutcome": {
+    "status": "CONFLICT",
+    "requiresUserIntervention": true,
+    "conflictFields": ["principalAmountPaise"]
+  }
+}

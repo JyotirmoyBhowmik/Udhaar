@@ -1,0 +1,790 @@
+openapi: 3.1.0
+info:
+  title: Udhaar Platform v2 API
+  version: 2.0.0
+  description: >
+    Production REST API specification for Udhaar Platform v2 (Web, Android, and Guest flows).
+    Enforces RFC 9457 Problem Details for all errors, idempotency keys on state-mutating requests,
+    W3C distributed tracing, and field-level envelope encryption.
+servers:
+  - url: https://app.udhaar.jyotirmoyb.com/api/v1
+    description: Production Web App API (asia-south1)
+  - url: https://udhaar.jyotirmoyb.com/api/v1
+    description: Marketing & Guest Flow API (asia-south1)
+  - url: http://127.0.0.1:5001/gen-lang-client-0216629575/asia-south1/api/v1
+    description: Local Firebase Emulator Suite
+
+paths:
+  # =========================================================================
+  # 1. Identity & Verification Endpoints
+  # =========================================================================
+  /auth/signup/start:
+    post:
+      summary: Start sign-up flow with mobile number
+      operationId: startSignup
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/AppCheckToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phoneNumber, locale, botCheckToken]
+              properties:
+                phoneNumber:
+                  type: string
+                  example: "+919876543210"
+                  description: E.164 formatted mobile number (+91 India, +977 Nepal)
+                locale:
+                  type: string
+                  enum: [en, hi, bn, as, ne]
+                  default: en
+                botCheckToken:
+                  type: string
+                  description: reCAPTCHA Enterprise or Play Integrity token
+      responses:
+        '200':
+          description: Verification code dispatched via WhatsApp
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [flowId, channel, resendAfterSeconds]
+                properties:
+                  flowId:
+                    type: string
+                    format: uuid
+                  channel:
+                    type: string
+                    enum: [WHATSAPP, SMS]
+                  resendAfterSeconds:
+                    type: integer
+                    example: 30
+        '400':
+          $ref: '#/components/responses/ProblemDetails'
+        '429':
+          $ref: '#/components/responses/ProblemDetails'
+
+  /auth/otp/verify:
+    post:
+      summary: Verify 6-digit verification code
+      operationId: verifyOtp
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flowId, code]
+              properties:
+                flowId:
+                  type: string
+                  format: uuid
+                code:
+                  type: string
+                  pattern: '^[0-9]{6}$'
+                  example: "482910"
+      responses:
+        '200':
+          description: Code verified successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [verified, flowToken]
+                properties:
+                  verified:
+                    type: boolean
+                    example: true
+                  flowToken:
+                    type: string
+        '400':
+          $ref: '#/components/responses/ProblemDetails'
+        '401':
+          $ref: '#/components/responses/ProblemDetails'
+
+  /auth/signup/email:
+    post:
+      summary: Submit email address during sign-up
+      operationId: submitSignupEmail
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flowId, flowToken, email]
+              properties:
+                flowId:
+                  type: string
+                  format: uuid
+                flowToken:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                  example: "user@example.com"
+      responses:
+        '200':
+          description: Verification code sent to email
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resendAfterSeconds:
+                    type: integer
+                    example: 30
+
+  /auth/signup/complete:
+    post:
+      summary: Complete registration and establish user session
+      operationId: completeSignup
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flowId, flowToken, displayName, acceptedTermsVersion, acceptedPrivacyVersion, isAge18Plus]
+              properties:
+                flowId:
+                  type: string
+                flowToken:
+                  type: string
+                displayName:
+                  type: string
+                  minLength: 2
+                  maxLength: 60
+                acceptedTermsVersion:
+                  type: string
+                  example: "v2.0"
+                acceptedPrivacyVersion:
+                  type: string
+                  example: "v2.0"
+                isAge18Plus:
+                  type: boolean
+                  example: true
+                allowWhatsAppReminders:
+                  type: boolean
+                  default: true
+      responses:
+        '201':
+          description: Account created and session established
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                description: __session HttpOnly cookie for Web clients
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uid:
+                    type: string
+                  customToken:
+                    type: string
+                    description: Firebase Custom Token for Android clients
+
+  /auth/signin/start:
+    post:
+      summary: Initiate sign-in via WhatsApp code
+      operationId: startSignin
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phoneNumber]
+              properties:
+                phoneNumber:
+                  type: string
+      responses:
+        '200':
+          description: Uniform sign-in response (no enumeration leakage)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  flowId:
+                    type: string
+                  channel:
+                    type: string
+                  resendAfterSeconds:
+                    type: integer
+
+  # =========================================================================
+  # 2. User Profile, Devices & Consents (/me)
+  # =========================================================================
+  /me:
+    get:
+      summary: Retrieve current authenticated profile
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+    put:
+      summary: Update profile preferences
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName:
+                  type: string
+                locale:
+                  type: string
+                defaultCurrency:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+  /me/devices:
+    get:
+      summary: List registered active devices and sessions
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceSession'
+
+  /me/devices/{deviceId}:
+    delete:
+      summary: Revoke a specific device session
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Device session revoked
+
+  # =========================================================================
+  # 3. Synchronization Engine (/sync)
+  # =========================================================================
+  /sync/push:
+    post:
+      summary: Push batch of local mutations to server
+      operationId: syncPush
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deviceId, changes]
+              properties:
+                deviceId:
+                  type: string
+                changes:
+                  type: array
+                  maxItems: 500
+                  items:
+                    $ref: '#/components/schemas/SyncMutation'
+      responses:
+        '200':
+          description: Sync results per change
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        syncId:
+                          type: string
+                        status:
+                          type: string
+                          enum: [ACCEPTED, CONFLICT, REJECTED]
+                        serverRev:
+                          type: integer
+                        conflictDetails:
+                          type: object
+
+  /sync/pull:
+    get:
+      summary: Pull server delta changes since cursor
+      operationId: syncPull
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  changes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SyncDelta'
+                  nextCursor:
+                    type: integer
+                  hasMore:
+                    type: boolean
+
+  # =========================================================================
+  # 4. Records & Events
+  # =========================================================================
+  /records:
+    get:
+      summary: List user records with cursor pagination
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  records:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LedgerRecord'
+                  nextCursor:
+                    type: string
+    post:
+      summary: Create a new ledger record
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRecordRequest'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LedgerRecord'
+
+  /records/{id}:
+    get:
+      summary: Retrieve single record details
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LedgerRecord'
+    put:
+      summary: Update record terms
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRecordRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LedgerRecord'
+
+  /records/{id}/payments:
+    post:
+      summary: Append a partial repayment
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amountPaise, paymentMode]
+              properties:
+                amountPaise:
+                  type: integer
+                  minimum: 100
+                paymentMode:
+                  type: string
+                  enum: [UPI, CASH, BANK_TRANSFER]
+                note:
+                  type: string
+      responses:
+        '201':
+          description: Payment logged and balance updated
+
+  # =========================================================================
+  # 5. Attachments & Proof Uploads
+  # =========================================================================
+  /attachments/upload-url:
+    post:
+      summary: Generate pre-signed Cloud Storage upload URL
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fileName, mimeType, sizeBytes, recordId]
+              properties:
+                fileName:
+                  type: string
+                mimeType:
+                  type: string
+                  enum: [image/webp, image/jpeg, image/png, application/pdf]
+                sizeBytes:
+                  type: integer
+                  maximum: 5242880
+                recordId:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploadUrl:
+                    type: string
+                  storagePath:
+                    type: string
+                  expiresInSeconds:
+                    type: integer
+                    example: 900
+
+  # =========================================================================
+  # 6. Privacy & DPDP Compliance
+  # =========================================================================
+  /privacy/export:
+    post:
+      summary: Request complete archive export of user data
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/StepUpToken'
+      responses:
+        '202':
+          description: Export archive generation initiated
+
+  /privacy/delete:
+    post:
+      summary: Initiate account deletion with 30-day grace period
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/StepUpToken'
+      responses:
+        '202':
+          description: Account marked for deletion in 30 days
+
+components:
+  securitySchemes:
+    SessionCookie:
+      type: apiKey
+      in: cookie
+      name: __session
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RequestId:
+      name: X-Request-Id
+      in: header
+      required: false
+      schema:
+        type: string
+    AppCheckToken:
+      name: X-Firebase-AppCheck
+      in: header
+      required: false
+      schema:
+        type: string
+    IfMatch:
+      name: If-Match
+      in: header
+      required: false
+      schema:
+        type: string
+    StepUpToken:
+      name: X-Step-Up-Token
+      in: header
+      required: false
+      schema:
+        type: string
+
+  schemas:
+    UserProfile:
+      type: object
+      properties:
+        uid:
+          type: string
+        phoneNumberMasked:
+          type: string
+          example: "+91 98*** **210"
+        emailMasked:
+          type: string
+          example: "u***r@example.com"
+        displayName:
+          type: string
+        locale:
+          type: string
+        defaultCurrency:
+          type: string
+
+    DeviceSession:
+      type: object
+      properties:
+        deviceId:
+          type: string
+        deviceType:
+          type: string
+          enum: [ANDROID, WEB, DESKTOP]
+        lastActiveMs:
+          type: integer
+        cityLevelLocation:
+          type: string
+          example: "Mumbai, India"
+        isCurrent:
+          type: boolean
+
+    LedgerRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        partyName:
+          type: string
+        counterpartyRole:
+          type: string
+          enum: [LENDER, BORROWER]
+        principalAmountPaise:
+          type: integer
+        remainingAmountPaise:
+          type: integer
+        dueDateMs:
+          type: integer
+        status:
+          type: string
+          enum: [PENDING, CONFIRMED, DISPUTED, SETTLED]
+        clientRevision:
+          type: integer
+
+    CreateRecordRequest:
+      type: object
+      required: [partyName, counterpartyRole, principalAmountPaise]
+      properties:
+        partyName:
+          type: string
+        partyPhone:
+          type: string
+        counterpartyRole:
+          type: string
+          enum: [LENDER, BORROWER]
+        principalAmountPaise:
+          type: integer
+          minimum: 100
+        dueDateMs:
+          type: integer
+        note:
+          type: string
+        upiId:
+          type: string
+
+    UpdateRecordRequest:
+      type: object
+      properties:
+        partyName:
+          type: string
+        note:
+          type: string
+        dueDateMs:
+          type: integer
+
+    SyncMutation:
+      type: object
+      required: [entity, syncId, op, clientRev, hlc, idempotencyKey]
+      properties:
+        entity:
+          type: string
+          enum: [RECORD, PAYMENT, PERSON, PLAN]
+        syncId:
+          type: string
+          format: uuid
+        op:
+          type: string
+          enum: [INSERT, UPDATE, DELETE]
+        fields:
+          type: object
+        clientRev:
+          type: integer
+        hlc:
+          type: string
+        idempotencyKey:
+          type: string
+
+    SyncDelta:
+      type: object
+      properties:
+        seq:
+          type: integer
+        entity:
+          type: string
+        syncId:
+          type: string
+        op:
+          type: string
+        fields:
+          type: object
+        serverRev:
+          type: integer
+
+    ProblemDetails:
+      type: object
+      required: [type, title, status, code, detail, instance]
+      description: RFC 9457 standard problem details object
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        code:
+          type: string
+          example: "ERR_OTP_EXPIRED"
+        detail:
+          type: string
+        instance:
+          type: string
+        invalidParams:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              reason:
+                type: string
+
+  responses:
+    ProblemDetails:
+      description: RFC 9457 Problem Details error response
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
