@@ -15,10 +15,16 @@ const { createInboxRouter } = require("./inbox/inboxEndpoints");
 const { createExportRouter } = require("./exports/exportEndpoints");
 const { createAdminRouter } = require("./admin/adminEndpoints");
 const { createPrivacyRouter } = require("./privacy/privacyEndpoints");
+const { createTelemetryRouter } = require("./observability/telemetryEndpoints");
+const { createBackupRouter } = require("./backup/backupEndpoints");
+const { tracingMiddleware } = require("./observability/tracingMiddleware");
 const { problemDetailsErrorHandler } = require("./middleware/authMiddleware");
 
 function createApiApp() {
   const app = express();
+
+  // W3C Distributed Tracing and Telemetry Middleware
+  app.use(tracingMiddleware);
 
   // Basic security and parsing middleware
   app.use(express.json({ limit: "500kb" }));
@@ -35,7 +41,7 @@ function createApiApp() {
       res.setHeader("Access-Control-Allow-Origin", origin);
       res.setHeader("Access-Control-Allow-Credentials", "true");
       res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-Id, X-CSRF-Token, Idempotency-Key, X-Firebase-AppCheck, X-Client-Platform, X-Admin-Reason");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-Id, X-CSRF-Token, Idempotency-Key, X-Firebase-AppCheck, X-Client-Platform, X-Admin-Reason, traceparent, X-Correlation-Id");
     }
 
     if (req.method === "OPTIONS") {
@@ -53,6 +59,8 @@ function createApiApp() {
   apiV1Router.use("/chat", createChatRouter());
   apiV1Router.use("/inbox", createInboxRouter());
   apiV1Router.use("/exports", createExportRouter());
+  apiV1Router.use("/telemetry", createTelemetryRouter());
+  apiV1Router.use("/admin/backups", createBackupRouter());
   apiV1Router.use("/admin", createAdminRouter());
   apiV1Router.use("/privacy", createPrivacyRouter());
   apiV1Router.use("/me", createPrivacyRouter());

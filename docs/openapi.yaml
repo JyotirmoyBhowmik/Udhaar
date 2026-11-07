@@ -1251,6 +1251,155 @@ paths:
         '200':
           description: Consent preferences updated
 
+  # =========================================================================
+  # 11. Stage S9: Observability, Real User Monitoring (RUM) & Automated Backups
+  # =========================================================================
+  /telemetry/rum:
+    post:
+      summary: Ingest client Core Web Vitals (LCP, INP, CLS) and frontend error reports
+      description: Unauthenticated endpoint accepting browser beacon submissions from PWA and guest portal.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                metricName:
+                  type: string
+                  enum: [LCP, INP, CLS, CLIENT_ERROR]
+                value:
+                  type: number
+                  description: Numeric measurement (ms for LCP/INP, score for CLS)
+                pageUrl:
+                  type: string
+                errorDetails:
+                  type: object
+                  properties:
+                    message:
+                      type: string
+                    stack:
+                      type: string
+      responses:
+        '204':
+          description: Telemetry beacon recorded with zero content returned
+
+  /telemetry/slo:
+    get:
+      summary: Query real-time SLI/SLO metrics, latency percentiles (p50, p95, p99) and availability
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      responses:
+        '200':
+          description: SLI metrics and SLO compliance status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [HEALTHY, AT_RISK]
+                  sli:
+                    type: object
+                  sloTargets:
+                    type: object
+                  sloCompliance:
+                    type: object
+        '403':
+          $ref: '#/components/responses/ProblemDetails'
+
+  /admin/backups:
+    get:
+      summary: List point-in-time backup snapshots with SHA-256 manifests
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 30
+      responses:
+        '200':
+          description: List of available backup snapshots
+        '403':
+          $ref: '#/components/responses/ProblemDetails'
+
+  /admin/backups/snapshot:
+    post:
+      summary: Trigger an on-demand point-in-time backup snapshot to Cloud Storage
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [INCREMENTAL, FULL]
+                  default: INCREMENTAL
+      responses:
+        '201':
+          description: Snapshot created and manifest sealed
+        '400':
+          $ref: '#/components/responses/ProblemDetails'
+        '403':
+          $ref: '#/components/responses/ProblemDetails'
+
+  /admin/backups/{snapshotId}/verify:
+    post:
+      summary: Verify the SHA-256 cryptographic manifest integrity of a backup snapshot
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - name: snapshotId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Cryptographic integrity status of the snapshot
+        '404':
+          $ref: '#/components/responses/ProblemDetails'
+
+  /admin/backups/{snapshotId}/restore-drill:
+    post:
+      summary: Execute a staging disaster recovery restore simulation drill
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - name: snapshotId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targetStagingDatabase:
+                  type: string
+      responses:
+        '200':
+          description: Disaster recovery drill results and achieved RTO/RPO metrics
+        '400':
+          $ref: '#/components/responses/ProblemDetails'
+        '403':
+          $ref: '#/components/responses/ProblemDetails'
+        '404':
+          $ref: '#/components/responses/ProblemDetails'
+
 components:
   securitySchemes:
     SessionCookie:
