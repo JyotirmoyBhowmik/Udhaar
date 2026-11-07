@@ -210,7 +210,7 @@ async function restoreFromSnapshot(snapshotId) {
   if (snapshot._backupData) {
     for (const item of snapshot._backupData.records || []) {
       if (lRepo.records) {
-        if (!lRepo.records.has(item.uid)) lRepo.records.set(item.uid, new Map());
+        if (!lRepo.records.has(item.uid)) lRepo.records.set(item.uid, new (lRepo.records.constructor)());
         lRepo.records.get(item.uid).set(item.recId, { ...item.data });
       } else if (lRepo.createRecord) {
         await lRepo.createRecord(item.uid, item.data);
@@ -218,7 +218,7 @@ async function restoreFromSnapshot(snapshotId) {
     }
     for (const item of snapshot._backupData.people || []) {
       if (lRepo.people) {
-        if (!lRepo.people.has(item.uid)) lRepo.people.set(item.uid, new Map());
+        if (!lRepo.people.has(item.uid)) lRepo.people.set(item.uid, new (lRepo.people.constructor)());
         lRepo.people.get(item.uid).set(item.pId, { ...item.data });
       } else if (lRepo.createPerson) {
         await lRepo.createPerson(item.uid, item.data);

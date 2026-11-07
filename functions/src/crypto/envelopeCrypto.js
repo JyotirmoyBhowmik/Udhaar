@@ -16,7 +16,19 @@ const { getKmsProvider, getKmsKeyName } = require("./kmsProvider");
 const { getCryptoRepository, assertRepoMethod } = require("../repositories");
 
 const DEK_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const dekCache = new Map();
+const dekCache = (() => {
+  let store = Object.create(null);
+  return {
+    get(k) { return store[k]; },
+    set(k, v) { store[k] = v; },
+    delete(k) {
+      const existed = k in store;
+      delete store[k];
+      return existed;
+    },
+    clear() { store = Object.create(null); }
+  };
+})();
 
 function getRequiredCryptoRepo() {
   const repo = getCryptoRepository();

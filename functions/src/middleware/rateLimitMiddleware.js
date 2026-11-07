@@ -3,8 +3,18 @@
  * (/functions/src/middleware/rateLimitMiddleware.js)
  */
 
-const ipAuthBuckets = new Map();
-const userBuckets = new Map();
+function createBucketStore() {
+  let store = Object.create(null);
+  return {
+    get(k) { return store[k]; },
+    set(k, v) { store[k] = v; },
+    delete(k) { delete store[k]; },
+    clear() { store = Object.create(null); }
+  };
+}
+
+const ipAuthBuckets = createBucketStore();
+const userBuckets = createBucketStore();
 
 function resetRateLimits() {
   ipAuthBuckets.clear();
