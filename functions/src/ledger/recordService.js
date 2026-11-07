@@ -113,6 +113,8 @@ async function createRecord({ uid, recordData, clientRevision = 1, hlc = "", ide
     clientRevision: Number(clientRevision) || 1,
     hlc: hlc || `${now}:0:server`,
     idempotencyKey,
+    linkedRemoteRecordId: recordData.linkedRemoteRecordId || null,
+    linkedCreatorUid: recordData.linkedCreatorUid || null,
     createdAtMs: now,
     updatedAtMs: now,
     deletedAtMs: null

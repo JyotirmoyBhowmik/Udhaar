@@ -8,6 +8,7 @@ const express = require("express");
 const { createAuthRouter } = require("./auth/authEndpoints");
 const { createLedgerRouter } = require("./ledger/ledgerEndpoints");
 const { createSyncRouter } = require("./sync/syncEndpoints");
+const { createLinksRouter } = require("./links/linkEndpoints");
 const { problemDetailsErrorHandler } = require("./middleware/authMiddleware");
 
 function createApiApp() {
@@ -40,6 +41,8 @@ function createApiApp() {
   // Mount API v1 router
   const apiV1Router = express.Router();
   apiV1Router.use(createAuthRouter());
+  apiV1Router.use("/links", createLinksRouter());
+  apiV1Router.use(createLinksRouter());
   apiV1Router.use("/ledger", createLedgerRouter());
   apiV1Router.use(createLedgerRouter());
   apiV1Router.use("/sync", createSyncRouter());

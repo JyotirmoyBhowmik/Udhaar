@@ -154,6 +154,17 @@ class AuthClient {
     });
     return this._handleResponse(res);
   }
+
+  async upgradeGuestRecord({ recordId, rawToken }) {
+    const res = await fetch(`${this.baseUrl}/api/v1/links/${encodeURIComponent(recordId)}/upgrade`, {
+      method: "POST",
+      headers: this._getHeaders(),
+      body: JSON.stringify({
+        rawToken
+      })
+    });
+    return this._handleResponse(res);
+  }
 }
 
 const authClient = new AuthClient();

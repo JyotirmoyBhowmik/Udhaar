@@ -1227,6 +1227,14 @@
       iosGuide.style.display = "flex";
       iosGuide.classList.remove("hidden");
     }
+
+    // Bridge to Web App: update any "Get the app" or upgrade links with capability token and recordId
+    const appLinks = document.querySelectorAll('a[data-i18n="get_the_app"]');
+    if (urlRecordId && urlSecret) {
+      appLinks.forEach((link) => {
+        link.href = `https://app.udhaar.jyotirmoyb.com/#signup?recordId=${encodeURIComponent(urlRecordId)}&token=${encodeURIComponent(urlSecret)}${recordData && recordData.partyPhone ? `&phone=${encodeURIComponent(recordData.partyPhone)}` : ""}`;
+      });
+    }
   }
 
   // Setup Share Confirmation via WhatsApp (Strictly client-side)

@@ -1,9 +1,9 @@
 {
   "version": "21.0.0",
-  "timestamp": "2026-11-07T07:51:19.808Z",
+  "timestamp": "2026-11-07T08:42:30.161Z",
   "budgets": {
     "landingKb": 250.3,
-    "guestKb": 198.3
+    "guestKb": 196.6
   },
   "hashes": {
     "index.html": "ae27fd3b6d",
@@ -20,7 +20,7 @@
     "404.html": "32abe4f02c",
     "u/index.html": "13600ef064",
     "u/guest.css": "bddc2c83c7",
-    "u/guest.js": "ea14e43e2a",
+    "u/guest.js": "5d8356e075",
     "assets/idb-outbox.js": "40e9410e10",
     "assets/merkle-chain.js": "768271e6dc",
     "assets/e2ee-crypto.js": "72b93bad7b",

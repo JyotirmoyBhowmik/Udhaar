@@ -582,6 +582,188 @@ paths:
         '202':
           description: Account marked for deletion in 30 days
 
+  # =========================================================================
+  # 7. Hardened Capability Links & Guest Verification Flow (Stage S6)
+  # =========================================================================
+  /links/create:
+    post:
+      summary: Create a 30-day capability link for a ledger record
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recordId]
+              properties:
+                recordId:
+                  type: string
+                expiresInDays:
+                  type: integer
+                  default: 30
+      responses:
+        '201':
+          description: Capability link created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  linkId:
+                    type: string
+                  recordId:
+                    type: string
+                  rawToken:
+                    type: string
+                  guestUrl:
+                    type: string
+                  expiresAtMs:
+                    type: integer
+
+  /links/{recordId}:
+    get:
+      summary: Fetch sanitized record view using capability token
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-Guest-Token
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Sanitized record view returned successfully
+        '403':
+          description: Link expired or invalid capability token
+        '429':
+          description: IP rate limit exceeded or access locked
+
+  /links/{recordId}/otp/request:
+    post:
+      summary: Request 6-digit WhatsApp OTP verification code
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Verification code dispatched via WhatsApp
+
+  /links/{recordId}/otp/verify:
+    post:
+      summary: Verify WhatsApp OTP code with 5-attempt brute-force lockout
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  example: "123456"
+      responses:
+        '200':
+          description: Phone successfully verified
+        '429':
+          description: Too many failed attempts (15-minute lockout)
+
+  /links/{recordId}/action:
+    post:
+      summary: Submit guest action (confirm, dispute, propose date, payment claim)
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [CONFIRM_RECORD, DISPUTE_RECORD, PROPOSE_DATE, SUBMIT_PAYMENT_CLAIM]
+                payload:
+                  type: object
+      responses:
+        '200':
+          description: Guest action recorded with anti-replay guarantees
+
+  /links/{recordId}/upload-proof:
+    post:
+      summary: Generate short-lived signed GCS PUT URL for payment proof (< 5MB)
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contentType, sizeBytes]
+              properties:
+                contentType:
+                  type: string
+                  enum: [image/jpeg, image/png, image/webp, application/pdf]
+                sizeBytes:
+                  type: integer
+                  maximum: 5242880
+      responses:
+        '200':
+          description: Signed upload URL generated with length range headers
+
+  /links/{recordId}/upgrade:
+    post:
+      summary: Bridge guest record into a newly created or authenticated user account
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rawToken]
+              properties:
+                rawToken:
+                  type: string
+      responses:
+        '200':
+          description: Reciprocal record seamlessly created in user ledger without re-entering data
+
 components:
   securitySchemes:
     SessionCookie:

@@ -1,6 +1,6 @@
 /**
  * Udhaar Web App Production Bundle
- * Generated: 2026-11-07T07:51:19.899Z
+ * Generated: 2026-11-07T08:42:30.288Z
  */
 (function() {
   "use strict";
@@ -1631,6 +1631,17 @@ class AuthClient {
     });
     return this._handleResponse(res);
   }
+
+  async upgradeGuestRecord({ recordId, rawToken }) {
+    const res = await fetch(`${this.baseUrl}/api/v1/links/${encodeURIComponent(recordId)}/upgrade`, {
+      method: "POST",
+      headers: this._getHeaders(),
+      body: JSON.stringify({
+        rawToken
+      })
+    });
+    return this._handleResponse(res);
+  }
 }
 
 const authClient = new AuthClient();
@@ -1740,6 +1751,35 @@ class SignUpView {
     this.email = "";
     this.resendTimer = null;
     this.resendSecondsLeft = 30;
+
+    // Check URL search params or hash for guest bridge parameters
+    this.upgradeRecordId = null;
+    this.upgradeToken = null;
+    this._parseGuestBridgeParams();
+  }
+
+  _parseGuestBridgeParams() {
+    if (typeof window === "undefined") return;
+    try {
+      const url = new URL(window.location.href);
+      let params = url.searchParams;
+      const hash = window.location.hash || "";
+      if (hash.includes("?")) {
+        const hashQuery = hash.substring(hash.indexOf("?") + 1);
+        params = new URLSearchParams(hashQuery);
+      }
+      const recordId = params.get("recordId");
+      const token = params.get("token") || params.get("secret");
+      const phone = params.get("phone");
+      if (recordId && token) {
+        this.upgradeRecordId = recordId;
+        this.upgradeToken = token;
+      }
+      if (phone) {
+        const digits = phone.replace(/\D/g, "");
+        this.phoneNumber = digits.length > 10 ? digits.slice(-10) : digits;
+      }
+    } catch (_) {}
   }
 
   render(container) {
@@ -1819,6 +1859,11 @@ class SignUpView {
     const phoneInput = card.querySelector("#phone-input");
     const submitBtn = card.querySelector("#phone-submit-btn");
     const errEl = card.querySelector("#phone-error");
+
+    if (this.phoneNumber) {
+      const digits = this.phoneNumber.replace(/\D/g, "");
+      phoneInput.value = digits.length > 10 ? digits.slice(-10) : digits;
+    }
 
     phoneInput.focus();
 
@@ -2187,7 +2232,20 @@ class SignUpView {
           allowWhatsAppReminders: true
         });
 
-        this.onToast(`${t("welcome_user")}, ${res.user.displayName}!`);
+        if (this.upgradeRecordId && this.upgradeToken) {
+          try {
+            await this.authClient.upgradeGuestRecord({
+              recordId: this.upgradeRecordId,
+              rawToken: this.upgradeToken
+            });
+            this.onToast("Account created and shared record linked to your ledger!");
+          } catch (upgradeErr) {
+            console.warn("Auto-upgrade record failed:", upgradeErr);
+            this.onToast(`${t("welcome_user")}, ${res.user.displayName}!`);
+          }
+        } else {
+          this.onToast(`${t("welcome_user")}, ${res.user.displayName}!`);
+        }
         this.router.navigate("#dashboard");
       } catch (err) {
         submitBtn.disabled = false;
