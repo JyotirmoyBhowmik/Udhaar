@@ -83,13 +83,20 @@ class FakeWhatsAppProvider {
 
 class WhatsAppCloudApiProvider {
   constructor(config = {}) {
-    this.phoneNumberId = config.phoneNumberId || process.env.META_PHONE_NUMBER_ID;
-    this.accessToken = config.accessToken || process.env.META_WHATSAPP_TOKEN;
+    this.phoneNumberId = config.phoneNumberId || process.env.META_PHONE_NUMBER_ID || process.env.WHATSAPP_PHONE_NUMBER_ID;
+    this.accessToken = config.accessToken || process.env.META_WHATSAPP_TOKEN || process.env.WHATSAPP_API_TOKEN;
     this.appSecret = config.appSecret || process.env.META_APP_SECRET;
+    this.apiVersion = config.apiVersion || process.env.META_API_VERSION || "v21.0";
+    this.defaultTemplate = config.templateName || process.env.META_TEMPLATE_NAME || "udhaar_login_code";
   }
 
   async sendCode(request) {
-    if (!this.phoneNumberId || !this.accessToken) {
+    const phoneNumberId = this.phoneNumberId || process.env.META_PHONE_NUMBER_ID || process.env.WHATSAPP_PHONE_NUMBER_ID;
+    const accessToken = this.accessToken || process.env.META_WHATSAPP_TOKEN || process.env.WHATSAPP_API_TOKEN;
+    const apiVersion = this.apiVersion || process.env.META_API_VERSION || "v21.0";
+    const templateName = request.templateName || this.defaultTemplate;
+
+    if (!phoneNumberId || !accessToken) {
       throw new Error("WhatsApp Cloud API configuration missing (META_PHONE_NUMBER_ID or META_WHATSAPP_TOKEN).");
     }
 
@@ -97,41 +104,57 @@ class WhatsAppCloudApiProvider {
     const langCode = ["hi", "bn", "ne"].includes(request.locale) ? request.locale : "en";
     const cleanPhone = request.destination.replace(/[^0-9]/g, "");
 
-    const url = `https://graph.facebook.com/v21.0/${this.phoneNumberId}/messages`;
-    const payload = {
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to: cleanPhone,
-      type: "template",
-      template: {
-        name: "udhaar_login_code",
-        language: {
-          code: langCode
-        },
-        components: [
-          {
-            type: "body",
-            parameters: [
-              {
-                type: "text",
-                text: request.code
-              }
-            ]
-          },
-          {
-            type: "button",
-            sub_type: "url",
-            index: "0",
-            parameters: [
-              {
-                type: "text",
-                text: request.code
-              }
-            ]
+    const url = `https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`;
+    
+    let payload;
+    if (templateName === "hello_world") {
+      payload = {
+        messaging_product: "whatsapp",
+        to: cleanPhone,
+        type: "template",
+        template: {
+          name: "hello_world",
+          language: {
+            code: "en_US"
           }
-        ]
-      }
-    };
+        }
+      };
+    } else {
+      payload = {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: cleanPhone,
+        type: "template",
+        template: {
+          name: templateName,
+          language: {
+            code: langCode
+          },
+          components: [
+            {
+              type: "body",
+              parameters: [
+                {
+                  type: "text",
+                  text: request.code
+                }
+              ]
+            },
+            {
+              type: "button",
+              sub_type: "url",
+              index: "0",
+              parameters: [
+                {
+                  type: "text",
+                  text: request.code
+                }
+              ]
+            }
+          ]
+        }
+      };
+    }
 
     const res = await fetch(url, {
       method: "POST",

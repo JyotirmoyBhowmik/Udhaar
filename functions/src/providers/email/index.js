@@ -84,9 +84,9 @@ class FakeEmailProvider {
 
 class TransactionalEmailProvider {
   constructor(config = {}) {
-    this.apiKey = config.apiKey || process.env.EMAIL_PROVIDER_API_KEY;
-    this.fromAddress = config.fromAddress || "Udhaar <no-reply@jyotirmoyb.com>";
-    this.providerEndpoint = config.endpoint || "https://api.resend.com/emails";
+    this.apiKey = config.apiKey || process.env.EMAIL_PROVIDER_API_KEY || process.env.BREVO_API_KEY || process.env.RESEND_API_KEY;
+    this.fromAddress = config.fromAddress || process.env.EMAIL_FROM_ADDRESS || "Udhaar <c1f3ed001@smtp-brevo.com>";
+    this.providerEndpoint = config.endpoint || process.env.EMAIL_PROVIDER_ENDPOINT;
   }
 
   buildContent(code, locale = "en") {
@@ -117,25 +117,61 @@ class TransactionalEmailProvider {
   }
 
   async sendEmail(request) {
-    if (!this.apiKey) {
-      throw new Error("Email provider API key missing (EMAIL_PROVIDER_API_KEY).");
+    const apiKey = this.apiKey || process.env.EMAIL_PROVIDER_API_KEY || process.env.BREVO_API_KEY || process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      throw new Error("Email provider API key missing (BREVO_API_KEY or EMAIL_PROVIDER_API_KEY).");
     }
 
     const { subject, textContent, htmlContent } = this.buildContent(request.code, request.locale);
+    const isBrevo = apiKey.startsWith("xkeysib-") || process.env.EMAIL_PROVIDER === "brevo" || (this.providerEndpoint && this.providerEndpoint.includes("brevo"));
 
-    const res = await fetch(this.providerEndpoint, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${this.apiKey}`,
+    let endpoint;
+    let headers;
+    let body;
+
+    if (isBrevo) {
+      endpoint = this.providerEndpoint || "https://api.brevo.com/v3/smtp/email";
+      headers = {
+        "api-key": apiKey,
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      };
+
+      let senderName = "Udhaar";
+      let senderEmail = "c1f3ed001@smtp-brevo.com";
+      const fromStr = this.fromAddress || "Udhaar <c1f3ed001@smtp-brevo.com>";
+      const fromMatch = fromStr.match(/(?:(.*)\s*<)?([^>]+)>?/);
+      if (fromMatch) {
+        if (fromMatch[1] && fromMatch[1].trim()) senderName = fromMatch[1].trim();
+        if (fromMatch[2] && fromMatch[2].trim()) senderEmail = fromMatch[2].trim();
+      }
+
+      body = JSON.stringify({
+        sender: { name: senderName, email: senderEmail },
+        to: [{ email: request.toEmail }],
+        subject,
+        htmlContent,
+        textContent
+      });
+    } else {
+      endpoint = this.providerEndpoint || "https://api.resend.com/emails";
+      headers = {
+        "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
+      };
+      body = JSON.stringify({
         from: this.fromAddress,
         to: [request.toEmail],
         subject,
         text: textContent,
         html: htmlContent
-      })
+      });
+    }
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body
     });
 
     const data = await res.json();
@@ -145,7 +181,7 @@ class TransactionalEmailProvider {
 
     return {
       success: true,
-      messageId: data.id || `email_${Date.now()}`
+      messageId: data.messageId || data.id || `email_${Date.now()}`
     };
   }
 }
