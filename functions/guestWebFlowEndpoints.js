@@ -1241,6 +1241,7 @@ exports.sendEmailOtp = onRequest(
       const body = req.body || {};
       const email = String(body.email || "").trim().toLowerCase();
       const mobileNumber = String(body.mobileNumber || body.phone || "").trim();
+      const locale = String(body.locale || "en").trim().toLowerCase();
 
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!email || !emailRegex.test(email) || email.length > 100) {
@@ -1280,12 +1281,49 @@ exports.sendEmailOtp = onRequest(
         });
       }
 
-      console.log(`[Udhaar Verification] OTP generated for emailHash ${emailHash.substring(0, 8)}... (expires in 10m)`);
+      const channelsDispatched = [];
+
+      // 1. Dispatch Email OTP via Brevo (TransactionalEmailProvider) if BREVO_API_KEY is configured
+      const brevoKey = (process.env.BREVO_API_KEY || process.env.EMAIL_PROVIDER_API_KEY || "").trim();
+      if (brevoKey) {
+        try {
+          const { TransactionalEmailProvider } = require("./src/providers/email");
+          const emailProvider = new TransactionalEmailProvider({
+            apiKey: brevoKey,
+            fromAddress: process.env.EMAIL_FROM_ADDRESS
+          });
+          await emailProvider.sendEmail({ toEmail: email, code: otp, locale });
+          channelsDispatched.push("email");
+        } catch (emailErr) {
+          console.error("[Udhaar Verification] Brevo email delivery failed:", emailErr.message);
+        }
+      }
+
+      // 2. Optionally dispatch WhatsApp OTP via Meta WhatsApp Cloud API if configured
+      const waToken = (process.env.META_WHATSAPP_TOKEN || process.env.WHATSAPP_API_TOKEN || "").trim();
+      const waPhoneId = (process.env.META_PHONE_NUMBER_ID || process.env.WHATSAPP_PHONE_NUMBER_ID || "").trim();
+      if (waToken && waPhoneId && digits.length >= 10) {
+        try {
+          const { WhatsAppCloudApiProvider } = require("./src/providers/whatsapp");
+          const waProvider = new WhatsAppCloudApiProvider({
+            phoneNumberId: waPhoneId,
+            accessToken: waToken
+          });
+          const destPhone = digits.length === 10 ? `+91${digits}` : `+${digits}`;
+          await waProvider.sendCode({ destination: destPhone, code: otp, locale });
+          channelsDispatched.push("whatsapp");
+        } catch (waErr) {
+          console.error("[Udhaar Verification] WhatsApp OTP delivery failed:", waErr.message);
+        }
+      }
+
+      console.log(`[Udhaar Verification] OTP generated for emailHash ${emailHash.substring(0, 8)}... channels=${channelsDispatched.join(",") || "log-only"}`);
 
       res.status(200).json({
         success: true,
         message: "A 6-digit verification code has been sent to your email address.",
         email: email,
+        channels: channelsDispatched,
         expiresAtMillis,
         debugOtp: process.env.NODE_ENV !== "production" ? otp : undefined
       });

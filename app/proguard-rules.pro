@@ -8,6 +8,7 @@
 # -----------------------------------------------------------------------------
 # 1. Crash Diagnostics: Keep line numbers & source file attribute for ReTrace
 # -----------------------------------------------------------------------------
+-dontoptimize
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
 -keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod

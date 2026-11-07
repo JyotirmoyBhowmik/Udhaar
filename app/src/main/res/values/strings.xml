@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Udhaar</string>
+    <string name="com.google.firebase.crashlytics.mapping_file_id" translatable="false">udhaar-v24-release-mapping-id</string>
     <string name="tagline_monochrome_ledger">Minimalist loan &amp; Records</string>
     <string name="total_to_receive">Total to receive (given)</string>
     <string name="total_to_pay">Total to pay (taken)</string>

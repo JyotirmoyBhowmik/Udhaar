@@ -134,6 +134,12 @@ tasks.matching { it.name == "bundleRelease" || it.name == "packageReleaseBundle"
   dependsOn(verifyReleaseR8)
 }
 
+tasks.matching {
+  it.name.contains("ArtProfile") || it.name.contains("CrashlyticsMappingFile")
+}.configureEach {
+  enabled = false
+}
+
 tasks.withType<Test> {
   failFast = true
   timeout.set(Duration.ofMinutes(8))
