@@ -60,11 +60,11 @@
     <section class="trust-cards-grid">
       <article class="trust-fact-card">
         <div class="trust-card-icon">📱</div>
-        <h2>1. Records stay locked on your phone</h2>
+        <h2>1. Records stay locked on your phone by default</h2>
         <p>
-          Your records are stored only in your phone's memory using SQLCipher encryption. We do not have a central database of your loans, transactions, or contacts.
+          Udhaar operates offline-first using SQLCipher on your device. If you enable optional Cloud Sync &amp; Web Access, your records are protected by Cloud KMS envelope encryption where even admins cannot read your ledger.
         </p>
-        <div class="proof-badge">Verified in code: <code>UdhaarDatabase.kt</code></div>
+        <div class="proof-badge">Verified in code: <code>UdhaarDatabase.kt</code> &amp; <code>envelopeCrypto.js</code></div>
       </article>
 
       <article class="trust-fact-card">
@@ -98,7 +98,7 @@
         <div class="trust-card-icon">🗑️</div>
         <h2>5. How you delete your data</h2>
         <p>
-          Deleting a record in the app removes it permanently. Deleting the app wipes all local records. To remove a shared web link instantly, tap "Revoke" in the app or use our deletion form.
+          Deleting a record in the app removes it permanently. Signing out of the web app wipes the encrypted browser cache. Account deletion permanently crypto-shreds your encryption keys in Cloud KMS.
         </p>
         <div class="proof-badge">Instant removal: <code>/privacy.html#delete</code></div>
       </article>
@@ -107,9 +107,9 @@
         <div class="trust-card-icon">💡</div>
         <h2>6. What Udhaar does NOT do</h2>
         <p>
-          Udhaar does not move or hold your money, is not a bank, and does not provide legal loan agreements. All payments are done directly between parties using standard UPI apps or cash.
+          Udhaar does not move or hold money, is not a bank, and does not provide legal loans. Admins cannot read your ledger contents, cannot access ciphertexts, and cannot bypass cooling periods.
         </p>
-        <div class="proof-badge">Record-keeping notebook only</div>
+        <div class="proof-badge">Zero money movement &amp; admin-blind</div>
       </article>
     </section>
 

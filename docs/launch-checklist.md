@@ -31,10 +31,10 @@
 
 ## 3. Data Integrity & Firestore Security Rules Gate (Backend Lead)
 - [x] **Deny-by-Default Firestore Rules**: All direct client reads and writes to platform v2 ledger collections (`users/{uid}/records`, `people`, `events`, `plans`) rejected with `allow read, write: if false;`. [Proof: `firestore.rules`, Test: `functions/test/firestore_rules.test.js`]
-- [ ] **API Gateway Pattern**: All ledger operations routed through authenticated Cloud Functions validating payloads and persisting to Firestore. *(Status: Pending Stage R1 real persistence)*
+- [x] **API Gateway Pattern**: All ledger operations routed through authenticated Cloud Functions validating payloads and persisting to Firestore repositories with atomic transactions. [Proof: `functions/src/repositories/index.js`, Test: `functions/test/stage_r1_persistence.test.js`]
 - [x] **Envelope Encryption**: Field-level AES-256-GCM encryption of personal attributes wrapped via Cloud KMS with per-user DEKs in `asia-south1`. [Proof: `functions/src/crypto/envelopeCrypto.js`, Test: `functions/test/stage_r2_cryptography.test.js`]
 - [x] **Composite Indexes**: Firestore index definitions deployed for cursor pagination and composite sorting across records, payments, and events. [Proof: `firestore.indexes.json`, Test: `functions/test/openapi_contract.test.js`]
-- [ ] **Real-Time Sync Signal**: Lightweight non-sensitive `users/{uid}/syncSignal` document written to Firestore by sync hub. *(Status: Pending Stage R1)*
+- [x] **Real-Time Sync Signal**: Lightweight non-sensitive `users/{uid}/syncSignal` document written to Firestore by sync hub on state changes. [Proof: `functions/src/repositories/firestore/syncRepository.js`, Test: `functions/test/stage_r1_persistence.test.js`]
 
 ---
 
@@ -45,6 +45,7 @@
 - [x] **Performance Weight Budgets**: Landing page shell $< 600\text{KB}$, Guest portal $< 250\text{KB}$, Web App shell $< 300\text{KB}$. [Proof: `scripts/build-web.js`, Test: `functions/test/webapp_s2.test.js`]
 - [x] **Multi-Language Completeness**: 100% dictionary completeness across English, Hindi, Bengali, Assamese, and Nepali. [Proof: `web/landing.js`, Test: `functions/test/webapp_s2.test.js`]
 - [x] **Accessibility (a11y)**: Automated `axe-core` audit passes with zero critical or serious WCAG 2.1 AA violations. [Proof: `functions/test/playwright_e2e.test.js`, Test: `functions/test/playwright_e2e.test.js`]
+- [x] **Web App & Admin Governance**: Plain JS ES modules with strict JSDoc (`tsc --checkJs`), client-side AES-256-GCM IndexedDB cache, public-computer mode, and isolated Admin Console with MFA, IP allowlist, zero ledger reads, and non-bypassable cooling period. [Proof: `webapp/src/db/encryptedCache.js`, Test: `functions/test/stage_r6_webapp_admin.test.js`]
 
 ---
 
@@ -60,7 +61,7 @@
 ## 6. Privacy & Legal Compliance Gate (DPO / Grievance Officer)
 - [ ] **DPDP Act 2023 Schedule**: Notice and consent architecture covering all personal data processing. *(Status: Documented; external legal review pending)*
 - [ ] **Nepal Privacy Act 2075 Schedule**: Cross-border transfer disclosures and purpose limitations. *(Status: Documented; external legal review pending)*
-- [ ] **Consent Manager**: Granular consent choices for account ledger, WhatsApp notifications, and analytics persisted in Firestore. *(Status: Pending Stage R1)*
+- [x] **Consent Manager**: Granular consent choices for account ledger, WhatsApp notifications, and analytics persisted in Firestore with audit records. [Proof: `functions/src/repositories/firestore/privacyRepository.js`, Test: `functions/test/stage_r1_persistence.test.js`]
 - [x] **Data Erasure & Crypto-Shredding**: Instant crypto-shredding of DEK in KMS on account deletion, followed by 30-day cooling period. [Proof: `functions/src/crypto/envelopeCrypto.js`, Test: `functions/test/stage_r2_cryptography.test.js`]
 - [x] **Grievance Officer Designation**: Publicly listed contact (`grievance@jyotirmoyb.com`) with statutory 30-day resolution SLA. [Proof: `docs/legal-and-dpdp-updates.md`, Test: `functions/test/stage_s10_release.test.js`]
 
