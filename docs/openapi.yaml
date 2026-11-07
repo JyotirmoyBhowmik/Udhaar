@@ -764,6 +764,249 @@ paths:
         '200':
           description: Reciprocal record seamlessly created in user ledger without re-entering data
 
+  # =========================================================================
+  # 8. Reminders, Chat, Inbox, and Data Exports (Stage S7)
+  # =========================================================================
+  /reminders/policy:
+    get:
+      summary: Fetch user reminder policy and quiet hours
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Policy configuration returned
+    put:
+      summary: Update reminder policy and quiet hours
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Policy updated successfully
+
+  /reminders/schedule:
+    post:
+      summary: Evaluate due dates and list pending reminders
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Evaluated reminders list
+
+  /reminders/{recordId}/snooze:
+    post:
+      summary: Snooze or stop reminders for a record
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                snoozeDays:
+                  type: integer
+                stop:
+                  type: boolean
+      responses:
+        '200':
+          description: Snooze status updated
+
+  /reminders/{recordId}/send:
+    post:
+      summary: Dispatch or generate reminder for a record
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Reminder dispatched or wa.me URL returned
+
+  /chat/threads:
+    get:
+      summary: List user chat threads
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User chat threads list
+    post:
+      summary: Get or create a chat thread for a record
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recordId]
+      responses:
+        '201':
+          description: Thread created or returned
+
+  /chat/threads/{threadId}/messages:
+    get:
+      summary: List messages in a thread
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - name: threadId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Message history returned
+    post:
+      summary: Send a message to a thread
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - name: threadId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bodyText]
+      responses:
+        '201':
+          description: Message dispatched
+
+  /chat/threads/{threadId}/extension:
+    post:
+      summary: Respond to a due date extension request (ACCEPT/DECLINE)
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - name: threadId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [messageId, decision]
+      responses:
+        '200':
+          description: Extension request processed
+
+  /inbox:
+    get:
+      summary: List user inbox notifications
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Inbox items list
+
+  /inbox/{inboxId}/action:
+    post:
+      summary: Approve or decline payment claim or date proposal
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - name: inboxId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+      responses:
+        '200':
+          description: Action executed and ledger updated
+
+  /inbox/{inboxId}/read:
+    post:
+      summary: Mark inbox notification as read
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - name: inboxId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Notification marked as read
+
+  /exports/csv:
+    get:
+      summary: Download complete ledger CSV export
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      responses:
+        '200':
+          description: CSV file stream
+
+  /exports/statement:
+    get:
+      summary: View official statement of account (HTML printable)
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Printable HTML statement
+
+  /exports/full-backup:
+    get:
+      summary: Download full user data portability archive (JSON)
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Complete data archive JSON
+
 components:
   securitySchemes:
     SessionCookie:

@@ -205,10 +205,26 @@ function createAuthRouter() {
     }
   });
 
+  // 8b. POST /me/devices (Register Web Push or Mobile Device)
+  router.post("/me/devices", requireAuth, async (req, res, next) => {
+    try {
+      const { registerDevice } = require("../push/pushService");
+      const device = await registerDevice({
+        uid: req.user.uid,
+        deviceData: req.body || {}
+      });
+      return res.status(201).json(device);
+    } catch (err) {
+      next(err);
+    }
+  });
+
   // 9. DELETE /me/devices/:deviceId
   router.delete("/me/devices/:deviceId", requireAuth, async (req, res, next) => {
     try {
       const { deviceId } = req.params;
+      const { revokeDevice } = require("../push/pushService");
+      await revokeDevice({ uid: req.user.uid, deviceId });
       await revokeDeviceSession(req.user.uid, deviceId);
       return res.status(204).send();
     } catch (err) {

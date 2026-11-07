@@ -8,7 +8,11 @@ const express = require("express");
 const { createAuthRouter } = require("./auth/authEndpoints");
 const { createLedgerRouter } = require("./ledger/ledgerEndpoints");
 const { createSyncRouter } = require("./sync/syncEndpoints");
-const { createLinksRouter } = require("./links/linkEndpoints");
+const { createLinksRouter, createLegacyGuestRouter } = require("./links/linkEndpoints");
+const { createRemindersRouter } = require("./reminders/reminderEndpoints");
+const { createChatRouter } = require("./chat/chatEndpoints");
+const { createInboxRouter } = require("./inbox/inboxEndpoints");
+const { createExportRouter } = require("./exports/exportEndpoints");
 const { problemDetailsErrorHandler } = require("./middleware/authMiddleware");
 
 function createApiApp() {
@@ -42,7 +46,11 @@ function createApiApp() {
   const apiV1Router = express.Router();
   apiV1Router.use(createAuthRouter());
   apiV1Router.use("/links", createLinksRouter());
-  apiV1Router.use(createLinksRouter());
+  apiV1Router.use(createLegacyGuestRouter());
+  apiV1Router.use("/reminders", createRemindersRouter());
+  apiV1Router.use("/chat", createChatRouter());
+  apiV1Router.use("/inbox", createInboxRouter());
+  apiV1Router.use("/exports", createExportRouter());
   apiV1Router.use("/ledger", createLedgerRouter());
   apiV1Router.use(createLedgerRouter());
   apiV1Router.use("/sync", createSyncRouter());

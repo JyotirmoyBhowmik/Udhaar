@@ -36,6 +36,10 @@ const moduleFiles = [
   { name: "SignInView", path: path.join(WEBAPP_DIR, "src/features/auth/SignInView.js") },
   { name: "DashboardView", path: path.join(WEBAPP_DIR, "src/features/records/DashboardView.js") },
   { name: "SettingsView", path: path.join(WEBAPP_DIR, "src/features/settings/SettingsView.js") },
+  { name: "RemindersView", path: path.join(WEBAPP_DIR, "src/features/reminders/RemindersView.js") },
+  { name: "ChatView", path: path.join(WEBAPP_DIR, "src/features/chat/ChatView.js") },
+  { name: "InboxView", path: path.join(WEBAPP_DIR, "src/features/inbox/InboxView.js") },
+  { name: "ExportsView", path: path.join(WEBAPP_DIR, "src/features/exports/ExportsView.js") },
   { name: "AppShell", path: path.join(WEBAPP_DIR, "src/app/AppShell.js") }
 ];
 
@@ -68,6 +72,10 @@ for (const mod of moduleFiles) {
   content = content.replace(/require\(["']\.\.\/features\/auth\/SignInView["']\)/g, '__require("SignInView")');
   content = content.replace(/require\(["']\.\.\/features\/records\/DashboardView["']\)/g, '__require("DashboardView")');
   content = content.replace(/require\(["']\.\.\/features\/settings\/SettingsView["']\)/g, '__require("SettingsView")');
+  content = content.replace(/require\(["']\.\.\/features\/reminders\/RemindersView["']\)/g, '__require("RemindersView")');
+  content = content.replace(/require\(["']\.\.\/features\/chat\/ChatView["']\)/g, '__require("ChatView")');
+  content = content.replace(/require\(["']\.\.\/features\/inbox\/InboxView["']\)/g, '__require("InboxView")');
+  content = content.replace(/require\(["']\.\.\/features\/exports\/ExportsView["']\)/g, '__require("ExportsView")');
 
   bundleCode += `  // --- Module: ${mod.name} ---
   (function() {

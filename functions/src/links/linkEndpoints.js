@@ -184,10 +184,14 @@ function createLinksRouter() {
     }
   });
 
-  // =========================================================================
-  // Backward Compatibility Handlers for web/u/guest.js
-  // =========================================================================
+  return router;
+}
 
+// Separate Router for Legacy Endpoints (mounted at root without parameter wildcards)
+function createLegacyGuestRouter() {
+  const router = express.Router();
+
+  // Backward Compatibility Handlers for web/u/guest.js
   router.post("/getGuestRecord", async (req, res, next) => {
     try {
       const { recordId } = req.body || {};
@@ -347,5 +351,6 @@ function createLinksRouter() {
 }
 
 module.exports = {
-  createLinksRouter
+  createLinksRouter,
+  createLegacyGuestRouter
 };
