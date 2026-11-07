@@ -16,6 +16,7 @@ const { getRecord, createRecord, updateRecord, _inMemoryRecords } = require("../
 const { createPerson } = require("../ledger/peopleService");
 const { sendOtpChallenge, verifyOtpChallenge } = require("../otp/otpService");
 const { computePhoneHash, constantTimeEquals } = require("../crypto/serverCrypto");
+const { isFeatureEnabled } = require("../config/killSwitches");
 
 const GUEST_LINK_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const OTP_LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
@@ -142,6 +143,13 @@ async function createCapabilityLink({ uid, recordId, expiresInDays = 30 }) {
  * Resolves and validates capability link for a record
  */
 function resolveAndVerifyLink(recordId, rawToken, nowMs = Date.now()) {
+  if (!isFeatureEnabled("KILL_SWITCH_GUEST_LINKS")) {
+    const err = new Error("Guest capability verification portal is temporarily suspended by administrative kill switch.");
+    err.code = "ERR_GUEST_PORTAL_SUSPENDED";
+    err.status = 503;
+    throw err;
+  }
+
   if (!recordId) {
     const err = new Error("Record ID is required.");
     err.code = "ERR_MISSING_RECORD_ID";
@@ -157,7 +165,7 @@ function resolveAndVerifyLink(recordId, rawToken, nowMs = Date.now()) {
     throw err;
   }
 
-  if (link.status === "REVOKED") {
+  if (link.status === "REVOKED" || link.isRevoked) {
     const err = new Error("This verification link has been cancelled or revoked by the sender.");
     err.code = "ERR_LINK_REVOKED";
     err.status = 403;
@@ -746,5 +754,6 @@ module.exports = {
   submitGuestAction,
   generateProofUploadUrl,
   upgradeGuestToAccount,
+  resolveAndVerifyLink,
   _inMemoryLinks: inMemoryLinks
 };

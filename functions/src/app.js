@@ -13,6 +13,8 @@ const { createRemindersRouter } = require("./reminders/reminderEndpoints");
 const { createChatRouter } = require("./chat/chatEndpoints");
 const { createInboxRouter } = require("./inbox/inboxEndpoints");
 const { createExportRouter } = require("./exports/exportEndpoints");
+const { createAdminRouter } = require("./admin/adminEndpoints");
+const { createPrivacyRouter } = require("./privacy/privacyEndpoints");
 const { problemDetailsErrorHandler } = require("./middleware/authMiddleware");
 
 function createApiApp() {
@@ -33,7 +35,7 @@ function createApiApp() {
       res.setHeader("Access-Control-Allow-Origin", origin);
       res.setHeader("Access-Control-Allow-Credentials", "true");
       res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-Id, X-CSRF-Token, Idempotency-Key, X-Firebase-AppCheck, X-Client-Platform");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-Id, X-CSRF-Token, Idempotency-Key, X-Firebase-AppCheck, X-Client-Platform, X-Admin-Reason");
     }
 
     if (req.method === "OPTIONS") {
@@ -51,6 +53,9 @@ function createApiApp() {
   apiV1Router.use("/chat", createChatRouter());
   apiV1Router.use("/inbox", createInboxRouter());
   apiV1Router.use("/exports", createExportRouter());
+  apiV1Router.use("/admin", createAdminRouter());
+  apiV1Router.use("/privacy", createPrivacyRouter());
+  apiV1Router.use("/me", createPrivacyRouter());
   apiV1Router.use("/ledger", createLedgerRouter());
   apiV1Router.use(createLedgerRouter());
   apiV1Router.use("/sync", createSyncRouter());

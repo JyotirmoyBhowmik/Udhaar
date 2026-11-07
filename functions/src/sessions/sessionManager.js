@@ -156,11 +156,17 @@ async function listUserDevices(uid) {
   return list;
 }
 
+function resetSessionsStore() {
+  inMemorySessions.clear();
+  inMemoryDevices.clear();
+}
+
 module.exports = {
   createSession,
   validateSession,
   revokeDeviceSession,
   listUserDevices,
+  resetSessionsStore,
   _inMemorySessions: inMemorySessions,
   _inMemoryDevices: inMemoryDevices
 };

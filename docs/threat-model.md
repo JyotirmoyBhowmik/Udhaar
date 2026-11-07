@@ -88,7 +88,31 @@
 
 | Threat Category | Threat Description | Severity | Mitigation Architecture | Verification / Test Case |
 | :--- | :--- | :---: | :--- | :--- |
-| **Elevation of Privilege** | Compromised staff account accesses user ledgers. | **Critical** | 1. Separate Firebase Hosting origin with IP allowlisting.<br>2. Role-based claims (`admin: true`) verified with hardware MFA.<br>3. Zero Ledger Read Policy: Admin APIs have no endpoints to read transaction notes or ledger balances.<br>4. Admin lookups display masked data only (e.g. `+91 98*** **210`).<br>5. Every admin action requires a mandatory reason and logs to immutable `auditLogs/`. | `admin_ledger_access_denied_test`<br>Assert admin role cannot read `users/{uid}/records`. |
+| **Elevation of Privilege** | Compromised staff account accesses user ledgers or modifies critical settings without authorization. | **Critical** | 1. Strict RBAC hierarchy: `ADMIN` (full control), `OPERATOR` (lock/link actions), `AUDITOR` (read-only inspection).<br>2. Zero Ledger Read Policy: Admin APIs contain no endpoints to decrypt or inspect transaction notes or balances.<br>3. Admin user lookups display masked data only (`maskedPhone`, `maskedEmail`, `status`).<br>4. Mandatory Justification: Every mutating action requires a non-empty `X-Admin-Reason` ($\ge 5$ chars).<br>5. Immutable Audit Log: All admin actions are appended to immutable `auditLogs/` with actor UID, role, action, target, reason, and IP. | `admin_rbac_role_hierarchy_test`<br>Assert `AUDITOR` cannot mutate kill switches; non-admins receive 403 Forbidden. |
+
+---
+
+### 2.6 Third-Party Provider Cost Runaways & Financial DoS
+
+| Threat Category | Threat Description | Severity | Mitigation Architecture | Verification / Test Case |
+| :--- | :--- | :---: | :--- | :--- |
+| **Denial of Wallet** | Malicious botnet or loop initiates millions of WhatsApp/SMS OTP calls, incurring catastrophic Meta API billing. | **High** | 1. Provider Circuit Breakers (`functions/src/config/circuitBreakers.js`): Rolling hourly and daily spend limits for WhatsApp (500 units/day), Email (2000 units/day), and SMS (200 units/day).<br>2. State transitions: `CLOSED` $\to$ `OPEN` upon limit breach. Calls fail fast with HTTP 503 (`ERR_CIRCUIT_OPEN`) before hitting provider HTTP endpoints.<br>3. Automatic rolling window resets and secure manual admin override (`POST /api/v1/admin/circuits/reset`). | `circuit_breaker_budget_trip_test`<br>Assert 503 returned once daily budget limit is reached. |
+
+---
+
+### 2.7 DPDP Act 2023 Compliance & Cryptographic Erasure
+
+| Threat Category | Threat Description | Severity | Mitigation Architecture | Verification / Test Case |
+| :--- | :--- | :---: | :--- | :--- |
+| **Regulatory Non-Compliance** | Failure to execute Section 11 Right to Erasure, leaving personal data in persistent backups and replicas. | **Critical** | 1. Immediate Cryptographic DEK Shredding (`shredUserDek`): Upon account deletion request (`DELETE /api/v1/me/account`), the user's Cloud KMS-wrapped DEK is permanently destroyed. All existing ciphertexts in backups become irreversible entropy instantly.<br>2. 30-Day Cooling Window: Account is marked `PENDING_DELETION` for 30 days allowing user cancellation before metadata purge.<br>3. Reciprocal Accounting Integrity: Shared records mask counterparty PII to `"Deleted User"` and `"+910000000000"` to maintain legal bookkeeping integrity without retaining erased personal data. | `dpdp_dek_crypto_shredding_test`<br>Assert DEK destroyed and counterparty records masked. |
+
+---
+
+### 2.8 Emergency Kill Switches & Incident Management
+
+| Threat Category | Threat Description | Severity | Mitigation Architecture | Verification / Test Case |
+| :--- | :--- | :---: | :--- | :--- |
+| **Zero-Day Exploitation** | Ongoing active exploit against registration or guest links before code patch can be deployed. | **High** | Remote dynamic kill switches (`functions/src/config/killSwitches.js`):<br>- `KILL_SWITCH_REGISTRATION`: Freezes new onboarding.<br>- `KILL_SWITCH_WHATSAPP`: Suspends outbound WhatsApp calls.<br>- `KILL_SWITCH_REMINDERS`: Suspends automated reminder dispatcher.<br>- `KILL_SWITCH_SYNC`: Freezes cloud ledger delta sync.<br>- `KILL_SWITCH_GUEST_LINKS`: Revokes guest portal capability tokens.<br>- `MAINTENANCE_MODE`: Halts all mutations platform-wide. | `kill_switch_dynamic_freeze_test`<br>Assert 503 Service Unavailable returned when flag is toggled on. |
 
 ---
 

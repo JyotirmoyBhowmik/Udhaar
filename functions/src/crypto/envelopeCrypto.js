@@ -212,6 +212,17 @@ function decryptPersonFields(person, dek) {
   return dec;
 }
 
+/**
+ * Cryptographically shred a user's DEK (Digital Personal Data Protection Act 2023)
+ * Deletes the wrapped DEK from the key store and clears the cache.
+ * All historical ciphertexts encrypted with this DEK become permanently unrecoverable.
+ */
+function shredUserDek(uid) {
+  inMemoryDekCache.delete(uid);
+  const deleted = inMemoryKeyStore.delete(uid);
+  return { success: deleted, shreddedAtMs: Date.now() };
+}
+
 function clearDekCache() {
   inMemoryDekCache.clear();
   inMemoryKeyStore.clear();
@@ -227,6 +238,7 @@ module.exports = {
   decryptPersonFields,
   wrapDek,
   unwrapDek,
+  shredUserDek,
   clearDekCache,
   _inMemoryKeyStore: inMemoryKeyStore
 };

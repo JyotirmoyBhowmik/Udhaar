@@ -1007,6 +1007,250 @@ paths:
         '200':
           description: Complete data archive JSON
 
+  # =========================================================================
+  # 9. Stage S8: Admin Governance & Cost Controls
+  # =========================================================================
+  /admin/overview:
+    get:
+      summary: System overview metrics, active users, spend limits and circuit health
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      responses:
+        '200':
+          description: System overview metrics
+        '403':
+          $ref: '#/components/responses/ProblemDetails'
+
+  /admin/users/lookup:
+    post:
+      summary: Masked user inspection by pseudonymized hash (zero access to ledger contents)
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [queryHash]
+              properties:
+                queryHash:
+                  type: string
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Masked user inspection record
+        '403':
+          $ref: '#/components/responses/ProblemDetails'
+
+  /admin/users/{targetUid}/lock:
+    post:
+      summary: Lock or unlock a user account for abuse mitigation
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - name: targetUid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [locked, reason]
+              properties:
+                locked:
+                  type: boolean
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: User lock state updated
+        '403':
+          $ref: '#/components/responses/ProblemDetails'
+
+  /admin/links/{recordId}/revoke:
+    post:
+      summary: Administrative emergency revocation of a capability guest link
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Guest link revoked
+        '403':
+          $ref: '#/components/responses/ProblemDetails'
+
+  /admin/audit-logs:
+    get:
+      summary: Query immutable admin action audit log
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: action
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of admin audit logs
+        '403':
+          $ref: '#/components/responses/ProblemDetails'
+
+  /admin/kill-switches:
+    get:
+      summary: Inspect current status of all dynamic kill switches
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Feature flags and kill switches status
+    post:
+      summary: Toggle an emergency kill switch
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flagName, enabled, reason]
+              properties:
+                flagName:
+                  type: string
+                enabled:
+                  type: boolean
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Kill switch state updated
+
+  /admin/circuits:
+    get:
+      summary: Inspect third-party provider spending and circuit breaker states
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Circuit breaker metrics
+
+  /admin/circuits/reset:
+    post:
+      summary: Reset a tripped provider circuit breaker
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [providerName, reason]
+              properties:
+                providerName:
+                  type: string
+                newDailyLimit:
+                  type: integer
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Provider circuit breaker reset
+
+  # =========================================================================
+  # 10. Stage S8: DPDP Act 2023 Privacy Tools
+  # =========================================================================
+  /me/account:
+    delete:
+      summary: Request account deletion with immediate cryptographic DEK shredding
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Account marked for deletion with 30-day cooling period and key shredded
+
+  /me/account/cancel-deletion:
+    post:
+      summary: Cancel account deletion within the 30-day cooling period
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Account restored to active status
+
+  /me/consent:
+    get:
+      summary: View current data processing consent preferences
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User consent preferences
+    post:
+      summary: Update or withdraw specific data processing consents
+      security:
+        - SessionCookie: []
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                whatsappUpdates:
+                  type: boolean
+                optionalAnalytics:
+                  type: boolean
+      responses:
+        '200':
+          description: Consent preferences updated
+
 components:
   securitySchemes:
     SessionCookie:

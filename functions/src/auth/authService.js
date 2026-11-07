@@ -11,6 +11,8 @@ const { computePhoneHash, computeEmailHash } = require("../crypto/serverCrypto")
 const { sendOtpChallenge, verifyOtpChallenge } = require("../otp/otpService");
 const { isDisposableEmail } = require("./disposableEmails");
 const { createSession } = require("../sessions/sessionManager");
+const { isFeatureEnabled } = require("../config/killSwitches");
+const { checkProviderCircuit, recordProviderSpend } = require("../config/circuitBreakers");
 
 // In-memory user and index stores for testing / emulator
 const inMemoryUsers = new Map();
@@ -104,6 +106,21 @@ function validateAndNormalizeEmail(email) {
  * 1. Start sign-up with mobile number
  */
 async function startSignup({ phoneNumber, locale = "en", botCheckToken = "test_token", clientIp = "127.0.0.1" }) {
+  if (!isFeatureEnabled("KILL_SWITCH_REGISTRATION")) {
+    const err = new Error("New user registrations are temporarily suspended for system maintenance.");
+    err.code = "ERR_REGISTRATION_SUSPENDED";
+    err.status = 503;
+    throw err;
+  }
+
+  const circuit = checkProviderCircuit("WHATSAPP");
+  if (!circuit.allowed) {
+    const err = new Error(`WhatsApp verification delivery is temporarily unavailable: ${circuit.reason}`);
+    err.code = "ERR_CIRCUIT_OPEN";
+    err.status = 503;
+    throw err;
+  }
+
   const { e164 } = validateAndNormalizePhone(phoneNumber);
   const flowId = crypto.randomUUID();
 
@@ -116,6 +133,8 @@ async function startSignup({ phoneNumber, locale = "en", botCheckToken = "test_t
     locale,
     clientIp
   });
+
+  recordProviderSpend("WHATSAPP", 1);
 
   return {
     flowId,
@@ -149,6 +168,14 @@ async function submitSignupEmail({ flowId, flowToken, email, locale = "en", clie
 
   const cleanEmail = validateAndNormalizeEmail(email);
 
+  const circuit = checkProviderCircuit("EMAIL");
+  if (!circuit.allowed) {
+    const err = new Error(`Email verification delivery is temporarily unavailable: ${circuit.reason}`);
+    err.code = "ERR_CIRCUIT_OPEN";
+    err.status = 503;
+    throw err;
+  }
+
   // Send 6-digit email OTP
   const result = await sendOtpChallenge({
     flowId,
@@ -158,6 +185,8 @@ async function submitSignupEmail({ flowId, flowToken, email, locale = "en", clie
     locale,
     clientIp
   });
+
+  recordProviderSpend("EMAIL", 1);
 
   return {
     flowId,
@@ -287,6 +316,14 @@ async function startSignin({ phoneNumber, clientIp = "127.0.0.1", locale = "en" 
   const userExists = inMemoryPhoneIndex.has(phoneHmac);
 
   if (userExists) {
+    const circuit = checkProviderCircuit("WHATSAPP");
+    if (!circuit.allowed) {
+      const err = new Error(`WhatsApp login delivery is temporarily unavailable: ${circuit.reason}`);
+      err.code = "ERR_CIRCUIT_OPEN";
+      err.status = 503;
+      throw err;
+    }
+
     // Send real WhatsApp OTP
     await sendOtpChallenge({
       flowId,
@@ -296,6 +333,8 @@ async function startSignin({ phoneNumber, clientIp = "127.0.0.1", locale = "en" 
       locale,
       clientIp
     });
+
+    recordProviderSpend("WHATSAPP", 1);
   } else {
     // Unknown user: simulate constant-time delay (50-100ms) without sending OTP
     await new Promise(r => setTimeout(r, 65));

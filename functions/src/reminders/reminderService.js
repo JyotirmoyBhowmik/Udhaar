@@ -10,6 +10,7 @@
 
 const { getRecord, listRecords, updateRecord, _inMemoryRecords } = require("../ledger/recordService");
 const { getWhatsAppProvider } = require("../providers");
+const { isFeatureEnabled } = require("../config/killSwitches");
 
 // User reminder policies store: uid -> policy
 const inMemoryReminderPolicies = new Map();
@@ -207,6 +208,15 @@ async function snoozeRecordReminders({ uid, recordId, snoozeDays = 1, stop = fal
  * Evaluate and schedule all pending reminders for a user
  */
 async function evaluatePendingReminders({ uid, nowMs = Date.now() }) {
+  if (!isFeatureEnabled("KILL_SWITCH_REMINDERS")) {
+    return {
+      evaluatedCount: 0,
+      inQuietHours: false,
+      pendingReminders: [],
+      remindersSuspended: true
+    };
+  }
+
   const policy = await getUserReminderPolicy({ uid });
   const inQuietHours = isQuietHours(policy, new Date(nowMs));
 
@@ -291,6 +301,13 @@ async function evaluatePendingReminders({ uid, nowMs = Date.now() }) {
  * Dispatch or prepare a reminder message for a record
  */
 async function sendRecordReminder({ uid, recordId, locale = "en", forceSendWhatsApp = false, nowMs = Date.now() }) {
+  if (!isFeatureEnabled("KILL_SWITCH_REMINDERS")) {
+    const err = new Error("Automated reminder dispatches are temporarily paused by administrative kill switch.");
+    err.code = "ERR_REMINDERS_SUSPENDED";
+    err.status = 503;
+    throw err;
+  }
+
   const record = await getRecord({ uid, recordId });
   if (!record) {
     const err = new Error(`Record ${recordId} not found.`);
