@@ -24,6 +24,8 @@ android {
     versionName = "24.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    val udhaarTier = providers.gradleProperty("udhaar.tier").getOrElse("spark")
+    buildConfigField("String", "UDHAAR_TIER", "\"$udhaarTier\"")
   androidResources {
     localeFilters += listOf("en", "hi", "bn", "as", "ne")
   }

@@ -2,30 +2,40 @@
 <html lang="en" data-theme="system">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Privacy Policy &amp; Data Deletion — Udhaar</title>
-  <meta name="description" content="Plain-language privacy policy, data storage details, and instant deletion request form for Udhaar." />
+  <meta name="description" content="Plain-language privacy policy and data retention schedule for Udhaar. Clear facts on what stays on your phone, optional cloud sync, and how to delete your data." />
   <meta name="theme-color" content="#064E3B" />
-  <meta name="color-scheme" content="light dark" />
 
   <link rel="canonical" href="https://udhaar.jyotirmoyb.com/privacy.html" />
-  <link rel="icon" type="image/png" href="/assets/icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/assets/icon.svg" />
+  <link rel="alternate" hreflang="x-default" href="https://udhaar.jyotirmoyb.com/privacy.html" />
+
+  <!-- Stylesheets -->
   <link rel="stylesheet" href="/design-tokens.css" />
-  <link rel="stylesheet" href="/landing.css" />
   <link rel="stylesheet" href="/privacy.css" />
+  <script src="/site-config.js" defer></script>
   <script src="/privacy.js" defer></script>
 </head>
 <body>
 
   <!-- =========================================================
-       HEADER
+       HEADER & NAVIGATION
        ========================================================= -->
   <header class="site-header">
     <div class="container nav-wrapper">
       <a href="/" class="brand-logo" aria-label="UDHAAR - Home">
-        <span class="brand-icon" aria-hidden="true">₹</span>
+        <span class="brand-icon">₹</span>
         <span>UDHAAR</span>
       </a>
+
+      <nav class="nav-links" aria-label="Primary Navigation">
+        <a href="/" id="nav-home">Home</a>
+        <a href="/guide/" id="nav-guide">App Guide</a>
+        <a href="/trust/" id="nav-trust">Trust Center</a>
+        <a href="/updates/" id="nav-updates">What's New</a>
+        <a href="/privacy.html" class="nav-active" id="nav-privacy">Privacy</a>
+      </nav>
 
       <div class="nav-right">
         <!-- Language Switcher -->
@@ -37,20 +47,22 @@
           <option value="ne">नेपाली (Nepali)</option>
         </select>
 
-        <button id="theme-btn" class="theme-toggle-btn" aria-label="Toggle theme">🌙</button>
-        <a class="btn-secondary" href="/">← <span id="txt-back-home">Back to Home</span></a>
+        <button id="theme-btn" class="theme-toggle-btn" type="button" aria-label="Toggle Dark Mode">🌙</button>
+        <a href="https://play.google.com/apps/testing/com.jyotirmoyb.udhaar" class="btn-header-play" id="header-play-btn">
+          Join early access
+        </a>
       </div>
     </div>
   </header>
 
   <!-- =========================================================
-       MAIN PRIVACY CONTENT
+       MAIN CONTENT
        ========================================================= -->
-  <main class="privacy-container">
+  <main class="container page-content">
     <div style="margin-bottom: 24px;">
       <span class="section-badge" id="privacy-badge">Privacy &amp; Data Safety</span>
       <h1 class="section-title" id="privacy-title" style="margin-top: 8px;">Privacy Policy &amp; Data Deletion</h1>
-      <p class="section-subtitle" style="font-size: 0.9rem;">Effective date: November 4, 2026 • Version 17.0</p>
+      <p class="section-subtitle" style="font-size: 0.9rem;">Effective date: November 8, 2026 • Version 24.0 (Spark Mode)</p>
     </div>
 
     <!-- 1. IN SHORT BOX (Plain Language) -->
@@ -60,7 +72,7 @@
         <span id="short-title">In short: Your records stay with you</span>
       </div>
       <p class="in-short-text" id="short-desc">
-        Udhaar is designed to keep your financial records locked on your own phone. We do not sell your personal data, track your location, or read your messages. Web confirmation links expire automatically and can be revoked or deleted at any time with a single tap.
+        Udhaar is designed to keep your financial records locked on your own phone. We do not sell your personal data, track your location, or read your messages. If you turn on sync, records are stored in Google's Firebase Firestore and can be read by that service and by you only through your account. Phone numbers are unverified contact details, never used for login or recovery. Web confirmation links expire automatically and can be revoked at any time.
       </p>
     </div>
 
@@ -80,20 +92,20 @@
           <tbody>
             <tr>
               <td><strong id="r1-name">Lending &amp; borrowing records</strong></td>
-              <td id="r1-where">Stored only on your phone</td>
-              <td id="r1-time">Until you delete them or uninstall the app</td>
-              <td id="r1-action">In app: Settings &rarr; Wipe data, or delete individual records</td>
+              <td id="r1-where">Stored on phone (SQLCipher); if sync enabled, in Google Cloud Firestore</td>
+              <td id="r1-time">Until you delete them or wipe your account</td>
+              <td id="r1-action">In app: Settings &rarr; Wipe data, or turn off sync to remove cloud copies</td>
             </tr>
             <tr>
-              <td><strong id="r2-name">Private notes &amp; receipt photos</strong></td>
-              <td id="r2-where">On your phone (web proofs in secure cloud bucket)</td>
-              <td id="r2-time">On phone until deleted; web proofs auto-deleted after 30 days</td>
-              <td id="r2-action">In app: Tap "Delete guest data" or revoke web link</td>
+              <td><strong id="r2-name">Private notes &amp; receipt references</strong></td>
+              <td id="r2-where">On your phone (zero cloud photo uploads in Spark Mode)</td>
+              <td id="r2-time">On phone until deleted</td>
+              <td id="r2-action">In app: Edit record to clear note or remove reference</td>
             </tr>
             <tr>
-              <td><strong id="r3-name">Shared web links &amp; codes</strong></td>
-              <td id="r3-where">Google Cloud Firestore (Mumbai, India)</td>
-              <td id="r3-time">Code expires in 15 mins; links expire in 7 to 30 days</td>
+              <td><strong id="r3-name">Shared web links &amp; guest proposals</strong></td>
+              <td id="r3-where">Google Cloud Firestore (Spark guestLinks)</td>
+              <td id="r3-time">Links expire in 7 to 30 days</td>
               <td id="r3-action">In app: Tap "Revoke Link" or use the deletion form below</td>
             </tr>
             <tr>
@@ -104,8 +116,8 @@
             </tr>
             <tr>
               <td><strong id="r5-name">Contact book &amp; phone contacts</strong></td>
-              <td id="r5-where">Never uploaded to any server</td>
-              <td id="r5-time">Zero retention</td>
+              <td id="r5-where">Never uploaded to any server; phone numbers are unverified contact details</td>
+              <td id="r5-time">Zero server retention</td>
               <td id="r5-action">Not applicable (we never collect your contacts)</td>
             </tr>
           </tbody>
@@ -122,8 +134,8 @@
 
       <form id="delete-request-form" class="delete-form-grid">
         <div class="form-group">
-          <label for="del-name" id="lbl-name">Your Name or Masked Phone</label>
-          <input type="text" id="del-name" class="form-input" placeholder="e.g. Rahul (+91 ••••• •••10)" required />
+          <label for="del-name" id="lbl-name">Your Name or Contact Detail</label>
+          <input type="text" id="del-name" class="form-input" placeholder="e.g. Rahul" required />
         </div>
 
         <div class="form-group">
@@ -164,27 +176,32 @@
       <h2>2. Android Permissions &amp; How They Are Used</h2>
       <ul>
         <li><strong>Contacts (Optional):</strong> Requested only when you tap "Import from Contacts" to populate a person's name and phone number. Your address book is never uploaded in bulk to any server.</li>
-        <li><strong>Camera (Optional):</strong> Requested only when you take a photo of a physical receipt or UPI payment slip to attach to a record.</li>
-        <li><strong>Notifications (Optional):</strong> Used to deliver scheduled repayment reminders and web link confirmation alerts.</li>
+        <li><strong>Camera (Optional):</strong> Requested only when you take a photo of a physical receipt or UPI payment slip to attach to a local record.</li>
+        <li><strong>Notifications (Optional):</strong> Used to deliver scheduled repayment reminders and local sync notifications.</li>
       </ul>
 
-      <h2>3. Optional Cloud Features (Google Drive Backup &amp; Verification)</h2>
+      <h2>3. Optional Cloud Features (Google Drive Backup &amp; Firebase Sync)</h2>
       <p>
-        When you enable Google Drive backup, Udhaar stores only your client-side encrypted backup file inside your private Google Drive Application Data folder (<code>appDataFolder</code>). Backups are transferred directly between your Android device and Google's servers. Zero backup data or passwords are ever sent to the developer.
+        When you enable Google Drive backup, Udhaar stores only your client-side encrypted backup file inside your private Google Drive Application Data folder (<code>appDataFolder</code>). When you enable Firebase sync in Spark Mode, records are stored in Google Firestore with owner-only access rules and email-verification enforcement.
       </p>
 
-      <h2>4. Guest Web Verification Portal (/u/ &amp; Zero-Cost Code)</h2>
+      <h2>4. Guest Web Verification Portal (/u/ &amp; Capability Links)</h2>
       <p>
-        Udhaar provides a mobile-first web portal at <code>https://udhaar.jyotirmoyb.com/u/</code> where the other person can view and verify transaction records without installing the app.
+        Udhaar provides a mobile-first web portal at <code>https://udhaar.jyotirmoyb.com/u/</code> where the other person can view transaction details and submit proposals without installing the app.
       </p>
       <ul>
-        <li><strong>Cost-Free Authentication:</strong> Uses a 6-digit WhatsApp code sent directly between parties, avoiding third-party SMS gateway fees.</li>
+        <li><strong>Lender Approval Invariant:</strong> Guest actions (confirmations, dispute reasons, payment claims) are proposals only and never change the ledger until the lender accepts them in-app.</li>
         <li><strong>Cryptographic Fragment Secret:</strong> URL fragment anchors (<code>#SECRET</code>) are strictly processed by the client browser and never sent in HTTP request headers.</li>
-        <li><strong>Rate Limiting:</strong> Enforces a maximum limit of 5 failed attempts per hour to prevent brute-force attacks.</li>
+        <li><strong>No Cloud Photo Uploads:</strong> Payment claims do not upload images to cloud buckets in Spark Mode.</li>
         <li><strong>Zero Trackers:</strong> The guest portal contains no advertising beacons, analytics trackers, or third-party cookies.</li>
       </ul>
 
-      <h2>5. Data Controller &amp; Inquiries</h2>
+      <h2>5. Zero Advertising &amp; 100% Google Infrastructure</h2>
+      <p>
+        Udhaar operates entirely without advertising networks, third-party tracking beacons, or commercial data brokers. In Spark Mode, all cloud functionality runs strictly on Google Cloud / Firebase services (Firebase Authentication, Cloud Firestore, Firebase Hosting, Remote Config, and Play Integrity). Your information is never sold, leased, or monetized.
+      </p>
+
+      <h2>6. Data Controller &amp; Inquiries</h2>
       <p>
         For inquiries regarding privacy, data deletion, or security disclosures, please contact:
         <br />

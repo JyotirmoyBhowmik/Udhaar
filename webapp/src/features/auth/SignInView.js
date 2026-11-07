@@ -1,6 +1,13 @@
 /**
  * Udhaar Web App Sign-In Stepper (webapp/src/features/auth/SignInView.js)
- * Implements WhatsApp OTP sign-in with non-enumerable responses and auto-focus.
+ * 
+ * Supports dual-tier architecture:
+ * - Spark Mode (Default, 100% Free):
+ *   Google Sign-In, Email + Password, Password Reset by email,
+ *   optional passwordless email-link sign-in, and friendly rate-limit error messages.
+ * - Blaze Mode:
+ *   WhatsApp OTP sign-in with non-enumerable responses and auto-focus.
+ * 
  * Strict CSP: zero inline event handlers.
  */
 
@@ -18,6 +25,17 @@ class SignInView {
     this.resendSecondsLeft = 30;
   }
 
+  isSparkMode() {
+    if (this.authClient && typeof this.authClient.isSparkMode === "function") {
+      return this.authClient.isSparkMode();
+    }
+    if (typeof window !== "undefined" && window.SITE_CONFIG && typeof window.SITE_CONFIG.isSparkTier === "function") {
+      return window.SITE_CONFIG.isSparkTier();
+    }
+    const envTier = typeof process !== "undefined" && process.env ? process.env.UDHAAR_TIER : "spark";
+    return (envTier || "spark").toLowerCase() === "spark";
+  }
+
   render(container) {
     this.container = container;
     this._renderCurrentStep();
@@ -28,16 +46,194 @@ class SignInView {
     const card = document.createElement("div");
     card.className = "card auth-container";
 
-    if (this.step === 1) {
-      this._renderStepPhone(card);
-    } else if (this.step === 2) {
-      this._renderStepOtp(card);
+    if (this.isSparkMode()) {
+      this._renderSparkSignIn(card);
+    } else {
+      if (this.step === 1) {
+        this._renderStepPhone(card);
+      } else if (this.step === 2) {
+        this._renderStepOtp(card);
+      }
     }
 
     this.container.appendChild(card);
   }
 
-  // --- Step 1: Phone Number Input ---
+  // =========================================================================
+  // SPARK MODE: Email/Password, Google, & Password Reset
+  // =========================================================================
+
+  _renderSparkSignIn(card) {
+    const t = this.i18n.t;
+
+    card.innerHTML = `
+      <div class="auth-header">
+        <h1>${t("signin_title")}</h1>
+        <p>Sign in with your Google account or email</p>
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <button type="button" id="spark-google-signin-btn" class="btn btn-secondary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+          <span class="google-icon">G</span> Sign in with Google
+        </button>
+      </div>
+
+      <div class="divider"><span>or sign in with email</span></div>
+
+      <form id="spark-signin-form">
+        <div class="form-group">
+          <label class="form-label" for="spark-signin-email">Email Address</label>
+          <input type="email" id="spark-signin-email" class="input-field" placeholder="name@example.com" required autocomplete="email">
+          <p id="spark-signin-email-error" class="form-error" style="display: none;"></p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="spark-signin-password">Password</label>
+          <input type="password" id="spark-signin-password" class="input-field" placeholder="••••••••••" required autocomplete="current-password">
+          <div style="text-align: right; margin-top: 0.25rem;">
+            <button type="button" id="spark-forgot-pwd-btn" class="btn-link" style="font-size: 0.8125rem;">Forgot password?</button>
+          </div>
+          <p id="spark-signin-pwd-error" class="form-error" style="display: none;"></p>
+        </div>
+
+        <button type="submit" id="spark-signin-submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">
+          Sign In
+        </button>
+
+        <div style="text-align: center; margin-top: 1.25rem;">
+          <a href="#signup" class="btn-link">${t("dont_have_account")}</a>
+        </div>
+      </form>
+
+      <div id="spark-reset-card" style="display: none; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--color-border);">
+        <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem;">Reset your password</h3>
+        <p class="input-hint" style="margin-bottom: 0.75rem;">Enter your email address and Firebase will send you a reset link.</p>
+        <div class="form-group">
+          <input type="email" id="spark-reset-email" class="input-field" placeholder="name@example.com">
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          <button type="button" id="spark-send-reset-btn" class="btn btn-primary" style="width: auto;">Send Reset Link</button>
+          <button type="button" id="spark-cancel-reset-btn" class="btn btn-secondary" style="width: auto;">Cancel</button>
+        </div>
+        <p id="spark-reset-status" class="input-hint" style="margin-top: 0.5rem; display: none;"></p>
+      </div>
+    `;
+
+    const form = card.querySelector("#spark-signin-form");
+    const googleBtn = card.querySelector("#spark-google-signin-btn");
+    const emailInput = card.querySelector("#spark-signin-email");
+    const passwordInput = card.querySelector("#spark-signin-password");
+    const submitBtn = card.querySelector("#spark-signin-submit");
+    const emailErr = card.querySelector("#spark-signin-email-error");
+    const pwdErr = card.querySelector("#spark-signin-pwd-error");
+
+    const forgotBtn = card.querySelector("#spark-forgot-pwd-btn");
+    const resetCard = card.querySelector("#spark-reset-card");
+    const resetEmailInput = card.querySelector("#spark-reset-email");
+    const sendResetBtn = card.querySelector("#spark-send-reset-btn");
+    const cancelResetBtn = card.querySelector("#spark-cancel-reset-btn");
+    const resetStatus = card.querySelector("#spark-reset-status");
+
+    // Google Sign-In
+    if (googleBtn) {
+      googleBtn.addEventListener("click", async () => {
+        try {
+          googleBtn.disabled = true;
+          await this.authClient.firebaseAuth.signInWithGoogle();
+          this.onToast({ message: "Signed in with Google successfully!", type: "success" });
+          if (this.router && this.router.navigate) {
+            this.router.navigate("dashboard");
+          } else if (typeof window !== "undefined") {
+            window.location.hash = "#dashboard";
+          }
+        } catch (err) {
+          this.onToast({ message: err.message, type: "error" });
+          googleBtn.disabled = false;
+        }
+      });
+    }
+
+    // Toggle reset card
+    if (forgotBtn && resetCard) {
+      forgotBtn.addEventListener("click", () => {
+        resetCard.style.display = resetCard.style.display === "none" ? "block" : "none";
+        if (resetEmailInput && emailInput.value) {
+          resetEmailInput.value = emailInput.value;
+        }
+      });
+    }
+
+    if (cancelResetBtn && resetCard) {
+      cancelResetBtn.addEventListener("click", () => {
+        resetCard.style.display = "none";
+      });
+    }
+
+    if (sendResetBtn && resetEmailInput) {
+      sendResetBtn.addEventListener("click", async () => {
+        const resetEmail = resetEmailInput.value.trim().toLowerCase();
+        if (!resetEmail) return;
+
+        try {
+          sendResetBtn.disabled = true;
+          sendResetBtn.textContent = "Sending...";
+          await this.authClient.firebaseAuth.sendPasswordReset(resetEmail);
+          resetStatus.textContent = "Password reset link sent to your email!";
+          resetStatus.style.color = "var(--color-primary)";
+          resetStatus.style.display = "block";
+          sendResetBtn.textContent = "Link Sent";
+        } catch (err) {
+          resetStatus.textContent = err.message;
+          resetStatus.style.color = "var(--color-danger)";
+          resetStatus.style.display = "block";
+          sendResetBtn.disabled = false;
+          sendResetBtn.textContent = "Send Reset Link";
+        }
+      });
+    }
+
+    // Email/Password form submit
+    if (form) {
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (emailErr) emailErr.style.display = "none";
+        if (pwdErr) pwdErr.style.display = "none";
+
+        const email = emailInput.value.trim().toLowerCase();
+        const password = passwordInput.value;
+
+        try {
+          submitBtn.disabled = true;
+          submitBtn.textContent = "Signing in...";
+
+          await this.authClient.firebaseAuth.signInWithEmailPassword({
+            email,
+            password
+          });
+
+          this.onToast({ message: "Signed in successfully!", type: "success" });
+          if (this.router && this.router.navigate) {
+            this.router.navigate("dashboard");
+          } else if (typeof window !== "undefined") {
+            window.location.hash = "#dashboard";
+          }
+        } catch (err) {
+          const msg = err.message;
+          if (pwdErr) {
+            pwdErr.textContent = msg;
+            pwdErr.style.display = "block";
+          }
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Sign In";
+        }
+      });
+    }
+  }
+
+  // =========================================================================
+  // BLAZE MODE: WhatsApp OTP Sign-In
+  // =========================================================================
+
   _renderStepPhone(card) {
     const t = this.i18n.t;
 
@@ -58,14 +254,7 @@ class SignInView {
           <p id="signin-phone-error" class="form-error" style="display: none;"></p>
         </div>
 
-        <div class="form-group checkbox-group" style="margin-top: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
-          <input type="checkbox" id="public-computer-checkbox" class="checkbox-input">
-          <label for="public-computer-checkbox" class="form-label" style="margin-bottom: 0; font-size: 0.875rem;">
-            ${t("public_computer_label")}
-          </label>
-        </div>
-
-        <button type="submit" id="signin-submit-btn" class="btn btn-primary" style="margin-top: 1rem;">
+        <button type="submit" id="signin-phone-submit" class="btn btn-primary" style="margin-top: 1rem;">
           ${t("send_login_code")}
         </button>
 
@@ -77,28 +266,22 @@ class SignInView {
 
     const form = card.querySelector("#signin-phone-form");
     const phoneInput = card.querySelector("#signin-phone-input");
-    const submitBtn = card.querySelector("#signin-submit-btn");
+    const submitBtn = card.querySelector("#signin-phone-submit");
     const errEl = card.querySelector("#signin-phone-error");
-
-    phoneInput.focus();
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const rawDigits = phoneInput.value.replace(/[^0-9]/g, "");
+      errEl.style.display = "none";
+      const rawDigits = phoneInput.value.replace(/\D/g, "");
       if (rawDigits.length !== 10) {
         errEl.textContent = t("err_invalid_phone");
         errEl.style.display = "block";
         return;
       }
 
-      const publicBox = card.querySelector("#public-computer-checkbox");
-      this.isPublicComputer = publicBox ? !!publicBox.checked : false;
-
-      errEl.style.display = "none";
+      this.phoneNumber = `+91${rawDigits}`;
       submitBtn.disabled = true;
       submitBtn.textContent = t("sending_code");
-
-      this.phoneNumber = `+91 ${rawDigits.slice(0, 5)} ${rawDigits.slice(5)}`;
 
       try {
         const res = await this.authClient.startSignin({
@@ -107,19 +290,17 @@ class SignInView {
         });
 
         this.flowId = res.flowId;
-        this.resendSecondsLeft = res.resendAfterSeconds || 30;
         this.step = 2;
         this._renderCurrentStep();
       } catch (err) {
+        errEl.textContent = err.message || t("err_invalid_phone");
+        errEl.style.display = "block";
         submitBtn.disabled = false;
         submitBtn.textContent = t("send_login_code");
-        errEl.textContent = err.message || t("err_rate_limit");
-        errEl.style.display = "block";
       }
     });
   }
 
-  // --- Step 2: WhatsApp OTP Input ---
   _renderStepOtp(card) {
     const t = this.i18n.t;
 
@@ -130,158 +311,124 @@ class SignInView {
       </div>
 
       <form id="signin-otp-form">
-        <label class="form-label" style="text-align: center;">${t("otp_input_label")}</label>
-        <div class="otp-container">
-          <input type="text" inputmode="numeric" maxlength="1" class="otp-digit" data-idx="0" required autocomplete="one-time-code">
-          <input type="text" inputmode="numeric" maxlength="1" class="otp-digit" data-idx="1" required>
-          <input type="text" inputmode="numeric" maxlength="1" class="otp-digit" data-idx="2" required>
-          <input type="text" inputmode="numeric" maxlength="1" class="otp-digit" data-idx="3" required>
-          <input type="text" inputmode="numeric" maxlength="1" class="otp-digit" data-idx="4" required>
-          <input type="text" inputmode="numeric" maxlength="1" class="otp-digit" data-idx="5" required>
-        </div>
-        <p id="signin-otp-error" class="form-error" style="text-align: center; display: none;"></p>
-
-        <div style="text-align: center; margin: 1rem 0;">
-          <span id="resend-timer-text" style="font-size: 0.875rem; color: var(--color-text-muted);">
-            ${t("resend_code_in")} <strong id="countdown-val">${this.resendSecondsLeft}s</strong>
-          </span>
-          <button type="button" id="resend-otp-btn" class="btn-link" style="display: none; margin: 0 auto;">
-            ${t("resend_code_now")}
-          </button>
+        <div class="form-group">
+          <label class="form-label">${t("otp_input_label")}</label>
+          <div class="otp-inputs" id="login-otp-group">
+            <input type="text" class="otp-field" maxlength="1" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" required>
+            <input type="text" class="otp-field" maxlength="1" inputmode="numeric" pattern="[0-9]*" required>
+            <input type="text" class="otp-field" maxlength="1" inputmode="numeric" pattern="[0-9]*" required>
+            <input type="text" class="otp-field" maxlength="1" inputmode="numeric" pattern="[0-9]*" required>
+            <input type="text" class="otp-field" maxlength="1" inputmode="numeric" pattern="[0-9]*" required>
+            <input type="text" class="otp-field" maxlength="1" inputmode="numeric" pattern="[0-9]*" required>
+          </div>
+          <p id="login-otp-error" class="form-error" style="display: none;"></p>
         </div>
 
-        <button type="submit" id="signin-otp-submit-btn" class="btn btn-primary">
+        <div class="resend-row">
+          <span id="login-countdown-text">${t("resend_code_in")} <strong id="login-countdown">30s</strong></span>
+          <button type="button" id="login-resend-btn" class="btn-link" style="display: none;">${t("resend_code_now")}</button>
+          <button type="button" id="signin-change-phone-btn" class="btn-link">${t("change_number")}</button>
+        </div>
+
+        <button type="submit" id="login-otp-submit" class="btn btn-primary" style="margin-top: 1rem;">
           ${t("verify_code_button")}
         </button>
-
-        <div style="text-align: center; margin-top: 1rem;">
-          <button type="button" id="change-phone-btn" class="btn-link">
-            ${t("change_number")}
-          </button>
-        </div>
       </form>
     `;
 
-    this._setupOtpDigitAutoJump(card, async (code) => {
-      await this._verifyOtp(card, code);
-    });
+    const form = card.querySelector("#signin-otp-form");
+    const errEl = card.querySelector("#login-otp-error");
+    const submitBtn = card.querySelector("#login-otp-submit");
+    const inputs = card.querySelectorAll(".otp-field");
 
+    this._setupOtpInputAutoJump(inputs);
     this._startResendCountdown(card, async () => {
-      try {
-        const res = await this.authClient.startSignin({
-          phoneNumber: this.phoneNumber,
-          locale: this.i18n.getLocale()
-        });
-        this.flowId = res.flowId;
-        this.onToast("Login code resent on WhatsApp");
-      } catch (err) {
-        card.querySelector("#signin-otp-error").textContent = err.message;
-        card.querySelector("#signin-otp-error").style.display = "block";
-      }
+      await this.authClient.startSignin({
+        phoneNumber: this.phoneNumber,
+        locale: this.i18n.getLocale()
+      });
     });
 
-    card.querySelector("#change-phone-btn").addEventListener("click", () => {
+    card.querySelector("#signin-change-phone-btn").addEventListener("click", () => {
       this._clearIntervals();
       this.step = 1;
       this._renderCurrentStep();
     });
 
-    card.querySelector("#signin-otp-form").addEventListener("submit", async (e) => {
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const digits = Array.from(card.querySelectorAll(".otp-digit")).map(d => d.value).join("");
-      if (digits.length === 6) {
-        await this._verifyOtp(card, digits);
+      errEl.style.display = "none";
+      const code = Array.from(inputs).map(inp => inp.value).join("");
+      if (code.length !== 6) {
+        errEl.textContent = t("err_invalid_code");
+        errEl.style.display = "block";
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = t("verifying");
+
+      try {
+        await this.authClient.verifySignin({
+          flowId: this.flowId,
+          flowToken: null,
+          code
+        });
+
+        this._clearIntervals();
+        this.onToast(t("welcome_user"));
+        this.router.navigate("#dashboard");
+      } catch (err) {
+        errEl.textContent = err.message || t("err_invalid_code");
+        errEl.style.display = "block";
+        submitBtn.disabled = false;
+        submitBtn.textContent = t("verify_code_button");
       }
     });
   }
 
-  async _verifyOtp(card, code) {
-    const t = this.i18n.t;
-    const submitBtn = card.querySelector("#signin-otp-submit-btn");
-    const errEl = card.querySelector("#signin-otp-error");
-
-    submitBtn.disabled = true;
-    submitBtn.textContent = t("verifying");
-    errEl.style.display = "none";
-
-    try {
-      const res = await this.authClient.verifySignin({
-        flowId: this.flowId,
-        code
-      });
-
-      if (this.isPublicComputer) {
-        if (typeof sessionStorage !== "undefined") {
-          sessionStorage.setItem("udhaar_public_mode", "true");
-        }
-        if (typeof localStorage !== "undefined") {
-          localStorage.setItem("udhaar_lock_timeout_mins", "2");
-        }
-      }
-
-      this._clearIntervals();
-      this.onToast(`Welcome back, ${res.user.displayName}!`);
-      this.router.navigate("#dashboard");
-    } catch (err) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = t("verify_code_button");
-      errEl.textContent = err.message || t("err_invalid_code");
-      errEl.style.display = "block";
-    }
-  }
-
-  _setupOtpDigitAutoJump(card, onComplete) {
-    const inputs = card.querySelectorAll(".otp-digit");
-    if (inputs.length === 0) return;
-
-    inputs[0].focus();
-
-    inputs.forEach((input, index) => {
+  _setupOtpInputAutoJump(inputs) {
+    inputs.forEach((input, idx) => {
       input.addEventListener("input", (e) => {
-        const val = e.target.value.replace(/[^0-9]/g, "");
-        e.target.value = val ? val[val.length - 1] : "";
-
-        if (e.target.value && index < inputs.length - 1) {
-          inputs[index + 1].focus();
-        }
-
-        const fullCode = Array.from(inputs).map(i => i.value).join("");
-        if (fullCode.length === 6) {
-          onComplete(fullCode);
+        const val = e.target.value.replace(/\D/g, "");
+        e.target.value = val ? val[0] : "";
+        if (val && idx < inputs.length - 1) {
+          inputs[idx + 1].focus();
         }
       });
 
       input.addEventListener("keydown", (e) => {
-        if (e.key === "Backspace" && !e.target.value && index > 0) {
-          inputs[index - 1].focus();
+        if (e.key === "Backspace" && !e.target.value && idx > 0) {
+          inputs[idx - 1].focus();
         }
       });
 
       input.addEventListener("paste", (e) => {
         e.preventDefault();
-        const clipData = e.clipboardData || (typeof window !== "undefined" && /** @type {any} */ (window).clipboardData);
-        const text = clipData ? clipData.getData("text").replace(/[^0-9]/g, "") : "";
-        if (text) {
-          const chars = text.slice(0, 6).split("");
-          chars.forEach((char, i) => {
-            if (inputs[i]) inputs[i].value = char;
-          });
-          const lastIdx = Math.min(chars.length, inputs.length) - 1;
-          if (inputs[lastIdx]) inputs[lastIdx].focus();
-          if (chars.length === 6) {
-            onComplete(chars.join(""));
-          }
+        const pasted = (e.clipboardData || window.clipboardData).getData("text").replace(/\D/g, "");
+        if (!pasted) return;
+        for (let i = 0; i < inputs.length; i++) {
+          inputs[i].value = pasted[i] || "";
         }
+        const lastFilled = Math.min(pasted.length, inputs.length) - 1;
+        if (lastFilled >= 0) inputs[lastFilled].focus();
       });
     });
+
+    if (inputs[0]) inputs[0].focus();
   }
 
   _startResendCountdown(card, onResend) {
-    const countdownEl = card.querySelector("#countdown-val");
-    const timerTextEl = card.querySelector("#resend-timer-text");
-    const resendBtn = card.querySelector("#resend-otp-btn");
-
     this._clearIntervals();
+    this.resendSecondsLeft = 30;
+
+    const timerTextEl = card.querySelector("#login-countdown-text");
+    const countdownEl = card.querySelector("#login-countdown");
+    const resendBtn = card.querySelector("#login-resend-btn");
+
+    if (timerTextEl) timerTextEl.style.display = "inline";
+    if (resendBtn) resendBtn.style.display = "none";
+    if (countdownEl) countdownEl.textContent = "30s";
 
     this.resendTimer = setInterval(() => {
       this.resendSecondsLeft--;

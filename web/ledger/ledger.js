@@ -1538,8 +1538,111 @@
     if (prevDue) prevDue.textContent = dueMsg;
 
     updateWhatsAppToneLink();
+    updateCalendarReminderLinks();
     showModal("modal-reminder-tone");
     announce("Reminder tone selector opened.");
+  }
+
+  function formatIcsDateTime(date) {
+    const d = new Date(date);
+    const pad = (n) => String(n).padStart(2, "0");
+    return (
+      d.getUTCFullYear() +
+      pad(d.getUTCMonth() + 1) +
+      pad(d.getUTCDate()) +
+      "T" +
+      pad(d.getUTCHours()) +
+      pad(d.getUTCMinutes()) +
+      pad(d.getUTCSeconds()) +
+      "Z"
+    );
+  }
+
+  function updateCalendarReminderLinks() {
+    const calBtn = document.getElementById("btn-calendar-reminder");
+    if (!calBtn || !activeReminderRecord) return;
+
+    const party = activeReminderRecord.partyName || "Counterparty";
+    const origPaise = Number(activeReminderRecord.principalAmountPaise || Math.round(Number(activeReminderRecord.principalAmount || 0) * 100));
+    const paidPaise = (activeReminderRecord.payments || []).reduce((acc, p) => acc + (p.paise || Math.round(Number(p.amount || 0) * 100)), 0);
+    const balancePaise = Math.max(0, origPaise - paidPaise);
+    const amtStr = formatRupees(balancePaise / 100);
+
+    const isLent = activeReminderRecord.counterpartyRole === "BORROWER" || activeReminderRecord.creatorRole === "GIVEN";
+    const title = `Udhaar: ${isLent ? "Collect" : "Repay"} ${party} (${amtStr})`;
+    const shareUrl = getRecordShareUrl(activeReminderRecord);
+    const description = `Udhaar transaction record of ${amtStr}. Details: ${shareUrl}`;
+
+    const dueDate = activeReminderRecord.dueDateMillis ? new Date(activeReminderRecord.dueDateMillis) : new Date(Date.now() + 7 * 24 * 3600 * 1000);
+    dueDate.setHours(10, 0, 0, 0);
+    const endDate = new Date(dueDate.getTime() + 60 * 60 * 1000);
+
+    const startIso = formatIcsDateTime(dueDate);
+    const endIso = formatIcsDateTime(endDate);
+
+    const params = new URLSearchParams({
+      action: "TEMPLATE",
+      text: title,
+      details: description,
+      dates: `${startIso}/${endIso}`
+    });
+
+    calBtn.href = `https://calendar.google.com/calendar/render?${params.toString()}`;
+  }
+
+  function downloadReminderIcsFile() {
+    if (!activeReminderRecord) return;
+    const party = activeReminderRecord.partyName || "Counterparty";
+    const origPaise = Number(activeReminderRecord.principalAmountPaise || Math.round(Number(activeReminderRecord.principalAmount || 0) * 100));
+    const paidPaise = (activeReminderRecord.payments || []).reduce((acc, p) => acc + (p.paise || Math.round(Number(p.amount || 0) * 100)), 0);
+    const balancePaise = Math.max(0, origPaise - paidPaise);
+    const amtStr = formatRupees(balancePaise / 100);
+    const isLent = activeReminderRecord.counterpartyRole === "BORROWER" || activeReminderRecord.creatorRole === "GIVEN";
+
+    const title = `Udhaar: ${isLent ? "Collect" : "Repay"} ${party} (${amtStr})`;
+    const shareUrl = getRecordShareUrl(activeReminderRecord);
+    const description = `Udhaar transaction record of ${amtStr}. Details: ${shareUrl}`;
+
+    const dueDate = activeReminderRecord.dueDateMillis ? new Date(activeReminderRecord.dueDateMillis) : new Date(Date.now() + 7 * 24 * 3600 * 1000);
+    dueDate.setHours(10, 0, 0, 0);
+    const endDate = new Date(dueDate.getTime() + 60 * 60 * 1000);
+
+    const startIso = formatIcsDateTime(dueDate);
+    const endIso = formatIcsDateTime(endDate);
+    const nowIso = formatIcsDateTime(new Date());
+
+    const icsLines = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Udhaar//NONSGML v24.0//EN",
+      "CALSCALE:GREGORIAN",
+      "BEGIN:VEVENT",
+      `UID:reminder-${activeReminderRecord.id || Date.now()}@udhaar.jyotirmoyb.com`,
+      `DTSTAMP:${nowIso}`,
+      `DTSTART:${startIso}`,
+      `DTEND:${endIso}`,
+      `SUMMARY:${title}`,
+      `DESCRIPTION:${description.replace(/\n/g, "\\n")}`,
+      "STATUS:CONFIRMED",
+      "BEGIN:VALARM",
+      "TRIGGER:-PT15M",
+      "ACTION:DISPLAY",
+      "DESCRIPTION:Reminder",
+      "END:VALARM",
+      "END:VEVENT",
+      "END:VCALENDAR"
+    ].join("\r\n");
+
+    const blob = new Blob([icsLines], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.setAttribute("download", `udhaar-reminder-${party.toLowerCase().replace(/[^a-z0-9]/g, "_")}.ics`);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    announce("iCalendar file downloaded.");
   }
 
   function updateWhatsAppToneLink() {
@@ -2384,6 +2487,11 @@
     [btnCloseReminder, btnCancelReminder].forEach((btn) => {
       if (btn) btn.addEventListener("click", () => hideModal("modal-reminder-tone"));
     });
+
+    const btnDownloadIcs = document.getElementById("btn-download-ics");
+    if (btnDownloadIcs) {
+      btnDownloadIcs.addEventListener("click", downloadReminderIcsFile);
+    }
 
     // Close Share Success Modal
     const btnCloseShare = document.getElementById("btn-close-share");

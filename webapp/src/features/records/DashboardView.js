@@ -6,6 +6,7 @@
 
 const { ledgerDb } = require("../../db/ledgerDb");
 const { syncEngine } = require("../../sync/syncEngine");
+const { buildGoogleCalendarUrl, downloadIcsFile } = require("../reminders/calendarReminderService");
 
 class DashboardView {
   /**
@@ -189,8 +190,9 @@ class DashboardView {
                 <div style="font-weight: 700; font-size: 1.15rem; color: ${isLent ? "var(--color-primary)" : "var(--color-danger)"};">
                   ${amountFormatted}
                 </div>
-                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; justify-content: flex-end;">
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; justify-content: flex-end; align-items: center;">
                   <button type="button" class="btn-link edit-record-btn" data-sync-id="${r.syncId}" style="font-size: 0.8rem;">Edit</button>
+                  <button type="button" class="btn-link calendar-record-btn" data-sync-id="${r.syncId}" style="font-size: 0.8rem; color: #3b82f6;" title="Add to Google Calendar">📅 Calendar</button>
                   <button type="button" class="btn-link settle-record-btn" data-sync-id="${r.syncId}" style="font-size: 0.8rem; color: var(--color-primary);">Settle</button>
                 </div>
               </div>
@@ -290,6 +292,27 @@ class DashboardView {
           await ledgerDb.putRecord(merged);
           this.onToast("Accepted server version");
           await this.render(this.container);
+        }
+      });
+    });
+
+    // Calendar Reminder Button
+    this.container.querySelectorAll(".calendar-record-btn").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const syncId = e.currentTarget.getAttribute("data-sync-id");
+        const rec = await ledgerDb.getRecord(syncId);
+        if (rec) {
+          const remainingPaise = rec.remainingAmountPaise !== undefined ? rec.remainingAmountPaise : rec.principalAmountPaise;
+          const isLent = rec.counterpartyRole === "BORROWER";
+          const calUrl = buildGoogleCalendarUrl({
+            title: `Udhaar: ${isLent ? "Collect from" : "Repay"} ${rec.partyName}`,
+            description: `Udhaar repayment of ₹${((remainingPaise || 0) / 100).toFixed(0)}. Manage at https://udhaar.jyotirmoyb.com`,
+            dueDateMs: rec.dueDateMs || Date.now() + 7 * 24 * 60 * 60 * 1000
+          });
+          if (calUrl && typeof window !== "undefined") {
+            window.open(calUrl, "_blank", "noopener,noreferrer");
+            this.onToast("Opened Google Calendar reminder template");
+          }
         }
       });
     });

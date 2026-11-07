@@ -6,6 +6,7 @@
 
 const { ledgerDb } = require("../db/ledgerDb");
 const { createHlc, incrementHlc, updateHlc, packHlc } = require("./hlc");
+const { FirestoreWebTransport } = require("./firestoreWebTransport");
 
 class SyncEngine {
   /**
@@ -239,6 +240,25 @@ class SyncEngine {
     return paymentRecord;
   }
 
+  isSparkMode() {
+    if (typeof window !== "undefined" && window.SITE_CONFIG && typeof window.SITE_CONFIG.isSparkTier === "function") {
+      return window.SITE_CONFIG.isSparkTier();
+    }
+    const envTier = typeof process !== "undefined" && process.env ? process.env.UDHAAR_TIER : "spark";
+    return (envTier || "spark").toLowerCase() === "spark";
+  }
+
+  _getEffectiveTransport() {
+    if (this.transport) return this.transport;
+    if (this.isSparkMode()) {
+      if (!this._defaultFirestoreTransport) {
+        this._defaultFirestoreTransport = new FirestoreWebTransport();
+      }
+      return this._defaultFirestoreTransport;
+    }
+    return null;
+  }
+
   // -----------------------------------------------------------
   // Sync Worker & Outbox Drainage
   // -----------------------------------------------------------
@@ -271,8 +291,9 @@ class SyncEngine {
     try {
       let results;
 
-      if (this.transport) {
-        const res = await this.transport.push({
+      const effectiveTransport = this._getEffectiveTransport();
+      if (effectiveTransport) {
+        const res = await effectiveTransport.push({
           deviceId: this.deviceId,
           changes
         });
@@ -357,8 +378,9 @@ class SyncEngine {
       let changes;
       let nextCursor;
 
-      if (this.transport) {
-        const pullRes = await this.transport.pull({ cursor, limit: 100 });
+      const effectiveTransport = this._getEffectiveTransport();
+      if (effectiveTransport) {
+        const pullRes = await effectiveTransport.pull({ cursor, limit: 100 });
         changes = pullRes.changes;
         nextCursor = pullRes.nextCursor;
       } else {

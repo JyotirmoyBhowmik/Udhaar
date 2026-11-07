@@ -1,8 +1,13 @@
 /**
  * Udhaar Auth API Client (webapp/src/api/authClient.js)
- * Interacts with /api/v1/auth endpoints, manages CSRF protection,
- * and formats RFC 9457 Problem Details for friendly UI presentation.
+ * 
+ * Supports dual-tier architecture:
+ * - Spark Tier (Default, 100% Free): Uses FirebaseAuthClient directly against Firebase Auth.
+ *   Throws a fatal error if /api/v1/** REST endpoints are attempted.
+ * - Blaze Tier: Interacts with /api/v1/auth Cloud Functions endpoints.
  */
+
+const { FirebaseAuthClient } = require("./firebaseAuthClient");
 
 class AuthError extends Error {
   /**
@@ -24,6 +29,26 @@ class AuthClient {
   constructor(baseUrl = "") {
     this.baseUrl = baseUrl;
     this.csrfToken = this._getCookie("csrf_token") || this._generateCsrfToken();
+    this.firebaseAuth = new FirebaseAuthClient();
+  }
+
+  isSparkMode() {
+    if (typeof window !== "undefined" && window.SITE_CONFIG && typeof window.SITE_CONFIG.isSparkTier === "function") {
+      return window.SITE_CONFIG.isSparkTier();
+    }
+    const envTier = typeof process !== "undefined" ? process.env.UDHAAR_TIER : "spark";
+    return (envTier || "spark").toLowerCase() === "spark";
+  }
+
+  _assertBlazeAllowed(endpointName) {
+    if (this.isSparkMode()) {
+      throw new AuthError(
+        `[TierViolation: ERR_SPARK_TIER_RESTRICTION] Calling '${endpointName}' on Cloud Functions API is disabled in Spark Mode. ` +
+        `Spark Mode operates 100% serverless through Firebase Auth and client Firestore rules.`,
+        "ERR_SPARK_TIER_RESTRICTION",
+        400
+      );
+    }
   }
 
   _getCookie(name) {
@@ -69,6 +94,7 @@ class AuthClient {
   }
 
   async startSignup({ phoneNumber, locale = "en", isAge18Plus = true, allowWhatsAppReminders = true }) {
+    this._assertBlazeAllowed("startSignup");
     const res = await fetch(`${this.baseUrl}/api/v1/auth/signup/start`, {
       method: "POST",
       headers: this._getHeaders(),
@@ -83,6 +109,7 @@ class AuthClient {
   }
 
   async verifyFlowOtp({ flowId, code, purpose = "SIGNUP" }) {
+    this._assertBlazeAllowed("verifyFlowOtp");
     const res = await fetch(`${this.baseUrl}/api/v1/auth/otp/verify`, {
       method: "POST",
       headers: this._getHeaders(),
@@ -96,6 +123,7 @@ class AuthClient {
   }
 
   async submitSignupEmail({ flowId, flowToken, email, locale = "en" }) {
+    this._assertBlazeAllowed("submitSignupEmail");
     const res = await fetch(`${this.baseUrl}/api/v1/auth/signup/email`, {
       method: "POST",
       headers: this._getHeaders(),
@@ -109,44 +137,51 @@ class AuthClient {
     return this._handleResponse(res);
   }
 
-  async completeSignup({ flowId, flowToken, phoneNumber, email, displayName, isAge18Plus = true, allowWhatsAppReminders = true }) {
+  async completeSignup({ flowId, flowToken, name, contactPhone = null, password = null }) {
+    if (this.isSparkMode()) {
+      return this.firebaseAuth.signUpWithEmailPassword({
+        email: flowToken,
+        password,
+        contactPhone,
+        displayName: name
+      });
+    }
+
     const res = await fetch(`${this.baseUrl}/api/v1/auth/signup/complete`, {
       method: "POST",
       headers: this._getHeaders(),
       body: JSON.stringify({
         flowId,
         flowToken,
+        name
+      })
+    });
+    return this._handleResponse(res);
+  }
+
+  async startSignin({ phoneNumber = null, email = null, locale = "en" }) {
+    this._assertBlazeAllowed("startSignin");
+    const res = await fetch(`${this.baseUrl}/api/v1/auth/signin/start`, {
+      method: "POST",
+      headers: this._getHeaders(),
+      body: JSON.stringify({
         phoneNumber,
         email,
-        displayName,
-        isAge18Plus,
-        allowWhatsAppReminders,
-        acceptedTermsVersion: "v2.0",
-        acceptedPrivacyVersion: "v2.0",
+        locale,
         clientType: "WEB"
       })
     });
     return this._handleResponse(res);
   }
 
-  async startSignin({ phoneNumber, locale = "en" }) {
-    const res = await fetch(`${this.baseUrl}/api/v1/auth/signin/start`, {
-      method: "POST",
-      headers: this._getHeaders(),
-      body: JSON.stringify({
-        phoneNumber,
-        locale
-      })
-    });
-    return this._handleResponse(res);
-  }
-
-  async verifySignin({ flowId, code }) {
+  async verifySignin({ flowId, flowToken, code }) {
+    this._assertBlazeAllowed("verifySignin");
     const res = await fetch(`${this.baseUrl}/api/v1/auth/signin/verify`, {
       method: "POST",
       headers: this._getHeaders(),
       body: JSON.stringify({
         flowId,
+        flowToken,
         code,
         clientType: "WEB"
       })
@@ -155,6 +190,19 @@ class AuthClient {
   }
 
   async getMe() {
+    if (this.isSparkMode()) {
+      const user = this.firebaseAuth.getCurrentUser();
+      if (!user) {
+        throw new AuthError("Not authenticated", "ERR_UNAUTHORIZED", 401);
+      }
+      return {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName || "",
+        emailVerified: Boolean(user.emailVerified)
+      };
+    }
+
     const res = await fetch(`${this.baseUrl}/api/v1/me`, {
       method: "GET",
       headers: {
@@ -165,12 +213,16 @@ class AuthClient {
   }
 
   async signOut() {
-    try {
-      await fetch(`${this.baseUrl}/api/v1/auth/session/signout`, {
-        method: "POST",
-        headers: this._getHeaders()
-      });
-    } catch (_) {}
+    if (this.isSparkMode()) {
+      await this.firebaseAuth.signOut();
+    } else {
+      try {
+        await fetch(`${this.baseUrl}/api/v1/auth/session/signout`, {
+          method: "POST",
+          headers: this._getHeaders()
+        });
+      } catch (_) {}
+    }
 
     if (typeof localStorage !== "undefined") {
       localStorage.clear();
@@ -189,6 +241,7 @@ class AuthClient {
   }
 
   async upgradeGuestRecord({ recordId, rawToken }) {
+    this._assertBlazeAllowed("upgradeGuestRecord");
     const res = await fetch(`${this.baseUrl}/api/v1/links/${encodeURIComponent(recordId)}/upgrade`, {
       method: "POST",
       headers: this._getHeaders(),
@@ -205,6 +258,7 @@ const authClient = new AuthClient();
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     AuthClient,
-    authClient
+    authClient,
+    AuthError
   };
 }

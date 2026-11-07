@@ -1,8 +1,8 @@
 {
   "version": "24.0.0",
-  "timestamp": "2026-11-07T22:03:15.304Z",
+  "timestamp": "2026-11-07T22:56:11.547Z",
   "budgets": {
-    "landingKb": 250.4,
+    "landingKb": 251.4,
     "guestKb": 196.6
   },
   "hashes": {
@@ -10,11 +10,11 @@
     "landing.css": "284531a35e",
     "landing.js": "f3630bb843",
     "calculator.js": "0af822d14f",
-    "site-config.js": "7ed0685f1f",
+    "site-config.js": "b89175602e",
     "design-tokens.css": "0503fa3b5b",
     "manifest.json": "7883e2a0ba",
     "sw.js": "d89ce8b7ae",
-    "privacy.html": "94abcf2f91",
+    "privacy.html": "3394b6f5b8",
     "privacy.css": "5ead74d46f",
     "privacy.js": "602c9d501e",
     "404.html": "32abe4f02c",

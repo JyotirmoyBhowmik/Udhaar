@@ -81,9 +81,22 @@ function enforceProductionEnvironmentGuards(options = {}) {
   return { ok: true, environment: currentEnv };
 }
 
+function enforceTierGuard() {
+  const tier = (process.env.UDHAAR_TIER || "").trim().toLowerCase();
+  if (tier === "spark") {
+    throw new Error(
+      `[TierGuard] FATAL: Cloud Functions execution attempted while UDHAAR_TIER='spark'. ` +
+      `Firebase Spark Plan does not support Cloud Functions, Secret Manager, Cloud KMS, or Cloud Storage. ` +
+      `In Spark Mode, all authentication and sync operate directly through Firebase Auth and client-side Firestore rules. ` +
+      `Deploy only via 'firebase deploy --only hosting,firestore:rules,firestore:indexes' or upgrade project to Blaze.`
+    );
+  }
+}
+
 module.exports = {
   isProductionOrStaging,
   isStrictCloudEnvironment,
   enforceProductionEnvironmentGuards,
+  enforceTierGuard,
   FALLBACK_SECRET_VALUE
 };

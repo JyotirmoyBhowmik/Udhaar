@@ -22,6 +22,40 @@ const SITE_CONFIG = {
   // Support & Data Deletion Contact
   SUPPORT_EMAIL: "admin@jyotirmoyb.com",
 
+  // Operational Tier: "spark" (100% free: Firebase Auth, Firestore rules, Hosting, Remote Config, client FCM)
+  // or "blaze" (Cloud Functions v2, Cloud KMS, Secret Manager, Cloud Storage, paid telephony/email)
+  UDHAAR_TIER: "spark",
+
+  isSparkTier() {
+    return (this.UDHAAR_TIER || "spark").toLowerCase() === "spark";
+  },
+
+  isBlazeTier() {
+    return (this.UDHAAR_TIER || "").toLowerCase() === "blaze";
+  },
+
+  assertAllowedInTier(featureName) {
+    if (this.isSparkTier()) {
+      const blazeOnly = [
+        "cloud_functions",
+        "cloud_kms",
+        "cloud_storage",
+        "secret_manager",
+        "whatsapp_cloud_api",
+        "recaptcha_enterprise",
+        "brevo_email",
+        "paid_sms",
+        "server_sync_hub"
+      ];
+      if (blazeOnly.includes(featureName)) {
+        throw new Error(
+          `[TierViolation] '${featureName}' is a Blaze-only paid feature and is disabled in Spark Mode. ` +
+          `Spark Mode operates strictly with Firebase Auth and direct Firestore rules.`
+        );
+      }
+    }
+  },
+
   // Navigation Links
   TRUST_CENTER_URL: "/trust/",
   UPDATES_URL: "/updates/",

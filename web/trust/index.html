@@ -60,11 +60,11 @@
     <section class="trust-cards-grid">
       <article class="trust-fact-card">
         <div class="trust-card-icon">📱</div>
-        <h2>1. Records stay locked on your phone by default</h2>
+        <h2>1. Records stay on your phone by default</h2>
         <p>
-          Udhaar operates offline-first using SQLCipher on your device. If you enable optional Cloud Sync &amp; Web Access, your records are protected by Cloud KMS envelope encryption where even admins cannot read your ledger.
+          Udhaar operates offline-first using SQLCipher on your device. If you turn on sync, your records are stored in Google's Firebase Firestore and can be read by that service and by you only through your account.
         </p>
-        <div class="proof-badge">Verified in code: <code>UdhaarDatabase.kt</code> &amp; <code>envelopeCrypto.js</code></div>
+        <div class="proof-badge">Verified in code: <code>UdhaarDatabase.kt</code> &amp; <code>firestore.rules</code></div>
       </article>
 
       <article class="trust-fact-card">
@@ -77,39 +77,39 @@
       </article>
 
       <article class="trust-fact-card">
-        <div class="trust-card-icon">🌐</div>
-        <h2>3. What a guest web link stores</h2>
+        <div class="trust-card-icon">📞</div>
+        <h2>3. Phone numbers are unverified contact details</h2>
         <p>
-          When you share a confirmation link, our server temporarily holds only that single record and a salted phone number hash. It cannot see your other records or contacts.
+          A free system cannot prove that a phone number belongs to someone. In Spark Mode, phone numbers are optional, saved with status "unverified", and labeled "Number not verified". They are used only to match contacts and in messages, never for login or account recovery.
         </p>
-        <div class="proof-badge">Verified in code: <code>guestWebFlow.js</code></div>
+        <div class="proof-badge">Honest assurance: <code>phoneStatus: "unverified"</code></div>
       </article>
 
       <article class="trust-fact-card">
-        <div class="trust-card-icon">⏱️</div>
-        <h2>4. How long things are kept</h2>
+        <div class="trust-card-icon">🌐</div>
+        <h2>4. Guest web links are capability proposals</h2>
         <p>
-          WhatsApp verification codes expire in 15 minutes. Shared web links expire in 7 to 30 days. Uploaded receipt photos on the server are automatically purged after 90 days.
+          When you share a confirmation link, the guest page receives a snapshot of that single record via a capability secret in the URL fragment. The guest can propose a confirmation or payment claim, but nothing changes your ledger until you tap Accept inside your app.
         </p>
-        <div class="proof-badge">Verified in rules: <code>storage.lifecycle.json</code></div>
+        <div class="proof-badge">Lender approval required: <code>guestLinks/{linkId}/actions</code></div>
+      </article>
+
+      <article class="trust-fact-card">
+        <div class="trust-card-icon">📷</div>
+        <h2>5. Zero cloud photo uploads in Spark Mode</h2>
+        <p>
+          Cloud photo storage requires a paid billing account. In Spark Mode, payment claims store plain text reference notes (UTR or cheque number) with no photo uploads to cloud servers.
+        </p>
+        <div class="proof-badge">No billing-required Cloud Storage</div>
       </article>
 
       <article class="trust-fact-card">
         <div class="trust-card-icon">🗑️</div>
-        <h2>5. How you delete your data</h2>
+        <h2>6. How you delete your data</h2>
         <p>
-          Deleting a record in the app removes it permanently. Signing out of the web app wipes the encrypted browser cache. Account deletion permanently crypto-shreds your encryption keys in Cloud KMS.
+          Deleting a record in the app removes it permanently. Turning off sync or deleting your account removes your synced data from Firestore. Signing out of the web app wipes the encrypted browser cache.
         </p>
         <div class="proof-badge">Instant removal: <code>/privacy.html#delete</code></div>
-      </article>
-
-      <article class="trust-fact-card">
-        <div class="trust-card-icon">💡</div>
-        <h2>6. What Udhaar does NOT do</h2>
-        <p>
-          Udhaar does not move or hold money, is not a bank, and does not provide legal loans. Admins cannot read your ledger contents, cannot access ciphertexts, and cannot bypass cooling periods.
-        </p>
-        <div class="proof-badge">Zero money movement &amp; admin-blind</div>
       </article>
     </section>
 

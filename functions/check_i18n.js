@@ -67,11 +67,15 @@ const APPROVED_ACRONYMS = new Set([
 
 function parseXmlStrings(filePath) {
   const content = fs.readFileSync(filePath, "utf8");
-  const regex = /<string\s+name=["']([^"']+)["'][^>]*>([\s\S]*?)<\/string>/g;
+  const regex = /<string\s+name=["']([^"']+)["']([^>]*)>([\s\S]*?)<\/string>/g;
   const map = new Map();
   let m;
   while ((m = regex.exec(content)) !== null) {
-    map.set(m[1], m[2]);
+    const attrs = m[2] || "";
+    if (attrs.includes('translatable="false"')) {
+      continue;
+    }
+    map.set(m[1], m[3]);
   }
   return map;
 }

@@ -97,3 +97,30 @@ This document establishes the **baseline truth** of what is actually proven in c
    - Eliminate module-level `Map`s from `src/`.
    - Implement transactions for atomicity, unique indexes, counters, and rate limits.
    - Validate against Firestore emulator with multi-instance and cold-start tests.
+
+
+---
+
+## 5. Spark Mode Reality & Operational Truths (Zero-Billing Architecture)
+
+In Spark Mode (`UDHAAR_TIER="spark"`), Udhaar runs without any Google Cloud billing account or paid third-party APIs. The guarantees are adjusted to reflect technical reality:
+
+1. **Storage & Cloud Sync**:
+   - **Offline-First**: Records are stored on the phone using SQLite/SQLCipher (`UdhaarDatabase.kt`).
+   - **Optional Sync**: Sync is off by default. If enabled, records sync to Cloud Firestore collections (`users/{uid}/records`, etc.) guarded by security rules (`request.auth.uid == uid && request.auth.token.email_verified == true`).
+   - **Durability Guarantee**: Synced records are stored in Google's Firebase infrastructure, readable only by the authenticated owner and Firebase as the backend hosting service.
+2. **Phone Number Non-Verification**:
+   - In Spark Mode, phone numbers are optional contact details.
+   - A zero-cost system cannot verify phone number ownership.
+   - All phone numbers are saved with `phoneStatus: "unverified"` and explicitly displayed as "Number not verified".
+   - Phone numbers are never used for authentication, login, or account recovery in Spark Mode.
+3. **Guest Links & Proposals**:
+   - Guest capability links (`guestLinks/{linkId}`) share a snapshot of only that single record via client-derived SHA-256 linkId.
+   - Guest actions (confirmations, dispute codes, payment claims, return date proposals) are stored as proposals under `guestLinks/{linkId}/actions/{actionId}`.
+   - The lender's app is the single source of truth: guest proposals never modify the ledger directly and require manual lender "Accept" in the application.
+4. **Cloud Photo Uploads**:
+   - Cloud Storage is disabled in Spark Mode. Payment claims accept text reference details only; photo uploads are not available.
+5. **Notifications & Reminders**:
+   - No server-sent push (FCM) or transactional email in Spark Mode.
+   - Reminders operate locally on device via `AlarmManager` and `WorkManager`.
+   - Guest action polling runs via periodic background tasks while active guest links exist.

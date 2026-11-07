@@ -529,3 +529,89 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* =========================================================================
+   Spark Mode Authentication & Security Components
+   ========================================================================= */
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 1.25rem 0;
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+}
+.divider::before, .divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--color-border);
+}
+.divider span {
+  padding: 0 0.75rem;
+}
+
+.password-meter-wrap {
+  width: 100%;
+  height: 6px;
+  background-color: var(--color-border);
+  border-radius: var(--radius-sm);
+  margin-top: 0.375rem;
+  overflow: hidden;
+}
+.password-meter-bar {
+  height: 100%;
+  width: 0%;
+  transition: width 0.25s ease, background-color 0.25s ease;
+  border-radius: var(--radius-sm);
+}
+.password-meter-bar.score-0 { width: 10%; background-color: #ef4444; }
+.password-meter-bar.score-1 { width: 25%; background-color: #f97316; }
+.password-meter-bar.score-2 { width: 50%; background-color: #eab308; }
+.password-meter-bar.score-3 { width: 75%; background-color: #84cc16; }
+.password-meter-bar.score-4 { width: 100%; background-color: #10b981; }
+
+.badge-unverified {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  background-color: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border: 1px solid var(--color-warning-border);
+}
+
+.badge-verified {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  background-color: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.auth-notice-box {
+  background-color: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  margin: 1rem 0;
+}
+.auth-notice-box.success {
+  background-color: #ecfdf5;
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+
+.google-icon {
+  display: inline-block;
+  font-weight: 700;
+  margin-right: 0.5rem;
+}

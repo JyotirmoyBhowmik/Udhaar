@@ -1,0 +1,32 @@
+{
+  "parameters": {
+    "UDHAAR_TIER": {
+      "defaultValue": {
+        "value": "spark"
+      },
+      "description": "Operating tier: 'spark' (100% free, direct Firestore/Auth) or 'blaze' (Cloud Functions, KMS, paid providers)",
+      "valueType": "STRING"
+    },
+    "signup_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Emergency switch to enable or pause new user registrations in client apps",
+      "valueType": "BOOLEAN"
+    },
+    "guest_links_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Emergency switch to enable or pause creation and resolution of guest capability links",
+      "valueType": "BOOLEAN"
+    },
+    "max_client_daily_writes": {
+      "defaultValue": {
+        "value": "500"
+      },
+      "description": "Daily write quota per client to preserve free Spark plan limits (20k project writes/day)",
+      "valueType": "NUMBER"
+    }
+  }
+}

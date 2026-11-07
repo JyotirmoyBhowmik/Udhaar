@@ -33,7 +33,13 @@ class SyncWorker @AssistedInject constructor(
         workerParams,
         SyncRepository(
             dao = UdhaarDatabase.getInstance(appContext).udhaarDao(),
-            outboxDao = UdhaarDatabase.getInstance(appContext).syncOutboxDao()
+            outboxDao = UdhaarDatabase.getInstance(appContext).syncOutboxDao(),
+            transport = if (com.jyotirmoyb.udhaar.BuildConfig.UDHAAR_TIER.equals("blaze", ignoreCase = true)) {
+                HttpSyncCloudTransport(ApiClient("https://app.udhaar.jyotirmoyb.com", EncryptedTokenStore(appContext)))
+            } else {
+                FirestoreSyncTransport()
+            },
+            tokenStore = EncryptedTokenStore(appContext)
         ),
         EncryptedTokenStore(appContext)
     )

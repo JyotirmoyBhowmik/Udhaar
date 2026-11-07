@@ -9,6 +9,23 @@ service cloud.firestore {
     }
 
     // =========================================================================
+    // Assumed Data Model
+    // =========================================================================
+    // 1. /user_profiles/{userId} — Owner profile with UID isolation & PII bounds
+    // 2. /shared_records/{remoteId} — Two-party verifiable loan records & subcollections
+    // 3. /chat_threads/{threadId} — Phase 4 in-app communication thread
+    // 4. /webLinks/{recordId} — Secret hashes & rate limits (Cloud Functions Admin SDK only)
+    // 5. /phoneIndex, /emailIndex, /otpChallenges, /rateLimits, /auditLogs — Deny client
+    // 6. /users/{userId}/records/{recordId} — Spark Mode (SP2) verified owner ledger
+    // 7. /users/{userId}/people/{personId} — Spark Mode (SP2) contact directory
+    // 8. /users/{userId}/events/{eventId} — Spark Mode (SP2) append-only timeline
+    // 9. /users/{userId}/plans/{planId} — Spark Mode (SP2) installment schedules
+    // 10. /users/{userId}/attachments/{attachmentId} — Spark Mode (SP2) text metadata
+    // 11. /users/{userId}/syncSignal/{docId} — Spark Mode (SP2) sync notification
+    // 12. /guestLinks/{linkId} & subcollection /actions/{actionId} — Spark Mode (SP3)
+    // =========================================================================
+
+    // =========================================================================
     // Global Hardened Primitives
     // =========================================================================
     function isSignedIn() {
@@ -43,6 +60,16 @@ service cloud.firestore {
              listVal.size() <= 2 &&
              (listVal.size() == 0 || (listVal[0] is string && listVal[0].size() >= 1 && listVal[0].size() <= 128)) &&
              (listVal.size() <= 1 || (listVal[1] is string && listVal[1].size() >= 1 && listVal[1].size() <= 128));
+    }
+
+    function isVerifiedOwner(userId) {
+      return isSignedIn() &&
+             request.auth.uid == userId &&
+             request.auth.token.email_verified == true;
+    }
+
+    function isValidSha256(str) {
+      return str is string && str.size() == 64 && str.matches('^[a-fA-F0-9]{64}$');
     }
 
     // =========================================================================
@@ -700,7 +727,7 @@ service cloud.firestore {
     }
 
     // =========================================================================
-    // 9. Platform v2 Ledger Collections & Indexes (Admin SDK Only / Deny Direct Client)
+    // 9. Platform Indexes & Ephemeral Challenges (Admin SDK Only / Deny Direct Client)
     // =========================================================================
     match /phoneIndex/{document=**} {
       allow read, write: if false;
@@ -722,36 +749,326 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    match /users/{userId}/records/{document=**} {
-      allow read, write: if false;
+    // =========================================================================
+    // 10. Spark Mode (SP2): Per-User Ledger Collections (Strict Verified Owner)
+    // =========================================================================
+    function isValidUserRecord(data, recordId, userId) {
+      return (!('recordId' in data) || (data.recordId is string && data.recordId == recordId)) &&
+             (!('id' in data) || (data.id is string && data.id == recordId)) &&
+             (('recordId' in data) || ('id' in data)) &&
+             (!('uid' in data) || data.uid == userId) &&
+             data.rev is int && data.rev >= 1 &&
+             data.principalAmountPaise is int && data.principalAmountPaise >= 0 &&
+             (!('amountPaidPaise' in data) || (data.amountPaidPaise is int && data.amountPaidPaise >= 0)) &&
+             data.counterpartyRole is string && data.counterpartyRole in ['LENDER', 'BORROWER', 'GIVEN', 'TAKEN'] &&
+             data.status is string && data.status in ['ACTIVE', 'SETTLED', 'DISPUTED', 'CANCELLED'] &&
+             (!('partyName' in data) || (data.partyName is string && data.partyName.size() <= 100)) &&
+             (!('lenderName' in data) || (data.lenderName is string && data.lenderName.size() <= 100)) &&
+             (!('borrowerName' in data) || (data.borrowerName is string && data.borrowerName.size() <= 100)) &&
+             (!('phoneNumber' in data) || (data.phoneNumber is string && data.phoneNumber.size() <= 32)) &&
+             (!('contactPhone' in data) || (data.contactPhone is string && data.contactPhone.size() <= 32)) &&
+             (!('phoneStatus' in data) || (data.phoneStatus is string && data.phoneStatus.size() <= 32)) &&
+             (!('upiId' in data) || (data.upiId is string && data.upiId.size() <= 100)) &&
+             (!('currency' in data) || (data.currency is string && data.currency.size() <= 10)) &&
+             (!('paymentMode' in data) || (data.paymentMode is string && data.paymentMode.size() <= 32)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 2048)) &&
+             (!('disputeReason' in data) || (data.disputeReason is string && data.disputeReason.size() <= 500)) &&
+             (!('isSettled' in data) || data.isSettled is bool) &&
+             (!('isDeleted' in data) || data.isDeleted is bool) &&
+             (!('isInterestEnabled' in data) || data.isInterestEnabled is bool) &&
+             (!('interestType' in data) || (data.interestType is string && data.interestType.size() <= 32)) &&
+             (!('interestRate' in data) || (data.interestRate is int || data.interestRate is float)) &&
+             (!('interestRatePeriod' in data) || (data.interestRatePeriod is string && data.interestRatePeriod.size() <= 32)) &&
+             (!('compoundFrequency' in data) || (data.compoundFrequency is string && data.compoundFrequency.size() <= 32)) &&
+             (!('startDateMillis' in data) || data.startDateMillis is int) &&
+             (!('expiryDateMillis' in data) || data.expiryDateMillis is int) &&
+             (!('dueDateMs' in data) || data.dueDateMs is int) &&
+             (!('dueDateMillis' in data) || data.dueDateMillis is int) &&
+             (!('reminderDateMillis' in data) || data.reminderDateMillis is int) &&
+             (!('settledAtMillis' in data) || data.settledAtMillis is int) &&
+             (!('deletedAtMillis' in data) || data.deletedAtMillis is int) &&
+             (!('createdAtMs' in data) || (data.createdAtMs is int && data.createdAtMs > 0)) &&
+             (!('updatedAtMs' in data) || (data.updatedAtMs is int && data.updatedAtMs > 0)) &&
+             (!('createdAt' in data) || (data.createdAt is timestamp || (data.createdAt is int && data.createdAt > 0))) &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp || (data.updatedAt is int && data.updatedAt > 0))) &&
+             (!('syncId' in data) || (data.syncId is string && data.syncId.size() <= 128)) &&
+             (!('hlcTimestamp' in data) || (data.hlcTimestamp is string && data.hlcTimestamp.size() <= 128)) &&
+             (!('nodeId' in data) || (data.nodeId is string && data.nodeId.size() <= 128)) &&
+             (!('syncStatus' in data) || (data.syncStatus is string && data.syncStatus.size() <= 32)) &&
+             (!('verificationStatus' in data) || (data.verificationStatus is string && data.verificationStatus.size() <= 32)) &&
+             (!('verificationHash' in data) || (data.verificationHash is string && data.verificationHash.size() <= 128)) &&
+             (!('verificationToken' in data) || (data.verificationToken is string && data.verificationToken.size() <= 128)) &&
+             (!('paymentEventCount' in data) || (data.paymentEventCount is int && data.paymentEventCount >= 0));
     }
 
-    match /users/{userId}/people/{document=**} {
-      allow read, write: if false;
+    function isValidUserPerson(data, personId, userId) {
+      return (!('personId' in data) || (data.personId is string && data.personId == personId)) &&
+             (!('id' in data) || (data.id is string && data.id == personId)) &&
+             (('personId' in data) || ('id' in data)) &&
+             (!('uid' in data) || data.uid == userId) &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+             data.rev is int && data.rev >= 1 &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 32)) &&
+             (!('phoneNumber' in data) || (data.phoneNumber is string && data.phoneNumber.size() <= 32)) &&
+             (!('phoneStatus' in data) || (data.phoneStatus is string && data.phoneStatus.size() <= 32)) &&
+             (!('upiId' in data) || (data.upiId is string && data.upiId.size() <= 100)) &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 128)) &&
+             (!('tagOrNotes' in data) || (data.tagOrNotes is string && data.tagOrNotes.size() <= 500)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
+             (!('preferredCurrency' in data) || (data.preferredCurrency is string && data.preferredCurrency.size() <= 10)) &&
+             (!('syncId' in data) || (data.syncId is string && data.syncId.size() <= 128)) &&
+             (!('syncStatus' in data) || (data.syncStatus is string && data.syncStatus.size() <= 32)) &&
+             (!('createdAtMs' in data) || (data.createdAtMs is int && data.createdAtMs > 0)) &&
+             (!('updatedAtMs' in data) || (data.updatedAtMs is int && data.updatedAtMs > 0)) &&
+             (!('createdAt' in data) || (data.createdAt is timestamp || (data.createdAt is int && data.createdAt > 0))) &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp || (data.updatedAt is int && data.updatedAt > 0)));
     }
 
-    match /users/{userId}/events/{document=**} {
-      allow read, write: if false;
+    function isValidUserEvent(data, eventId, userId) {
+      return (!('eventId' in data) || (data.eventId is string && data.eventId == eventId)) &&
+             (!('id' in data) || (data.id is string && data.id == eventId)) &&
+             (('eventId' in data) || ('id' in data)) &&
+             (!('uid' in data) || data.uid == userId) &&
+             data.recordId is string && data.recordId.size() >= 1 && data.recordId.size() <= 128 &&
+             data.eventType is string && data.eventType in [
+               'PAYMENT', 'INTEREST_ACCRUAL', 'DISPUTE_OPENED', 'DISPUTE_RESOLVED',
+               'NOTE_ADDED', 'GUEST_CONFIRMED', 'RECORD_CREATED', 'RECORD_UPDATED'
+             ] &&
+             (!('amountPaise' in data) || (data.amountPaise is int && data.amountPaise >= 0)) &&
+             data.timestampMs is int && data.timestampMs > 0 &&
+             (!('paymentMode' in data) || (data.paymentMode is string && data.paymentMode.size() <= 32)) &&
+             (!('note' in data) || (data.note is string && data.note.size() <= 1024)) &&
+             (!('proofRef' in data) || (data.proofRef is string && data.proofRef.size() <= 512)) &&
+             (!('syncId' in data) || (data.syncId is string && data.syncId.size() <= 128)) &&
+             (!('createdAtMs' in data) || (data.createdAtMs is int && data.createdAtMs > 0)) &&
+             (!('createdAt' in data) || (data.createdAt is timestamp || (data.createdAt is int && data.createdAt > 0)));
     }
 
-    match /users/{userId}/plans/{document=**} {
-      allow read, write: if false;
+    function isValidUserPlan(data, planId, userId) {
+      return (!('planId' in data) || (data.planId is string && data.planId == planId)) &&
+             (!('id' in data) || (data.id is string && data.id == planId)) &&
+             (('planId' in data) || ('id' in data)) &&
+             (!('uid' in data) || data.uid == userId) &&
+             data.rev is int && data.rev >= 1 &&
+             (!('recordId' in data) || (data.recordId is string && data.recordId.size() <= 128)) &&
+             (!('status' in data) || (data.status is string && data.status.size() <= 32)) &&
+             (!('frequency' in data) || (data.frequency is string && data.frequency.size() <= 32)) &&
+             (!('installmentCount' in data) || (data.installmentCount is int && data.installmentCount >= 1 && data.installmentCount <= 120)) &&
+             (!('totalAmountDuePaise' in data) || (data.totalAmountDuePaise is int && data.totalAmountDuePaise >= 0)) &&
+             (!('totalAmountDue' in data) || (data.totalAmountDue is int && data.totalAmountDue >= 0)) &&
+             (!('scheduleJson' in data) || (data.scheduleJson is string && data.scheduleJson.size() <= 5000)) &&
+             (!('createdAtMs' in data) || (data.createdAtMs is int && data.createdAtMs > 0)) &&
+             (!('updatedAtMs' in data) || (data.updatedAtMs is int && data.updatedAtMs > 0)) &&
+             (!('createdAt' in data) || (data.createdAt is timestamp || (data.createdAt is int && data.createdAt > 0))) &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp || (data.updatedAt is int && data.updatedAt > 0)));
     }
 
-    match /users/{userId}/attachments/{document=**} {
-      allow read, write: if false;
+    function isValidUserAttachment(data, attachmentId, userId) {
+      return (!('attachmentId' in data) || (data.attachmentId is string && data.attachmentId == attachmentId)) &&
+             (!('id' in data) || (data.id is string && data.id == attachmentId)) &&
+             (('attachmentId' in data) || ('id' in data)) &&
+             (!('uid' in data) || data.uid == userId) &&
+             (!('recordId' in data) || (data.recordId is string && data.recordId.size() <= 128)) &&
+             (!('fileName' in data) || (data.fileName is string && data.fileName.size() <= 256)) &&
+             (!('mimeType' in data) || (data.mimeType is string && data.mimeType.size() <= 128)) &&
+             (!('sha256' in data) || (data.sha256 is string && data.sha256.size() <= 64)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 1024)) &&
+             data.sizeBytes is int && data.sizeBytes >= 0 && data.sizeBytes <= 10485760 &&
+             (!('createdAtMs' in data) || (data.createdAtMs is int && data.createdAtMs > 0)) &&
+             (!('createdAt' in data) || (data.createdAt is timestamp || (data.createdAt is int && data.createdAt > 0)));
     }
 
-    match /users/{userId}/changeLog/{document=**} {
-      allow read, write: if false;
+    match /users/{userId} {
+      // 1. Records
+      match /records/{recordId} {
+        allow get, list: if isVerifiedOwner(userId);
+
+        allow create: if isVerifiedOwner(userId) &&
+                         incoming().keys().hasOnly([
+                           'id', 'recordId', 'uid', 'rev', 'principalAmountPaise', 'amountPaidPaise',
+                           'counterpartyRole', 'status', 'partyName', 'lenderName', 'borrowerName',
+                           'phoneNumber', 'contactPhone', 'phoneStatus', 'upiId', 'currency',
+                           'paymentMode', 'notes', 'disputeReason', 'isSettled', 'isDeleted',
+                           'isInterestEnabled', 'interestType', 'interestRate', 'interestRatePeriod',
+                           'compoundFrequency', 'startDateMillis', 'expiryDateMillis', 'dueDateMs',
+                           'dueDateMillis', 'reminderDateMillis', 'settledAtMillis', 'deletedAtMillis',
+                           'createdAtMs', 'updatedAtMs', 'createdAt', 'updatedAt', 'syncId',
+                           'hlcTimestamp', 'nodeId', 'syncStatus', 'verificationStatus',
+                           'verificationHash', 'verificationToken', 'paymentEventCount'
+                         ]) &&
+                         incoming().keys().hasAll(['rev', 'principalAmountPaise', 'counterpartyRole', 'status']) &&
+                         isValidUserRecord(incoming(), recordId, userId);
+
+        allow update: if isVerifiedOwner(userId) &&
+                         incoming().keys().hasOnly([
+                           'id', 'recordId', 'uid', 'rev', 'principalAmountPaise', 'amountPaidPaise',
+                           'counterpartyRole', 'status', 'partyName', 'lenderName', 'borrowerName',
+                           'phoneNumber', 'contactPhone', 'phoneStatus', 'upiId', 'currency',
+                           'paymentMode', 'notes', 'disputeReason', 'isSettled', 'isDeleted',
+                           'isInterestEnabled', 'interestType', 'interestRate', 'interestRatePeriod',
+                           'compoundFrequency', 'startDateMillis', 'expiryDateMillis', 'dueDateMs',
+                           'dueDateMillis', 'reminderDateMillis', 'settledAtMillis', 'deletedAtMillis',
+                           'createdAtMs', 'updatedAtMs', 'createdAt', 'updatedAt', 'syncId',
+                           'hlcTimestamp', 'nodeId', 'syncStatus', 'verificationStatus',
+                           'verificationHash', 'verificationToken', 'paymentEventCount'
+                         ]) &&
+                         isValidUserRecord(incoming(), recordId, userId) &&
+                         incoming().rev == existing().rev + 1 &&
+                         (!('uid' in existing()) || incoming().uid == existing().uid) &&
+                         (!('recordId' in existing()) || incoming().recordId == existing().recordId) &&
+                         (!('id' in existing()) || incoming().id == existing().id) &&
+                         (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt) &&
+                         (!('createdAtMs' in existing()) || incoming().createdAtMs == existing().createdAtMs);
+
+        allow delete: if isVerifiedOwner(userId);
+      }
+
+      // 2. People Directory
+      match /people/{personId} {
+        allow get, list: if isVerifiedOwner(userId);
+
+        allow create: if isVerifiedOwner(userId) &&
+                         incoming().keys().hasOnly([
+                           'id', 'personId', 'uid', 'name', 'phone', 'phoneNumber', 'phoneStatus',
+                           'upiId', 'email', 'tagOrNotes', 'notes', 'preferredCurrency',
+                           'syncId', 'syncStatus', 'rev', 'createdAtMs', 'updatedAtMs', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasAll(['name', 'rev']) &&
+                         isValidUserPerson(incoming(), personId, userId);
+
+        allow update: if isVerifiedOwner(userId) &&
+                         incoming().keys().hasOnly([
+                           'id', 'personId', 'uid', 'name', 'phone', 'phoneNumber', 'phoneStatus',
+                           'upiId', 'email', 'tagOrNotes', 'notes', 'preferredCurrency',
+                           'syncId', 'syncStatus', 'rev', 'createdAtMs', 'updatedAtMs', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidUserPerson(incoming(), personId, userId) &&
+                         incoming().rev == existing().rev + 1 &&
+                         (!('personId' in existing()) || incoming().personId == existing().personId) &&
+                         (!('id' in existing()) || incoming().id == existing().id) &&
+                         (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt) &&
+                         (!('createdAtMs' in existing()) || incoming().createdAtMs == existing().createdAtMs);
+
+        allow delete: if isVerifiedOwner(userId);
+      }
+
+      // 3. Append-Only Events
+      match /events/{eventId} {
+        allow get, list: if isVerifiedOwner(userId);
+
+        allow create: if isVerifiedOwner(userId) &&
+                         incoming().keys().hasOnly([
+                           'id', 'eventId', 'recordId', 'uid', 'eventType', 'amountPaise',
+                           'timestampMs', 'paymentMode', 'note', 'proofRef', 'syncId',
+                           'createdAtMs', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasAll(['recordId', 'eventType', 'timestampMs']) &&
+                         isValidUserEvent(incoming(), eventId, userId);
+
+        allow update, delete: if false;
+      }
+
+      // 4. Installment Plans
+      match /plans/{planId} {
+        allow get, list: if isVerifiedOwner(userId);
+
+        allow create: if isVerifiedOwner(userId) &&
+                         incoming().keys().hasOnly([
+                           'id', 'planId', 'uid', 'recordId', 'status', 'frequency',
+                           'installmentCount', 'totalAmountDuePaise', 'totalAmountDue',
+                           'scheduleJson', 'rev', 'createdAtMs', 'updatedAtMs', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasAll(['rev']) &&
+                         isValidUserPlan(incoming(), planId, userId);
+
+        allow update: if isVerifiedOwner(userId) &&
+                         incoming().keys().hasOnly([
+                           'id', 'planId', 'uid', 'recordId', 'status', 'frequency',
+                           'installmentCount', 'totalAmountDuePaise', 'totalAmountDue',
+                           'scheduleJson', 'rev', 'createdAtMs', 'updatedAtMs', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidUserPlan(incoming(), planId, userId) &&
+                         incoming().rev == existing().rev + 1 &&
+                         (!('planId' in existing()) || incoming().planId == existing().planId) &&
+                         (!('id' in existing()) || incoming().id == existing().id) &&
+                         (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt) &&
+                         (!('createdAtMs' in existing()) || incoming().createdAtMs == existing().createdAtMs);
+
+        allow delete: if isVerifiedOwner(userId);
+      }
+
+      // 5. Attachments Metadata
+      match /attachments/{attachmentId} {
+        allow get, list: if isVerifiedOwner(userId);
+
+        allow create: if isVerifiedOwner(userId) &&
+                         incoming().keys().hasOnly([
+                           'id', 'attachmentId', 'uid', 'recordId', 'fileName', 'mimeType',
+                           'sha256', 'notes', 'sizeBytes', 'createdAtMs', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasAll(['sizeBytes']) &&
+                         isValidUserAttachment(incoming(), attachmentId, userId);
+
+        allow update: if isVerifiedOwner(userId) &&
+                         incoming().keys().hasOnly([
+                           'id', 'attachmentId', 'uid', 'recordId', 'fileName', 'mimeType',
+                           'sha256', 'notes', 'sizeBytes', 'createdAtMs', 'createdAt'
+                         ]) &&
+                         isValidUserAttachment(incoming(), attachmentId, userId) &&
+                         (!('attachmentId' in existing()) || incoming().attachmentId == existing().attachmentId) &&
+                         (!('id' in existing()) || incoming().id == existing().id) &&
+                         (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt) &&
+                         (!('createdAtMs' in existing()) || incoming().createdAtMs == existing().createdAtMs);
+
+        allow delete: if isVerifiedOwner(userId);
+      }
+
+      // 6. Real-Time Sync Signaling
+      match /syncSignal/{docId} {
+        allow get: if isSignedIn() && request.auth.uid == userId;
+        allow write: if isVerifiedOwner(userId);
+      }
+
+      // 7. Internal Change Log (Server/KMS Only)
+      match /changeLog/{document=**} {
+        allow read, write: if false;
+      }
     }
 
     // =========================================================================
-    // 10. Platform v2 Real-Time Sync Signaling (Owner-Only Read, Server-Only Write)
+    // 11. Spark Mode (SP3): Guest Capability Links & Proposals
     // =========================================================================
-    match /users/{userId}/syncSignal/current {
-      allow read: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
-      allow write: if false;
+    match /guestLinks/{linkId} {
+      allow get: if isSignedIn();
+      allow list: if false;
+
+      allow create: if isVerifiedOwner(incoming().ownerUid) &&
+                       incoming().linkId == linkId &&
+                       incoming().status in ['ACTIVE', 'REVOKED', 'EXPIRED'];
+
+      allow update: if isVerifiedOwner(existing().ownerUid) &&
+                       incoming().ownerUid == existing().ownerUid &&
+                       incoming().linkId == existing().linkId;
+
+      allow delete: if isVerifiedOwner(existing().ownerUid);
+
+      // Subcollection /guestLinks/{linkId}/actions/{actionId}
+      match /actions/{actionId} {
+        allow create: if isSignedIn() &&
+                         actionId in ['confirm', 'dispute', 'claim_1', 'claim_2', 'claim_3', 'claim_4', 'claim_5', 'date_1', 'date_2', 'date_3'] &&
+                         incoming().linkId == linkId &&
+                         incoming().actionType in ['CONFIRM', 'DISPUTE', 'CLAIM_PAYMENT', 'PROPOSE_DATE'] &&
+                         get(/databases/$(database)/documents/guestLinks/$(linkId)).data.status == 'ACTIVE' &&
+                         incoming().ownerUid == get(/databases/$(database)/documents/guestLinks/$(linkId)).data.ownerUid;
+
+        allow read: if isSignedIn() && (request.auth.uid == resource.data.ownerUid || resource.data.linkId == linkId);
+        allow update, delete: if false;
+      }
+    }
+
+    // Collection group query for actions across guest links
+    match /{path=**}/actions/{actionId} {
+      allow read: if isSignedIn() && request.auth.uid == resource.data.ownerUid;
     }
   }
 }

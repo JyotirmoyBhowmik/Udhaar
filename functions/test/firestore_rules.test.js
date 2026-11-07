@@ -24,19 +24,13 @@ test("firestore.rules locks down /webLinks/{recordId} to Cloud Functions Admin S
   assert.match(rulesText, /allow read, write:\s*if false/);
 });
 
-test("firestore.rules locks down Platform v2 ledger collections and indexes (deny-by-default for clients)", () => {
+test("firestore.rules locks down Platform v2 indexes and changeLog (deny-by-default for clients)", () => {
   const deniedCollections = [
     "/phoneIndex/{document=**}",
     "/emailIndex/{document=**}",
     "/otpChallenges/{document=**}",
     "/rateLimits/{document=**}",
     "/auditLogs/{document=**}",
-    "/users/{userId}/records/{document=**}",
-    "/users/{userId}/people/{document=**}",
-    "/users/{userId}/events/{document=**}",
-    "/users/{userId}/plans/{document=**}",
-    "/users/{userId}/attachments/{document=**}",
-    "/users/{userId}/changeLog/{document=**}",
   ];
 
   for (const coll of deniedCollections) {
@@ -44,12 +38,46 @@ test("firestore.rules locks down Platform v2 ledger collections and indexes (den
     const pattern = new RegExp(`match\\s+${escaped}\\s*\\{\\s*allow\\s+read,\\s*write:\\s*if\\s+false;?\\s*\\}`);
     assert.match(rulesText, pattern, `Expected deny rule for ${coll}`);
   }
+
+  // Nested changeLog under /users/{userId} is locked down
+  assert.match(rulesText, /match\s+\/changeLog\/\{document=\*\*\}\s*\{\s*allow\s+read,\s*write:\s*if\s+false;?\s*\}/);
 });
 
-test("firestore.rules allows owner-only read on /users/{userId}/syncSignal/current and denies client writes", () => {
-  assert.match(rulesText, /match \/users\/\{userId\}\/syncSignal\/current/);
-  assert.match(rulesText, /allow read:\s*if isSignedIn\(\) && isValidId\(userId\) && request\.auth\.uid == userId;/);
-  assert.match(rulesText, /allow write:\s*if false;/);
+test("firestore.rules enforces Spark Mode SP2 owner-only and verified email on ledger collections", () => {
+  // Helper functions
+  assert.match(rulesText, /function isVerifiedOwner\(userId\)/);
+  assert.match(rulesText, /request\.auth\.token\.email_verified == true/);
+
+  // Records collection
+  assert.match(rulesText, /match \/records\/\{recordId\}/);
+  assert.match(rulesText, /isVerifiedOwner\(userId\)/);
+  assert.match(rulesText, /incoming\(\)\.rev == existing\(\)\.rev \+ 1/);
+
+  // People collection
+  assert.match(rulesText, /match \/people\/\{personId\}/);
+
+  // Events collection is append-only
+  assert.match(rulesText, /match \/events\/\{eventId\}/);
+  assert.match(rulesText, /allow update, delete:\s*if false;/);
+
+  // SyncSignal
+  assert.match(rulesText, /match \/syncSignal\/\{docId\}/);
+});
+
+test("firestore.rules enforces Spark Mode SP3 guest capability links and proposal pattern", () => {
+  // Guest links
+  assert.match(rulesText, /match \/guestLinks\/\{linkId\}/);
+  assert.match(rulesText, /allow get:\s*if isSignedIn\(\);/);
+  assert.match(rulesText, /allow list:\s*if false;/);
+
+  // Fixed action IDs
+  assert.match(rulesText, /match \/actions\/\{actionId\}/);
+  assert.match(rulesText, /actionId in \['confirm', 'dispute', 'claim_1', 'claim_2', 'claim_3', 'claim_4', 'claim_5', 'date_1', 'date_2', 'date_3'\]/);
+  assert.match(rulesText, /allow update, delete:\s*if false;/);
+
+  // Collection group query for owner
+  assert.match(rulesText, /match \/\{path=\*\*\}\/actions\/\{actionId\}/);
+  assert.match(rulesText, /request\.auth\.uid == resource\.data\.ownerUid/);
 });
 
 test("storage.rules sets allow create: if false for clients so uploads happen only via signed URLs or Admin SDK", () => {
