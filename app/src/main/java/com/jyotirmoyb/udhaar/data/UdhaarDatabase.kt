@@ -128,6 +128,13 @@ class UdhaarTypeConverters {
     @TypeConverter
     fun toInstallmentStatus(value: String): InstallmentStatus =
         runCatching { InstallmentStatus.valueOf(value) }.getOrDefault(InstallmentStatus.PENDING)
+
+    @TypeConverter
+    fun fromSyncStatus(value: SyncStatus): String = value.name
+
+    @TypeConverter
+    fun toSyncStatus(value: String): SyncStatus =
+        runCatching { SyncStatus.valueOf(value) }.getOrDefault(SyncStatus.LOCAL_ONLY)
 }
 
 @Database(
@@ -141,14 +148,16 @@ class UdhaarTypeConverters {
         Attachment::class,
         ReminderEvent::class,
         InstallmentPlan::class,
-        Installment::class
+        Installment::class,
+        SyncOutboxEntity::class
     ],
-    version = 12,
+    version = 13,
     exportSchema = true
 )
 @TypeConverters(UdhaarTypeConverters::class)
 abstract class UdhaarDatabase : RoomDatabase() {
     abstract fun udhaarDao(): UdhaarDao
+    abstract fun syncOutboxDao(): SyncOutboxDao
 
     companion object {
         private fun hasColumn(db: SupportSQLiteDatabase, tableName: String, columnName: String): Boolean {
@@ -777,6 +786,62 @@ abstract class UdhaarDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val tables = listOf("udhaar_transactions", "parties", "partial_payments", "installment_plans", "installments")
+                for (table in tables) {
+                    if (!hasColumn(db, table, "syncId")) {
+                        db.execSQL("ALTER TABLE `$table` ADD COLUMN `syncId` TEXT NOT NULL DEFAULT ''")
+                    }
+                    if (!hasColumn(db, table, "serverRev")) {
+                        db.execSQL("ALTER TABLE `$table` ADD COLUMN `serverRev` INTEGER NOT NULL DEFAULT 0")
+                    }
+                    if (!hasColumn(db, table, "clientRev")) {
+                        db.execSQL("ALTER TABLE `$table` ADD COLUMN `clientRev` INTEGER NOT NULL DEFAULT 1")
+                    }
+                    if (!hasColumn(db, table, "hlc")) {
+                        db.execSQL("ALTER TABLE `$table` ADD COLUMN `hlc` TEXT NOT NULL DEFAULT ''")
+                    }
+                    if (!hasColumn(db, table, "syncStatus")) {
+                        db.execSQL("ALTER TABLE `$table` ADD COLUMN `syncStatus` TEXT NOT NULL DEFAULT 'LOCAL_ONLY'")
+                    }
+                    if (!hasColumn(db, table, "deletedAtMs")) {
+                        db.execSQL("ALTER TABLE `$table` ADD COLUMN `deletedAtMs` INTEGER")
+                    }
+                    db.execSQL("CREATE INDEX IF NOT EXISTS `index_${table}_syncId` ON `$table` (`syncId`)")
+                }
+
+                // Backfill deterministic non-empty syncId for existing rows where syncId is blank
+                db.execSQL("UPDATE `udhaar_transactions` SET `syncId` = 'tx_' || `id` || '_' || hex(randomblob(6)) WHERE `syncId` = '' OR `syncId` IS NULL")
+                db.execSQL("UPDATE `parties` SET `syncId` = 'per_' || `partyId` || '_' || hex(randomblob(6)) WHERE `syncId` = '' OR `syncId` IS NULL")
+                db.execSQL("UPDATE `partial_payments` SET `syncId` = 'pay_' || `id` || '_' || hex(randomblob(6)) WHERE `syncId` = '' OR `syncId` IS NULL")
+                db.execSQL("UPDATE `installment_plans` SET `syncId` = 'plan_' || `id` || '_' || hex(randomblob(6)) WHERE `syncId` = '' OR `syncId` IS NULL")
+                db.execSQL("UPDATE `installments` SET `syncId` = 'inst_' || `id` || '_' || hex(randomblob(6)) WHERE `syncId` = '' OR `syncId` IS NULL")
+
+                // Create sync_outbox table
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `sync_outbox` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `entity` TEXT NOT NULL,
+                        `syncId` TEXT NOT NULL,
+                        `op` TEXT NOT NULL,
+                        `payloadJson` TEXT NOT NULL,
+                        `clientRev` INTEGER NOT NULL DEFAULT 1,
+                        `hlc` TEXT NOT NULL DEFAULT '',
+                        `idempotencyKey` TEXT NOT NULL,
+                        `status` TEXT NOT NULL DEFAULT 'PENDING',
+                        `attempts` INTEGER NOT NULL DEFAULT 0,
+                        `nextRetryAtMs` INTEGER NOT NULL DEFAULT 0,
+                        `createdAtMs` INTEGER NOT NULL DEFAULT 0
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sync_outbox_status_nextRetryAtMs` ON `sync_outbox` (`status`, `nextRetryAtMs`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_sync_outbox_syncId` ON `sync_outbox` (`syncId`)")
+            }
+        }
+
         val ALL_MIGRATIONS: Array<Migration> = arrayOf(
             MIGRATION_1_2,
             MIGRATION_2_3,
@@ -788,7 +853,8 @@ abstract class UdhaarDatabase : RoomDatabase() {
             MIGRATION_8_9,
             MIGRATION_9_10,
             MIGRATION_10_11,
-            MIGRATION_11_12
+            MIGRATION_11_12,
+            MIGRATION_12_13
         )
 
         @Volatile

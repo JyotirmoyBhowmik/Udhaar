@@ -182,4 +182,13 @@ object RepositoryModule {
             dao = dao
         )
     }
+
+    @Provides
+    @Singleton
+    fun provideSyncRepository(
+        dao: UdhaarDao,
+        outboxDao: com.jyotirmoyb.udhaar.data.SyncOutboxDao
+    ): com.jyotirmoyb.udhaar.sync.SyncRepository {
+        return com.jyotirmoyb.udhaar.sync.SyncRepository(dao, outboxDao, null)
+    }
 }

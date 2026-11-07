@@ -21,6 +21,9 @@ interface UdhaarDao {
     @Query("SELECT * FROM parties WHERE partyId = :partyId LIMIT 1")
     suspend fun getPartyById(partyId: Long): PartyEntity?
 
+    @Query("SELECT * FROM parties WHERE syncId = :syncId LIMIT 1")
+    suspend fun getPartyBySyncId(syncId: String): PartyEntity?
+
     @Query("SELECT * FROM parties WHERE LOWER(name) = LOWER(:name) LIMIT 1")
     suspend fun getPartyByName(name: String): PartyEntity?
 
@@ -64,6 +67,9 @@ interface UdhaarDao {
     @Query("SELECT * FROM udhaar_transactions WHERE id = :id LIMIT 1")
     suspend fun getTransactionById(id: Long): UdhaarTransaction?
 
+    @Query("SELECT * FROM udhaar_transactions WHERE syncId = :syncId LIMIT 1")
+    suspend fun getTransactionBySyncId(syncId: String): UdhaarTransaction?
+
     @Query("SELECT * FROM udhaar_transactions WHERE remoteId = :remoteId LIMIT 1")
     suspend fun getTransactionByRemoteId(remoteId: String): UdhaarTransaction?
 
@@ -88,6 +94,9 @@ interface UdhaarDao {
 
     @Query("SELECT * FROM partial_payments WHERE transactionId = :transactionId ORDER BY paidAtMillis DESC")
     suspend fun getPartialPaymentsForTransactionSnapshot(transactionId: Long): List<PartialPayment>
+
+    @Query("SELECT * FROM partial_payments WHERE syncId = :syncId LIMIT 1")
+    suspend fun getPartialPaymentBySyncId(syncId: String): PartialPayment?
 
     @Query("SELECT * FROM partial_payments ORDER BY paidAtMillis DESC")
     fun getAllPartialPayments(): Flow<List<PartialPayment>>

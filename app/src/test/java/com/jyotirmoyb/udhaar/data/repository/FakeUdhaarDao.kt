@@ -47,6 +47,9 @@ class FakeUdhaarDao : UdhaarDao {
     override suspend fun getPartyById(partyId: Long): PartyEntity? =
         partiesFlow.value.firstOrNull { it.partyId == partyId }
 
+    override suspend fun getPartyBySyncId(syncId: String): PartyEntity? =
+        partiesFlow.value.firstOrNull { it.syncId == syncId }
+
     override suspend fun getPartyByName(name: String): PartyEntity? =
         partiesFlow.value.firstOrNull { it.name.equals(name.trim(), ignoreCase = true) }
 
@@ -137,6 +140,9 @@ class FakeUdhaarDao : UdhaarDao {
     override suspend fun getTransactionById(id: Long): UdhaarTransaction? =
         txFlow.value.firstOrNull { it.id == id }
 
+    override suspend fun getTransactionBySyncId(syncId: String): UdhaarTransaction? =
+        txFlow.value.firstOrNull { it.syncId == syncId }
+
     override suspend fun getTransactionByRemoteId(remoteId: String): UdhaarTransaction? =
         txFlow.value.firstOrNull { it.remoteId == remoteId }
 
@@ -206,6 +212,9 @@ class FakeUdhaarDao : UdhaarDao {
 
     override suspend fun getPartialPaymentsForTransactionSnapshot(transactionId: Long): List<PartialPayment> =
         paymentsFlow.value.filter { it.transactionId == transactionId }
+
+    override suspend fun getPartialPaymentBySyncId(syncId: String): PartialPayment? =
+        paymentsFlow.value.firstOrNull { it.syncId == syncId }
 
     override fun getAllPartialPayments(): Flow<List<PartialPayment>> = paymentsFlow.asStateFlow()
 

@@ -50,6 +50,13 @@ enum class VerificationStatus(val label: String, val shortBadge: String) {
     EDITED_AFTER_CONFIRM("Edited • Re-confirm", "RE-CONFIRM")
 }
 
+enum class SyncStatus(val label: String, val shortBadge: String) {
+    LOCAL_ONLY("Local Only", "LOCAL"),
+    PENDING_PUSH("Pending Sync", "PENDING"),
+    SYNCED("Synced", "SYNCED ✓"),
+    CONFLICT("Conflict", "CONFLICT !")
+}
+
 enum class AuditEventType(val label: String) {
     CREATED("Record Created"),
     SHARED("Shared for Verification"),
@@ -131,7 +138,12 @@ internal fun paiseLongToRupeesDouble(paise: Long): Double {
         .toDouble()
 }
 
-@Entity(tableName = "parties")
+@Entity(
+    tableName = "parties",
+    indices = [
+        Index(value = ["syncId"])
+    ]
+)
 data class PartyEntity(
     @PrimaryKey(autoGenerate = true)
     val partyId: Long = 0L,
@@ -149,14 +161,25 @@ data class PartyEntity(
     val language: String = "",
     val quietHoursOverride: Boolean = false,
     val lastInteractionMillis: Long = System.currentTimeMillis(),
-    val createdAtMillis: Long = System.currentTimeMillis()
+    val createdAtMillis: Long = System.currentTimeMillis(),
+    val syncId: String = "",
+    val serverRev: Long = 0L,
+    val clientRev: Long = 1L,
+    val hlc: String = "",
+    val syncStatus: SyncStatus = SyncStatus.LOCAL_ONLY,
+    val deletedAtMs: Long? = null
 )
 
 /**
  * Core ledger record entity.
  * `principalAmountPaise` and `amountPaidPaise` (Long paise/paisa) are the sole source of truth.
  */
-@Entity(tableName = "udhaar_transactions")
+@Entity(
+    tableName = "udhaar_transactions",
+    indices = [
+        Index(value = ["syncId"])
+    ]
+)
 data class UdhaarTransaction(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0L,
@@ -200,7 +223,14 @@ data class UdhaarTransaction(
     val lastGuestAction: String = "",
     val trustLevel: String = "",
     val pendingPaymentClaim: String = "",
-    val pendingDateProposal: String = ""
+    val pendingDateProposal: String = "",
+    // --- Stage S5: Platform v2 Sync Fields ---
+    val syncId: String = "",
+    val serverRev: Long = 0L,
+    val clientRev: Long = 1L,
+    val hlc: String = "",
+    val syncStatus: SyncStatus = SyncStatus.LOCAL_ONLY,
+    val deletedAtMs: Long? = null
 ) {
     @get:androidx.room.Ignore
     val principalAmount: Double
@@ -253,7 +283,13 @@ fun UdhaarTransaction(
     pendingPaymentClaim: String = "",
     pendingDateProposal: String = "",
     principalAmountPaise: Long = rupeesDoubleToPaiseExact(principalAmount),
-    amountPaidPaise: Long = rupeesDoubleToPaiseExact(amountPaid)
+    amountPaidPaise: Long = rupeesDoubleToPaiseExact(amountPaid),
+    syncId: String = "",
+    serverRev: Long = 0L,
+    clientRev: Long = 1L,
+    hlc: String = "",
+    syncStatus: SyncStatus = SyncStatus.LOCAL_ONLY,
+    deletedAtMs: Long? = null
 ): UdhaarTransaction = UdhaarTransaction(
     id = id,
     partyId = partyId,
@@ -294,7 +330,13 @@ fun UdhaarTransaction(
     lastGuestAction = lastGuestAction,
     trustLevel = trustLevel,
     pendingPaymentClaim = pendingPaymentClaim,
-    pendingDateProposal = pendingDateProposal
+    pendingDateProposal = pendingDateProposal,
+    syncId = syncId,
+    serverRev = serverRev,
+    clientRev = clientRev,
+    hlc = hlc,
+    syncStatus = syncStatus,
+    deletedAtMs = deletedAtMs
 )
 
 /**
@@ -311,7 +353,10 @@ fun UdhaarTransaction(
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index(value = ["transactionId"])]
+    indices = [
+        Index(value = ["transactionId"]),
+        Index(value = ["syncId"])
+    ]
 )
 data class PartialPayment(
     @PrimaryKey(autoGenerate = true)
@@ -327,7 +372,14 @@ data class PartialPayment(
     val recordedByName: String = "",
     val isAcknowledged: Boolean = false,
     val acknowledgedAtMillis: Long? = null,
-    val needsMyAcknowledgement: Boolean = false
+    val needsMyAcknowledgement: Boolean = false,
+    // --- Stage S5: Platform v2 Sync Fields ---
+    val syncId: String = "",
+    val serverRev: Long = 0L,
+    val clientRev: Long = 1L,
+    val hlc: String = "",
+    val syncStatus: SyncStatus = SyncStatus.LOCAL_ONLY,
+    val deletedAtMs: Long? = null
 ) {
     @get:androidx.room.Ignore
     val amount: Double
@@ -347,7 +399,13 @@ fun PartialPayment(
     isAcknowledged: Boolean = false,
     acknowledgedAtMillis: Long? = null,
     needsMyAcknowledgement: Boolean = false,
-    amountPaise: Long = rupeesDoubleToPaiseExact(amount)
+    amountPaise: Long = rupeesDoubleToPaiseExact(amount),
+    syncId: String = "",
+    serverRev: Long = 0L,
+    clientRev: Long = 1L,
+    hlc: String = "",
+    syncStatus: SyncStatus = SyncStatus.LOCAL_ONLY,
+    deletedAtMs: Long? = null
 ): PartialPayment = PartialPayment(
     id = id,
     transactionId = transactionId,
@@ -360,7 +418,13 @@ fun PartialPayment(
     recordedByName = recordedByName,
     isAcknowledged = isAcknowledged,
     acknowledgedAtMillis = acknowledgedAtMillis,
-    needsMyAcknowledgement = needsMyAcknowledgement
+    needsMyAcknowledgement = needsMyAcknowledgement,
+    syncId = syncId,
+    serverRev = serverRev,
+    clientRev = clientRev,
+    hlc = hlc,
+    syncStatus = syncStatus,
+    deletedAtMs = deletedAtMs
 )
 
 @Entity(
@@ -571,7 +635,10 @@ enum class InstallmentStatus(val label: String) {
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index(value = ["transactionId"])]
+    indices = [
+        Index(value = ["transactionId"]),
+        Index(value = ["syncId"])
+    ]
 )
 data class InstallmentPlan(
     @PrimaryKey(autoGenerate = true)
@@ -587,7 +654,13 @@ data class InstallmentPlan(
     val status: InstallmentPlanStatus = InstallmentPlanStatus.ACTIVE,
     val remotePlanId: String = "",
     val proposedScheduleJson: String = "",
-    val scheduleProposalStatus: String = "NONE" // NONE, PENDING, ACCEPTED, DECLINED
+    val scheduleProposalStatus: String = "NONE", // NONE, PENDING, ACCEPTED, DECLINED
+    val syncId: String = "",
+    val serverRev: Long = 0L,
+    val clientRev: Long = 1L,
+    val hlc: String = "",
+    val syncStatus: SyncStatus = SyncStatus.LOCAL_ONLY,
+    val deletedAtMs: Long? = null
 )
 
 @Entity(
@@ -608,7 +681,8 @@ data class InstallmentPlan(
     ],
     indices = [
         Index(value = ["planId"]),
-        Index(value = ["paymentId"])
+        Index(value = ["paymentId"]),
+        Index(value = ["syncId"])
     ]
 )
 data class Installment(
@@ -621,7 +695,36 @@ data class Installment(
     val amountPaid: Long = 0L, // in smallest currency unit (paise)
     val status: InstallmentStatus = InstallmentStatus.PENDING,
     val paidAtMillis: Long? = null,
-    val paymentId: Long? = null
+    val paymentId: Long? = null,
+    val syncId: String = "",
+    val serverRev: Long = 0L,
+    val clientRev: Long = 1L,
+    val hlc: String = "",
+    val syncStatus: SyncStatus = SyncStatus.LOCAL_ONLY,
+    val deletedAtMs: Long? = null
+)
+
+@Entity(
+    tableName = "sync_outbox",
+    indices = [
+        Index(value = ["status", "nextRetryAtMs"]),
+        Index(value = ["syncId"])
+    ]
+)
+data class SyncOutboxEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0L,
+    val entity: String, // "record", "payment", "person", "plan"
+    val syncId: String,
+    val op: String, // "CREATE", "UPDATE", "DELETE"
+    val payloadJson: String,
+    val clientRev: Long = 1L,
+    val hlc: String = "",
+    val idempotencyKey: String,
+    val status: String = "PENDING", // PENDING, FAILED
+    val attempts: Int = 0,
+    val nextRetryAtMs: Long = 0L,
+    val createdAtMs: Long = System.currentTimeMillis()
 )
 
 data class UserSettings(
