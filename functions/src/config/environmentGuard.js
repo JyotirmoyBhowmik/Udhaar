@@ -66,6 +66,14 @@ function enforceProductionEnvironmentGuards(options = {}) {
     );
   }
 
+  // 5. Cloud KMS provider validation
+  if (options.kmsProvider && (options.kmsProvider.constructor.name.includes("Test") || options.isTestKms === true)) {
+    throw new Error(
+      `[EnvironmentGuard] FATAL: Test KMS provider detected in ${currentEnv}. ` +
+      `Production requires hardware-backed Master KEK via @google-cloud/kms in region asia-south1.`
+    );
+  }
+
   return { ok: true, environment: currentEnv };
 }
 

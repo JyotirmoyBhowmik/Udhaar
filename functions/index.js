@@ -329,5 +329,6 @@ Object.assign(exports, require('./guestWebFlowEndpoints'));
 
 // Udhaar Platform v2 Central API (Stage S1)
 const { createApiApp } = require("./src/app");
-exports.api = onRequest({ region: "asia-south1" }, createApiApp());
+const { ALL_SECRETS } = require("./src/config/secrets");
+exports.api = onRequest({ region: "asia-south1", secrets: ALL_SECRETS }, createApiApp());
 

@@ -19,6 +19,7 @@ const { FirestoreReminderRepository } = require("./firestore/reminderRepository"
 const { FirestorePrivacyRepository } = require("./firestore/privacyRepository");
 const { FirestoreAdminRepository } = require("./firestore/adminRepository");
 const { FirestoreConfigRepository } = require("./firestore/configRepository");
+const { FirestoreCryptoRepository } = require("./firestore/cryptoRepository");
 
 // Registry holding active instances
 let activeRepositories = null;
@@ -45,7 +46,8 @@ function initRepositories() {
       reminder: new FirestoreReminderRepository(),
       privacy: new FirestorePrivacyRepository(),
       admin: new FirestoreAdminRepository(),
-      config: new FirestoreConfigRepository()
+      config: new FirestoreConfigRepository(),
+      crypto: new FirestoreCryptoRepository()
     };
   }
 
@@ -66,7 +68,8 @@ function initRepositories() {
       reminder: new FirestoreReminderRepository(),
       privacy: new FirestorePrivacyRepository(),
       admin: new FirestoreAdminRepository(),
-      config: new FirestoreConfigRepository()
+      config: new FirestoreConfigRepository(),
+      crypto: new FirestoreCryptoRepository()
     };
   }
 }
@@ -93,6 +96,7 @@ function getReminderRepository() { return getRepositories().reminder; }
 function getPrivacyRepository() { return getRepositories().privacy; }
 function getAdminRepository() { return getRepositories().admin; }
 function getConfigRepository() { return getRepositories().config; }
+function getCryptoRepository() { return getRepositories().crypto; }
 
 function setRepositoryOverride(name, repoInstance) {
   if (isProductionOrStaging() && repoInstance.constructor.name.startsWith("InMemory")) {
@@ -126,6 +130,7 @@ module.exports = {
   getPrivacyRepository,
   getAdminRepository,
   getConfigRepository,
+  getCryptoRepository,
   setRepositoryOverride,
   resetTestRepositories
 };

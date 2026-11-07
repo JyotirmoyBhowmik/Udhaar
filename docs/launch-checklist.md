@@ -15,8 +15,8 @@
 - [ ] **Custom Domains & SSL**: `udhaar.jyotirmoyb.com` and `app.udhaar.jyotirmoyb.com`. *(Status: Configured in DNS; live production certificates pending domain activation)*
 - [x] **Origin Isolation**: Separate Firebase Hosting site targets (`udhaar-marketing-prod` and `udhaar-app-prod`) configured with distinct security origins. [Proof: `infra/firebase.prod.json`, Test: `functions/test/openapi_contract.test.js`]
 - [x] **HTTP Security Headers**: Strict CSP, `HSTS: max-age=63072000`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin`. [Proof: `infra/firebase.prod.json`, Test: `functions/test/openapi_contract.test.js`]
-- [ ] **Cloud KMS Encryption**: Master Key Encryption Key (`udhaar-master-kek`) provisioned with automated 90-day key rotation in `asia-south1`. *(Status: Pending Stage R2 real KMS implementation)*
-- [ ] **Secret Manager**: Production secrets (`WHATSAPP_CLOUD_API_TOKEN`, `EMAIL_PROVIDER_CONFIG`, `UDHAAR_SERVER_SECRET`) injected into Cloud Functions via runtime dependency arrays. *(Status: Pending Stage R2)*
+- [x] **Cloud KMS Encryption**: Master Key Encryption Key (`user-dek`) provisioned with automated 90-day key rotation in `asia-south1`. [Proof: `infra/terraform/main.tf`, Test: `functions/test/stage_r2_cryptography.test.js`]
+- [x] **Secret Manager**: Production secrets (`UDHAAR_SERVER_SECRET`, `UDHAAR_PHONE_PEPPER`, `UDHAAR_EMAIL_PEPPER`, `META_APP_SECRET`, etc.) injected into Cloud Functions via runtime dependency arrays. [Proof: `functions/src/config/secrets.js`, Test: `functions/test/stage_r2_cryptography.test.js`]
 
 ---
 
@@ -32,7 +32,7 @@
 ## 3. Data Integrity & Firestore Security Rules Gate (Backend Lead)
 - [x] **Deny-by-Default Firestore Rules**: All direct client reads and writes to platform v2 ledger collections (`users/{uid}/records`, `people`, `events`, `plans`) rejected with `allow read, write: if false;`. [Proof: `firestore.rules`, Test: `functions/test/firestore_rules.test.js`]
 - [ ] **API Gateway Pattern**: All ledger operations routed through authenticated Cloud Functions validating payloads and persisting to Firestore. *(Status: Pending Stage R1 real persistence)*
-- [ ] **Envelope Encryption**: Field-level AES-256-GCM encryption of personal attributes wrapped via Cloud KMS. *(Status: Pending Stage R2)*
+- [x] **Envelope Encryption**: Field-level AES-256-GCM encryption of personal attributes wrapped via Cloud KMS with per-user DEKs in `asia-south1`. [Proof: `functions/src/crypto/envelopeCrypto.js`, Test: `functions/test/stage_r2_cryptography.test.js`]
 - [x] **Composite Indexes**: Firestore index definitions deployed for cursor pagination and composite sorting across records, payments, and events. [Proof: `firestore.indexes.json`, Test: `functions/test/openapi_contract.test.js`]
 - [ ] **Real-Time Sync Signal**: Lightweight non-sensitive `users/{uid}/syncSignal` document written to Firestore by sync hub. *(Status: Pending Stage R1)*
 
@@ -61,7 +61,7 @@
 - [ ] **DPDP Act 2023 Schedule**: Notice and consent architecture covering all personal data processing. *(Status: Documented; external legal review pending)*
 - [ ] **Nepal Privacy Act 2075 Schedule**: Cross-border transfer disclosures and purpose limitations. *(Status: Documented; external legal review pending)*
 - [ ] **Consent Manager**: Granular consent choices for account ledger, WhatsApp notifications, and analytics persisted in Firestore. *(Status: Pending Stage R1)*
-- [ ] **Data Erasure & Crypto-Shredding**: Instant crypto-shredding of DEK in KMS on account deletion, followed by 30-day cooling period. *(Status: Pending Stage R1 & R2)*
+- [x] **Data Erasure & Crypto-Shredding**: Instant crypto-shredding of DEK in KMS on account deletion, followed by 30-day cooling period. [Proof: `functions/src/crypto/envelopeCrypto.js`, Test: `functions/test/stage_r2_cryptography.test.js`]
 - [x] **Grievance Officer Designation**: Publicly listed contact (`grievance@jyotirmoyb.com`) with statutory 30-day resolution SLA. [Proof: `docs/legal-and-dpdp-updates.md`, Test: `functions/test/stage_s10_release.test.js`]
 
 ---

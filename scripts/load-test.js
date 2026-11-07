@@ -13,7 +13,7 @@ const { createSession } = require("../functions/src/sessions/sessionManager");
 const { _inMemoryUsers } = require("../functions/src/auth/authService");
 const { calculatePercentiles } = require("../functions/src/observability/metrics");
 
-const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 50 });
+const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 200 });
 
 function makeRequest(server, options, requestBody = null) {
   return new Promise((resolve) => {

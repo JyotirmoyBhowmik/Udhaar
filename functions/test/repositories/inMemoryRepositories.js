@@ -702,6 +702,26 @@ class InMemoryConfigRepository {
   }
 }
 
+class InMemoryCryptoRepository {
+  constructor() {
+    this.deks = new Map();
+  }
+  async getUserDekDoc(uid) {
+    const doc = this.deks.get(uid);
+    return doc ? { ...doc } : null;
+  }
+  async saveUserDekDoc(uid, dekDoc) {
+    this.deks.set(uid, { ...dekDoc });
+    return { ...dekDoc };
+  }
+  async deleteUserDekDoc(uid) {
+    return this.deks.delete(uid);
+  }
+  clear() {
+    this.deks.clear();
+  }
+}
+
 function createInMemoryRepositories() {
   return {
     auth: new InMemoryAuthRepository(),
@@ -715,7 +735,8 @@ function createInMemoryRepositories() {
     reminder: new InMemoryReminderRepository(),
     privacy: new InMemoryPrivacyRepository(),
     admin: new InMemoryAdminRepository(),
-    config: new InMemoryConfigRepository()
+    config: new InMemoryConfigRepository(),
+    crypto: new InMemoryCryptoRepository()
   };
 }
 
@@ -732,5 +753,6 @@ module.exports = {
   InMemoryReminderRepository,
   InMemoryPrivacyRepository,
   InMemoryAdminRepository,
-  InMemoryConfigRepository
+  InMemoryConfigRepository,
+  InMemoryCryptoRepository
 };
