@@ -1,0 +1,60 @@
+name: Udhaar Staging Continuous Deployment
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  validate-and-deploy-staging:
+    name: Build & Deploy to Firebase Staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: staging
+      url: https://staging.udhaar.jyotirmoyb.com
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install Dependencies & Run Tests
+        run: |
+          npm ci --ignore-scripts || npm install --ignore-scripts
+          npm --prefix functions ci --ignore-scripts || npm --prefix functions install --ignore-scripts
+          npm test
+        env:
+          UDHAAR_SERVER_SECRET: "staging_ci_validation_key_32_bytes_len"
+          NODE_ENV: "test"
+
+      - name: Build Web & WebApp Production Bundles
+        run: npm run build
+
+      - name: Deploy to Firebase Staging
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        if: ${{ env.FIREBASE_SERVICE_ACCOUNT_STAGING != '' }}
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_STAGING }}'
+          projectId: udhaar-staging
+          channelId: staging
+        env:
+          FIREBASE_SERVICE_ACCOUNT_STAGING: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_STAGING }}
+
+      - name: Run OWASP ZAP Baseline Security Scan on Staging
+        uses: zaproxy/action-baseline@v0.14.0
+        if: ${{ env.RUN_ZAP_SCAN == 'true' }}
+        with:
+          target: 'https://staging.udhaar.jyotirmoyb.com'
+          rules_file_name: '.zap/rules.tsv'
+          cmd_options: '-a'
+        continue-on-error: true

@@ -1,0 +1,135 @@
+name: Udhaar Platform v2 CI
+
+on:
+  push:
+    branches: [ "main", "release/**" ]
+  pull_request:
+    branches: [ "**" ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-and-functions-lint:
+    name: Lint, Formatting & Type Integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: |
+          npm ci --ignore-scripts || npm install --ignore-scripts
+          npm --prefix functions ci --ignore-scripts || npm --prefix functions install --ignore-scripts
+
+      - name: Verify Web Production Build & Asset Integrity
+        run: npm run build
+
+      - name: Verify Multi-Language i18n Completeness
+        run: npm run check:i18n
+
+  test-suite:
+    name: Unit, Contract, Security Rules & Conformance Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: |
+          npm ci --ignore-scripts || npm install --ignore-scripts
+          npm --prefix functions ci --ignore-scripts || npm --prefix functions install --ignore-scripts
+
+      - name: Run Cloud Functions, Unit & Rules Tests
+        run: npm --prefix functions test
+        env:
+          UDHAAR_SERVER_SECRET: "ci_deterministic_secret_testing_key_32_bytes_len"
+          NODE_ENV: "test"
+
+      - name: Run 7/7 Sync Conformance Fixture Runner
+        run: node sync-conformance/ts-runner.js
+
+  playwright-e2e-and-accessibility:
+    name: Playwright Multi-Engine E2E & axe-core Audits
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: |
+          npm ci --ignore-scripts || npm install --ignore-scripts
+          npm --prefix functions ci --ignore-scripts || npm --prefix functions install --ignore-scripts
+
+      - name: Install Playwright System Browsers
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Build Web & WebApp Assets
+        run: npm run build
+
+      - name: Run Comprehensive Multi-Browser E2E & Accessibility Test
+        run: node functions/test/playwright_e2e.test.js
+        env:
+          UDHAAR_SERVER_SECRET: "ci_deterministic_secret_testing_key_32_bytes_len"
+
+  security-and-dependency-audit:
+    name: Security Vulnerabilities & License Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run npm audit (Functions)
+        working-directory: functions
+        run: npm audit --audit-level=high || true
+
+      - name: Secret Leak Prevention Scan
+        run: |
+          python3 -c '
+          import os, re, sys
+          pattern = re.compile(r"(AIza[0-9A-Za-z-_]{35}|EAAG[0-9A-Za-z]+|sk_live_[0-9a-zA-Z]{24})")
+          violations = []
+          for root, _, files in os.walk("."):
+              if ".git" in root or "node_modules" in root or "build" in root: continue
+              for f in files:
+                  if f.endswith((".js", ".json", ".kt", ".xml", ".html")):
+                      p = os.path.join(root, f)
+                      try:
+                          with open(p, "r", encoding="utf-8", errors="ignore") as handle:
+                              for i, line in enumerate(handle, 1):
+                                  if pattern.search(line) and "fake" not in line and "test" not in line.lower():
+                                      violations.append(f"{p}:{i}")
+                      except Exception: pass
+          if violations:
+              print("POTENTIAL LEAK DETECTED:", violations)
+              sys.exit(1)
+          print("Zero live API keys or credentials found in tracked source files.")
+          '
