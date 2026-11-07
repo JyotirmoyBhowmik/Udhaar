@@ -1,0 +1,887 @@
+/* =========================================================================
+   UDHAAR DESIGN SYSTEM & DESIGN TOKENS (web/design-tokens.css)
+   Shared cross-platform design tokens matching the Android Emerald design.
+   Self-hosted subsetted fonts, fluid type scale, 4px grid spacing,
+   reusable accessible plain-CSS components, zero-overflow layout,
+   and strict WCAG 2.1 AA contrast compliance.
+   ========================================================================= */
+
+/* -------------------------------------------------------------------------
+   1. SELF-HOSTED SUBSETTED FONTS (@font-face)
+   Zero third-party CDN requests. font-display: swap.
+   Size-matched fallbacks to eliminate Cumulative Layout Shift (CLS).
+   ------------------------------------------------------------------------- */
+
+/* Latin & Common Symbols — Inter */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/inter.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+                 U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+                 U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Display Titles & Hero Headings — Space Grotesk */
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 600 800;
+  font-display: swap;
+  src: url('/fonts/space-grotesk.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+                 U+2000-206F, U+20AC, U+2122, U+20B9;
+}
+
+/* Monospace — Amounts & IDs ONLY — IBM Plex Mono */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+  src: url('/fonts/ibm-plex-mono.woff2') format('woff2');
+  unicode-range: U+0020-007E, U+20B9, U+2000-206F;
+}
+
+/* Devanagari (Hindi & Nepali) — Noto Sans Devanagari */
+@font-face {
+  font-family: 'Noto Sans Devanagari';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/noto-sans-devanagari.woff2') format('woff2');
+  unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D;
+}
+
+/* Bengali & Assamese (including Assamese ৰ U+09F0 and ৱ U+09F1) — Noto Sans Bengali */
+@font-face {
+  font-family: 'Noto Sans Bengali';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/noto-sans-bengali.woff2') format('woff2');
+  unicode-range: U+0980-09FF, U+200C-200D;
+}
+
+/* Size-Matched System Fallback to eliminate CLS (Layout Shift) */
+@font-face {
+  font-family: 'Inter-Fallback';
+  src: local('Arial'), local('Helvetica Neue'), local('Segoe UI');
+  ascent-override: 90%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+  size-adjust: 107%;
+}
+
+/* -------------------------------------------------------------------------
+   2. DESIGN TOKENS & SYSTEM VARIABLES (:root)
+   ------------------------------------------------------------------------- */
+:root {
+  /* --- Emerald Palette (Light Mode) --- */
+  --emerald-950: #022c22;
+  --emerald-900: #064e3b;
+  --emerald-800: #065f46;
+  --emerald-700: #047857;
+  --emerald-600: #047857; /* 5.46:1 WCAG AA contrast ratio with white */
+  --emerald-500: #10b981;
+  --emerald-400: #34d399;
+  --emerald-300: #6ee7b7;
+  --emerald-200: #a7f3d0;
+  --emerald-100: #d1fae5;
+  --emerald-50:  #ecfdf5;
+
+  /* --- Slate Neutral Scale (Light Mode) --- */
+  --slate-950: #020617;
+  --slate-900: #0f172a;
+  --slate-800: #1e293b;
+  --slate-700: #334155;
+  --slate-600: #475569;
+  --slate-500: #64748b;
+  --slate-400: #94a3b8;
+  --slate-300: #cbd5e1;
+  --slate-200: #e2e8f0;
+  --slate-100: #f1f5f9;
+  --slate-50:  #f8fafc;
+
+  /* --- Semantic Colors --- */
+  --red-900: #7f1d1d;
+  --red-700: #b91c1c;
+  --red-600: #dc2626;
+  --red-500: #ef4444;
+  --red-100: #fee2e2;
+  --red-50:  #fef2f2;
+
+  --amber-900: #78350f;
+  --amber-700: #b45309;
+  --amber-600: #d97706;
+  --amber-500: #f59e0b;
+  --amber-100: #fef3c7;
+  --amber-50:  #fffbeb;
+
+  --blue-900: #1e3a8a;
+  --blue-700: #1d4ed8;
+  --blue-600: #2563eb;
+  --blue-500: #3b82f6;
+  --blue-100: #dbeafe;
+  --blue-50:  #eff6ff;
+
+  /* --- Surface & Typography Roles (Light) --- */
+  --bg-page: var(--slate-50);
+  --bg-card: #ffffff;
+  --bg-subtle: var(--slate-100);
+  --text-main: var(--slate-900);
+  --text-muted: var(--slate-600);
+  --text-subtle: var(--slate-500);
+  --text-inverse: #ffffff;
+  --border-color: var(--slate-200);
+  --border-subtle: var(--slate-200);
+
+  /* --- Aliases for App & Legacy Landing Compatibility --- */
+  --primary: var(--emerald-900);
+  --primary-dark: var(--emerald-950);
+  --primary-deep: var(--emerald-950);
+  --primary-light: var(--emerald-600);
+  --primary-accent: var(--emerald-500);
+  --primary-glow: var(--emerald-400);
+  --primary-surface: var(--emerald-50);
+  --primary-hover: var(--emerald-700);
+
+  /* --- Focus Ring (Accessibility) --- */
+  --focus-ring: #047857;
+  --focus-ring-offset: 2px;
+
+  /* --- 4px Grid Spacing Scale --- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* --- Radius Scale --- */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* --- Elevation & Shadows --- */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  --shadow-emerald: 0 16px 36px -8px rgba(16, 185, 129, 0.25);
+
+  /* --- Motion Timings & Curves --- */
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 350ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+
+  /* --- Touch & Component Targets --- */
+  --touch-target: 48px;
+  --btn-primary-min-height: 52px;
+  --btn-secondary-min-height: 48px;
+
+  /* --- Typography Stacks --- */
+  --font-display: 'Space Grotesk', 'Inter', 'Noto Sans Devanagari', 'Noto Sans Bengali', system-ui, -apple-system, sans-serif;
+  --font-body: 'Inter', 'Inter-Fallback', 'Noto Sans Devanagari', 'Noto Sans Bengali', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-main: var(--font-body);
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* -------------------------------------------------------------------------
+   Dark Mode Overrides
+   ------------------------------------------------------------------------- */
+:root[data-theme="dark"] {
+  --bg-page: #071110;
+  --bg-card: #0e1f1d;
+  --bg-subtle: #142b28;
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-subtle: #64748b;
+  --text-inverse: #071110;
+  --border-color: #1e3a36;
+  --border-subtle: #1e3a36;
+
+  --primary: #10b981;
+  --primary-light: #34d399;
+  --primary-accent: #10b981;
+  --primary-surface: rgba(16, 185, 129, 0.14);
+  --primary-hover: #059669;
+
+  --focus-ring: #10b981;
+
+  --emerald-50: #064e3b;
+  --emerald-100: #065f46;
+  --amber-50: #78350f;
+  --amber-100: #92400e;
+  --red-50: #7f1d1d;
+  --red-100: #991b1b;
+  --blue-50: #1e3a8a;
+  --blue-100: #1d4ed8;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.7);
+  --shadow-emerald: 0 16px 36px -8px rgba(16, 185, 129, 0.2);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-page: #071110;
+    --bg-card: #0e1f1d;
+    --bg-subtle: #142b28;
+    --text-main: #f1f5f9;
+    --text-muted: #94a3b8;
+    --text-subtle: #64748b;
+    --text-inverse: #071110;
+    --border-color: #1e3a36;
+    --border-subtle: #1e3a36;
+
+    --primary: #10b981;
+    --primary-light: #34d399;
+    --primary-accent: #10b981;
+    --primary-surface: rgba(16, 185, 129, 0.14);
+    --primary-hover: #059669;
+
+    --focus-ring: #10b981;
+
+    --emerald-50: #064e3b;
+    --emerald-100: #065f46;
+    --amber-50: #78350f;
+    --amber-100: #92400e;
+    --red-50: #7f1d1d;
+    --red-100: #991b1b;
+    --blue-50: #1e3a8a;
+    --blue-100: #1d4ed8;
+
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.7);
+    --shadow-emerald: 0 16px 36px -8px rgba(16, 185, 129, 0.2);
+  }
+}
+
+/* -------------------------------------------------------------------------
+   3. TYPE SCALE, INDIC SCRIPT RULES & RESET
+   Strict rule: No letter-spacing, No ALL CAPS in any language.
+   Mono font ONLY for amounts and IDs.
+   ------------------------------------------------------------------------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+
+html {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: clamp(1rem, 0.95rem + 0.25vw, 1.125rem); /* Fluid 16px - 18px */
+  line-height: 1.5;
+  color: var(--text-main);
+  background-color: var(--bg-page);
+  overflow-x: hidden;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Indic Scripts Line-Height & Rendering: Generous 1.65 line-height, zero clipping */
+:lang(hi), :lang(bn), :lang(as), :lang(ne),
+[lang="hi"], [lang="bn"], [lang="as"], [lang="ne"] {
+  line-height: 1.65 !important;
+}
+
+/* Headings — Fluid Clamp Scales */
+h1, .h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.85rem, 1.5rem + 1.75vw, 2.75rem);
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--text-main);
+  margin-top: 0;
+  margin-bottom: var(--space-3);
+}
+
+h2, .h2 {
+  font-family: var(--font-display);
+  font-size: clamp(1.45rem, 1.25rem + 1vw, 2rem);
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text-main);
+  margin-top: 0;
+  margin-bottom: var(--space-3);
+}
+
+h3, .h3 {
+  font-family: var(--font-display);
+  font-size: clamp(1.2rem, 1.1rem + 0.5vw, 1.5rem);
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--text-main);
+  margin-top: 0;
+  margin-bottom: var(--space-2);
+}
+
+h4, .h4 {
+  font-family: var(--font-display);
+  font-size: clamp(1.05rem, 1rem + 0.25vw, 1.25rem);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-main);
+  margin-top: 0;
+  margin-bottom: var(--space-2);
+}
+
+/* Small text: strictly never below 14px */
+small, .text-sm, .caption {
+  font-size: 0.875rem !important; /* Exactly 14px */
+  line-height: 1.45;
+}
+
+/* Monospace font ONLY for amounts and IDs */
+.amount,
+.currency,
+.mono,
+[data-amount],
+.record-id,
+.code-value,
+.hash-value,
+.otp-box,
+.stat-number {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* -------------------------------------------------------------------------
+   4. ACCESSIBLE REUSABLE COMPONENTS IN PLAIN CSS
+   ------------------------------------------------------------------------- */
+
+/* --- Buttons --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  gap: var(--space-2);
+  line-height: 1.4;
+  touch-action: manipulation;
+  user-select: none;
+  transition: background var(--duration-fast) var(--ease-standard),
+              transform var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard),
+              color var(--duration-fast) var(--ease-standard);
+}
+
+.btn:focus-visible {
+  outline: var(--focus-ring-offset) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn[disabled],
+.btn:disabled,
+.btn.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Primary Button: 52px min-height */
+.btn-primary {
+  min-height: var(--btn-primary-min-height);
+  padding: 12px 24px;
+  background-color: var(--emerald-600);
+  color: #ffffff;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:hover {
+  background-color: var(--emerald-700);
+  box-shadow: var(--shadow-md);
+}
+
+/* Secondary Button: 48px min-height */
+.btn-secondary {
+  min-height: var(--btn-secondary-min-height);
+  padding: 10px 20px;
+  background-color: var(--bg-card);
+  color: var(--text-main);
+  border: 1.5px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+  background-color: var(--bg-subtle);
+  border-color: var(--slate-400);
+}
+
+/* Text Button */
+.btn-text {
+  min-height: var(--touch-target);
+  padding: 8px 16px;
+  background: transparent;
+  color: var(--emerald-700);
+  border: none;
+}
+
+.btn-text:hover {
+  background-color: var(--emerald-50);
+}
+
+/* Icon Button: 48x48px square touch target */
+.btn-icon {
+  width: var(--touch-target);
+  height: var(--touch-target);
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: 1.5px solid var(--border-color);
+  cursor: pointer;
+}
+
+.btn-icon:hover {
+  background-color: var(--bg-subtle);
+}
+
+/* --- Chips --- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: 6px 14px;
+  min-height: 36px;
+  border-radius: var(--radius-full);
+  font-size: 0.875rem;
+  font-weight: 600;
+  background-color: var(--bg-subtle);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--duration-fast) var(--ease-standard);
+  text-decoration: none;
+}
+
+.chip:focus-visible {
+  outline: var(--focus-ring-offset) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.chip:hover,
+.chip.active,
+.chip[aria-pressed="true"] {
+  background-color: var(--emerald-50);
+  color: var(--emerald-800);
+  border-color: var(--emerald-500);
+}
+
+/* --- Cards --- */
+.card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--duration-normal) var(--ease-standard),
+              box-shadow var(--duration-normal) var(--ease-standard),
+              border-color var(--duration-normal) var(--ease-standard);
+}
+
+.card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--emerald-400);
+}
+
+/* --- Form Inputs (Strictly >= 16px to prevent iOS Safari auto-zoom) --- */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  text-align: left;
+  width: 100%;
+}
+
+.form-label {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  min-height: var(--touch-target);
+  font-size: 16px; /* Must be >= 16px */
+  font-family: var(--font-body);
+  padding: 10px 14px;
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-card);
+  color: var(--text-main);
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus,
+.form-input:focus-visible,
+.form-select:focus-visible,
+.form-textarea:focus-visible {
+  outline: none;
+  border-color: var(--emerald-500);
+  box-shadow: 0 0 0 var(--focus-ring-offset) rgba(16, 185, 129, 0.35);
+}
+
+/* --- Banners / Notice Boxes --- */
+.notice-box {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  margin-bottom: var(--space-4);
+  border: 1px solid transparent;
+}
+
+.notice-green {
+  background-color: var(--emerald-50);
+  border-color: var(--emerald-200);
+  color: var(--emerald-950);
+}
+
+.notice-amber {
+  background-color: var(--amber-50);
+  border-color: var(--amber-100);
+  color: var(--amber-900);
+}
+
+.notice-red {
+  background-color: var(--red-50);
+  border-color: var(--red-100);
+  color: var(--red-900);
+}
+
+.notice-blue {
+  background-color: var(--blue-50);
+  border-color: var(--blue-100);
+  color: var(--blue-900);
+}
+
+/* --- Stepper --- */
+.stepper-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  width: 100%;
+}
+
+.stepper-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.stepper-pill {
+  background-color: var(--emerald-600);
+  color: #ffffff;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.stepper-title {
+  color: var(--text-main);
+  font-weight: 700;
+}
+
+.stepper-track {
+  height: 6px;
+  background-color: var(--slate-200);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.stepper-fill {
+  height: 100%;
+  background-color: var(--emerald-500);
+  border-radius: var(--radius-full);
+  transition: width var(--duration-normal) var(--ease-standard);
+}
+
+/* --- Tabs --- */
+.tabs {
+  display: flex;
+  gap: var(--space-2);
+  border-bottom: 2px solid var(--border-color);
+  margin-bottom: var(--space-4);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab-btn {
+  padding: 10px 18px;
+  min-height: 44px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard);
+}
+
+.tab-btn:hover {
+  color: var(--text-main);
+}
+
+.tab-btn.active,
+.tab-btn[aria-selected="true"] {
+  color: var(--emerald-600);
+  border-bottom-color: var(--emerald-600);
+}
+
+/* --- Accordion (Native <details>) --- */
+details.accordion {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-3);
+  overflow: hidden;
+  transition: border-color var(--duration-fast) var(--ease-standard);
+}
+
+details.accordion summary {
+  padding: var(--space-4) var(--space-5);
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+  list-style: none;
+  color: var(--text-main);
+}
+
+details.accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+details.accordion summary::after {
+  content: "▾";
+  font-size: 1.2rem;
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+details.accordion[open] summary {
+  border-bottom: 1px solid var(--border-color);
+  color: var(--emerald-700);
+}
+
+details.accordion[open] summary::after {
+  transform: rotate(180deg);
+}
+
+details.accordion .accordion-content {
+  padding: var(--space-4) var(--space-5);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+/* --- Dialog / Modal --- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-4);
+}
+
+.modal-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: var(--space-6);
+  box-shadow: var(--shadow-xl);
+}
+
+/* --- Toast --- */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--slate-900);
+  color: #ffffff;
+  padding: 12px 24px;
+  border-radius: var(--radius-full);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-lg);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* -------------------------------------------------------------------------
+   5. LAYOUT & RESPONSIVE BREAKPOINTS (Mobile-First)
+   Breakpoints: 360px, 600px, 900px, 1200px
+   Zero horizontal overflow at 320px
+   ------------------------------------------------------------------------- */
+.container {
+  width: 100%;
+  max-width: 1160px; /* Landing page container */
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--space-4);
+  padding-right: var(--space-4);
+}
+
+.app-wrapper {
+  width: 100%;
+  max-width: 480px; /* Guest portal container */
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--space-3);
+  padding-right: var(--space-3);
+}
+
+/* Screen Reader Only Accessible Utility */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* Accessibility Skip Link */
+.skip-link {
+  position: absolute;
+  top: -120px;
+  left: 16px;
+  background-color: var(--emerald-600);
+  color: #ffffff;
+  padding: 12px 20px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  text-decoration: none;
+  z-index: 9999;
+  box-shadow: var(--shadow-lg);
+  transition: top var(--duration-fast) var(--ease-standard);
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  top: 16px;
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* -------------------------------------------------------------------------
+   6. MOTION & PREFERS-REDUCED-MOTION
+   ------------------------------------------------------------------------- */
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity var(--duration-slow) var(--ease-standard),
+              transform var(--duration-slow) var(--ease-standard);
+}
+
+.reveal-on-scroll.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .reveal-on-scroll {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
