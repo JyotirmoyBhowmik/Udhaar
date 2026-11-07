@@ -8,6 +8,7 @@ plugins {
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.secrets)
   alias(libs.plugins.google.services)
+  alias(libs.plugins.firebase.crashlytics)
   alias(libs.plugins.hilt.android)
 }
 
@@ -23,6 +24,9 @@ android {
     versionName = "23.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+  androidResources {
+    localeFilters += listOf("en", "hi", "bn", "as", "ne")
+  }
   }
 
   // Do not remove or modify these signingConfigs. They are necessary for building, installing,
@@ -97,6 +101,11 @@ android {
   dependenciesInfo {
     includeInApk = false
     includeInBundle = false
+  }
+  bundle {
+    language {
+      enableSplit = false
+    }
   }
 }
 
@@ -184,6 +193,8 @@ dependencies {
   // implementation(libs.firebase.ai)
   // Uncomment to use Firestore:
   implementation(libs.firebase.firestore)
+  implementation(libs.firebase.crashlytics)
+  implementation(libs.firebase.analytics)
 
   // Uncomment ALL FOUR of the following dependencies together to use Firebase Auth and Google
   // Sign-In via Credential Manager:

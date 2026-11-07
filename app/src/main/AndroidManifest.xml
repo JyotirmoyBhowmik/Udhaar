@@ -10,6 +10,8 @@
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <!-- Camera for capturing transaction documents and UPI receipt proofs -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
     <!-- Reschedule recurring alarms after device reboot (inexact setAndAllowWhileIdle) -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />

@@ -54,7 +54,7 @@
 - [x] **Offline-First Continuity**: Behavior strictly identical to v1 when user is not signed in; sync is completely optional. [Proof: `app/src/main/java/com/jyotirmoyb/udhaar/data/UdhaarDatabase.kt`, Test: `app/src/test/java/com/jyotirmoyb/udhaar/ExampleUnitTest.kt`]
 - [x] **SyncWorker**: Robust Android `WorkManager` background sync wired to live network API client and TokenStore. [Proof: `app/src/main/java/com/jyotirmoyb/udhaar/sync/SyncWorker.kt`, Test: `app/src/test/java/com/jyotirmoyb/udhaar/sync/TwoDeviceSyncTest.kt`]
 - [x] **Polite Reminders Engine**: Respects quiet hours (9:00 PM to 8:00 AM) and polite escalation levels (Gentle &rarr; Friendly &rarr; Firm &rarr; Final). [Proof: `app/src/main/java/com/jyotirmoyb/udhaar/notification/ReminderScheduler.kt`, Test: `app/src/test/java/com/jyotirmoyb/udhaar/ExampleUnitTest.kt`]
-- [ ] **R8 Minification & Code Shrinking**: Release build compiled with ProGuard/R8 rules with localeFilters and non-required camera feature. *(Status: Pending Stage R8)*
+- [x] **R8 Minification & Code Shrinking**: Release build compiled with ProGuard/R8 rules, androidResources.localeFilters restricted to 5 languages, camera feature declared optional, and non-reflective Crashlytics/Analytics. [Proof: `app/build.gradle.kts`, Test: `app/src/test/java/com/jyotirmoyb/udhaar/ReleaseSmokeTest.kt`]
 
 ---
 
