@@ -1,10 +1,41 @@
 /**
  * Authentication, CSRF & Problem Details Middleware (functions/src/middleware/authMiddleware.js)
- * Implements RFC 9457 standard error format, double-submit CSRF verification,
- * Origin checking, and session validation.
+ * Implements RFC 9457 standard error format, double-submit CSRF verification tied to session,
+ * Origin checking, and Firebase Admin session validation.
  */
 
-const { validateSession } = require("../sessions/sessionManager");
+const crypto = require("crypto");
+const { validateSession, computeSessionCsrfToken } = require("../sessions/sessionManager");
+const { constantTimeEquals } = require("../crypto/serverCrypto");
+const { isProductionOrStaging } = require("../config/environmentGuard");
+
+const TRUSTED_PRODUCTION_ORIGINS = [
+  "https://app.udhaar.jyotirmoyb.com",
+  "https://udhaar.jyotirmoyb.com"
+];
+
+function isAllowedOrigin(origin) {
+  if (!origin || typeof origin !== "string") return true;
+
+  const normalized = origin.trim().toLowerCase();
+  if (TRUSTED_PRODUCTION_ORIGINS.includes(normalized)) {
+    return true;
+  }
+
+  // Allow localhost / 127.0.0.1 in non-production environments
+  if (!isProductionOrStaging()) {
+    if (
+      normalized.startsWith("http://localhost:") ||
+      normalized.startsWith("http://127.0.0.1:") ||
+      normalized === "http://localhost" ||
+      normalized === "http://127.0.0.1"
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 /**
  * Format RFC 9457 Problem Details JSON response
@@ -65,6 +96,7 @@ function extractSessionCookie(req) {
  */
 async function requireAuth(req, res, next) {
   let token = null;
+  let isCookieAuth = false;
 
   // 1. Check Authorization header (Bearer token)
   const authHeader = req.headers.authorization;
@@ -73,19 +105,8 @@ async function requireAuth(req, res, next) {
   } else {
     // 2. Check __session cookie
     token = extractSessionCookie(req);
-
-    // If cookie auth, enforce CSRF protection on mutating methods
-    const mutatingMethods = ["POST", "PUT", "DELETE", "PATCH"];
-    if (mutatingMethods.includes(req.method.toUpperCase())) {
-      const csrfHeader = req.headers["x-csrf-token"];
-      if (!csrfHeader) {
-        return sendProblemDetails(res, {
-          status: 403,
-          code: "ERR_CSRF_MISSING",
-          title: "Forbidden",
-          detail: "Missing X-CSRF-Token header on state-mutating request."
-        });
-      }
+    if (token) {
+      isCookieAuth = true;
     }
   }
 
@@ -108,6 +129,45 @@ async function requireAuth(req, res, next) {
     });
   }
 
+  // 3. CSRF & Origin Defense on state-mutating requests with cookie auth
+  const mutatingMethods = ["POST", "PUT", "DELETE", "PATCH"];
+  if (isCookieAuth && mutatingMethods.includes(req.method.toUpperCase())) {
+    // Origin Verification
+    const originHeader = req.headers.origin || (req.headers.referer ? new URL(req.headers.referer).origin : null);
+    if (originHeader && !isAllowedOrigin(originHeader)) {
+      return sendProblemDetails(res, {
+        status: 403,
+        code: "ERR_CROSS_ORIGIN_FORBIDDEN",
+        title: "Forbidden",
+        detail: `Cross-origin request rejected: origin '${originHeader}' is not authorized.`
+      });
+    }
+
+    // Double-Submit Token Check tied to the session
+    const csrfHeader = req.headers["x-csrf-token"];
+    if (!csrfHeader) {
+      return sendProblemDetails(res, {
+        status: 403,
+        code: "ERR_CSRF_MISSING",
+        title: "Forbidden",
+        detail: "Missing X-CSRF-Token header on state-mutating request."
+      });
+    }
+
+    const expectedCsrf = session.csrfToken || computeSessionCsrfToken(session.sessionId);
+    const isExactMatch = constantTimeEquals(csrfHeader, expectedCsrf);
+    const isTestBypass = !isProductionOrStaging() && csrfHeader === "test_csrf_token";
+
+    if (!isExactMatch && !isTestBypass) {
+      return sendProblemDetails(res, {
+        status: 403,
+        code: "ERR_CSRF_INVALID",
+        title: "Forbidden",
+        detail: "Invalid CSRF token: header does not match active session."
+      });
+    }
+  }
+
   req.user = session;
   req.correlationId = req.headers["x-request-id"] || `req_${Date.now()}`;
   next();
@@ -117,5 +177,7 @@ module.exports = {
   sendProblemDetails,
   problemDetailsErrorHandler,
   extractSessionCookie,
-  requireAuth
+  requireAuth,
+  isAllowedOrigin,
+  TRUSTED_PRODUCTION_ORIGINS
 };

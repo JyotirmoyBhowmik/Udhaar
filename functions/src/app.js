@@ -19,6 +19,7 @@ const { createTelemetryRouter } = require("./observability/telemetryEndpoints");
 const { createBackupRouter } = require("./backup/backupEndpoints");
 const { tracingMiddleware } = require("./observability/tracingMiddleware");
 const { problemDetailsErrorHandler } = require("./middleware/authMiddleware");
+const { appCheckGuard } = require("./security/appCheckMiddleware");
 
 function createApiApp() {
   const app = express();
@@ -28,6 +29,9 @@ function createApiApp() {
 
   // Basic security and parsing middleware
   app.use(express.json({ limit: "500kb" }));
+
+  // App Check Token Verification Guard (Play Integrity & reCAPTCHA Enterprise)
+  app.use(appCheckGuard);
 
   // CORS and pre-flight handling
   app.use((req, res, next) => {
@@ -48,6 +52,11 @@ function createApiApp() {
       return res.status(204).end();
     }
     next();
+  });
+
+  // Public Health Check Endpoint (bypasses App Check and Auth)
+  app.get(["/healthz", "/api/v1/healthz"], (req, res) => {
+    res.status(200).json({ status: "healthy", timestamp: Date.now() });
   });
 
   // Mount API v1 router

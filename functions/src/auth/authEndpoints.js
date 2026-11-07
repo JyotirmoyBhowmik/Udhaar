@@ -14,6 +14,7 @@ const {
 } = require("./authService");
 const { listUserDevices, revokeDeviceSession } = require("../sessions/sessionManager");
 const { sendProblemDetails, requireAuth } = require("../middleware/authMiddleware");
+const { requireStepUpAuth, generateStepUpToken } = require("../middleware/stepUpMiddleware");
 const { getWhatsAppProvider } = require("../providers");
 
 function createAuthRouter() {
@@ -26,12 +27,14 @@ function createAuthRouter() {
       const phoneNumber = req.body?.phoneNumber || req.body?.phone;
       const { locale, botCheckToken } = req.body || {};
       const clientIp = req.ip || req.headers["x-forwarded-for"] || "127.0.0.1";
+      const clientType = req.headers["x-client-platform"] === "android" ? "ANDROID" : "WEB";
 
       const result = await startSignup({
         phoneNumber,
         locale,
         botCheckToken,
-        clientIp
+        clientIp,
+        clientType
       });
 
       return res.status(200).json(result);
@@ -124,13 +127,16 @@ function createAuthRouter() {
   // 5. POST /auth/signin/start (Non-enumerable uniform response)
   router.post("/auth/signin/start", async (req, res, next) => {
     try {
-      const { phoneNumber, locale } = req.body || {};
+      const { phoneNumber, locale, botCheckToken } = req.body || {};
       const clientIp = req.ip || req.headers["x-forwarded-for"] || "127.0.0.1";
+      const clientType = req.headers["x-client-platform"] === "android" ? "ANDROID" : "WEB";
 
       const result = await startSignin({
         phoneNumber,
         locale,
-        clientIp
+        botCheckToken,
+        clientIp,
+        clientType
       });
 
       return res.status(200).json(result);
@@ -220,8 +226,8 @@ function createAuthRouter() {
     }
   });
 
-  // 9. DELETE /me/devices/:deviceId
-  router.delete("/me/devices/:deviceId", requireAuth, async (req, res, next) => {
+  // 9. DELETE /me/devices/:deviceId (Revoke device session with Step-Up verification)
+  router.delete("/me/devices/:deviceId", requireAuth, requireStepUpAuth, async (req, res, next) => {
     try {
       const { deviceId } = req.params;
       const { revokeDevice } = require("../push/pushService");
@@ -233,7 +239,66 @@ function createAuthRouter() {
     }
   });
 
-  // 10. POST /webhooks/whatsapp
+  // 10. POST /auth/step-up/start (Trigger fresh email code for high-assurance action)
+  router.post("/auth/step-up/start", requireAuth, async (req, res, next) => {
+    try {
+      const { getAuthRepository, getSessionRepository } = require("../repositories");
+      const { sendOtpChallenge } = require("../otp/otpService");
+      const authRepo = getAuthRepository();
+      const user = await authRepo.getUser(req.user.uid);
+      if (!user || !user.email) {
+        return sendProblemDetails(res, {
+          status: 400,
+          code: "ERR_NO_EMAIL_CONFIGURED",
+          title: "Bad Request",
+          detail: "A registered email address is required for step-up verification."
+        });
+      }
+
+      const flowId = `stepup_${require("crypto").randomUUID()}`;
+      const clientIp = req.ip || req.headers["x-forwarded-for"] || "127.0.0.1";
+      const challenge = await sendOtpChallenge({
+        flowId,
+        destination: user.email,
+        channel: "EMAIL",
+        purpose: "STEP_UP",
+        locale: user.locale || "en",
+        clientIp
+      });
+
+      return res.status(200).json({ flowId, destination: challenge.destinationMasked, expiresAtMs: challenge.expiresAtMs });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // 11. POST /auth/step-up/verify (Complete step-up verification)
+  router.post("/auth/step-up/verify", requireAuth, async (req, res, next) => {
+    try {
+      const { flowId, code } = req.body || {};
+      const { verifyFlowOtp } = require("./authService");
+      const { getSessionRepository } = require("../repositories");
+
+      await verifyFlowOtp({ flowId, code, purpose: "STEP_UP" });
+
+      const now = Date.now();
+      const sessionRepo = getSessionRepository();
+      if (req.user.sessionId) {
+        await sessionRepo.updateSession(req.user.sessionId, { lastStepUpAtMs: now }, req.user.uid);
+      }
+
+      const stepUpToken = generateStepUpToken(req.user.uid);
+      return res.status(200).json({
+        verified: true,
+        stepUpToken,
+        expiresAtMs: now + 600000
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // 12. POST /webhooks/whatsapp
   router.post("/webhooks/whatsapp", async (req, res) => {
     const provider = getWhatsAppProvider();
     if (provider.verifyWebhookSignature && !provider.verifyWebhookSignature(req.headers, req.body)) {

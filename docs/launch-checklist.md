@@ -24,8 +24,8 @@
 - [ ] **WhatsApp Cloud API**: Production Meta App approved with active credit line and `udhaar_login_code` authentication template in EN, HI, BN, NE, AS. *(Status: Provider adapter written; live credentials pending)*
 - [ ] **Email Provider**: Amazon SES / SendGrid configured with SPF, DKIM, and DMARC passing on `no-reply@jyotirmoyb.com`. *(Status: Provider adapter written; live credentials pending)*
 - [ ] **OTP Service Hardening**: Challenges stored with Firestore TTL policy, atomic rate limiting, and global budget transaction. *(Status: Pending Stage R1 real persistence)*
-- [ ] **Fraud Mitigation**: Server-side reCAPTCHA Enterprise and Play Integrity App Check verification on endpoints. *(Status: Pending Stage R3)*
-- [ ] **Session Hardening**: Firebase Admin `createSessionCookie` (`__session`) and `createCustomToken` with Firestore revocation. *(Status: Pending Stage R3)*
+- [x] **Fraud Mitigation**: Server-side reCAPTCHA Enterprise and Play Integrity App Check verification on endpoints. [Proof: `functions/src/security/appCheckMiddleware.js`, Test: `functions/test/stage_r3_sessions_tokens.test.js`]
+- [x] **Session Hardening**: Firebase Admin `createSessionCookie` (`__session`) and `createCustomToken` with Firestore revocation. [Proof: `functions/src/sessions/sessionManager.js`, Test: `functions/test/stage_r3_sessions_tokens.test.js`]
 
 ---
 

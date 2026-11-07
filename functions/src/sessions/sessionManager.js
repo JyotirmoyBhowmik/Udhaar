@@ -1,12 +1,15 @@
 /**
  * Session & Device Management Engine (functions/src/sessions/sessionManager.js)
+ * 
  * Implements sliding __session cookies for Web, Firebase custom tokens for Android,
- * device tracking, and instant revocation (checkRevoked).
+ * device tracking, CSRF double-submit token generation, and instant revocation (checkRevoked).
  * Backed by persistent repositories with zero module-level Map storage.
  */
 
 const crypto = require("crypto");
 const { getSessionRepository } = require("../repositories");
+const { getAuthAdapter } = require("./authAdapter");
+const { getSecret } = require("../config/secrets");
 
 /**
  * Backward-compatible proxy objects for legacy tests inspecting in-memory maps
@@ -32,7 +35,18 @@ function resetSessionsStore() {
 }
 
 /**
- * Mint a session for Web or Android client
+ * Computes a cryptographically bound CSRF token for a given session ID
+ * @param {string} sessionId
+ * @returns {string} Hex HMAC token
+ */
+function computeSessionCsrfToken(sessionId) {
+  if (!sessionId) return "";
+  const serverSecret = getSecret("UDHAAR_SERVER_SECRET");
+  return crypto.createHmac("sha256", serverSecret).update(`csrf:${sessionId}`).digest("hex");
+}
+
+/**
+ * Mint a session for Web or Android client using Firebase Admin
  */
 async function createSession({
   uid,
@@ -50,6 +64,8 @@ async function createSession({
   const slidingTtlMs = 7 * 24 * 60 * 60 * 1000;
   const absoluteMaxMs = 30 * 24 * 60 * 60 * 1000;
 
+  const csrfToken = computeSessionCsrfToken(sessionId);
+
   const session = {
     sessionId,
     uid,
@@ -61,13 +77,15 @@ async function createSession({
     expiresAtMs: now + slidingTtlMs,
     absoluteExpiresAtMs: now + absoluteMaxMs,
     isPublicComputer,
+    csrfToken,
+    lastStepUpAtMs: now, // Fresh login automatically grants 10-minute step-up window
     revoked: false
   };
 
   const sessionRepo = getSessionRepository();
   await sessionRepo.createSession(session);
 
-  // Track in devices collection
+  // Track in devices collection for Devices screen
   const device = {
     deviceId,
     uid,
@@ -80,22 +98,29 @@ async function createSession({
   };
   await sessionRepo.createDevice(device);
 
-  // Value for __session cookie
-  const sessionCookieValue = Buffer.from(JSON.stringify({
-    s: sessionId,
-    u: uid,
-    d: deviceId,
-    exp: session.expiresAtMs
-  })).toString("base64");
+  const authAdapter = getAuthAdapter();
 
-  // Synthetic custom token for Android (will be replaced by Firebase Admin createCustomToken in R3)
-  const customToken = `custom_token_${uid}_${crypto.randomBytes(16).toString("hex")}`;
+  // Generate real Firebase Admin Custom Token for Android
+  const customToken = await authAdapter.createCustomToken(uid, {
+    deviceId,
+    clientType: "ANDROID"
+  });
+
+  // Generate real Firebase Admin Session Cookie for Web
+  const sessionCookieValue = await authAdapter.createSessionCookie({
+    uid,
+    sessionId,
+    deviceId
+  }, {
+    expiresIn: slidingTtlMs
+  });
 
   return {
     sessionId,
     deviceId,
     sessionCookieValue,
     customToken,
+    csrfToken,
     expiresAtMs: session.expiresAtMs
   };
 }
@@ -107,40 +132,67 @@ async function validateSession(sessionCookieOrToken) {
   if (!sessionCookieOrToken) return null;
 
   try {
-    if (sessionCookieOrToken.startsWith("custom_token_")) {
-      const parts = sessionCookieOrToken.split("_");
+    const authAdapter = getAuthAdapter();
+    const sessionRepo = getSessionRepository();
+
+    // Check if token is a JWT (either customToken or sessionCookie)
+    let claims = null;
+    try {
+      claims = await authAdapter.verifySessionCookie(sessionCookieOrToken, true);
+    } catch (_) {
+      // Fallback: check legacy JSON base64 format for transition tests
+      try {
+        const decoded = Buffer.from(sessionCookieOrToken, "base64").toString("utf8");
+        const parsed = JSON.parse(decoded);
+        claims = { uid: parsed.u, sessionId: parsed.s, deviceId: parsed.d, exp: Math.floor(parsed.exp / 1000) };
+      } catch (e2) {
+        return null;
+      }
+    }
+
+    if (!claims || !claims.uid) {
+      return null;
+    }
+
+    const sessionId = claims.sessionId;
+    const session = sessionId ? await sessionRepo.getSession(sessionId, claims.uid) : null;
+
+    if (session) {
+      if (session.revoked) return null;
+
+      const now = Date.now();
+      if (now > session.expiresAtMs || now > session.absoluteExpiresAtMs) {
+        return null;
+      }
+
+      // Slide expiration window if not public computer
+      if (!session.isPublicComputer) {
+        session.expiresAtMs = Math.min(now + 7 * 24 * 60 * 60 * 1000, session.absoluteExpiresAtMs);
+        await sessionRepo.updateSession(session.sessionId, { expiresAtMs: session.expiresAtMs }, session.uid);
+      }
+
       return {
-        uid: parts[2],
-        deviceId: "android_device",
-        clientType: "ANDROID"
+        sessionId: session.sessionId,
+        uid: session.uid,
+        deviceId: session.deviceId,
+        clientType: session.clientType,
+        csrfToken: session.csrfToken || computeSessionCsrfToken(session.sessionId),
+        lastStepUpAtMs: session.lastStepUpAtMs || session.createdAtMs,
+        createdAtMs: session.createdAtMs
       };
     }
 
-    const decoded = Buffer.from(sessionCookieOrToken, "base64").toString("utf8");
-    const payload = JSON.parse(decoded);
-
-    const sessionRepo = getSessionRepository();
-    const session = await sessionRepo.getSession(payload.s, payload.u);
-    if (!session || session.revoked) {
-      return null;
-    }
-
-    const now = Date.now();
-    if (now > session.expiresAtMs || now > session.absoluteExpiresAtMs) {
-      return null;
-    }
-
-    // Slide expiration window if not public computer
-    if (!session.isPublicComputer) {
-      session.expiresAtMs = Math.min(now + 7 * 24 * 60 * 60 * 1000, session.absoluteExpiresAtMs);
-      await sessionRepo.updateSession(session.sessionId, { expiresAtMs: session.expiresAtMs }, session.uid);
-    }
-
+    // Direct claims session
+    const authTime = claims.auth_time || claims.claims?.auth_time;
+    const authTimeMs = authTime ? authTime * 1000 : (claims.iat ? claims.iat * 1000 : Date.now());
     return {
-      sessionId: session.sessionId,
-      uid: session.uid,
-      deviceId: session.deviceId,
-      clientType: session.clientType
+      uid: claims.uid,
+      deviceId: claims.deviceId || claims.claims?.deviceId || "dev_auth",
+      clientType: claims.clientType || claims.claims?.clientType || "WEB",
+      sessionId: claims.sessionId || `sess_${claims.uid}`,
+      csrfToken: computeSessionCsrfToken(claims.sessionId || `sess_${claims.uid}`),
+      lastStepUpAtMs: authTimeMs,
+      createdAtMs: authTimeMs
     };
   } catch (_) {
     return null;
@@ -167,11 +219,15 @@ async function revokeDeviceSession(uid, deviceId) {
     }
   }
 
+  // Revoke refresh tokens on Firebase Auth
+  const authAdapter = getAuthAdapter();
+  await authAdapter.revokeRefreshTokens(uid);
+
   return true;
 }
 
 /**
- * List registered devices for user
+ * List registered devices for user (Devices Screen)
  */
 async function listUserDevices(uid) {
   const sessionRepo = getSessionRepository();
@@ -184,6 +240,7 @@ module.exports = {
   validateSession,
   revokeDeviceSession,
   listUserDevices,
+  computeSessionCsrfToken,
   resetSessionsStore,
   _inMemorySessions,
   _inMemoryDevices

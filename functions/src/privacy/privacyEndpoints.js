@@ -9,6 +9,7 @@
 
 const express = require("express");
 const { requireAuth } = require("../middleware/authMiddleware");
+const { requireStepUpAuth } = require("../middleware/stepUpMiddleware");
 const {
   requestAccountDeletion,
   cancelAccountDeletion,
@@ -30,7 +31,7 @@ function createPrivacyRouter() {
   router.use(requireAuth);
 
   // 1. Request Account Deletion (Cryptographic Shredding)
-  router.delete(["/account", "/me/account"], async (req, res, next) => {
+  router.delete(["/account", "/me/account"], requireStepUpAuth, async (req, res, next) => {
     try {
       const { reason } = req.body || {};
       const clientIp = extractClientIp(req);

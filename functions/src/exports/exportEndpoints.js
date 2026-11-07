@@ -5,6 +5,7 @@
 
 const express = require("express");
 const { requireAuth } = require("../middleware/authMiddleware");
+const { requireStepUpAuth } = require("../middleware/stepUpMiddleware");
 const {
   generateLedgerCsv,
   generateStatementHtml,
@@ -14,6 +15,7 @@ const {
 function createExportRouter() {
   const router = express.Router();
   router.use(requireAuth);
+  router.use(requireStepUpAuth);
 
   // 1. Download CSV export of ledger
   router.get("/csv", async (req, res, next) => {

@@ -15,6 +15,7 @@ const { createSession } = require("../sessions/sessionManager");
 const { isFeatureEnabled } = require("../config/killSwitches");
 const { checkProviderCircuit, recordProviderSpend } = require("../config/circuitBreakers");
 const { getAuthRepository, resetTestRepositories } = require("../repositories");
+const { verifyWebBotAssessment } = require("../security/recaptchaEnterprise");
 
 /**
  * Backward-compatible proxy objects for legacy tests inspecting in-memory maps
@@ -127,7 +128,18 @@ function validateAndNormalizeEmail(email) {
 /**
  * 1. Start sign-up flow
  */
-async function startSignup({ phoneNumber, locale = "en", botCheckToken = "", clientIp = "127.0.0.1" }) {
+async function startSignup({ phoneNumber, locale = "en", botCheckToken = "", clientIp = "127.0.0.1", clientType = "WEB" }) {
+  if (botCheckToken || clientType === "WEB") {
+    if (botCheckToken || process.env.ENFORCE_RECAPTCHA === "true") {
+      await verifyWebBotAssessment({
+        token: botCheckToken,
+        expectedAction: "signup_start",
+        clientIp,
+        clientType
+      });
+    }
+  }
+
   if (!isFeatureEnabled("KILL_SWITCH_REGISTRATION")) {
     const err = new Error("New user registrations are temporarily suspended for system maintenance.");
     err.code = "ERR_REGISTRATION_SUSPENDED";
@@ -325,7 +337,18 @@ async function completeSignup({
 /**
  * 5. Sign-in: Constant-time, uniform non-enumerable response
  */
-async function startSignin({ phoneNumber, clientIp = "127.0.0.1", locale = "en" }) {
+async function startSignin({ phoneNumber, clientIp = "127.0.0.1", locale = "en", botCheckToken = "", clientType = "WEB" }) {
+  if (botCheckToken || clientType === "WEB") {
+    if (botCheckToken || process.env.ENFORCE_RECAPTCHA === "true") {
+      await verifyWebBotAssessment({
+        token: botCheckToken,
+        expectedAction: "signin_start",
+        clientIp,
+        clientType
+      });
+    }
+  }
+
   const { e164 } = validateAndNormalizePhone(phoneNumber);
   const flowId = crypto.randomUUID();
   const phoneHmac = computePhoneHash(e164);
