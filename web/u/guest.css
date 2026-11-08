@@ -66,7 +66,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root[data-theme="dark"] {
     --card-bg: #111827;
     --body-bg: #0b0f19;
     --surface-subtle: #1e293b;

@@ -9,8 +9,8 @@
   // Theme Toggle
   const themeBtn = document.getElementById('theme-btn');
   const rootEl = document.documentElement;
-  const savedTheme = localStorage.getItem('udhaar_theme') || 'system';
-  rootEl.setAttribute('data-theme', savedTheme);
+  const savedTheme = localStorage.getItem('udhaar_theme') || 'light';
+  rootEl.setAttribute('data-theme', savedTheme === 'dark' ? 'dark' : 'light');
 
   function updateThemeIcon() {
     if (!themeBtn) return;

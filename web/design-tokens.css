@@ -128,9 +128,9 @@
   --blue-50:  #eff6ff;
 
   /* --- Surface & Typography Roles (Light) --- */
-  --bg-page: var(--slate-50);
+  --bg-page: #ffffff;
   --bg-card: #ffffff;
-  --bg-subtle: var(--slate-100);
+  --bg-subtle: #f8fafc;
   --text-main: var(--slate-900);
   --text-muted: var(--slate-600);
   --text-subtle: var(--slate-500);
@@ -145,7 +145,7 @@
   --primary-light: var(--emerald-600);
   --primary-accent: var(--emerald-500);
   --primary-glow: var(--emerald-400);
-  --primary-surface: var(--emerald-50);
+  --primary-surface: #ecfdf5;
   --primary-hover: var(--emerald-700);
 
   /* --- Focus Ring (Accessibility) --- */
@@ -237,7 +237,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root[data-theme="dark"] {
     --bg-page: #071110;
     --bg-card: #0e1f1d;
     --bg-subtle: #142b28;

@@ -236,7 +236,7 @@ fun WebShareSheet(
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf(7, 30, 90).forEach { days ->
                                 FilterChip(
                                     selected = expiryDays == days,
@@ -252,7 +252,7 @@ fun WebShareSheet(
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(
                                 selected = trustLevel == "WHATSAPP_OTP",
                                 onClick = { trustLevel = "WHATSAPP_OTP" },

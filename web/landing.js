@@ -1636,10 +1636,9 @@
 
     // Theme toggle
     const themeBtn = document.getElementById("theme-btn");
-    const savedTheme = (typeof localStorage !== "undefined" && localStorage.getItem("udhaar_theme")) || "system";
-    if (savedTheme !== "system") {
-      document.documentElement.setAttribute("data-theme", savedTheme);
-    }
+    const savedTheme = (typeof localStorage !== "undefined" && localStorage.getItem("udhaar_theme")) || "light";
+    document.documentElement.setAttribute("data-theme", savedTheme === "dark" ? "dark" : "light");
+    if (themeBtn) themeBtn.textContent = savedTheme === "dark" ? "☀️" : "🌙";
     if (themeBtn) {
       themeBtn.addEventListener("click", () => {
         const cur = document.documentElement.getAttribute("data-theme") || "light";
