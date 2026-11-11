@@ -109,18 +109,20 @@ fun BackupSection(
                 onTestMyBackup = onTestMyBackup
             )
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
+            if (com.jyotirmoyb.udhaar.BuildConfig.CLOUD_FEATURES) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
 
-            // Phase 3: Two-Party Cloud Verification, Privacy Consent & Delete My Cloud Data
-            CloudVerificationCard(
-                currentSettings = currentSettings,
-                cloudVerificationConsent = cloudVerificationConsent,
-                onCloudVerificationConsentChange = onCloudVerificationConsentChange,
-                onSignInWithGoogleForVerification = onSignInWithGoogleForVerification,
-                onRetryCloudBackup = onRetryCloudBackup,
-                onOpenReceivedVerificationLink = onOpenReceivedVerificationLink,
-                onDeleteMyCloudData = onDeleteMyCloudData
-            )
+                // Phase 3: Two-Party Cloud Verification, Privacy Consent & Delete My Cloud Data
+                CloudVerificationCard(
+                    currentSettings = currentSettings,
+                    cloudVerificationConsent = cloudVerificationConsent,
+                    onCloudVerificationConsentChange = onCloudVerificationConsentChange,
+                    onSignInWithGoogleForVerification = onSignInWithGoogleForVerification,
+                    onRetryCloudBackup = onRetryCloudBackup,
+                    onOpenReceivedVerificationLink = onOpenReceivedVerificationLink,
+                    onDeleteMyCloudData = onDeleteMyCloudData
+                )
+            }
         }
     }
 }

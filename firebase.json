@@ -1,240 +1,21 @@
 {
   "firestore": {
-    "rules": "firestore.rules"
-  },
-  "storage": {
-    "rules": "storage.rules"
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   },
   "hosting": {
     "public": "web",
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**",
-      "README.md"
+      "**/node_modules/**"
     ],
-    "headers": [
-      {
-        "source": "/.well-known/assetlinks.json",
-        "headers": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          },
-          {
-            "key": "Access-Control-Allow-Origin",
-            "value": "*"
-          },
-          {
-            "key": "Cache-Control",
-            "value": "no-cache, no-store, must-revalidate"
-          }
-        ]
-      },
-      {
-        "source": "/fonts/**",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "public, max-age=31536000, immutable"
-          },
-          {
-            "key": "Access-Control-Allow-Origin",
-            "value": "*"
-          },
-          {
-            "key": "X-Content-Type-Options",
-            "value": "nosniff"
-          }
-        ]
-      },
-      {
-        "source": "**/*.@(woff2|woff|ttf|webp|svg|png|jpg|jpeg|gif|ico)",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "public, max-age=31536000, immutable"
-          },
-          {
-            "key": "X-Content-Type-Options",
-            "value": "nosniff"
-          }
-        ]
-      },
-      {
-        "source": "/u/**",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
-          },
-          {
-            "key": "X-Frame-Options",
-            "value": "DENY"
-          },
-          {
-            "key": "X-Content-Type-Options",
-            "value": "nosniff"
-          },
-          {
-            "key": "Referrer-Policy",
-            "value": "no-referrer"
-          },
-          {
-            "key": "Permissions-Policy",
-            "value": "geolocation=(), microphone=(), camera=()"
-          },
-          {
-            "key": "Strict-Transport-Security",
-            "value": "max-age=31536000; includeSubDomains"
-          },
-          {
-            "key": "Content-Security-Policy",
-            "value": "default-src 'self'; base-uri 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://*.cloudfunctions.net https://*.firebaseio.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://content-firebaseappcheck.googleapis.com; frame-ancestors 'none';"
-          }
-        ]
-      },
-      {
-        "source": "/ledger/**",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
-          },
-          {
-            "key": "X-Frame-Options",
-            "value": "DENY"
-          },
-          {
-            "key": "X-Content-Type-Options",
-            "value": "nosniff"
-          },
-          {
-            "key": "Referrer-Policy",
-            "value": "strict-origin-when-cross-origin"
-          },
-          {
-            "key": "Permissions-Policy",
-            "value": "geolocation=(), microphone=(), camera=()"
-          },
-          {
-            "key": "Strict-Transport-Security",
-            "value": "max-age=31536000; includeSubDomains"
-          },
-          {
-            "key": "Content-Security-Policy",
-            "value": "default-src 'self'; base-uri 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://*.cloudfunctions.net https://*.firebaseio.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://content-firebaseappcheck.googleapis.com; frame-ancestors 'none';"
-          }
-        ]
-      },
-      {
-        "source": "/api/**",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "no-store, no-cache, must-revalidate, proxy-revalidate"
-          },
-          {
-            "key": "X-Content-Type-Options",
-            "value": "nosniff"
-          }
-        ]
-      },
-      {
-        "source": "**/*.@(html|htm)",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "no-cache, no-store, must-revalidate"
-          },
-          {
-            "key": "X-Frame-Options",
-            "value": "DENY"
-          },
-          {
-            "key": "X-Content-Type-Options",
-            "value": "nosniff"
-          },
-          {
-            "key": "Referrer-Policy",
-            "value": "strict-origin-when-cross-origin"
-          },
-          {
-            "key": "Permissions-Policy",
-            "value": "geolocation=(), microphone=(), camera=()"
-          },
-          {
-            "key": "Strict-Transport-Security",
-            "value": "max-age=31536000; includeSubDomains"
-          },
-          {
-            "key": "Content-Security-Policy",
-            "value": "default-src 'self'; base-uri 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://*.cloudfunctions.net https://*.firebaseio.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://content-firebaseappcheck.googleapis.com; frame-ancestors 'none';"
-          }
-        ]
-      },
-      {
-        "source": "/",
-        "headers": [
-          {
-            "key": "Cache-Control",
-            "value": "no-cache, no-store, must-revalidate"
-          },
-          {
-            "key": "X-Frame-Options",
-            "value": "DENY"
-          },
-          {
-            "key": "X-Content-Type-Options",
-            "value": "nosniff"
-          },
-          {
-            "key": "Referrer-Policy",
-            "value": "strict-origin-when-cross-origin"
-          },
-          {
-            "key": "Permissions-Policy",
-            "value": "geolocation=(), microphone=(), camera=()"
-          },
-          {
-            "key": "Strict-Transport-Security",
-            "value": "max-age=31536000; includeSubDomains"
-          },
-          {
-            "key": "Content-Security-Policy",
-            "value": "default-src 'self'; base-uri 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://*.cloudfunctions.net https://*.firebaseio.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://content-firebaseappcheck.googleapis.com; frame-ancestors 'none';"
-          }
-        ]
-      }
-    ],
+    "cleanUrls": true,
+    "trailingSlash": false,
     "rewrites": [
       {
-        "source": "/assets/guide-03-expanded-card.webp",
-        "destination": "/assets/guide-03-card-expanded.webp"
-      },
-      {
-        "source": "/assets/guide-05-installments.webp",
-        "destination": "/assets/guide-05-installment-planner.webp"
-      },
-      {
-        "source": "/assets/guide-06-verification-attachments.webp",
-        "destination": "/assets/guide-06-attachments-audit.webp"
-      },
-      {
-        "source": "/assets/guide-09-party-khata.webp",
-        "destination": "/assets/guide-09-party-statement.webp"
-      },
-      {
-        "source": "/assets/guide-11-web-link-settings.webp",
-        "destination": "/assets/guide-11-private-weblink.webp"
-      },
-      {
-        "source": "/guide",
-        "destination": "/guide/index.html"
-      },
-      {
-        "source": "/guide/**",
-        "destination": "/guide/index.html"
+        "source": "/u/**/vendor/**",
+        "destination": "/u/vendor/firebase-sdk.js"
       },
       {
         "source": "/u/**/guest.css",
@@ -245,19 +26,11 @@
         "destination": "/u/guest.js"
       },
       {
-        "source": "/u/**/qrcode.min.js",
-        "destination": "/assets/qrcode.min.js"
-      },
-      {
-        "source": "/u/**/icon.svg",
-        "destination": "/assets/icon.svg"
-      },
-      {
-        "source": "/u/**/icon.webp",
-        "destination": "/assets/icon.webp"
-      },
-      {
         "source": "/u/r/**",
+        "destination": "/u/index.html"
+      },
+      {
+        "source": "/u/p/**",
         "destination": "/u/index.html"
       },
       {
@@ -265,100 +38,153 @@
         "destination": "/u/index.html"
       },
       {
-        "source": "/api/getGuestRecord",
-        "function": {
-          "functionId": "getGuestRecord",
-          "region": "asia-south1"
-        }
+        "source": "/v/**",
+        "destination": "/u/index.html"
       },
       {
-        "source": "/api/guestConfirm",
-        "function": {
-          "functionId": "guestConfirm",
-          "region": "asia-south1"
-        }
+        "source": "/trust/**",
+        "destination": "/trust/index.html"
       },
       {
-        "source": "/api/guestDispute",
-        "function": {
-          "functionId": "guestDispute",
-          "region": "asia-south1"
-        }
-      },
-      {
-        "source": "/api/guestPaymentClaim",
-        "function": {
-          "functionId": "guestPaymentClaim",
-          "region": "asia-south1"
-        }
-      },
-      {
-        "source": "/api/guestProposeDate",
-        "function": {
-          "functionId": "guestProposeDate",
-          "region": "asia-south1"
-        }
-      },
-      {
-        "source": "/api/guestSetUpi",
-        "function": {
-          "functionId": "guestSetUpi",
-          "region": "asia-south1"
-        }
-      },
-      {
-        "source": "/api/verifyGuestPhoneOtp",
-        "function": {
-          "functionId": "verifyGuestPhoneOtp",
-          "region": "asia-south1"
-        }
-      },
-      {
-        "source": "/api/renewGuestCode",
-        "function": {
-          "functionId": "renewGuestCode",
-          "region": "asia-south1"
-        }
-      },
-      {
-        "source": "/api/syncWebRecord",
-        "function": {
-          "functionId": "syncWebRecord",
-          "region": "asia-south1"
-        }
-      },
-      {
-        "source": "/api/getUserLedger",
-        "function": {
-          "functionId": "getUserLedger",
-          "region": "asia-south1"
-        }
-      },
-      {
-        "source": "/api/verifyEmailOtp",
-        "function": {
-          "functionId": "verifyEmailOtp",
-          "region": "asia-south1"
-        }
-      },
-      {
-        "source": "/api/sendEmailOtp",
-        "function": {
-          "functionId": "sendEmailOtp",
-          "region": "asia-south1"
-        }
+        "source": "/updates/**",
+        "destination": "/updates/index.html"
       },
       {
         "source": "/ledger/**",
         "destination": "/ledger/index.html"
       },
       {
-        "source": "/ledger",
-        "destination": "/ledger/index.html"
+        "source": "/admin/**",
+        "destination": "/admin/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "/.well-known/assetlinks.json",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=3600"
+          },
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "*"
+          }
+        ]
+      },
+      {
+        "source": "/fonts/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
+      },
+      {
+        "source": "/assets/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
+      },
+      {
+        "source": "/**/*.@(css|js)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800"
+          }
+        ]
+      },
+      {
+        "source": "/u/**",
+        "headers": [
+          {
+            "key": "Referrer-Policy",
+            "value": "no-referrer"
+          },
+          {
+            "key": "X-Robots-Tag",
+            "value": "noindex, nofollow, noarchive"
+          },
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          },
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "DENY"
+          },
+          {
+            "key": "Strict-Transport-Security",
+            "value": "max-age=63072000; includeSubDomains; preload"
+          },
+          {
+            "key": "Permissions-Policy",
+            "value": "camera=(), microphone=(), geolocation=(), payment=()"
+          },
+          {
+            "key": "Content-Security-Policy",
+            "value": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://*.firebaseio.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://content-firebaseappcheck.googleapis.com https://www.google.com https://www.gstatic.com; frame-src https://*.firebaseapp.com https://www.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+          }
+        ]
+      },
+      {
+        "source": "/v/**",
+        "headers": [
+          {
+            "key": "Referrer-Policy",
+            "value": "no-referrer"
+          },
+          {
+            "key": "X-Robots-Tag",
+            "value": "noindex, nofollow, noarchive"
+          },
+          {
+            "key": "Cache-Control",
+            "value": "no-store, max-age=0"
+          }
+        ]
       },
       {
         "source": "**",
-        "destination": "/index.html"
+        "headers": [
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "DENY"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          },
+          {
+            "key": "Strict-Transport-Security",
+            "value": "max-age=63072000; includeSubDomains; preload"
+          },
+          {
+            "key": "Permissions-Policy",
+            "value": "camera=(), microphone=(), geolocation=()"
+          },
+          {
+            "key": "Content-Security-Policy",
+            "value": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://*.firebaseio.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firebaseinstallations.googleapis.com https://content-firebaseappcheck.googleapis.com https://www.google.com https://www.gstatic.com; frame-src https://*.firebaseapp.com https://www.google.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+          }
+        ]
       }
     ]
   }

@@ -3,1072 +3,126 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Global Default-Deny Safety Net
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // =========================================================================
-    // Assumed Data Model
-    // =========================================================================
-    // 1. /user_profiles/{userId} — Owner profile with UID isolation & PII bounds
-    // 2. /shared_records/{remoteId} — Two-party verifiable loan records & subcollections
-    // 3. /chat_threads/{threadId} — Phase 4 in-app communication thread
-    // 4. /webLinks/{recordId} — Secret hashes & rate limits (Cloud Functions Admin SDK only)
-    // 5. /phoneIndex, /emailIndex, /otpChallenges, /rateLimits, /auditLogs — Deny client
-    // 6. /users/{userId}/records/{recordId} — Spark Mode (SP2) verified owner ledger
-    // 7. /users/{userId}/people/{personId} — Spark Mode (SP2) contact directory
-    // 8. /users/{userId}/events/{eventId} — Spark Mode (SP2) append-only timeline
-    // 9. /users/{userId}/plans/{planId} — Spark Mode (SP2) installment schedules
-    // 10. /users/{userId}/attachments/{attachmentId} — Spark Mode (SP2) text metadata
-    // 11. /users/{userId}/syncSignal/{docId} — Spark Mode (SP2) sync notification
-    // 12. /guestLinks/{linkId} & subcollection /actions/{actionId} — Spark Mode (SP3)
-    // =========================================================================
-
-    // =========================================================================
-    // Global Hardened Primitives
-    // =========================================================================
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function incoming() {
-      return request.resource.data;
+    function isVerifiedOwner(uid) {
+      return isSignedIn()
+        && request.auth.uid == uid
+        && request.auth.token.email_verified == true;
     }
 
-    function existing() {
-      return resource.data;
+    function withinSize(maxBytes) {
+      return request.resource.data.size() < 60
+        && request.resource.data.keys().size() < 60;
     }
 
-    function isValidId(id) {
-      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    function validRecord() {
+      let d = request.resource.data;
+      return d.ownerUid == request.auth.uid
+        && (!('amountPaise' in d) || (d.amountPaise is int && d.amountPaise >= 0 && d.amountPaise <= 100000000000))
+        && (!('principalAmountPaise' in d) || (d.principalAmountPaise is int && d.principalAmountPaise >= 0 && d.principalAmountPaise <= 100000000000))
+        && (!('currency' in d) || d.currency in ['INR', 'NPR'])
+        && (!('direction' in d) || d.direction in ['GIVEN', 'TAKEN'])
+        && (!('transactionType' in d) || d.transactionType in ['GIVEN', 'TAKEN'])
+        && d.updatedAtMs is int
+        && (!('note' in d) || (d.note is string && d.note.size() <= 1000))
+        && (!('notes' in d) || (d.notes is string && d.notes.size() <= 1000))
+        && withinSize(16384);
     }
 
-    function isValidParticipantsList(listVal) {
-      return listVal is list &&
-             listVal.size() >= 1 &&
-             listVal.size() <= 2 &&
-             listVal[0] is string &&
-             listVal[0].size() >= 1 &&
-             listVal[0].size() <= 128 &&
-             (listVal.size() == 1 || (listVal[1] is string && listVal[1].size() >= 1 && listVal[1].size() <= 128));
+    function validGuestLinkDoc(d) {
+      return (!('status' in d) || d.status in ['ACTIVE', 'active'])
+        && (!('revoked' in d) || d.revoked != true)
+        && (!('expiresAtMs' in d) || d.expiresAtMs > request.time.toMillis());
     }
 
-    function isValidOptionalUidList(listVal) {
-      return listVal is list &&
-             listVal.size() >= 0 &&
-             listVal.size() <= 2 &&
-             (listVal.size() == 0 || (listVal[0] is string && listVal[0].size() >= 1 && listVal[0].size() <= 128)) &&
-             (listVal.size() <= 1 || (listVal[1] is string && listVal[1].size() >= 1 && listVal[1].size() <= 128));
-    }
+    match /users/{uid} {
+      allow read, write: if isVerifiedOwner(uid) && withinSize(4096);
 
-    function isVerifiedOwner(userId) {
-      return isSignedIn() &&
-             request.auth.uid == userId &&
-             request.auth.token.email_verified == true;
-    }
-
-    function isValidSha256(str) {
-      return str is string && str.size() == 64 && str.matches('^[a-fA-F0-9]{64}$');
-    }
-
-    // =========================================================================
-    // 1. /user_profiles/{userId} — Owner-Isolated Payment & Verification Profile
-    // =========================================================================
-    function isValidUserProfile(data) {
-      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
-             data.displayName is string && data.displayName.size() <= 100 &&
-             data.phoneNumber is string && data.phoneNumber.size() <= 32 &&
-             data.upiId is string && data.upiId.size() <= 100 &&
-             data.photoUri is string && data.photoUri.size() <= 512 &&
-             (!('fcmToken' in data) || (data.fcmToken is string && data.fcmToken.size() <= 512)) &&
-             data.createdAt is timestamp && data.createdAt <= request.time &&
-             data.updatedAt is timestamp && data.updatedAt <= request.time;
-    }
-
-    match /user_profiles/{userId} {
-      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
-      allow list: if isSignedIn() && existing().userId == request.auth.uid;
-
-      allow create: if isSignedIn() &&
-                       isValidId(userId) &&
-                       request.auth.uid == userId &&
-                       incoming().userId == request.auth.uid &&
-                       incoming().keys().hasAll([
-                         'userId', 'displayName', 'phoneNumber', 'upiId', 'photoUri', 'createdAt', 'updatedAt'
-                       ]) &&
-                       incoming().keys().hasOnly([
-                         'userId', 'displayName', 'phoneNumber', 'upiId', 'photoUri', 'fcmToken', 'createdAt', 'updatedAt'
-                       ]) &&
-                       isValidUserProfile(incoming());
-
-      allow update: if isSignedIn() &&
-                       isValidId(userId) &&
-                       isValidUserProfile(incoming()) &&
-                       request.auth.uid == userId &&
-                       incoming().userId == existing().userId &&
-                       incoming().createdAt == existing().createdAt &&
-                       incoming().diff(existing()).affectedKeys().hasOnly([
-                         'displayName', 'phoneNumber', 'upiId', 'photoUri', 'fcmToken', 'updatedAt'
-                       ]);
-
-      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
-    }
-
-    // =========================================================================
-    // 2. /shared_records/{remoteId} — Two-Party Verifiable Udhaar Record
-    //    Readable ONLY by the two participants on the record.
-    // =========================================================================
-    function isValidSharedRecord(data) {
-      return data.remoteId is string && data.remoteId.size() >= 1 && data.remoteId.size() <= 128 &&
-             data.creatorUid is string && data.creatorUid.size() >= 1 && data.creatorUid.size() <= 128 &&
-             data.counterpartyUid is string && data.counterpartyUid.size() <= 128 &&
-             isValidParticipantsList(data.participantUids) &&
-             data.creatorUid in data.participantUids &&
-             data.lenderName is string && data.lenderName.size() >= 1 && data.lenderName.size() <= 100 &&
-             data.borrowerName is string && data.borrowerName.size() >= 1 && data.borrowerName.size() <= 100 &&
-             data.creatorRole is string && data.creatorRole in ['GIVEN', 'TAKEN'] &&
-             data.currency is string && data.currency in ['INR', 'NPR'] &&
-             (data.principalAmount is int || data.principalAmount is float) && data.principalAmount > 0 &&
-             (data.amountPaid is int || data.amountPaid is float) && data.amountPaid >= 0 &&
-             data.paymentMode is string && data.paymentMode in ['CASH', 'ONLINE', 'UPI', 'PARTY_ACCOUNT'] &&
-             data.isInterestEnabled is bool &&
-             data.interestType is string && data.interestType in ['SIMPLE', 'COMPOUND'] &&
-             (data.interestRate is int || data.interestRate is float) && data.interestRate >= 0 &&
-             data.interestRatePeriod is string && data.interestRatePeriod in ['PER_MONTH', 'PER_ANNUM'] &&
-             data.compoundFrequency is string && data.compoundFrequency in ['MONTHLY', 'QUARTERLY', 'YEARLY'] &&
-             data.startDateMillis is int && data.startDateMillis > 0 &&
-             data.expiryDateMillis is int && data.expiryDateMillis >= -1 &&
-             data.contentHash is string && data.contentHash.size() == 64 &&
-             data.verificationStatus is string &&
-             data.verificationStatus in ['PENDING', 'CONFIRMED', 'DISPUTED', 'EDITED_AFTER_CONFIRM'] &&
-             data.verifiedAtMillis is int && data.verifiedAtMillis >= -1 &&
-             data.disputeReason is string && data.disputeReason.size() <= 300 &&
-             data.encryptedNotes is string && data.encryptedNotes.size() <= 2048 &&
-             data.attachmentRefs is list && data.attachmentRefs.size() <= 5 &&
-             (data.attachmentRefs.size() == 0 || (data.attachmentRefs[0] is string && data.attachmentRefs[0].size() <= 512)) &&
-             data.isSettled is bool &&
-             (!('trustLevel' in data) || (data.trustLevel is string && data.trustLevel in ['LINK_ONLY', 'PHONE_VERIFIED', 'APP_VERIFIED'])) &&
-             (!('verifiedPhoneMasked' in data) || (data.verifiedPhoneMasked is string && data.verifiedPhoneMasked.size() <= 32)) &&
-             (!('webLinkStatus' in data) || (data.webLinkStatus is string && data.webLinkStatus.size() <= 32)) &&
-             (!('guestUpiId' in data) || (data.guestUpiId is string && data.guestUpiId.size() <= 100)) &&
-             (!('lastGuestAction' in data) || (data.lastGuestAction is string && data.lastGuestAction.size() <= 64)) &&
-             (!('pendingPaymentClaim' in data) || data.pendingPaymentClaim is bool) &&
-             (!('pendingDateProposal' in data) || data.pendingDateProposal is bool) &&
-             data.createdAt is timestamp && data.createdAt <= request.time &&
-             data.updatedAt is timestamp && data.updatedAt <= request.time;
-    }
-
-    match /shared_records/{remoteId} {
-      allow get: if isSignedIn() && isValidId(remoteId) && request.auth.uid in existing().participantUids;
-      allow list: if isSignedIn() && request.auth.uid in existing().participantUids;
-
-      allow create: if isSignedIn() &&
-                       isValidId(remoteId) &&
-                       incoming().remoteId == remoteId &&
-                       incoming().creatorUid == request.auth.uid &&
-                       request.auth.uid in incoming().participantUids &&
-                       incoming().keys().hasAll([
-                         'remoteId', 'creatorUid', 'counterpartyUid', 'participantUids',
-                         'lenderName', 'borrowerName', 'creatorRole', 'currency',
-                         'principalAmount', 'amountPaid', 'paymentMode',
-                         'isInterestEnabled', 'interestType', 'interestRate',
-                         'interestRatePeriod', 'compoundFrequency',
-                         'startDateMillis', 'expiryDateMillis', 'contentHash',
-                         'verificationStatus', 'verifiedAtMillis', 'disputeReason',
-                         'encryptedNotes', 'attachmentRefs', 'isSettled',
-                         'createdAt', 'updatedAt'
-                       ]) &&
-                       incoming().keys().hasOnly([
-                         'remoteId', 'creatorUid', 'counterpartyUid', 'participantUids',
-                         'lenderName', 'borrowerName', 'creatorRole', 'currency',
-                         'principalAmount', 'amountPaid', 'paymentMode',
-                         'isInterestEnabled', 'interestType', 'interestRate',
-                         'interestRatePeriod', 'compoundFrequency',
-                         'startDateMillis', 'expiryDateMillis', 'contentHash',
-                         'verificationStatus', 'verifiedAtMillis', 'disputeReason',
-                         'encryptedNotes', 'attachmentRefs', 'isSettled',
-                         'createdAt', 'updatedAt',
-                         'trustLevel', 'verifiedPhoneMasked', 'webLinkStatus',
-                         'guestUpiId', 'lastGuestAction',
-                         'pendingPaymentClaim', 'pendingDateProposal'
-                       ]) &&
-                       isValidSharedRecord(incoming());
-
-      allow update: if isSignedIn() &&
-                       isValidId(remoteId) &&
-                       isValidSharedRecord(incoming()) &&
-                       incoming().remoteId == existing().remoteId &&
-                       incoming().creatorUid == existing().creatorUid &&
-                       incoming().createdAt == existing().createdAt &&
-                       // Creator must NOT be able to confirm their own record
-                       (
-                         incoming().verificationStatus != 'CONFIRMED' ||
-                         (
-                           request.auth.uid != existing().creatorUid &&
-                           (request.auth.uid == existing().counterpartyUid || (existing().counterpartyUid == '' && incoming().counterpartyUid == request.auth.uid))
-                         )
-                       ) &&
-                       // If terms are modified, enforce EDITED_AFTER_CONFIRM status
-                       (
-                         !incoming().diff(existing()).affectedKeys().hasAny([
-                           'principalAmount', 'currency', 'isInterestEnabled', 'interestRate',
-                           'interestType', 'interestRatePeriod', 'compoundFrequency',
-                           'startDateMillis', 'expiryDateMillis'
-                         ]) ||
-                         incoming().verificationStatus == 'EDITED_AFTER_CONFIRM'
-                       ) &&
-                       (
-                         // Action 1: Counterparty claims an unclaimed record via verification link & confirms/disputes
-                         (
-                           existing().counterpartyUid == '' &&
-                           existing().participantUids.size() == 1 &&
-                           request.auth.uid != existing().creatorUid &&
-                           incoming().counterpartyUid == request.auth.uid &&
-                           incoming().participantUids.size() == 2 &&
-                           request.auth.uid in incoming().participantUids &&
-                           incoming().diff(existing()).affectedKeys().hasOnly([
-                             'counterpartyUid', 'participantUids', 'verificationStatus',
-                             'verifiedAtMillis', 'disputeReason', 'updatedAt',
-                             'trustLevel', 'verifiedPhoneMasked', 'webLinkStatus',
-                             'guestUpiId', 'lastGuestAction',
-                             'pendingPaymentClaim', 'pendingDateProposal'
-                           ])
-                         ) ||
-                         // Action 2: Existing participant updates verification status, terms, extension due date, or settlement
-                         (
-                           request.auth.uid in existing().participantUids &&
-                           incoming().counterpartyUid == existing().counterpartyUid &&
-                           incoming().participantUids == existing().participantUids &&
-                           incoming().diff(existing()).affectedKeys().hasOnly([
-                             'lenderName', 'borrowerName', 'currency',
-                             'principalAmount', 'amountPaid', 'paymentMode',
-                             'isInterestEnabled', 'interestType', 'interestRate',
-                             'interestRatePeriod', 'compoundFrequency',
-                             'startDateMillis', 'expiryDateMillis', 'contentHash',
-                             'verificationStatus', 'verifiedAtMillis', 'disputeReason',
-                             'encryptedNotes', 'attachmentRefs', 'isSettled', 'updatedAt',
-                             'trustLevel', 'verifiedPhoneMasked', 'webLinkStatus',
-                             'guestUpiId', 'lastGuestAction',
-                             'pendingPaymentClaim', 'pendingDateProposal'
-                           ])
-                         )
-                       );
-
-      allow delete: if isSignedIn() && isValidId(remoteId) && existing().creatorUid == request.auth.uid;
-
-      // =======================================================================
-      // 3. /shared_records/{remoteId}/partial_payments/{paymentId}
-      // =======================================================================
-      function isValidPartialPayment(data) {
-        return data.paymentId is string && data.paymentId.size() >= 1 && data.paymentId.size() <= 128 &&
-               data.remoteId is string && data.remoteId == remoteId &&
-               data.recordedByUid is string && data.recordedByUid.size() >= 1 && data.recordedByUid.size() <= 128 &&
-               data.recordedByName is string && data.recordedByName.size() >= 1 && data.recordedByName.size() <= 100 &&
-               isValidParticipantsList(data.participantUids) &&
-               data.recordedByUid in data.participantUids &&
-               (data.amount is int || data.amount is float) && data.amount > 0 &&
-               data.paymentMode is string && data.paymentMode in ['CASH', 'ONLINE', 'UPI', 'PARTY_ACCOUNT'] &&
-               data.paidAtMillis is int && data.paidAtMillis > 0 &&
-               data.encryptedNote is string && data.encryptedNote.size() <= 1024 &&
-               data.isAcknowledged is bool &&
-               data.acknowledgedByUid is string && data.acknowledgedByUid.size() <= 128 &&
-               data.acknowledgedAtMillis is int && data.acknowledgedAtMillis >= -1 &&
-               data.createdAt is timestamp && data.createdAt <= request.time &&
-               data.updatedAt is timestamp && data.updatedAt <= request.time;
-      }
-
-      match /partial_payments/{paymentId} {
-        allow get: if isSignedIn() && isValidId(remoteId) && isValidId(paymentId) && request.auth.uid in existing().participantUids;
-        allow list: if isSignedIn() && request.auth.uid in existing().participantUids;
-
-        allow create: if isSignedIn() &&
-                         isValidId(remoteId) &&
-                         isValidId(paymentId) &&
-                         incoming().paymentId == paymentId &&
-                         incoming().recordedByUid == request.auth.uid &&
-                         request.auth.uid in incoming().participantUids &&
-                         incoming().keys().hasAll([
-                           'paymentId', 'remoteId', 'recordedByUid', 'recordedByName',
-                           'participantUids', 'amount', 'paymentMode', 'paidAtMillis',
-                           'encryptedNote', 'isAcknowledged', 'acknowledgedByUid',
-                           'acknowledgedAtMillis', 'createdAt', 'updatedAt'
-                         ]) &&
-                         incoming().keys().hasOnly([
-                           'paymentId', 'remoteId', 'recordedByUid', 'recordedByName',
-                           'participantUids', 'amount', 'paymentMode', 'paidAtMillis',
-                           'encryptedNote', 'isAcknowledged', 'acknowledgedByUid',
-                           'acknowledgedAtMillis', 'createdAt', 'updatedAt'
-                         ]) &&
-                         isValidPartialPayment(incoming());
-
-        allow update: if isSignedIn() &&
-                         isValidId(remoteId) &&
-                         isValidId(paymentId) &&
-                         isValidPartialPayment(incoming()) &&
-                         request.auth.uid in existing().participantUids &&
-                         incoming().paymentId == existing().paymentId &&
-                         incoming().remoteId == existing().remoteId &&
-                         incoming().recordedByUid == existing().recordedByUid &&
-                         incoming().amount == existing().amount &&
-                         incoming().createdAt == existing().createdAt &&
-                         incoming().diff(existing()).affectedKeys().hasOnly([
-                           'isAcknowledged', 'acknowledgedByUid', 'acknowledgedAtMillis', 'participantUids', 'updatedAt'
-                         ]);
-
-        allow delete: if isSignedIn() && isValidId(remoteId) && isValidId(paymentId) && existing().recordedByUid == request.auth.uid;
-      }
-
-      // =======================================================================
-      // 4. /shared_records/{remoteId}/audit_trail/{eventId}
-      //    Immutable append-only timeline per record
-      // =======================================================================
-      function isValidAuditEvent(data) {
-        return data.eventId is string && data.eventId.size() >= 1 && data.eventId.size() <= 128 &&
-               data.remoteId is string && data.remoteId == remoteId &&
-               data.eventType is string && data.eventType in [
-                 'CREATED', 'SHARED', 'VIEWED', 'CONFIRMED', 'DISPUTED',
-                 'EDITED', 'PAYMENT_RECORDED', 'PAYMENT_ACKNOWLEDGED',
-                 'EXTENSION_REQUESTED', 'EXTENSION_ACCEPTED', 'EXTENSION_DECLINED',
-                 'SETTLED'
-               ] &&
-               data.actorUid is string && data.actorUid.size() >= 1 && data.actorUid.size() <= 128 &&
-               data.actorName is string && data.actorName.size() >= 1 && data.actorName.size() <= 100 &&
-               isValidParticipantsList(data.participantUids) &&
-               data.actorUid in data.participantUids &&
-               data.summaryText is string && data.summaryText.size() >= 1 && data.summaryText.size() <= 500 &&
-               data.contentHashSnapshot is string && data.contentHashSnapshot.size() == 64 &&
-               data.acknowledged is bool &&
-               data.eventTimeMillis is int && data.eventTimeMillis > 0 &&
-               data.createdAt is timestamp && data.createdAt <= request.time;
-      }
-
-      match /audit_trail/{eventId} {
-        allow get: if isSignedIn() && isValidId(remoteId) && isValidId(eventId) && request.auth.uid in existing().participantUids;
-        allow list: if isSignedIn() && request.auth.uid in existing().participantUids;
-
-        allow create: if isSignedIn() &&
-                         isValidId(remoteId) &&
-                         isValidId(eventId) &&
-                         incoming().eventId == eventId &&
-                         incoming().actorUid == request.auth.uid &&
-                         request.auth.uid in incoming().participantUids &&
-                         incoming().keys().hasAll([
-                           'eventId', 'remoteId', 'eventType', 'actorUid', 'actorName',
-                           'participantUids', 'summaryText', 'contentHashSnapshot',
-                           'acknowledged', 'eventTimeMillis', 'createdAt'
-                         ]) &&
-                         incoming().keys().hasOnly([
-                           'eventId', 'remoteId', 'eventType', 'actorUid', 'actorName',
-                           'participantUids', 'summaryText', 'contentHashSnapshot',
-                           'acknowledged', 'eventTimeMillis', 'createdAt'
-                         ]) &&
-                         isValidAuditEvent(incoming());
-
-        // Strictly immutable timeline: no updates ever allowed
-        allow update: if false;
-
-        // Allow creator of event to delete only when exercising "Delete my cloud data"
-        allow delete: if isSignedIn() && isValidId(remoteId) && isValidId(eventId) && existing().actorUid == request.auth.uid;
-      }
-
-      // =======================================================================
-      // Cloud Functions Admin SDK Audit Log
-      // =======================================================================
-      match /audit/{eventId} {
-        allow get, list: if isSignedIn() && isValidId(remoteId) && isValidId(eventId) && request.auth.uid in existing().participantUids;
-        allow write: if false;
-      }
-
-      // =======================================================================
-      // Guest Web Flow: Payment Claims (Written via Admin SDK / Webhook)
-      // =======================================================================
-      match /payment_claims/{claimId} {
-        allow get, list: if isSignedIn() && isValidId(remoteId) && isValidId(claimId) && request.auth.uid in existing().participantUids;
-        allow write: if false;
-      }
-
-      // =======================================================================
-      // Guest Web Flow: Date Proposals (Written via Admin SDK / Webhook)
-      // =======================================================================
-      match /date_proposals/{proposalId} {
-        allow get, list: if isSignedIn() && isValidId(remoteId) && isValidId(proposalId) && request.auth.uid in existing().participantUids;
-        allow write: if false;
-      }
-
-      // =======================================================================
-      // In-App Notification Inbox for Shared Record
-      // =======================================================================
-      match /inbox/{inboxId} {
-        allow get, list: if isSignedIn() && isValidId(remoteId) && isValidId(inboxId) && request.auth.uid in existing().participantUids;
-        allow update: if isSignedIn() && isValidId(remoteId) && isValidId(inboxId) && request.auth.uid in existing().participantUids && incoming().diff(existing()).affectedKeys().hasOnly(['isRead', 'readAtMillis', 'updatedAt']);
-        allow delete: if isSignedIn() && isValidId(remoteId) && isValidId(inboxId) && request.auth.uid in existing().participantUids;
-        allow create: if false;
-      }
-
-      // =======================================================================
-      // 5. /shared_records/{remoteId}/installment_plans/{planId}
-      //    Installment plan schedule, negotiation, and installment subcollections
-      // =======================================================================
-      match /installment_plans/{planId} {
-        function isValidInstallmentPlan(data) {
-          return data.planId is string && data.planId.size() >= 1 && data.planId.size() <= 128 && data.planId == planId &&
-                 data.remoteId is string && data.remoteId == remoteId &&
-                 data.creatorUid is string && data.creatorUid.size() >= 1 && data.creatorUid.size() <= 128 &&
-                 data.creatorUid in data.participantUids &&
-                 isValidParticipantsList(data.participantUids) &&
-                 data.installmentCount is int && data.installmentCount >= 1 && data.installmentCount <= 60 &&
-                 data.frequency is string && data.frequency in ['WEEKLY', 'BI_WEEKLY', 'MONTHLY', 'CUSTOM'] &&
-                 data.startDate is int && data.startDate > 0 &&
-                 data.interestMode is string && data.interestMode in ['NONE', 'FLAT'] &&
-                 (data.flatInterestRate is int || data.flatInterestRate is float) && data.flatInterestRate >= 0 &&
-                 data.totalAmountDue is int && data.totalAmountDue > 0 &&
-                 data.status is string && data.status in ['ACTIVE', 'COMPLETED', 'CANCELLED'] &&
-                 data.proposedScheduleJson is string && data.proposedScheduleJson.size() <= 5000 &&
-                 data.scheduleProposalStatus is string && data.scheduleProposalStatus in ['NONE', 'PENDING', 'ACCEPTED', 'DECLINED'] &&
-                 data.createdAt is timestamp && data.createdAt <= request.time &&
-                 data.updatedAt is timestamp && data.updatedAt <= request.time;
-        }
-
-        allow get: if isSignedIn() && isValidId(remoteId) && isValidId(planId) && request.auth.uid in existing().participantUids;
-        allow list: if isSignedIn() && request.auth.uid in existing().participantUids;
-
-        allow create: if isSignedIn() &&
-                         isValidId(remoteId) &&
-                         isValidId(planId) &&
-                         incoming().planId == planId &&
-                         incoming().creatorUid == request.auth.uid &&
-                         request.auth.uid in incoming().participantUids &&
-                         incoming().remoteId == remoteId &&
-                         incoming().keys().hasAll([
-                           'planId', 'remoteId', 'creatorUid', 'participantUids',
-                           'installmentCount', 'frequency', 'startDate', 'interestMode',
-                           'flatInterestRate', 'totalAmountDue', 'status',
-                           'proposedScheduleJson', 'scheduleProposalStatus',
-                           'createdAt', 'updatedAt'
-                         ]) &&
-                         incoming().keys().hasOnly([
-                           'planId', 'remoteId', 'creatorUid', 'participantUids',
-                           'installmentCount', 'frequency', 'startDate', 'interestMode',
-                           'flatInterestRate', 'totalAmountDue', 'status',
-                           'proposedScheduleJson', 'scheduleProposalStatus',
-                           'createdAt', 'updatedAt'
-                         ]) &&
-                         isValidInstallmentPlan(incoming());
-
-        allow update: if isSignedIn() &&
-                         isValidId(remoteId) &&
-                         isValidId(planId) &&
-                         isValidInstallmentPlan(incoming()) &&
-                         request.auth.uid in existing().participantUids &&
-                         incoming().planId == existing().planId &&
-                         incoming().remoteId == existing().remoteId &&
-                         incoming().creatorUid == existing().creatorUid &&
-                         incoming().createdAt == existing().createdAt &&
-                         (
-                           // Creator or participant proposes a new schedule or updates status
-                           incoming().diff(existing()).affectedKeys().hasOnly([
-                             'proposedScheduleJson', 'scheduleProposalStatus', 'updatedAt'
-                           ]) ||
-                           // Full plan revision (when schedule is accepted or creator edits)
-                           incoming().diff(existing()).affectedKeys().hasOnly([
-                             'installmentCount', 'frequency', 'startDate', 'interestMode',
-                             'flatInterestRate', 'totalAmountDue', 'status',
-                             'proposedScheduleJson', 'scheduleProposalStatus',
-                             'participantUids', 'updatedAt'
-                           ])
-                         );
-
-        allow delete: if isSignedIn() && isValidId(remoteId) && isValidId(planId) && existing().creatorUid == request.auth.uid;
-
-        // =====================================================================
-        // /shared_records/{remoteId}/installment_plans/{planId}/installments/{installmentId}
-        // =====================================================================
-        match /installments/{installmentId} {
-          function isValidInstallment(data) {
-            return data.installmentId is string && data.installmentId.size() >= 1 && data.installmentId.size() <= 128 && data.installmentId == installmentId &&
-                   data.planId is string && data.planId == planId &&
-                   data.remoteId is string && data.remoteId == remoteId &&
-                   data.sequence is int && data.sequence >= 1 &&
-                   data.dueDate is int && data.dueDate > 0 &&
-                   data.amountDue is int && data.amountDue > 0 &&
-                   data.amountPaid is int && data.amountPaid >= 0 &&
-                   data.status is string && data.status in ['PENDING', 'PARTIAL', 'PAID', 'LATE'] &&
-                   data.paidAtMillis is int && data.paidAtMillis >= -1 &&
-                   data.paymentId is string && data.paymentId.size() <= 128 &&
-                   isValidParticipantsList(data.participantUids) &&
-                   data.createdAt is timestamp && data.createdAt <= request.time &&
-                   data.updatedAt is timestamp && data.updatedAt <= request.time;
-          }
-
-          allow get: if isSignedIn() && isValidId(remoteId) && isValidId(planId) && isValidId(installmentId) && request.auth.uid in existing().participantUids;
-          allow list: if isSignedIn() && request.auth.uid in existing().participantUids;
-
-          allow create: if isSignedIn() &&
-                           isValidId(remoteId) &&
-                           isValidId(planId) &&
-                           isValidId(installmentId) &&
-                           incoming().installmentId == installmentId &&
-                           incoming().planId == planId &&
-                           incoming().remoteId == remoteId &&
-                           request.auth.uid in incoming().participantUids &&
-                           incoming().keys().hasAll([
-                             'installmentId', 'planId', 'remoteId', 'sequence',
-                             'dueDate', 'amountDue', 'amountPaid', 'status',
-                             'paidAtMillis', 'paymentId', 'participantUids',
-                             'createdAt', 'updatedAt'
-                           ]) &&
-                           incoming().keys().hasOnly([
-                             'installmentId', 'planId', 'remoteId', 'sequence',
-                             'dueDate', 'amountDue', 'amountPaid', 'status',
-                             'paidAtMillis', 'paymentId', 'participantUids',
-                             'createdAt', 'updatedAt'
-                           ]) &&
-                           isValidInstallment(incoming());
-
-          allow update: if isSignedIn() &&
-                           isValidId(remoteId) &&
-                           isValidId(planId) &&
-                           isValidId(installmentId) &&
-                           isValidInstallment(incoming()) &&
-                           request.auth.uid in existing().participantUids &&
-                           incoming().installmentId == existing().installmentId &&
-                           incoming().planId == existing().planId &&
-                           incoming().remoteId == existing().remoteId &&
-                           incoming().sequence == existing().sequence &&
-                           incoming().dueDate == existing().dueDate &&
-                           incoming().amountDue == existing().amountDue &&
-                           incoming().createdAt == existing().createdAt &&
-                           incoming().diff(existing()).affectedKeys().hasOnly([
-                             'amountPaid', 'status', 'paidAtMillis', 'paymentId', 'participantUids', 'updatedAt'
-                           ]);
-
-          allow delete: if isSignedIn() &&
-                           isValidId(remoteId) &&
-                           isValidId(planId) &&
-                           isValidId(installmentId) &&
-                           request.auth.uid in existing().participantUids;
-        }
-      }
-    }
-
-    // =========================================================================
-    // 6. /chat_threads/{threadId} — Phase 4 In-App Communication Thread
-    //    Readable & writable ONLY by the two participants on the thread.
-    // =========================================================================
-    function isValidChatThread(data) {
-      return data.threadId is string && data.threadId.size() >= 1 && data.threadId.size() <= 128 &&
-             data.threadScope is string && data.threadScope in ['TRANSACTION', 'PARTY'] &&
-             data.remoteRecordId is string && data.remoteRecordId.size() <= 128 &&
-             data.partyName is string && data.partyName.size() >= 1 && data.partyName.size() <= 100 &&
-             data.creatorUid is string && data.creatorUid.size() >= 1 && data.creatorUid.size() <= 128 &&
-             data.counterpartyUid is string && data.counterpartyUid.size() <= 128 &&
-             isValidParticipantsList(data.participantUids) &&
-             data.creatorUid in data.participantUids &&
-             data.typingUid is string && data.typingUid.size() <= 128 &&
-             data.typingUpdatedAtMillis is int && data.typingUpdatedAtMillis >= -1 &&
-             isValidOptionalUidList(data.mutedByUids) &&
-             data.blockedByUid is string && data.blockedByUid.size() <= 128 &&
-             data.reportedByUid is string && data.reportedByUid.size() <= 128 &&
-             data.reportReason is string && data.reportReason.size() <= 300 &&
-             data.lastMessagePreview is string && data.lastMessagePreview.size() <= 300 &&
-             data.lastMessageAtMillis is int && data.lastMessageAtMillis >= -1 &&
-             data.createdAt is timestamp && data.createdAt <= request.time &&
-             data.updatedAt is timestamp && data.updatedAt <= request.time;
-    }
-
-    match /chat_threads/{threadId} {
-      allow get: if isSignedIn() && isValidId(threadId) && request.auth.uid in existing().participantUids;
-      allow list: if isSignedIn() && request.auth.uid in existing().participantUids;
-
-      allow create: if isSignedIn() &&
-                       isValidId(threadId) &&
-                       incoming().threadId == threadId &&
-                       incoming().creatorUid == request.auth.uid &&
-                       request.auth.uid in incoming().participantUids &&
-                       incoming().keys().hasAll([
-                         'threadId', 'threadScope', 'remoteRecordId', 'partyName',
-                         'creatorUid', 'counterpartyUid', 'participantUids',
-                         'typingUid', 'typingUpdatedAtMillis', 'mutedByUids',
-                         'blockedByUid', 'reportedByUid', 'reportReason',
-                         'lastMessagePreview', 'lastMessageAtMillis',
-                         'createdAt', 'updatedAt'
-                       ]) &&
-                       incoming().keys().hasOnly([
-                         'threadId', 'threadScope', 'remoteRecordId', 'partyName',
-                         'creatorUid', 'counterpartyUid', 'participantUids',
-                         'typingUid', 'typingUpdatedAtMillis', 'mutedByUids',
-                         'blockedByUid', 'reportedByUid', 'reportReason',
-                         'lastMessagePreview', 'lastMessageAtMillis',
-                         'createdAt', 'updatedAt'
-                       ]) &&
-                       isValidChatThread(incoming());
-
-      allow update: if isSignedIn() &&
-                       isValidId(threadId) &&
-                       isValidChatThread(incoming()) &&
-                       incoming().threadId == existing().threadId &&
-                       incoming().creatorUid == existing().creatorUid &&
-                       incoming().threadScope == existing().threadScope &&
-                       incoming().createdAt == existing().createdAt &&
-                       (
-                         // Action 1: Counterparty joins an unclaimed thread
-                         (
-                           existing().counterpartyUid == '' &&
-                           existing().participantUids.size() == 1 &&
-                           request.auth.uid != existing().creatorUid &&
-                           incoming().counterpartyUid == request.auth.uid &&
-                           incoming().participantUids.size() == 2 &&
-                           request.auth.uid in incoming().participantUids &&
-                           incoming().diff(existing()).affectedKeys().hasOnly([
-                             'counterpartyUid', 'participantUids', 'typingUid',
-                             'typingUpdatedAtMillis', 'lastMessagePreview',
-                             'lastMessageAtMillis', 'updatedAt'
-                           ])
-                         ) ||
-                         // Action 2: Participant updates typing indicator, mute/block/report, or last message
-                         (
-                           request.auth.uid in existing().participantUids &&
-                           incoming().counterpartyUid == existing().counterpartyUid &&
-                           incoming().participantUids == existing().participantUids &&
-                           incoming().diff(existing()).affectedKeys().hasOnly([
-                             'partyName', 'typingUid', 'typingUpdatedAtMillis',
-                             'mutedByUids', 'blockedByUid', 'reportedByUid',
-                             'reportReason', 'lastMessagePreview',
-                             'lastMessageAtMillis', 'updatedAt'
-                           ])
-                         )
-                       );
-
-      allow delete: if isSignedIn() && isValidId(threadId) && existing().creatorUid == request.auth.uid;
-
-      // =======================================================================
-      // 7. /chat_threads/{threadId}/messages/{messageId}
-      // =======================================================================
-      function isValidChatMessage(data) {
-        return data.messageId is string && data.messageId.size() >= 1 && data.messageId.size() <= 128 &&
-               data.threadId is string && data.threadId == threadId &&
-               data.senderUid is string && data.senderUid.size() >= 1 && data.senderUid.size() <= 128 &&
-               data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 100 &&
-               isValidParticipantsList(data.participantUids) &&
-               data.senderUid in data.participantUids &&
-               data.messageType is string && data.messageType in [
-                 'TEXT', 'QUICK_REPLY', 'PAYMENT_PROOF', 'SYSTEM_AUDIT', 'EXTENSION_REQUEST'
-               ] &&
-               data.bodyText is string && data.bodyText.size() <= 1000 &&
-               data.attachmentUri is string && data.attachmentUri.size() <= 512 &&
-               data.attachmentMimeType is string && data.attachmentMimeType.size() <= 100 &&
-               data.attachmentName is string && data.attachmentName.size() <= 150 &&
-               data.deliveryStatus is string && data.deliveryStatus in ['SENT', 'DELIVERED', 'READ'] &&
-               data.proposedDueDateMillis is int && data.proposedDueDateMillis >= -1 &&
-               data.extensionStatus is string && data.extensionStatus in ['NONE', 'PENDING', 'ACCEPTED', 'DECLINED'] &&
-               data.sentAtMillis is int && data.sentAtMillis > 0 &&
-               data.deliveredAtMillis is int && data.deliveredAtMillis >= -1 &&
-               data.readAtMillis is int && data.readAtMillis >= -1 &&
-               data.createdAt is timestamp && data.createdAt <= request.time &&
-               data.updatedAt is timestamp && data.updatedAt <= request.time;
-      }
-
-      match /messages/{messageId} {
-        allow get: if isSignedIn() && isValidId(threadId) && isValidId(messageId) && request.auth.uid in existing().participantUids;
-        allow list: if isSignedIn() && request.auth.uid in existing().participantUids;
-
-        allow create: if isSignedIn() &&
-                         isValidId(threadId) &&
-                         isValidId(messageId) &&
-                         incoming().messageId == messageId &&
-                         incoming().threadId == threadId &&
-                         incoming().senderUid == request.auth.uid &&
-                         request.auth.uid in incoming().participantUids &&
-                         incoming().keys().hasAll([
-                           'messageId', 'threadId', 'senderUid', 'senderName',
-                           'participantUids', 'messageType', 'bodyText',
-                           'attachmentUri', 'attachmentMimeType', 'attachmentName',
-                           'deliveryStatus', 'proposedDueDateMillis', 'extensionStatus',
-                           'sentAtMillis', 'deliveredAtMillis', 'readAtMillis',
-                           'createdAt', 'updatedAt'
-                         ]) &&
-                         incoming().keys().hasOnly([
-                           'messageId', 'threadId', 'senderUid', 'senderName',
-                           'participantUids', 'messageType', 'bodyText',
-                           'attachmentUri', 'attachmentMimeType', 'attachmentName',
-                           'deliveryStatus', 'proposedDueDateMillis', 'extensionStatus',
-                           'sentAtMillis', 'deliveredAtMillis', 'readAtMillis',
-                           'createdAt', 'updatedAt'
-                         ]) &&
-                         isValidChatMessage(incoming());
-
-        allow update: if isSignedIn() &&
-                         isValidId(threadId) &&
-                         isValidId(messageId) &&
-                         isValidChatMessage(incoming()) &&
-                         request.auth.uid in existing().participantUids &&
-                         incoming().messageId == existing().messageId &&
-                         incoming().threadId == existing().threadId &&
-                         incoming().senderUid == existing().senderUid &&
-                         incoming().messageType == existing().messageType &&
-                         incoming().bodyText == existing().bodyText &&
-                         incoming().proposedDueDateMillis == existing().proposedDueDateMillis &&
-                         incoming().createdAt == existing().createdAt &&
-                         incoming().diff(existing()).affectedKeys().hasOnly([
-                           'deliveryStatus', 'deliveredAtMillis', 'readAtMillis',
-                           'extensionStatus', 'participantUids', 'updatedAt'
-                         ]);
-
-        allow delete: if isSignedIn() && isValidId(threadId) && isValidId(messageId) && existing().senderUid == request.auth.uid;
-      }
-    }
-
-    // =========================================================================
-    // 8. /webLinks/{recordId} — Secret Token Hashes & Rate Limiting (Admin SDK Only)
-    // =========================================================================
-    match /webLinks/{recordId} {
-      allow read, write: if false;
-    }
-
-    // =========================================================================
-    // 9. Platform Indexes & Ephemeral Challenges (Admin SDK Only / Deny Direct Client)
-    // =========================================================================
-    match /phoneIndex/{document=**} {
-      allow read, write: if false;
-    }
-
-    match /emailIndex/{document=**} {
-      allow read, write: if false;
-    }
-
-    match /otpChallenges/{document=**} {
-      allow read, write: if false;
-    }
-
-    match /rateLimits/{document=**} {
-      allow read, write: if false;
-    }
-
-    match /auditLogs/{document=**} {
-      allow read, write: if false;
-    }
-
-    // =========================================================================
-    // 10. Spark Mode (SP2): Per-User Ledger Collections (Strict Verified Owner)
-    // =========================================================================
-    function isValidUserRecord(data, recordId, userId) {
-      return (!('recordId' in data) || (data.recordId is string && data.recordId == recordId)) &&
-             (!('id' in data) || (data.id is string && data.id == recordId)) &&
-             (('recordId' in data) || ('id' in data)) &&
-             (!('uid' in data) || data.uid == userId) &&
-             data.rev is int && data.rev >= 1 &&
-             data.principalAmountPaise is int && data.principalAmountPaise >= 0 &&
-             (!('amountPaidPaise' in data) || (data.amountPaidPaise is int && data.amountPaidPaise >= 0)) &&
-             data.counterpartyRole is string && data.counterpartyRole in ['LENDER', 'BORROWER', 'GIVEN', 'TAKEN'] &&
-             data.status is string && data.status in ['ACTIVE', 'SETTLED', 'DISPUTED', 'CANCELLED'] &&
-             (!('partyName' in data) || (data.partyName is string && data.partyName.size() <= 100)) &&
-             (!('lenderName' in data) || (data.lenderName is string && data.lenderName.size() <= 100)) &&
-             (!('borrowerName' in data) || (data.borrowerName is string && data.borrowerName.size() <= 100)) &&
-             (!('phoneNumber' in data) || (data.phoneNumber is string && data.phoneNumber.size() <= 32)) &&
-             (!('contactPhone' in data) || (data.contactPhone is string && data.contactPhone.size() <= 32)) &&
-             (!('phoneStatus' in data) || (data.phoneStatus is string && data.phoneStatus.size() <= 32)) &&
-             (!('upiId' in data) || (data.upiId is string && data.upiId.size() <= 100)) &&
-             (!('currency' in data) || (data.currency is string && data.currency.size() <= 10)) &&
-             (!('paymentMode' in data) || (data.paymentMode is string && data.paymentMode.size() <= 32)) &&
-             (!('notes' in data) || (data.notes is string && data.notes.size() <= 2048)) &&
-             (!('disputeReason' in data) || (data.disputeReason is string && data.disputeReason.size() <= 500)) &&
-             (!('isSettled' in data) || data.isSettled is bool) &&
-             (!('isDeleted' in data) || data.isDeleted is bool) &&
-             (!('isInterestEnabled' in data) || data.isInterestEnabled is bool) &&
-             (!('interestType' in data) || (data.interestType is string && data.interestType.size() <= 32)) &&
-             (!('interestRate' in data) || (data.interestRate is int || data.interestRate is float)) &&
-             (!('interestRatePeriod' in data) || (data.interestRatePeriod is string && data.interestRatePeriod.size() <= 32)) &&
-             (!('compoundFrequency' in data) || (data.compoundFrequency is string && data.compoundFrequency.size() <= 32)) &&
-             (!('startDateMillis' in data) || data.startDateMillis is int) &&
-             (!('expiryDateMillis' in data) || data.expiryDateMillis is int) &&
-             (!('dueDateMs' in data) || data.dueDateMs is int) &&
-             (!('dueDateMillis' in data) || data.dueDateMillis is int) &&
-             (!('reminderDateMillis' in data) || data.reminderDateMillis is int) &&
-             (!('settledAtMillis' in data) || data.settledAtMillis is int) &&
-             (!('deletedAtMillis' in data) || data.deletedAtMillis is int) &&
-             (!('createdAtMs' in data) || (data.createdAtMs is int && data.createdAtMs > 0)) &&
-             (!('updatedAtMs' in data) || (data.updatedAtMs is int && data.updatedAtMs > 0)) &&
-             (!('createdAt' in data) || (data.createdAt is timestamp || (data.createdAt is int && data.createdAt > 0))) &&
-             (!('updatedAt' in data) || (data.updatedAt is timestamp || (data.updatedAt is int && data.updatedAt > 0))) &&
-             (!('syncId' in data) || (data.syncId is string && data.syncId.size() <= 128)) &&
-             (!('hlcTimestamp' in data) || (data.hlcTimestamp is string && data.hlcTimestamp.size() <= 128)) &&
-             (!('nodeId' in data) || (data.nodeId is string && data.nodeId.size() <= 128)) &&
-             (!('syncStatus' in data) || (data.syncStatus is string && data.syncStatus.size() <= 32)) &&
-             (!('verificationStatus' in data) || (data.verificationStatus is string && data.verificationStatus.size() <= 32)) &&
-             (!('verificationHash' in data) || (data.verificationHash is string && data.verificationHash.size() <= 128)) &&
-             (!('verificationToken' in data) || (data.verificationToken is string && data.verificationToken.size() <= 128)) &&
-             (!('paymentEventCount' in data) || (data.paymentEventCount is int && data.paymentEventCount >= 0));
-    }
-
-    function isValidUserPerson(data, personId, userId) {
-      return (!('personId' in data) || (data.personId is string && data.personId == personId)) &&
-             (!('id' in data) || (data.id is string && data.id == personId)) &&
-             (('personId' in data) || ('id' in data)) &&
-             (!('uid' in data) || data.uid == userId) &&
-             data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
-             data.rev is int && data.rev >= 1 &&
-             (!('phone' in data) || (data.phone is string && data.phone.size() <= 32)) &&
-             (!('phoneNumber' in data) || (data.phoneNumber is string && data.phoneNumber.size() <= 32)) &&
-             (!('phoneStatus' in data) || (data.phoneStatus is string && data.phoneStatus.size() <= 32)) &&
-             (!('upiId' in data) || (data.upiId is string && data.upiId.size() <= 100)) &&
-             (!('email' in data) || (data.email is string && data.email.size() <= 128)) &&
-             (!('tagOrNotes' in data) || (data.tagOrNotes is string && data.tagOrNotes.size() <= 500)) &&
-             (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
-             (!('preferredCurrency' in data) || (data.preferredCurrency is string && data.preferredCurrency.size() <= 10)) &&
-             (!('syncId' in data) || (data.syncId is string && data.syncId.size() <= 128)) &&
-             (!('syncStatus' in data) || (data.syncStatus is string && data.syncStatus.size() <= 32)) &&
-             (!('createdAtMs' in data) || (data.createdAtMs is int && data.createdAtMs > 0)) &&
-             (!('updatedAtMs' in data) || (data.updatedAtMs is int && data.updatedAtMs > 0)) &&
-             (!('createdAt' in data) || (data.createdAt is timestamp || (data.createdAt is int && data.createdAt > 0))) &&
-             (!('updatedAt' in data) || (data.updatedAt is timestamp || (data.updatedAt is int && data.updatedAt > 0)));
-    }
-
-    function isValidUserEvent(data, eventId, userId) {
-      return (!('eventId' in data) || (data.eventId is string && data.eventId == eventId)) &&
-             (!('id' in data) || (data.id is string && data.id == eventId)) &&
-             (('eventId' in data) || ('id' in data)) &&
-             (!('uid' in data) || data.uid == userId) &&
-             data.recordId is string && data.recordId.size() >= 1 && data.recordId.size() <= 128 &&
-             data.eventType is string && data.eventType in [
-               'PAYMENT', 'INTEREST_ACCRUAL', 'DISPUTE_OPENED', 'DISPUTE_RESOLVED',
-               'NOTE_ADDED', 'GUEST_CONFIRMED', 'RECORD_CREATED', 'RECORD_UPDATED'
-             ] &&
-             (!('amountPaise' in data) || (data.amountPaise is int && data.amountPaise >= 0)) &&
-             data.timestampMs is int && data.timestampMs > 0 &&
-             (!('paymentMode' in data) || (data.paymentMode is string && data.paymentMode.size() <= 32)) &&
-             (!('note' in data) || (data.note is string && data.note.size() <= 1024)) &&
-             (!('proofRef' in data) || (data.proofRef is string && data.proofRef.size() <= 512)) &&
-             (!('syncId' in data) || (data.syncId is string && data.syncId.size() <= 128)) &&
-             (!('createdAtMs' in data) || (data.createdAtMs is int && data.createdAtMs > 0)) &&
-             (!('createdAt' in data) || (data.createdAt is timestamp || (data.createdAt is int && data.createdAt > 0)));
-    }
-
-    function isValidUserPlan(data, planId, userId) {
-      return (!('planId' in data) || (data.planId is string && data.planId == planId)) &&
-             (!('id' in data) || (data.id is string && data.id == planId)) &&
-             (('planId' in data) || ('id' in data)) &&
-             (!('uid' in data) || data.uid == userId) &&
-             data.rev is int && data.rev >= 1 &&
-             (!('recordId' in data) || (data.recordId is string && data.recordId.size() <= 128)) &&
-             (!('status' in data) || (data.status is string && data.status.size() <= 32)) &&
-             (!('frequency' in data) || (data.frequency is string && data.frequency.size() <= 32)) &&
-             (!('installmentCount' in data) || (data.installmentCount is int && data.installmentCount >= 1 && data.installmentCount <= 120)) &&
-             (!('totalAmountDuePaise' in data) || (data.totalAmountDuePaise is int && data.totalAmountDuePaise >= 0)) &&
-             (!('totalAmountDue' in data) || (data.totalAmountDue is int && data.totalAmountDue >= 0)) &&
-             (!('scheduleJson' in data) || (data.scheduleJson is string && data.scheduleJson.size() <= 5000)) &&
-             (!('createdAtMs' in data) || (data.createdAtMs is int && data.createdAtMs > 0)) &&
-             (!('updatedAtMs' in data) || (data.updatedAtMs is int && data.updatedAtMs > 0)) &&
-             (!('createdAt' in data) || (data.createdAt is timestamp || (data.createdAt is int && data.createdAt > 0))) &&
-             (!('updatedAt' in data) || (data.updatedAt is timestamp || (data.updatedAt is int && data.updatedAt > 0)));
-    }
-
-    function isValidUserAttachment(data, attachmentId, userId) {
-      return (!('attachmentId' in data) || (data.attachmentId is string && data.attachmentId == attachmentId)) &&
-             (!('id' in data) || (data.id is string && data.id == attachmentId)) &&
-             (('attachmentId' in data) || ('id' in data)) &&
-             (!('uid' in data) || data.uid == userId) &&
-             (!('recordId' in data) || (data.recordId is string && data.recordId.size() <= 128)) &&
-             (!('fileName' in data) || (data.fileName is string && data.fileName.size() <= 256)) &&
-             (!('mimeType' in data) || (data.mimeType is string && data.mimeType.size() <= 128)) &&
-             (!('sha256' in data) || (data.sha256 is string && data.sha256.size() <= 64)) &&
-             (!('notes' in data) || (data.notes is string && data.notes.size() <= 1024)) &&
-             data.sizeBytes is int && data.sizeBytes >= 0 && data.sizeBytes <= 10485760 &&
-             (!('createdAtMs' in data) || (data.createdAtMs is int && data.createdAtMs > 0)) &&
-             (!('createdAt' in data) || (data.createdAt is timestamp || (data.createdAt is int && data.createdAt > 0)));
-    }
-
-    match /users/{userId} {
-      // 1. Records
       match /records/{recordId} {
-        allow get, list: if isVerifiedOwner(userId);
-
-        allow create: if isVerifiedOwner(userId) &&
-                         incoming().keys().hasOnly([
-                           'id', 'recordId', 'uid', 'rev', 'principalAmountPaise', 'amountPaidPaise',
-                           'counterpartyRole', 'status', 'partyName', 'lenderName', 'borrowerName',
-                           'phoneNumber', 'contactPhone', 'phoneStatus', 'upiId', 'currency',
-                           'paymentMode', 'notes', 'disputeReason', 'isSettled', 'isDeleted',
-                           'isInterestEnabled', 'interestType', 'interestRate', 'interestRatePeriod',
-                           'compoundFrequency', 'startDateMillis', 'expiryDateMillis', 'dueDateMs',
-                           'dueDateMillis', 'reminderDateMillis', 'settledAtMillis', 'deletedAtMillis',
-                           'createdAtMs', 'updatedAtMs', 'createdAt', 'updatedAt', 'syncId',
-                           'hlcTimestamp', 'nodeId', 'syncStatus', 'verificationStatus',
-                           'verificationHash', 'verificationToken', 'paymentEventCount'
-                         ]) &&
-                         incoming().keys().hasAll(['rev', 'principalAmountPaise', 'counterpartyRole', 'status']) &&
-                         isValidUserRecord(incoming(), recordId, userId);
-
-        allow update: if isVerifiedOwner(userId) &&
-                         incoming().keys().hasOnly([
-                           'id', 'recordId', 'uid', 'rev', 'principalAmountPaise', 'amountPaidPaise',
-                           'counterpartyRole', 'status', 'partyName', 'lenderName', 'borrowerName',
-                           'phoneNumber', 'contactPhone', 'phoneStatus', 'upiId', 'currency',
-                           'paymentMode', 'notes', 'disputeReason', 'isSettled', 'isDeleted',
-                           'isInterestEnabled', 'interestType', 'interestRate', 'interestRatePeriod',
-                           'compoundFrequency', 'startDateMillis', 'expiryDateMillis', 'dueDateMs',
-                           'dueDateMillis', 'reminderDateMillis', 'settledAtMillis', 'deletedAtMillis',
-                           'createdAtMs', 'updatedAtMs', 'createdAt', 'updatedAt', 'syncId',
-                           'hlcTimestamp', 'nodeId', 'syncStatus', 'verificationStatus',
-                           'verificationHash', 'verificationToken', 'paymentEventCount'
-                         ]) &&
-                         isValidUserRecord(incoming(), recordId, userId) &&
-                         incoming().rev == existing().rev + 1 &&
-                         (!('uid' in existing()) || incoming().uid == existing().uid) &&
-                         (!('recordId' in existing()) || incoming().recordId == existing().recordId) &&
-                         (!('id' in existing()) || incoming().id == existing().id) &&
-                         (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt) &&
-                         (!('createdAtMs' in existing()) || incoming().createdAtMs == existing().createdAtMs);
-
-        allow delete: if isVerifiedOwner(userId);
+        allow read: if isVerifiedOwner(uid);
+        allow create, update: if isVerifiedOwner(uid) && validRecord();
+        allow delete: if isVerifiedOwner(uid);
       }
 
-      // 2. People Directory
       match /people/{personId} {
-        allow get, list: if isVerifiedOwner(userId);
-
-        allow create: if isVerifiedOwner(userId) &&
-                         incoming().keys().hasOnly([
-                           'id', 'personId', 'uid', 'name', 'phone', 'phoneNumber', 'phoneStatus',
-                           'upiId', 'email', 'tagOrNotes', 'notes', 'preferredCurrency',
-                           'syncId', 'syncStatus', 'rev', 'createdAtMs', 'updatedAtMs', 'createdAt', 'updatedAt'
-                         ]) &&
-                         incoming().keys().hasAll(['name', 'rev']) &&
-                         isValidUserPerson(incoming(), personId, userId);
-
-        allow update: if isVerifiedOwner(userId) &&
-                         incoming().keys().hasOnly([
-                           'id', 'personId', 'uid', 'name', 'phone', 'phoneNumber', 'phoneStatus',
-                           'upiId', 'email', 'tagOrNotes', 'notes', 'preferredCurrency',
-                           'syncId', 'syncStatus', 'rev', 'createdAtMs', 'updatedAtMs', 'createdAt', 'updatedAt'
-                         ]) &&
-                         isValidUserPerson(incoming(), personId, userId) &&
-                         incoming().rev == existing().rev + 1 &&
-                         (!('personId' in existing()) || incoming().personId == existing().personId) &&
-                         (!('id' in existing()) || incoming().id == existing().id) &&
-                         (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt) &&
-                         (!('createdAtMs' in existing()) || incoming().createdAtMs == existing().createdAtMs);
-
-        allow delete: if isVerifiedOwner(userId);
+        allow read, delete: if isVerifiedOwner(uid);
+        allow create, update: if isVerifiedOwner(uid)
+          && request.resource.data.ownerUid == uid
+          && withinSize(4096);
       }
 
-      // 3. Append-Only Events
       match /events/{eventId} {
-        allow get, list: if isVerifiedOwner(userId);
-
-        allow create: if isVerifiedOwner(userId) &&
-                         incoming().keys().hasOnly([
-                           'id', 'eventId', 'recordId', 'uid', 'eventType', 'amountPaise',
-                           'timestampMs', 'paymentMode', 'note', 'proofRef', 'syncId',
-                           'createdAtMs', 'createdAt'
-                         ]) &&
-                         incoming().keys().hasAll(['recordId', 'eventType', 'timestampMs']) &&
-                         isValidUserEvent(incoming(), eventId, userId);
-
-        allow update, delete: if false;
+        allow read: if isVerifiedOwner(uid);
+        allow create: if isVerifiedOwner(uid)
+          && request.resource.data.ownerUid == uid
+          && withinSize(4096);
+        allow update, delete: if false; // append-only audit log
       }
 
-      // 4. Installment Plans
       match /plans/{planId} {
-        allow get, list: if isVerifiedOwner(userId);
-
-        allow create: if isVerifiedOwner(userId) &&
-                         incoming().keys().hasOnly([
-                           'id', 'planId', 'uid', 'recordId', 'status', 'frequency',
-                           'installmentCount', 'totalAmountDuePaise', 'totalAmountDue',
-                           'scheduleJson', 'rev', 'createdAtMs', 'updatedAtMs', 'createdAt', 'updatedAt'
-                         ]) &&
-                         incoming().keys().hasAll(['rev']) &&
-                         isValidUserPlan(incoming(), planId, userId);
-
-        allow update: if isVerifiedOwner(userId) &&
-                         incoming().keys().hasOnly([
-                           'id', 'planId', 'uid', 'recordId', 'status', 'frequency',
-                           'installmentCount', 'totalAmountDuePaise', 'totalAmountDue',
-                           'scheduleJson', 'rev', 'createdAtMs', 'updatedAtMs', 'createdAt', 'updatedAt'
-                         ]) &&
-                         isValidUserPlan(incoming(), planId, userId) &&
-                         incoming().rev == existing().rev + 1 &&
-                         (!('planId' in existing()) || incoming().planId == existing().planId) &&
-                         (!('id' in existing()) || incoming().id == existing().id) &&
-                         (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt) &&
-                         (!('createdAtMs' in existing()) || incoming().createdAtMs == existing().createdAtMs);
-
-        allow delete: if isVerifiedOwner(userId);
+        allow read, delete: if isVerifiedOwner(uid);
+        allow create, update: if isVerifiedOwner(uid)
+          && request.resource.data.ownerUid == uid
+          && withinSize(8192);
       }
 
-      // 5. Attachments Metadata
       match /attachments/{attachmentId} {
-        allow get, list: if isVerifiedOwner(userId);
-
-        allow create: if isVerifiedOwner(userId) &&
-                         incoming().keys().hasOnly([
-                           'id', 'attachmentId', 'uid', 'recordId', 'fileName', 'mimeType',
-                           'sha256', 'notes', 'sizeBytes', 'createdAtMs', 'createdAt'
-                         ]) &&
-                         incoming().keys().hasAll(['sizeBytes']) &&
-                         isValidUserAttachment(incoming(), attachmentId, userId);
-
-        allow update: if isVerifiedOwner(userId) &&
-                         incoming().keys().hasOnly([
-                           'id', 'attachmentId', 'uid', 'recordId', 'fileName', 'mimeType',
-                           'sha256', 'notes', 'sizeBytes', 'createdAtMs', 'createdAt'
-                         ]) &&
-                         isValidUserAttachment(incoming(), attachmentId, userId) &&
-                         (!('attachmentId' in existing()) || incoming().attachmentId == existing().attachmentId) &&
-                         (!('id' in existing()) || incoming().id == existing().id) &&
-                         (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt) &&
-                         (!('createdAtMs' in existing()) || incoming().createdAtMs == existing().createdAtMs);
-
-        allow delete: if isVerifiedOwner(userId);
+        allow read, delete: if isVerifiedOwner(uid);
+        allow create, update: if isVerifiedOwner(uid)
+          && request.resource.data.ownerUid == uid
+          && withinSize(4096);
       }
 
-      // 6. Real-Time Sync Signaling
-      match /syncSignal/{docId} {
-        allow get: if isSignedIn() && request.auth.uid == userId;
-        allow write: if isVerifiedOwner(userId);
-      }
-
-      // 7. Internal Change Log (Server/KMS Only)
-      match /changeLog/{document=**} {
-        allow read, write: if false;
+      match /meta/syncSignal {
+        allow read, write: if isVerifiedOwner(uid) && withinSize(512);
       }
     }
 
-    // =========================================================================
-    // 11. Spark Mode (SP3): Guest Capability Links & Proposals
-    // =========================================================================
+    // Capability-based guest links: linkId = sha256(secret).
+    // Anyone who knows linkId can get the single doc (never list) when active and unrevoked/unexpired.
     match /guestLinks/{linkId} {
-      allow get: if isSignedIn();
+      allow get: if isSignedIn()
+        && ((request.auth.uid == resource.data.ownerUid && request.auth.token.email_verified == true)
+            || validGuestLinkDoc(resource.data));
       allow list: if false;
+      allow create, update: if isSignedIn()
+        && request.auth.token.email_verified == true
+        && request.resource.data.ownerUid == request.auth.uid
+        && linkId.size() >= 12
+        && withinSize(4096);
+      allow delete: if isSignedIn()
+        && request.auth.token.email_verified == true
+        && resource.data.ownerUid == request.auth.uid;
 
-      allow create: if isVerifiedOwner(incoming().ownerUid) &&
-                       incoming().linkId == linkId &&
-                       incoming().status in ['ACTIVE', 'REVOKED', 'EXPIRED'];
-
-      allow update: if isVerifiedOwner(existing().ownerUid) &&
-                       incoming().ownerUid == existing().ownerUid &&
-                       incoming().linkId == existing().linkId;
-
-      allow delete: if isVerifiedOwner(existing().ownerUid);
-
-      // Subcollection /guestLinks/{linkId}/actions/{actionId}
+      // Guest actions: fixed IDs cap total actions per link without server counters.
       match /actions/{actionId} {
-        allow create: if isSignedIn() &&
-                         actionId in ['confirm', 'dispute', 'claim_1', 'claim_2', 'claim_3', 'claim_4', 'claim_5', 'date_1', 'date_2', 'date_3'] &&
-                         incoming().linkId == linkId &&
-                         incoming().actionType in ['CONFIRM', 'DISPUTE', 'CLAIM_PAYMENT', 'PROPOSE_DATE'] &&
-                         get(/databases/$(database)/documents/guestLinks/$(linkId)).data.status == 'ACTIVE' &&
-                         incoming().ownerUid == get(/databases/$(database)/documents/guestLinks/$(linkId)).data.ownerUid;
-
-        allow read: if isSignedIn() && (request.auth.uid == resource.data.ownerUid || resource.data.linkId == linkId);
+        allow get, list: if isSignedIn()
+          && resource.data.ownerUid == request.auth.uid;
+        allow create: if isSignedIn()
+          && actionId in ['confirm', 'dispute', 'claim_1', 'claim_2', 'claim_3', 'claim_4', 'claim_5', 'date_1', 'date_2', 'date_3']
+          && exists(/databases/$(database)/documents/guestLinks/$(linkId))
+          && validGuestLinkDoc(get(/databases/$(database)/documents/guestLinks/$(linkId)).data)
+          && request.resource.data.linkId == linkId
+          && request.resource.data.ownerUid == get(/databases/$(database)/documents/guestLinks/$(linkId)).data.ownerUid
+          && (!('reason' in request.resource.data) || request.resource.data.reason.size() <= 500)
+          && (!('utrLast4' in request.resource.data) || request.resource.data.utrLast4.size() <= 12)
+          && withinSize(2048);
         allow update, delete: if false;
       }
     }
 
-    // Collection group query for actions across guest links
+    // Collection-group read on `actions` so GuestActionPollingWorker can query all actions for `ownerUid`
     match /{path=**}/actions/{actionId} {
-      allow read: if isSignedIn() && request.auth.uid == resource.data.ownerUid;
+      allow read: if isSignedIn()
+        && request.auth.token.email_verified == true
+        && resource.data.ownerUid == request.auth.uid;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

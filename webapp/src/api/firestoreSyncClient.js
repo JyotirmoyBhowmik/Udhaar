@@ -1,209 +1,182 @@
 /**
- * Udhaar Client-Side Direct Firestore Sync Engine (Spark Mode)
- * (webapp/src/api/firestoreSyncClient.js)
- * 
- * In Spark Mode, sync operates directly from client devices to Cloud Firestore:
- * - Zero Cloud Functions calls (no /api/v1/**).
- * - Scoped strictly to the owner: /users/{userId}/records, people, events, plans.
- * - Enforces monotonic revision tracking: rev = existing.rev + 1.
- * - Conflict Resolution:
- *   1. Last-Write-Wins (LWW) on records based on higher revision (rev).
- *   2. CRDT-Lite Set Union for partial payments/events (events collection is append-only).
- * - Quota Guard: Graceful handling of RESOURCE_EXHAUSTED without crashing.
+ * Udhaar Web App — Direct Firestore Sync Client (Spark Plan SP-2 / SP-3)
+ *
+ * Uses the locally bundled `firebase` npm package (`firebaseSdk.js`) for direct
+ * Firestore reads and writes with monotonic `rev` increments, Last-Write-Wins (`updatedAtMs`),
+ * and append-only payment event set-union reconciliation.
  */
 
+const { initFirebaseSdk } = require("./firebaseSdk");
+
 class FirestoreSyncClient {
-  constructor(firestoreInstance, authInstance) {
-    this.db = firestoreInstance || (typeof window !== "undefined" && window.firebase?.firestore ? window.firebase.firestore() : null);
-    this.auth = authInstance || (typeof window !== "undefined" && window.firebase?.auth ? window.firebase.auth() : null);
+  /**
+   * Supports both `new FirestoreSyncClient(db, auth)` and `new FirestoreSyncClient({ db, auth })`.
+   */
+  constructor(dbOrOptions = null, auth = null) {
+    if (
+      dbOrOptions &&
+      typeof dbOrOptions === "object" &&
+      !dbOrOptions.collection &&
+      (dbOrOptions.db || dbOrOptions.auth || dbOrOptions.authClient)
+    ) {
+      this.db = dbOrOptions.db || null;
+      this.auth = dbOrOptions.auth || dbOrOptions.authClient || null;
+    } else {
+      this.db = dbOrOptions;
+      this.auth = auth;
+    }
   }
 
-  getCurrentUser() {
-    return this.auth?.currentUser || null;
+  _resolveDbAndAuth() {
+    if (this.db && this.auth) {
+      return { db: this.db, auth: this.auth, sdk: null };
+    }
+    const services = initFirebaseSdk();
+    return {
+      db: this.db || services.firestore,
+      auth: this.auth || services.auth,
+      sdk: services.sdk
+    };
   }
 
-  _assertAuthenticated() {
-    const user = this.getCurrentUser();
-    if (!user) {
-      const err = new Error("[ERR_UNAUTHENTICATED] Authentication required. Please sign in to sync records.");
+  _requireVerifiedUser() {
+    const { auth } = this._resolveDbAndAuth();
+    const user = auth && (auth.currentUser || (typeof auth.getCurrentUser === "function" ? auth.getCurrentUser() : null));
+    if (!user || !user.uid) {
+      const err = new Error("ERR_UNAUTHENTICATED: User must be signed in to sync.");
       err.code = "ERR_UNAUTHENTICATED";
       throw err;
     }
     if (!user.emailVerified) {
-      const err = new Error("[ERR_EMAIL_UNVERIFIED] Email verification required. Please verify your email before syncing.");
+      const err = new Error("ERR_EMAIL_UNVERIFIED: Cloud sync stays off until your email is verified.");
       err.code = "ERR_EMAIL_UNVERIFIED";
       throw err;
     }
     return user;
   }
 
-  /**
-   * Save or update a record directly in Firestore.
-   */
   async saveRecord(record) {
-    const user = this._assertAuthenticated();
-    const recordId = record.id || record.recordId;
-    if (!recordId) throw new Error("Record ID is required");
-
-    const docRef = this.db.collection("users").doc(user.uid).collection("records").doc(recordId);
-
-    try {
-      const snap = await docRef.get();
-      const currentRev = snap.exists ? (snap.data().rev || 1) : 0;
-      const nextRev = snap.exists ? currentRev + 1 : 1;
-
-      const toSave = {
-        ...record,
-        id: recordId,
-        recordId: recordId,
-        uid: user.uid,
-        rev: nextRev,
-        updatedAtMs: Date.now(),
-        createdAtMs: snap.exists ? (snap.data().createdAtMs || Date.now()) : (record.createdAtMs || Date.now())
-      };
-
-      await docRef.set(toSave, { merge: true });
-      return toSave;
-    } catch (err) {
-      throw this._handleFirestoreError(err);
+    const user = this._requireVerifiedUser();
+    const { db, sdk } = this._resolveDbAndAuth();
+    if (!record || !record.id) {
+      throw new Error("Record id is required");
     }
-  }
 
-  /**
-   * Pull records updated since last sync timestamp.
-   */
-  async pullRecords(sinceMs = 0) {
-    const user = this._assertAuthenticated();
     try {
-      let query = this.db.collection("users").doc(user.uid).collection("records");
-      if (sinceMs > 0) {
-        query = query.where("updatedAtMs", ">", sinceMs);
+      let existingData = null;
+      if (db && typeof db.collection === "function") {
+        const docRef = db.collection("users").doc(user.uid).collection("records").doc(record.id);
+        const snap = await docRef.get();
+        if (snap && snap.exists) {
+          existingData = typeof snap.data === "function" ? snap.data() : snap.data;
+        }
+        const nextRev = existingData && typeof existingData.rev === "number" ? existingData.rev + 1 : 1;
+        const payload = {
+          ...(existingData || {}),
+          ...record,
+          uid: user.uid,
+          ownerUid: user.uid,
+          rev: nextRev,
+          updatedAtMs: Date.now()
+        };
+        await docRef.set(payload, { merge: true });
+        return payload;
       }
-      const snap = await query.get();
-      return snap.docs.map(doc => doc.data());
-    } catch (err) {
-      throw this._handleFirestoreError(err);
-    }
-  }
 
-  /**
-   * Add an append-only event (e.g. payment, dispute, confirmation).
-   */
-  async addEvent(event) {
-    const user = this._assertAuthenticated();
-    const eventId = event.id || event.eventId || `evt_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    const docRef = this.db.collection("users").doc(user.uid).collection("events").doc(eventId);
-
-    const toSave = {
-      ...event,
-      id: eventId,
-      eventId: eventId,
-      uid: user.uid,
-      timestampMs: event.timestampMs || Date.now(),
-      createdAtMs: Date.now()
-    };
-
-    try {
-      await docRef.set(toSave);
-      return toSave;
-    } catch (err) {
-      throw this._handleFirestoreError(err);
-    }
-  }
-
-  /**
-   * List all events for a given record (used for CRDT-Lite payment set union).
-   */
-  async listEvents(recordId = null) {
-    const user = this._assertAuthenticated();
-    try {
-      let query = this.db.collection("users").doc(user.uid).collection("events");
-      if (recordId) {
-        query = query.where("recordId", "==", recordId);
+      if (db && sdk && typeof sdk.doc === "function") {
+        const ref = sdk.doc(db, "users", user.uid, "records", record.id);
+        const snap = await sdk.getDoc(ref);
+        if (snap.exists()) {
+          existingData = snap.data();
+        }
+        const nextRev = existingData && typeof existingData.rev === "number" ? existingData.rev + 1 : 1;
+        const payload = {
+          ...(existingData || {}),
+          ...record,
+          uid: user.uid,
+          ownerUid: user.uid,
+          rev: nextRev,
+          updatedAtMs: Date.now()
+        };
+        await sdk.setDoc(ref, payload, { merge: true });
+        return payload;
       }
-      const snap = await query.get();
-      return snap.docs.map(doc => doc.data()).sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
+
+      throw new Error("Firestore instance is not configured.");
     } catch (err) {
       throw this._handleFirestoreError(err);
     }
   }
 
-  /**
-   * Reconcile local records with incoming remote records using LWW and Payment Union.
-   */
-  reconcileRecords(localRecords, remoteRecords, allEvents = []) {
-    const recordMap = new Map();
+  reconcileRecords(localRecords = [], remoteRecords = [], paymentEvents = []) {
+    const mergedMap = new Map();
 
-    for (const rec of localRecords) {
-      recordMap.set(rec.recordId || rec.id, { ...rec });
+    for (const loc of localRecords) {
+      if (loc && loc.id) {
+        mergedMap.set(loc.id, { ...loc });
+      }
     }
 
-    for (const remote of remoteRecords) {
-      const id = remote.recordId || remote.id;
-      const local = recordMap.get(id);
-
-      if (!local) {
-        recordMap.set(id, { ...remote });
+    for (const rem of remoteRecords) {
+      if (!rem || !rem.id) continue;
+      const existing = mergedMap.get(rem.id);
+      if (!existing) {
+        mergedMap.set(rem.id, { ...rem });
       } else {
-        // LWW based on higher revision (rev)
-        const localRev = local.rev || 1;
-        const remoteRev = remote.rev || 1;
-
-        if (remoteRev > localRev) {
-          recordMap.set(id, { ...remote });
-        } else if (remoteRev === localRev && (remote.updatedAtMs || 0) > (local.updatedAtMs || 0)) {
-          recordMap.set(id, { ...remote });
+        const remRev = Number(rem.rev || 0);
+        const locRev = Number(existing.rev || 0);
+        const remTime = Number(rem.updatedAtMs || 0);
+        const locTime = Number(existing.updatedAtMs || 0);
+        if (remRev > locRev || (remRev === locRev && remTime >= locTime)) {
+          mergedMap.set(rem.id, { ...existing, ...rem });
         }
       }
     }
 
-    // Apply CRDT-Lite Set Union for partial repayments
-    const paymentsByRecord = new Map();
-    for (const evt of allEvents) {
+    // Apply append-only payment events set-union by event id
+    const eventsByRecord = new Map();
+    const seenEventIds = new Set();
+    for (const evt of paymentEvents) {
+      if (!evt || !evt.id || seenEventIds.has(evt.id)) continue;
+      seenEventIds.add(evt.id);
       if (evt.eventType === "PAYMENT" && evt.recordId) {
-        if (!paymentsByRecord.has(evt.recordId)) {
-          paymentsByRecord.set(evt.recordId, new Set());
-        }
-        paymentsByRecord.get(evt.recordId).add(evt.eventId || evt.id);
+        const list = eventsByRecord.get(evt.recordId) || [];
+        list.push(evt);
+        eventsByRecord.set(evt.recordId, list);
       }
     }
 
-    const merged = Array.from(recordMap.values());
-    for (const rec of merged) {
-      const id = rec.recordId || rec.id;
-      const paymentEventIds = paymentsByRecord.get(id);
-      if (paymentEventIds) {
-        rec.paymentEventCount = paymentEventIds.size;
-      }
+    const result = [];
+    for (const [id, rec] of mergedMap.entries()) {
+      const evts = eventsByRecord.get(id) || [];
+      result.push({
+        ...rec,
+        paymentEventCount: evts.length
+      });
     }
-
-    return merged;
+    return result;
   }
 
   _handleFirestoreError(err) {
-    const code = err.code || "";
-    if (code === "resource-exhausted" || err.message?.includes("RESOURCE_EXHAUSTED")) {
-      const quotaErr = new Error(
-        "Cloud sync is resting until tomorrow due to daily free quota limits. " +
-        "All your records remain safely saved on your device and will sync automatically."
+    const code = (err && err.code) || "";
+    const msg = (err && err.message) || "";
+    if (
+      code === "resource-exhausted" ||
+      code === "RESOURCE_EXHAUSTED" ||
+      msg.includes("RESOURCE_EXHAUSTED") ||
+      msg.toLowerCase().includes("exhausted")
+    ) {
+      const wrapped = new Error(
+        "Free daily cloud sync quota reached — your local ledger is safe and cloud sync is resting until tomorrow (midnight Pacific Time)."
       );
-      quotaErr.code = "ERR_QUOTA_EXHAUSTED";
-      quotaErr.isQuota = true;
-      return quotaErr;
-    }
-    if (code === "permission-denied") {
-      const permErr = new Error(
-        "Access denied. Please ensure you are signed in and your email address is verified."
-      );
-      permErr.code = "ERR_PERMISSION_DENIED";
-      return permErr;
+      wrapped.code = "ERR_QUOTA_EXHAUSTED";
+      wrapped.isQuota = true;
+      return wrapped;
     }
     return err;
   }
 }
 
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = {
-    FirestoreSyncClient
-  };
-}
+module.exports = {
+  FirestoreSyncClient
+};

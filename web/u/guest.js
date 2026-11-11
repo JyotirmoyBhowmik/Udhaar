@@ -1030,80 +1030,207 @@
   function parseParams() {
     const pathname = (typeof window !== "undefined" && window.location.pathname) || "";
     const search = (typeof window !== "undefined" && window.location.search) || "";
-    const hash = (typeof window !== "undefined" && window.location.hash.replace(/^#/, "").trim()) || "";
-    const isDemo = search.includes("demo=true") || hash.includes("demo") || pathname.includes("/demo") || pathname.endsWith("/demo");
+    const rawHash = (typeof window !== "undefined" && window.location.hash.replace(/^#/, "").trim()) || "";
+    const isDemo = search.includes("demo=true") || rawHash.includes("demo") || pathname.includes("/demo") || pathname.endsWith("/demo");
     const urlParams = new URLSearchParams(search);
     testState = urlParams.get("state") || "";
+
+    // Support capability fragment #k=<secret> as well as #<secret>
+    let secretFromHash = rawHash;
+    if (rawHash.startsWith("k=")) {
+      const hashParams = new URLSearchParams(rawHash);
+      secretFromHash = (hashParams.get("k") || "").trim();
+    }
+
     let recId = "";
-    let embeddedRecord = decodeEmbeddedVerificationToken(hash);
+    let embeddedRecord = decodeEmbeddedVerificationToken(secretFromHash);
     if (pathname.includes("/u/r/")) {
       recId = pathname.substring(pathname.indexOf("/u/r/") + 5).split("/")[0].split("?")[0].split("#")[0];
     } else if (pathname.includes("/u/") && !pathname.includes("/u/p/")) {
       const segment = pathname.substring(pathname.indexOf("/u/") + 3).split("/")[0].split("?")[0].split("#")[0];
-      if (!embeddedRecord) {
-        embeddedRecord = decodeEmbeddedVerificationToken(segment);
+      if (segment && segment !== "index.html") {
+        if (!embeddedRecord) {
+          embeddedRecord = decodeEmbeddedVerificationToken(segment);
+        }
+        recId = embeddedRecord ? embeddedRecord.recordId : segment;
       }
-      recId = embeddedRecord ? embeddedRecord.recordId : segment;
     }
 
-    // Secret token from fragment (or embedded self-contained payload when opened directly via /u/<token>)
+    const resolvedSecret = secretFromHash || (embeddedRecord ? embeddedRecord.secret : "");
+    const resolvedRecordId = recId || (embeddedRecord ? embeddedRecord.recordId : "") || resolvedSecret;
+
     return {
-      recordId: recId || (embeddedRecord ? embeddedRecord.recordId : ""),
-      secret: hash || (embeddedRecord ? embeddedRecord.secret : ""),
+      recordId: resolvedRecordId,
+      secret: resolvedSecret,
       isDemo,
       embeddedRecord
     };
   }
 
-  // 4. API Invocation
-  async function apiCall(endpoint, payload) {
-    if (isDemoMode) {
-      if (endpoint === "verifyGuestPhoneOtp") {
-        return { success: true, trustLevel: "Code checked" };
-      }
-      if (endpoint === "guestConfirm") {
-        return { success: true, trustLevel: "Private link" };
-      }
-      if (endpoint === "renewGuestCode") {
-        return { success: true, expiresAtMillis: Date.now() + 15 * 60 * 1000 };
-      }
-      return { success: true };
+  // 4. Spark Mode Firebase JS SDK Integration (Zero /api/* calls)
+  const FIREBASE_GUEST_CONFIG = {
+    apiKey: "AIzaSyBnlNuS6il5y53n4fUfICJSd3mtmAS-WiM",
+    authDomain: "gen-lang-client-0216629575.firebaseapp.com",
+    projectId: "gen-lang-client-0216629575",
+    storageBucket: "gen-lang-client-0216629575.firebasestorage.app",
+    messagingSenderId: "528046585099",
+    appId: "1:528046585099:android:468fd8b6debc32fcbade0e"
+  };
+
+  let _fbServices = null;
+  let _claimSlotCursor = 1;
+  let _dateSlotCursor = 1;
+
+  function _resolveFirebaseSdk() {
+    if (typeof globalThis !== "undefined" && globalThis.__UDHAAR_BUNDLED_FIREBASE__) {
+      return globalThis.__UDHAAR_BUNDLED_FIREBASE__;
     }
-    try {
-      const resp = await fetch("/api/" + endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      let data = null;
+    if (typeof require === "function") {
       try {
-        data = await resp.json();
-      } catch (_) {
-        data = null;
-      }
-      const isValidApiJson = data && typeof data === "object" && (
-        data.success !== undefined ||
-        data.record !== undefined ||
-        data.recordId !== undefined ||
-        data.lenderName !== undefined ||
-        data.error !== undefined
-      );
-      if (!resp.ok || !isValidApiJson) {
-        if (recordData && recordData.isSelfContainedToken && endpoint !== "getGuestRecord" && (!isValidApiJson || resp.status === 404 || resp.status >= 500)) {
-          return { success: true, trustLevel: "Private link" };
-        }
-        const err = new Error((data && data.error) || ("Request failed with status " + resp.status));
-        err.status = !isValidApiJson && resp.ok ? 503 : resp.status;
-        err.data = data || {};
-        throw err;
-      }
-      return data;
-    } catch (err) {
-      if (recordData && recordData.isSelfContainedToken && endpoint !== "getGuestRecord" && (!err.status || err.status === 404 || err.status >= 500)) {
-        return { success: true, trustLevel: "Private link" };
-      }
+        const appMod = require("firebase/app");
+        const authMod = require("firebase/auth");
+        const firestoreMod = require("firebase/firestore");
+        return { ...appMod, ...authMod, ...firestoreMod };
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  function _getFirebaseGuestServices() {
+    if (_fbServices) return _fbServices;
+    const sdk = _resolveFirebaseSdk();
+    if (!sdk || typeof sdk.initializeApp !== "function") {
+      return null;
+    }
+    const apps = typeof sdk.getApps === "function" ? sdk.getApps() : [];
+    const app = apps.length > 0 ? apps[0] : sdk.initializeApp(FIREBASE_GUEST_CONFIG);
+    const auth = sdk.getAuth(app);
+    const db = sdk.getFirestore(app);
+
+    const search = (typeof window !== "undefined" && window.location && window.location.search) || "";
+    const urlParams = new URLSearchParams(search);
+    const emulatorCfg = (typeof globalThis !== "undefined" && globalThis.__UDHAAR_EMULATORS__) || null;
+    const useEmulator = Boolean(emulatorCfg || urlParams.get("emulator") === "1");
+
+    if (useEmulator) {
+      const authHost = (emulatorCfg && emulatorCfg.authHost) || urlParams.get("authHost") || "127.0.0.1:9099";
+      const fsHostPort = (emulatorCfg && emulatorCfg.firestoreHost) || urlParams.get("firestoreHost") || "127.0.0.1:8080";
+      try {
+        const authUrl = authHost.startsWith("http") ? authHost : `http://${authHost}`;
+        sdk.connectAuthEmulator(auth, authUrl, { disableWarnings: true });
+      } catch (_) {}
+      try {
+        const [host, portStr] = fsHostPort.replace(/^https?:\/\//, "").split(":");
+        sdk.connectFirestoreEmulator(db, host || "127.0.0.1", parseInt(portStr || "8080", 10));
+      } catch (_) {}
+    }
+
+    _fbServices = { app, auth, db, sdk };
+    return _fbServices;
+  }
+
+  async function sha256Hex(secretStr) {
+    const clean = String(secretStr || "").trim();
+    if (typeof crypto !== "undefined" && crypto.subtle && typeof TextEncoder !== "undefined") {
+      const bytes = new TextEncoder().encode(clean);
+      const digest = await crypto.subtle.digest("SHA-256", bytes);
+      return Array.from(new Uint8Array(digest))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+    }
+    if (typeof require === "function") {
+      const nodeCrypto = require("crypto");
+      return nodeCrypto.createHash("sha256").update(clean, "utf8").digest("hex");
+    }
+    return clean;
+  }
+
+  async function ensureAnonymousGuestAuth(services) {
+    if (!services || !services.auth || !services.sdk) return null;
+    if (!services.auth.currentUser) {
+      await services.sdk.signInAnonymously(services.auth);
+    }
+    return services.auth.currentUser;
+  }
+
+  async function fetchGuestLinkFromFirestore(secret) {
+    const services = _getFirebaseGuestServices();
+    if (!services) {
+      const err = new Error("Firebase SDK not initialized");
+      err.status = 503;
       throw err;
     }
+    await ensureAnonymousGuestAuth(services);
+    const linkId = await sha256Hex(secret);
+    const ref = services.sdk.doc(services.db, "guestLinks", linkId);
+    const snap = await services.sdk.getDoc(ref);
+    if (!snap.exists()) {
+      const err = new Error("Guest link not found or expired");
+      err.status = 410;
+      throw err;
+    }
+    const data = snap.data() || {};
+    if (data.status === "REVOKED") {
+      const err = new Error("Guest link has been revoked");
+      err.status = 403;
+      throw err;
+    }
+    if (data.expiresAtMs && Number(data.expiresAtMs) <= Date.now()) {
+      const err = new Error("Guest link has expired");
+      err.status = 410;
+      throw err;
+    }
+    const amountPaise = Number(
+      data.principalAmountPaise !== undefined ? data.principalAmountPaise : data.amountPaise || 0
+    );
+    return {
+      ...data,
+      linkId,
+      recordId: data.recordId || linkId,
+      ownerUid: data.ownerUid || "",
+      principalAmountPaise: amountPaise,
+      amountPaise,
+      principalAmount:
+        data.principalAmount !== undefined ? Number(data.principalAmount) : amountPaise / 100
+    };
+  }
+
+  async function writeGuestActionToFirestore(secret, actionIdCandidates, payload) {
+    if (isDemoMode) {
+      return { success: true, actionId: actionIdCandidates[0] };
+    }
+    if (recordData && recordData.isSelfContainedToken && !recordData.ownerUid) {
+      return { success: true, actionId: actionIdCandidates[0] };
+    }
+    const services = _getFirebaseGuestServices();
+    if (!services) {
+      if (recordData && recordData.isSelfContainedToken) {
+        return { success: true, actionId: actionIdCandidates[0] };
+      }
+      throw new Error("Firebase SDK unavailable");
+    }
+    await ensureAnonymousGuestAuth(services);
+    const linkId = (recordData && recordData.linkId) || (await sha256Hex(secret));
+    const ownerUid = (recordData && recordData.ownerUid) || "";
+    const candidates = Array.isArray(actionIdCandidates) ? actionIdCandidates : [actionIdCandidates];
+
+    let lastErr = null;
+    for (const actionId of candidates) {
+      try {
+        const actionRef = services.sdk.doc(services.db, "guestLinks", linkId, "actions", actionId);
+        await services.sdk.setDoc(actionRef, {
+          ...payload,
+          linkId,
+          ownerUid,
+          recordId: (recordData && recordData.recordId) || urlRecordId || "",
+          createdAtMs: Date.now()
+        });
+        return { success: true, actionId, linkId };
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    throw lastErr || new Error("Action limit reached for this guest link.");
   }
 
   // Update Stepper Visuals
@@ -1459,11 +1586,9 @@
         }
       }
       announce("Confirming record...", false);
-      await apiCall("guestConfirm", {
-        recordId: urlRecordId,
-        secret: urlSecret,
-        whatsappOtp: codeStr || undefined,
-        guestPhoneOtp: codeStr || undefined
+      await writeGuestActionToFirestore(urlSecret, ["confirm"], {
+        actionType: "CONFIRM",
+        whatsappOtp: codeStr || null
       });
 
       if (recordData) {
@@ -1872,12 +1997,14 @@
           return;
         }
         try {
-          await apiCall("guestProposeDate", {
-            recordId: urlRecordId,
-            secret: urlSecret,
-            proposedDateMillis: new Date(dateVal).getTime(),
-            note: noteVal
+          const orderedDateIds = [];
+          for (let i = _dateSlotCursor; i <= 3; i++) orderedDateIds.push(`date_${i}`);
+          await writeGuestActionToFirestore(urlSecret, orderedDateIds, {
+            actionType: "PROPOSE_DATE",
+            proposedDateMs: new Date(dateVal).getTime(),
+            reason: noteVal
           });
+          _dateSlotCursor = Math.min(4, _dateSlotCursor + 1);
           closeModal("date-modal");
           alert(t("toast_success"));
         } catch (err) {
@@ -1903,13 +2030,15 @@
           return;
         }
         try {
-          await apiCall("guestPaymentClaim", {
-            recordId: urlRecordId,
-            secret: urlSecret,
-            amount: amtVal * 100, // paise
+          const orderedClaimIds = [];
+          for (let i = _claimSlotCursor; i <= 5; i++) orderedClaimIds.push(`claim_${i}`);
+          await writeGuestActionToFirestore(urlSecret, orderedClaimIds, {
+            actionType: "CLAIM_PAYMENT",
+            amountPaise: Math.round(amtVal * 100),
             paymentMode: modeVal,
-            referenceNumber: refVal
+            utrLast4: String(refVal || "").slice(-4)
           });
+          _claimSlotCursor = Math.min(6, _claimSlotCursor + 1);
           closeModal("paid-modal");
           alert(t("toast_success"));
         } catch (err) {
@@ -2072,11 +2201,10 @@
         const reasonCode = document.getElementById("select-dispute-reason")?.value || "OTHER";
         const note = document.getElementById("input-dispute-note")?.value || "";
         try {
-          await apiCall("guestDispute", {
-            recordId: urlRecordId,
-            secret: urlSecret,
-            reasonCode,
-            reasonText: note
+          await writeGuestActionToFirestore(urlSecret, ["dispute"], {
+            actionType: "DISPUTE",
+            reasonCategory: reasonCode,
+            reason: note || reasonCode
           });
           closeModal("dispute-modal");
           showErrorState("state_disputed_title", "state_disputed_desc", "state_disputed_action", {
@@ -2172,10 +2300,9 @@
 
     if (params.embeddedRecord) {
       renderRecordView(params.embeddedRecord);
-      if (urlRecordId && urlSecret) {
-        apiCall("getGuestRecord", { recordId: urlRecordId, secret: urlSecret })
-          .then((data) => {
-            const remote = data.record || data;
+      if (urlSecret) {
+        fetchGuestLinkFromFirestore(urlSecret)
+          .then((remote) => {
             if (remote && remote.recordId) {
               renderRecordView({ ...params.embeddedRecord, ...remote, isSelfContainedToken: true });
             }
@@ -2185,22 +2312,20 @@
       return;
     }
 
-    if (!urlRecordId || !urlSecret) {
+    if (!urlSecret) {
       showErrorState("state_expired_title", "state_expired_desc", "state_expired_action", { name: "the sender" });
       return;
     }
 
     try {
-      const data = await apiCall("getGuestRecord", { recordId: urlRecordId, secret: urlSecret });
-      renderRecordView(data.record || data);
+      const remoteRecord = await fetchGuestLinkFromFirestore(urlSecret);
+      renderRecordView(remoteRecord);
     } catch (err) {
       if (err.status === 410) {
         showErrorState("state_expired_title", "state_expired_desc", "state_expired_action", { name: "the sender" });
       } else if (err.status === 403) {
         showErrorState("state_revoked_title", "state_revoked_desc", "state_revoked_action", { name: "the sender" });
       } else if (urlRecordId && urlSecret && (err.status === 503 || err.status === 404 || err.status === 502 || !err.status)) {
-        // Spark free-tier static hosting fallback for older v22 links (/u/r/<uuid>#<16-char-secret>)
-        // when Cloud Functions (getGuestRecord) are not deployed on the Firebase project.
         const qs = new URLSearchParams((typeof window !== "undefined" && window.location.search) || "");
         const qsAmt = parseFloat(qs.get("amt") || "0") || 0;
         const qsStart = parseInt(qs.get("start") || "0", 10) || null;
@@ -2231,9 +2356,20 @@
     }
   }
 
-  // Export I18N dictionary, token decoder, and OTP binder for automated testing
+  // Export I18N dictionary, token decoder, OTP binder, and Spark Firestore helpers for automated testing
   if (typeof module !== "undefined" && module.exports) {
-    module.exports = { I18N, t, formatCurrency, formatDate, maskUpi, decodeEmbeddedVerificationToken, bindOtpInputs };
+    module.exports = {
+      I18N,
+      t,
+      formatCurrency,
+      formatDate,
+      maskUpi,
+      decodeEmbeddedVerificationToken,
+      bindOtpInputs,
+      sha256Hex,
+      fetchGuestLinkFromFirestore,
+      writeGuestActionToFirestore
+    };
   } else {
     window.UdhaarI18N = I18N;
     document.addEventListener("DOMContentLoaded", init);

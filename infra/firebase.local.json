@@ -1,65 +1,31 @@
 {
   "firestore": {
-    "rules": "firestore.rules"
-  },
-  "storage": {
-    "rules": "storage.rules"
+    "rules": "../firestore.rules",
+    "indexes": "../firestore.indexes.json"
   },
   "hosting": [
     {
       "site": "udhaar-marketing-local",
-      "public": "web",
-      "rewrites": [
-        {
-          "source": "/api/**",
-          "function": {
-            "functionId": "api",
-            "region": "asia-south1"
-          }
-        },
-        {
-          "source": "**",
-          "destination": "/index.html"
-        }
-      ]
+      "public": "../web",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "cleanUrls": true,
+      "trailingSlash": false
     },
     {
       "site": "udhaar-app-local",
-      "public": "webapp/dist",
+      "public": "../webapp/dist",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "cleanUrls": true,
+      "trailingSlash": false,
       "rewrites": [
-        {
-          "source": "/api/**",
-          "function": {
-            "functionId": "api",
-            "region": "asia-south1"
-          }
-        },
-        {
-          "source": "**",
-          "destination": "/index.html"
-        }
+        { "source": "**", "destination": "/index.html" }
       ]
     }
   ],
   "emulators": {
-    "auth": {
-      "port": 9099
-    },
-    "functions": {
-      "port": 5001
-    },
-    "firestore": {
-      "port": 8080
-    },
-    "storage": {
-      "port": 9199
-    },
-    "hosting": {
-      "port": 5000
-    },
-    "ui": {
-      "enabled": true,
-      "port": 4000
-    }
+    "auth": { "port": 9099, "host": "127.0.0.1" },
+    "firestore": { "port": 8080, "host": "127.0.0.1" },
+    "hosting": { "port": 5000, "host": "127.0.0.1" },
+    "ui": { "enabled": true, "port": 4000 }
   }
 }

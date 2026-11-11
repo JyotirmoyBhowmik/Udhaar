@@ -1,6 +1,7 @@
 /**
  * Udhaar Web App Production Bundler & Asset Packager (scripts/build-webapp.js)
- * Bundles webapp/src into webapp/dist/ without external devServer lock-in.
+ * Bundles webapp/src into webapp/dist/ and packages the Firebase JS SDK locally
+ * into webapp/dist/vendor/ and web/u/vendor/ (zero CDN dependencies).
  * Enforces strict CSP, performance budgets, and self-hosted fonts.
  */
 
@@ -21,6 +22,140 @@ console.log("=========================================================\n");
 fs.mkdirSync(DIST_DIR, { recursive: true });
 fs.mkdirSync(path.join(DIST_DIR, "assets"), { recursive: true });
 fs.mkdirSync(path.join(DIST_DIR, "fonts"), { recursive: true });
+fs.mkdirSync(path.join(DIST_DIR, "vendor"), { recursive: true });
+fs.mkdirSync(path.join(WEB_DIR, "u", "vendor"), { recursive: true });
+
+// 0. Bundle local Firebase JS SDK (app, auth, firestore, app-check) with zero CDN dependencies
+console.log("▶ [0/5] Packaging local Firebase JS SDK (no CDN)...");
+
+function resolveFirebaseNodeModuleDir() {
+  const candidates = [
+    path.join(ROOT_DIR, "node_modules", "firebase"),
+    path.join(WEBAPP_DIR, "node_modules", "firebase"),
+    "/usr/local/lib/node_modules/@firebase/rules-unit-testing/node_modules/firebase"
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(path.join(c, "firebase-app.js"))) {
+      return c;
+    }
+  }
+  throw new Error("Could not locate `firebase` npm package on disk.");
+}
+
+const firebasePkgDir = resolveFirebaseNodeModuleDir();
+const firebaseBundleFiles = [
+  "firebase-app.js",
+  "firebase-auth.js",
+  "firebase-firestore.js",
+  "firebase-app-check.js"
+];
+
+for (const fileName of firebaseBundleFiles) {
+  let raw = fs.readFileSync(path.join(firebasePkgDir, fileName), "utf8");
+  // Rewrite any gstatic CDN reference to the local ./firebase-app.js bundle
+  raw = raw.replace(
+    /https:\/\/www\.gstatic\.com\/firebasejs\/[^"']+\/firebase-app\.js/g,
+    "./firebase-app.js"
+  );
+  // Strip sourceMappingURL comments
+  raw = raw.replace(/\/\/# sourceMappingURL=.*$/gm, "");
+  fs.writeFileSync(path.join(DIST_DIR, "vendor", fileName), raw, "utf8");
+  fs.writeFileSync(path.join(WEB_DIR, "u", "vendor", fileName), raw, "utf8");
+}
+
+const localSdkEntrypointCode = `/**
+ * Locally Bundled Firebase JS SDK Entrypoint (No CDN)
+ * Exposes Firebase App, Auth, Firestore, and App Check modular APIs.
+ */
+import {
+  initializeApp,
+  getApps,
+  getApp
+} from "./firebase-app.js";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  EmailAuthProvider,
+  signInWithPopup,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
+  signInAnonymously,
+  onAuthStateChanged,
+  signOut,
+  connectAuthEmulator
+} from "./firebase-auth.js";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  collection,
+  collectionGroup,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs,
+  writeBatch,
+  connectFirestoreEmulator
+} from "./firebase-firestore.js";
+import {
+  initializeAppCheck,
+  ReCaptchaV3Provider,
+  getToken as getAppCheckToken
+} from "./firebase-app-check.js";
+
+const bundledFirebaseSdk = {
+  initializeApp,
+  getApps,
+  getApp,
+  getAuth,
+  GoogleAuthProvider,
+  EmailAuthProvider,
+  signInWithPopup,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
+  signInAnonymously,
+  onAuthStateChanged,
+  signOut,
+  connectAuthEmulator,
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  collection,
+  collectionGroup,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs,
+  writeBatch,
+  connectFirestoreEmulator,
+  initializeAppCheck,
+  ReCaptchaV3Provider,
+  getAppCheckToken
+};
+
+globalThis.__UDHAAR_BUNDLED_FIREBASE__ = bundledFirebaseSdk;
+export default bundledFirebaseSdk;
+`;
+
+fs.writeFileSync(path.join(DIST_DIR, "vendor", "firebase-sdk.js"), localSdkEntrypointCode, "utf8");
+fs.writeFileSync(path.join(WEB_DIR, "u", "vendor", "firebase-sdk.js"), localSdkEntrypointCode, "utf8");
+console.log("  ✓ Packaged firebase-app.js, firebase-auth.js, firebase-firestore.js, firebase-app-check.js locally");
 
 // 1. Bundle JavaScript modules into webapp/dist/app.js
 console.log("▶ [1/5] Bundling JavaScript modules into app.js...");
@@ -36,6 +171,7 @@ const moduleFiles = [
   { name: "remoteConfigService", path: path.join(WEBAPP_DIR, "src/features/config/remoteConfigService.js") },
   { name: "clientFieldEncryption", path: path.join(WEBAPP_DIR, "src/features/crypto/clientFieldEncryption.js") },
   { name: "clientWriteLimiter", path: path.join(WEBAPP_DIR, "src/api/clientWriteLimiter.js") },
+  { name: "firebaseSdk", path: path.join(WEBAPP_DIR, "src/api/firebaseSdk.js") },
   { name: "firestoreSyncClient", path: path.join(WEBAPP_DIR, "src/api/firestoreSyncClient.js") },
   { name: "firestoreWebTransport", path: path.join(WEBAPP_DIR, "src/sync/firestoreWebTransport.js") },
   { name: "calendarReminderService", path: path.join(WEBAPP_DIR, "src/features/reminders/calendarReminderService.js") },
@@ -96,12 +232,13 @@ for (const mod of moduleFiles) {
   content = content.replace(/require\(["'](?:\.\.\/|\.\/)+features\/exports\/ExportsView["']\)/g, '__require("ExportsView")');
 
   // Spark Mode module replacements
-  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+passwordValidator["']\)/g, '__require("passwordValidator")');
-  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+disposableDomains["']\)/g, '__require("disposableDomains")');
-  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+phoneValidation["']\)/g, '__require("phoneValidation")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+(?:features\/auth\/)?passwordValidator["']\)/g, '__require("passwordValidator")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+(?:features\/auth\/)?disposableDomains["']\)/g, '__require("disposableDomains")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+(?:features\/auth\/)?phoneValidation["']\)/g, '__require("phoneValidation")');
   content = content.replace(/require\(["'](?:\.\.\/|\.\/)+(?:features\/)?config\/remoteConfigService["']\)/g, '__require("remoteConfigService")');
   content = content.replace(/require\(["'](?:\.\.\/|\.\/)+(?:features\/)?crypto\/clientFieldEncryption["']\)/g, '__require("clientFieldEncryption")');
   content = content.replace(/require\(["'](?:\.\.\/|\.\/)+(?:api\/)?clientWriteLimiter["']\)/g, '__require("clientWriteLimiter")');
+  content = content.replace(/require\(["'](?:\.\.\/|\.\/)+(?:api\/)?firebaseSdk["']\)/g, '__require("firebaseSdk")');
   content = content.replace(/require\(["'](?:\.\.\/|\.\/)+(?:api\/)?firestoreSyncClient["']\)/g, '__require("firestoreSyncClient")');
   content = content.replace(/require\(["'](?:\.\.\/|\.\/)+(?:sync\/)?firestoreWebTransport["']\)/g, '__require("firestoreWebTransport")');
   content = content.replace(/require\(["'](?:\.\.\/|\.\/)+(?:features\/)?reminders\/calendarReminderService["']\)/g, '__require("calendarReminderService")');
@@ -193,4 +330,4 @@ if (totalBytes > 300 * 1024) {
   process.exit(1);
 }
 
-console.log("\n🎉 SUCCESS: Udhaar Web App (Stage S2) build completed successfully!");
+console.log("\n🎉 SUCCESS: Udhaar Web App (Spark Mode) build completed successfully!");

@@ -5,6 +5,7 @@
  */
 
 const { initLocale, setLocale, getLocale, t } = require("../i18n");
+const { initFirebaseSdk } = require("../api/firebaseSdk");
 const { authClient } = require("../api/authClient");
 const { Router } = require("../routes/router");
 const { SignUpView } = require("../features/auth/SignUpView");
@@ -22,9 +23,11 @@ class AppShell {
     this.router = new Router();
     this.i18n = { initLocale, setLocale, getLocale, t };
     this.authClient = authClient;
+    this.firebaseServices = null;
   }
 
   init() {
+    this.firebaseServices = initFirebaseSdk();
     this.i18n.initLocale();
     this._initTheme();
     this._renderShell();

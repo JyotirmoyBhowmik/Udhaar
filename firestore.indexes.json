@@ -4,34 +4,38 @@
       "collectionGroup": "records",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "updatedAtMs", "order": "DESCENDING" }
+        { "fieldPath": "ownerUid", "order": "ASCENDING" },
+        { "fieldPath": "updatedAtMs", "order": "ASCENDING" }
       ]
     },
     {
-      "collectionGroup": "records",
+      "collectionGroup": "people",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "counterpartyRole", "order": "ASCENDING" },
-        { "fieldPath": "updatedAtMs", "order": "DESCENDING" }
+        { "fieldPath": "ownerUid", "order": "ASCENDING" },
+        { "fieldPath": "updatedAtMs", "order": "ASCENDING" }
       ]
     },
     {
-      "collectionGroup": "events",
+      "collectionGroup": "plans",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "recordId", "order": "ASCENDING" },
-        { "fieldPath": "timestampMs", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "changeLog",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "seq", "order": "ASCENDING" },
-        { "fieldPath": "timestampMs", "order": "ASCENDING" }
+        { "fieldPath": "ownerUid", "order": "ASCENDING" },
+        { "fieldPath": "updatedAtMs", "order": "ASCENDING" }
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "actions",
+      "fieldPath": "ownerUid",
+      "ttl": false,
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION" },
+        { "arrayConfig": "CONTAINS", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
+      ]
+    }
+  ]
 }

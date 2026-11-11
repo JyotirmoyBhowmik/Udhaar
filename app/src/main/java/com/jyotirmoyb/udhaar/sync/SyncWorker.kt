@@ -54,6 +54,17 @@ class SyncWorker @AssistedInject constructor(
             return Result.success()
         }
 
+        // Spark Mode gate: Cloud sync stays off until email is verified
+        val firebaseUser = try {
+            com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+        } catch (_: Exception) {
+            null
+        }
+        if (firebaseUser != null && !firebaseUser.isEmailVerified) {
+            SafeLogger.i("SyncWorker", "Email not verified; skipping background cloud sync.")
+            return Result.success()
+        }
+
         SafeLogger.i("SyncWorker", "Starting background sync work for user: ${store.getUserId()}")
         return try {
             val success = syncRepository.sync()
@@ -71,40 +82,46 @@ class SyncWorker @AssistedInject constructor(
         private const val IMMEDIATE_SYNC_WORK_NAME = "udhaar_immediate_sync"
 
         fun enqueueImmediate(context: Context) {
-            val constraints = Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
-                .build()
+            runCatching {
+                val constraints = Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build()
 
-            val request = OneTimeWorkRequestBuilder<SyncWorker>()
-                .setConstraints(constraints)
-                .build()
+                val request = OneTimeWorkRequestBuilder<SyncWorker>()
+                    .setConstraints(constraints)
+                    .build()
 
-            WorkManager.getInstance(context).enqueueUniqueWork(
-                IMMEDIATE_SYNC_WORK_NAME,
-                ExistingWorkPolicy.REPLACE,
-                request
-            )
+                WorkManager.getInstance(context).enqueueUniqueWork(
+                    IMMEDIATE_SYNC_WORK_NAME,
+                    ExistingWorkPolicy.REPLACE,
+                    request
+                )
+            }
         }
 
         fun enqueuePeriodic(context: Context) {
-            val constraints = Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
-                .build()
+            runCatching {
+                val constraints = Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build()
 
-            val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
-                .setConstraints(constraints)
-                .build()
+                val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
+                    .setConstraints(constraints)
+                    .build()
 
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                PERIODIC_SYNC_WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
-                request
-            )
+                WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                    PERIODIC_SYNC_WORK_NAME,
+                    ExistingPeriodicWorkPolicy.KEEP,
+                    request
+                )
+            }
         }
 
         fun cancelSync(context: Context) {
-            WorkManager.getInstance(context).cancelUniqueWork(PERIODIC_SYNC_WORK_NAME)
-            WorkManager.getInstance(context).cancelUniqueWork(IMMEDIATE_SYNC_WORK_NAME)
+            runCatching {
+                WorkManager.getInstance(context).cancelUniqueWork(PERIODIC_SYNC_WORK_NAME)
+                WorkManager.getInstance(context).cancelUniqueWork(IMMEDIATE_SYNC_WORK_NAME)
+            }
         }
     }
 }

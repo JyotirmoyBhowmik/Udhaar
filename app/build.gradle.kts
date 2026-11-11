@@ -20,12 +20,16 @@ android {
     applicationId = "com.jyotirmoyb.udhaar"
     minSdk = 24
     targetSdk = 36
-    versionCode = 26
-    versionName = "26.0"
+    versionCode = 27
+    versionName = "27.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     val udhaarTier = providers.gradleProperty("udhaar.tier").getOrElse("spark")
     buildConfigField("String", "UDHAAR_TIER", "\"$udhaarTier\"")
+    val cloudFeatures = providers.gradleProperty("udhaar.cloudFeatures")
+      .map { it.equals("true", ignoreCase = true) }
+      .getOrElse(false)
+    buildConfigField("boolean", "CLOUD_FEATURES", cloudFeatures.toString())
   androidResources {
     localeFilters += listOf("en", "hi", "bn", "as", "ne")
   }

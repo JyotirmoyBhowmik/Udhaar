@@ -20,6 +20,9 @@
     "lint": "eslint web/*.js web/u/*.js",
     "lint:css": "stylelint web/*.css"
   },
+  "dependencies": {
+    "firebase": "^12.19.0"
+  },
   "devDependencies": {
     "eslint": "^9.0.0",
     "stylelint": "^16.0.0",

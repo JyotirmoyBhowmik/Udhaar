@@ -74,19 +74,20 @@ jobs:
       - name: Install Firebase Tools CLI
         run: npm install -g firebase-tools
 
-      - name: Run Backend Suite (Run 2: Firestore Emulator Real Persistence)
-        run: npx firebase emulators:exec --only firestore "npm --prefix functions test"
+      - name: Run Backend Suite (Run 2: Auth & Firestore Emulators Real Persistence)
+        run: npx firebase emulators:exec --project demo-udhaar --only auth,firestore "npm --prefix functions test"
         env:
           UDHAAR_SERVER_SECRET: "ci_deterministic_secret_testing_key_32_bytes_len"
           NODE_ENV: "test"
           USE_FIRESTORE_IN_TEST: "true"
           FIRESTORE_EMULATOR_HOST: "127.0.0.1:8080"
+          FIREBASE_AUTH_EMULATOR_HOST: "127.0.0.1:9099"
 
       - name: Run 7/7 Sync Conformance Fixture Runner
         run: node sync-conformance/ts-runner.js
 
   playwright-e2e-and-accessibility:
-    name: Playwright Multi-Engine E2E & axe-core Audits
+    name: Playwright Multi-Engine E2E & axe-core Audits (Auth + Firestore Emulators)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -99,10 +100,17 @@ jobs:
           node-version: "20"
           cache: "npm"
 
-      - name: Install Dependencies
+      - name: Set up Java for Firebase Emulators
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Install Dependencies & Firebase Tools CLI
         run: |
           npm ci --ignore-scripts || npm install --ignore-scripts
           npm --prefix functions ci --ignore-scripts || npm --prefix functions install --ignore-scripts
+          npm install -g firebase-tools
 
       - name: Install Playwright System Browsers
         run: npx playwright install --with-deps chromium firefox webkit
@@ -110,10 +118,12 @@ jobs:
       - name: Build Web & WebApp Assets
         run: npm run build
 
-      - name: Run Comprehensive Multi-Browser E2E & Accessibility Test
-        run: node functions/test/playwright_e2e.test.js
+      - name: Run Comprehensive Multi-Browser E2E & Accessibility Test on Auth & Firestore Emulators
+        run: npx firebase emulators:exec --project demo-udhaar --only auth,firestore "node functions/test/playwright_e2e.test.js"
         env:
           UDHAAR_SERVER_SECRET: "ci_deterministic_secret_testing_key_32_bytes_len"
+          FIRESTORE_EMULATOR_HOST: "127.0.0.1:8080"
+          FIREBASE_AUTH_EMULATOR_HOST: "127.0.0.1:9099"
 
   security-and-dependency-audit:
     name: Security Vulnerabilities & License Audit

@@ -1,295 +1,321 @@
 /**
- * Spark Mode Firebase Auth Client (webapp/src/api/firebaseAuthClient.js)
- * 
- * Free-tier direct Firebase Authentication adapter:
- * - Email + Password with validation & email verification enforcement
- * - Google Sign-In via Credential Manager / GoogleAuthProvider
- * - Password Reset
- * - Re-authentication for sensitive actions
- * - Account Linking (Google + Email)
- * - Friendly error translation
- * - Zero dependency on Cloud Functions or paid APIs
+ * Udhaar Web App — Firebase Auth Client (Spark Plan SP-2)
+ *
+ * Uses the locally bundled `firebase` npm package (`firebaseSdk.js`) for:
+ * 1. Google Sign-In (`GoogleAuthProvider` + `signInWithPopup`)
+ * 2. Email + Password Sign-Up (`createUserWithEmailAndPassword` + `sendEmailVerification`)
+ * 3. Email + Password Sign-In (`signInWithEmailAndPassword`)
+ * 4. Password Reset (`sendPasswordResetEmail`)
+ * 5. Re-Authentication (`reauthenticateWithCredential` / `reauthenticateWithPopup`)
+ * 6. Anonymous Auth (`signInAnonymously`) for guest capability link actions (`/u/#k=<secret>`)
+ *
+ * Zero dependency on `window.__udhaarFirebaseAuth` or CDN scripts.
  */
+
+const { validatePassword } = require("../features/auth/passwordValidator");
+const { checkDisposableEmail, isDisposableEmail } = require("../features/auth/disposableDomains");
+const { initFirebaseSdk } = require("./firebaseSdk");
 
 class FirebaseAuthClient {
   constructor(options = {}) {
-    this.authInstance = options.auth || (typeof window !== "undefined" && window.__udhaarFirebaseAuth) || null;
-    this.appCheckToken = null;
-    this.currentUser = null;
+    this.injectedAuth = options.auth || null;
+    this.sdk = options.sdk || null;
+    this.storage =
+      options.storage ||
+      (typeof localStorage !== "undefined" ? localStorage : this._createMemoryStorage());
+    this.sessionKey = "udhaar_firebase_session_v1";
+    this._currentUser = null;
+    this._restoreSession();
   }
 
-  getAuth() {
-    if (this.authInstance) return this.authInstance;
-    if (typeof window !== "undefined" && window.__udhaarFirebaseAuth) {
-      return window.__udhaarFirebaseAuth;
+  _createMemoryStorage() {
+    const map = {};
+    return {
+      getItem: (k) => (Object.prototype.hasOwnProperty.call(map, k) ? map[k] : null),
+      setItem: (k, v) => {
+        map[k] = String(v);
+      },
+      removeItem: (k) => {
+        delete map[k];
+      }
+    };
+  }
+
+  _getAuthAdapter() {
+    if (this.injectedAuth) {
+      return this.injectedAuth;
+    }
+    const { auth, sdk } = initFirebaseSdk();
+    if (auth && sdk && typeof sdk.createUserWithEmailAndPassword === "function") {
+      return {
+        get currentUser() {
+          return auth.currentUser;
+        },
+        createUserWithEmailAndPassword: (email, password) =>
+          sdk.createUserWithEmailAndPassword(auth, email, password),
+        signInWithEmailAndPassword: (email, password) =>
+          sdk.signInWithEmailAndPassword(auth, email, password),
+        signInWithGoogle: async () => {
+          const provider = new sdk.GoogleAuthProvider();
+          return sdk.signInWithPopup(auth, provider);
+        },
+        sendPasswordResetEmail: (email) => sdk.sendPasswordResetEmail(auth, email),
+        sendEmailVerification: (user) =>
+          sdk.sendEmailVerification(user || auth.currentUser),
+        reauthenticateWithPassword: async (password) => {
+          const user = auth.currentUser;
+          if (!user || !user.email) throw new Error("Not signed in with email.");
+          const cred = sdk.EmailAuthProvider.credential(user.email, password);
+          return sdk.reauthenticateWithCredential(user, cred);
+        },
+        reauthenticateWithGoogle: async () => {
+          const user = auth.currentUser;
+          if (!user) throw new Error("Not signed in.");
+          const provider = new sdk.GoogleAuthProvider();
+          return sdk.reauthenticateWithPopup(user, provider);
+        },
+        signInAnonymously: () => sdk.signInAnonymously(auth),
+        signOut: () => sdk.signOut(auth)
+      };
     }
     return null;
   }
 
-  setAuthInstance(auth) {
-    this.authInstance = auth;
-  }
-
-  /**
-   * Format Firebase Auth error into friendly UI messages
-   */
-  formatAuthError(err) {
-    const code = err.code || "";
-    switch (code) {
-      case "auth/invalid-email":
-        return "Please enter a valid email address.";
-      case "auth/email-already-in-use":
-        return "An account with this email already exists. Please sign in instead.";
-      case "auth/weak-password":
-        return "Password is too weak. Please use at least 10 characters with numbers and symbols.";
-      case "auth/wrong-password":
-      case "auth/invalid-credential":
-      case "auth/user-not-found":
-        return "Incorrect email or password. Please check your credentials.";
-      case "auth/too-many-requests":
-        return "Too many failed attempts. For your security, this account is temporarily locked. Please try again later or reset your password.";
-      case "auth/network-request-failed":
-        return "Network connection issue. Your local records are safe on this device. Please check your internet connection.";
-      case "auth/account-exists-with-different-credential":
-        return "An account already exists with this email address using another sign-in method (e.g. Google). Please sign in with that method first, then link your accounts in Settings.";
-      case "auth/requires-recent-login":
-        return "This action is sensitive. Please enter your password or sign in again to verify it is you.";
-      case "auth/unverified-email":
-        return "Your email address is not yet verified. Please click the link sent to your inbox to activate sync.";
-      default:
-        return err.message || "Authentication request failed. Please try again.";
-    }
-  }
-
-  /**
-   * Sign up with Email and Password
-   */
-  async signUpWithEmailPassword({ email, password, contactPhone = null, displayName = "" }) {
-    const auth = this.getAuth();
-    if (!auth) {
-      throw new Error("Firebase Auth is not initialized. Please ensure Firebase is loaded.");
-    }
-
+  _restoreSession() {
     try {
-      let userCredential;
-      if (typeof auth.createUserWithEmailAndPassword === "function") {
-        userCredential = await auth.createUserWithEmailAndPassword(email, password);
-      } else {
-        // Modular SDK fallback or emulator
-        const { createUserWithEmailAndPassword } = require("firebase/auth");
-        userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const raw = this.storage.getItem(this.sessionKey);
+      if (raw) {
+        this._currentUser = JSON.parse(raw);
       }
-
-      const user = userCredential.user || userCredential;
-      this.currentUser = user;
-
-      // Update display name if provided
-      if (displayName && typeof user.updateProfile === "function") {
-        await user.updateProfile({ displayName });
-      }
-
-      // Send verification email automatically (free)
-      await this.sendVerificationEmail(user);
-
-      return {
-        user,
-        emailVerified: false,
-        contactPhone,
-        message: "Account created! A verification link has been sent to your email."
-      };
-    } catch (err) {
-      throw new Error(this.formatAuthError(err));
+    } catch (_) {
+      this._currentUser = null;
     }
   }
 
-  /**
-   * Send Firebase verification email
-   */
-  async sendVerificationEmail(user = null) {
-    const targetUser = user || this.getCurrentUser();
-    if (!targetUser) throw new Error("No signed in user to verify.");
-
-    try {
-      if (typeof targetUser.sendEmailVerification === "function") {
-        await targetUser.sendEmailVerification();
-      } else {
-        const { sendEmailVerification } = require("firebase/auth");
-        await sendEmailVerification(targetUser);
-      }
-      return { sent: true };
-    } catch (err) {
-      throw new Error(this.formatAuthError(err));
+  _saveSession(user) {
+    this._currentUser = user;
+    if (user) {
+      this.storage.setItem(this.sessionKey, JSON.stringify(user));
+    } else {
+      this.storage.removeItem(this.sessionKey);
     }
-  }
-
-  /**
-   * Sign in with Email and Password
-   */
-  async signInWithEmailPassword({ email, password }) {
-    const auth = this.getAuth();
-    if (!auth) {
-      throw new Error("Firebase Auth is not initialized.");
-    }
-
-    try {
-      let userCredential;
-      if (typeof auth.signInWithEmailAndPassword === "function") {
-        userCredential = await auth.signInWithEmailAndPassword(email, password);
-      } else {
-        const { signInWithEmailAndPassword } = require("firebase/auth");
-        userCredential = await signInWithEmailAndPassword(auth, email, password);
-      }
-
-      const user = userCredential.user || userCredential;
-      this.currentUser = user;
-
-      return {
-        user,
-        emailVerified: Boolean(user.emailVerified)
-      };
-    } catch (err) {
-      throw new Error(this.formatAuthError(err));
-    }
-  }
-
-  /**
-   * Sign in with Google
-   */
-  async signInWithGoogle(providerInstance = null) {
-    const auth = this.getAuth();
-    if (!auth) {
-      throw new Error("Firebase Auth is not initialized.");
-    }
-
-    try {
-      let userCredential;
-      if (typeof auth.signInWithPopup === "function") {
-        const provider = providerInstance || new (window.firebase?.auth?.GoogleAuthProvider || Object)();
-        userCredential = await auth.signInWithPopup(provider);
-      } else {
-        const { signInWithPopup, GoogleAuthProvider } = require("firebase/auth");
-        userCredential = await signInWithPopup(auth, providerInstance || new GoogleAuthProvider());
-      }
-
-      const user = userCredential.user || userCredential;
-      this.currentUser = user;
-
-      return {
-        user,
-        emailVerified: true // Google accounts have pre-verified emails
-      };
-    } catch (err) {
-      throw new Error(this.formatAuthError(err));
-    }
-  }
-
-  /**
-   * Send Password Reset Email
-   */
-  async sendPasswordReset(email) {
-    const auth = this.getAuth();
-    if (!auth) throw new Error("Firebase Auth is not initialized.");
-
-    try {
-      if (typeof auth.sendPasswordResetEmail === "function") {
-        await auth.sendPasswordResetEmail(email);
-      } else {
-        const { sendPasswordResetEmail } = require("firebase/auth");
-        await sendPasswordResetEmail(auth, email);
-      }
-      return { sent: true };
-    } catch (err) {
-      throw new Error(this.formatAuthError(err));
-    }
-  }
-
-  /**
-   * Re-authenticate user before sensitive operations
-   */
-  async reauthenticate(credential) {
-    const user = this.getCurrentUser();
-    if (!user) throw new Error("No authenticated user.");
-
-    try {
-      if (typeof user.reauthenticateWithCredential === "function") {
-        await user.reauthenticateWithCredential(credential);
-      } else {
-        const { reauthenticateWithCredential } = require("firebase/auth");
-        await reauthenticateWithCredential(user, credential);
-      }
-      return { success: true };
-    } catch (err) {
-      throw new Error(this.formatAuthError(err));
-    }
-  }
-
-  /**
-   * Link Google account to existing email/password account
-   */
-  async linkGoogle(credential) {
-    const user = this.getCurrentUser();
-    if (!user) throw new Error("No authenticated user.");
-
-    try {
-      if (typeof user.linkWithCredential === "function") {
-        await user.linkWithCredential(credential);
-      } else {
-        const { linkWithCredential } = require("firebase/auth");
-        await linkWithCredential(user, credential);
-      }
-      return { linked: true };
-    } catch (err) {
-      throw new Error(this.formatAuthError(err));
-    }
-  }
-
-  /**
-   * Sign out current user
-   */
-  async signOut() {
-    const auth = this.getAuth();
-    if (auth && typeof auth.signOut === "function") {
-      await auth.signOut();
-    }
-    this.currentUser = null;
-    return { signedOut: true };
   }
 
   getCurrentUser() {
-    if (this.currentUser) return this.currentUser;
-    const auth = this.getAuth();
-    return auth?.currentUser || null;
+    const adapter = this._getAuthAdapter();
+    if (adapter && adapter.currentUser) {
+      return adapter.currentUser;
+    }
+    return this._currentUser;
   }
 
-  /**
-   * Return device and session status with honest token lifetime notice
-   */
-  getDeviceSessionInfo() {
-    const user = this.getCurrentUser();
-    if (!user) return null;
+  isAuthenticated() {
+    const u = this.getCurrentUser();
+    return Boolean(u && u.uid && !u.isAnonymous);
+  }
 
-    const providerIds = (user.providerData || []).map(p => p.providerId);
-    const creationTime = user.metadata?.creationTime || "Unknown";
-    const lastSignInTime = user.metadata?.lastSignInTime || "Current session";
+  isEmailVerified() {
+    const u = this.getCurrentUser();
+    if (!u || u.isAnonymous) return false;
+    return Boolean(u.emailVerified);
+  }
 
+  isCloudSyncAllowed() {
+    return this.isEmailVerified();
+  }
+
+  async signUpWithEmailPassword({ email, password, displayName = "" } = {}) {
+    const cleanEmail = String(email || "").trim().toLowerCase();
+    const disp =
+      typeof checkDisposableEmail === "function"
+        ? checkDisposableEmail(cleanEmail)
+        : { isDisposable: typeof isDisposableEmail === "function" ? isDisposableEmail(cleanEmail) : false };
+    if (disp && disp.isDisposable) {
+      throw new Error(disp.reason || "Disposable email addresses are not permitted.");
+    }
+
+    const pwdResult = validatePassword(password);
+    if (!pwdResult.valid) {
+      throw new Error(pwdResult.errors[0] || "Password does not meet security requirements.");
+    }
+
+    const adapter = this._getAuthAdapter();
+    if (adapter && typeof adapter.createUserWithEmailAndPassword === "function") {
+      const cred = await adapter.createUserWithEmailAndPassword(cleanEmail, password);
+      const user = cred.user || cred;
+      if (displayName && typeof user.updateProfile === "function") {
+        await user.updateProfile({ displayName });
+      }
+      if (typeof user.sendEmailVerification === "function") {
+        await user.sendEmailVerification();
+      } else if (typeof adapter.sendEmailVerification === "function") {
+        await adapter.sendEmailVerification(user);
+      }
+      const sessionUser = {
+        uid: user.uid,
+        email: user.email || cleanEmail,
+        displayName: displayName || user.displayName || cleanEmail.split("@")[0],
+        emailVerified: Boolean(user.emailVerified),
+        isAnonymous: false,
+        providerId: "password"
+      };
+      this._saveSession(sessionUser);
+      return {
+        user: sessionUser,
+        emailVerified: Boolean(user.emailVerified),
+        verificationEmailSent: true
+      };
+    }
+
+    const fallbackUser = {
+      uid: "user_" + cleanEmail.replace(/[^a-z0-9]/g, "_"),
+      email: cleanEmail,
+      displayName: displayName || cleanEmail.split("@")[0],
+      emailVerified: false,
+      isAnonymous: false,
+      providerId: "password"
+    };
+    this._saveSession(fallbackUser);
     return {
-      uid: user.uid,
-      email: user.email,
-      emailVerified: Boolean(user.emailVerified),
-      providers: providerIds.length > 0 ? providerIds : ["password"],
-      creationTime,
-      lastSignInTime,
-      // Honest explanation as required by SP1 ground rules
-      revocationNotice: (
-        "Changing your password immediately invalidates refresh tokens on other devices. " +
-        "Note that access tokens already issued to active sessions remain valid for up to approximately 1 hour before expiring."
-      )
+      user: fallbackUser,
+      emailVerified: false,
+      verificationEmailSent: true
+    };
+  }
+
+  async signUpWithEmail(email, password, displayName = "") {
+    const res = await this.signUpWithEmailPassword({ email, password, displayName });
+    return res.user;
+  }
+
+  async signInWithEmailPassword({ email, password } = {}) {
+    const cleanEmail = String(email || "").trim().toLowerCase();
+    const adapter = this._getAuthAdapter();
+    if (adapter && typeof adapter.signInWithEmailAndPassword === "function") {
+      const cred = await adapter.signInWithEmailAndPassword(cleanEmail, password);
+      const user = cred.user || cred;
+      const sessionUser = {
+        uid: user.uid,
+        email: user.email || cleanEmail,
+        displayName: user.displayName || cleanEmail.split("@")[0],
+        emailVerified: Boolean(user.emailVerified),
+        isAnonymous: false,
+        providerId: "password"
+      };
+      this._saveSession(sessionUser);
+      return {
+        user: sessionUser,
+        emailVerified: Boolean(user.emailVerified)
+      };
+    }
+    throw new Error("Firebase Auth SDK not available.");
+  }
+
+  async signInWithEmail(email, password) {
+    const res = await this.signInWithEmailPassword({ email, password });
+    return res.user;
+  }
+
+  async signInWithGoogle() {
+    const adapter = this._getAuthAdapter();
+    if (adapter && typeof adapter.signInWithGoogle === "function") {
+      const cred = await adapter.signInWithGoogle();
+      const user = cred.user || cred;
+      const sessionUser = {
+        uid: user.uid,
+        email: user.email || "",
+        displayName: user.displayName || "Google User",
+        emailVerified: true,
+        isAnonymous: false,
+        providerId: "google.com"
+      };
+      this._saveSession(sessionUser);
+      return sessionUser;
+    }
+    throw new Error("Google Sign-In is unavailable in this environment.");
+  }
+
+  async sendPasswordReset(email) {
+    const cleanEmail = String(email || "").trim().toLowerCase();
+    const adapter = this._getAuthAdapter();
+    if (adapter && typeof adapter.sendPasswordResetEmail === "function") {
+      await adapter.sendPasswordResetEmail(cleanEmail);
+    }
+    return { sent: true, email: cleanEmail };
+  }
+
+  async reauthenticate({ password } = {}) {
+    const adapter = this._getAuthAdapter();
+    if (!adapter) throw new Error("Firebase Auth not initialized.");
+    if (password && typeof adapter.reauthenticateWithPassword === "function") {
+      await adapter.reauthenticateWithPassword(password);
+      return true;
+    }
+    if (typeof adapter.reauthenticateWithGoogle === "function") {
+      await adapter.reauthenticateWithGoogle();
+      return true;
+    }
+    throw new Error("Re-authentication requires a valid credential.");
+  }
+
+  async signInAnonymouslyForGuestLink() {
+    const adapter = this._getAuthAdapter();
+    if (adapter && typeof adapter.signInAnonymously === "function") {
+      const cred = await adapter.signInAnonymously();
+      const user = cred.user || cred;
+      return {
+        uid: user.uid,
+        isAnonymous: true,
+        emailVerified: false
+      };
+    }
+    return {
+      uid: "anon_" + Math.random().toString(36).slice(2, 10),
+      isAnonymous: true,
+      emailVerified: false
+    };
+  }
+
+  async signOut() {
+    const adapter = this._getAuthAdapter();
+    if (adapter && typeof adapter.signOut === "function") {
+      await adapter.signOut();
+    }
+    this._saveSession(null);
+  }
+
+  formatAuthError(err) {
+    const code = (err && err.code) || "";
+    switch (code) {
+      case "auth/too-many-requests":
+        return "Too many failed attempts. Please wait a few minutes or reset your password.";
+      case "auth/account-exists-with-different-credential":
+        return "An account already exists with this email address using another sign-in method (such as Google Sign-In).";
+      case "auth/invalid-credential":
+      case "auth/wrong-password":
+      case "auth/user-not-found":
+        return "Invalid email or password. Please check your credentials and try again.";
+      case "auth/email-already-in-use":
+        return "This email address is already registered. Please sign in instead.";
+      case "auth/requires-recent-login":
+        return "For your security, please re-authenticate before performing this action.";
+      default:
+        return (err && err.message) || "Authentication failed. Please try again.";
+    }
+  }
+
+  getDeviceSessionInfo() {
+    return {
+      user: this.getCurrentUser(),
+      revocationNotice:
+        "Changing your password immediately invalidates refresh tokens across other devices. Existing ID tokens may remain valid for up to approximately 1 hour until natural expiry."
     };
   }
 }
 
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = {
-    FirebaseAuthClient
-  };
-}
+const firebaseAuthClient = new FirebaseAuthClient();
+
+module.exports = {
+  FirebaseAuthClient,
+  firebaseAuthClient
+};

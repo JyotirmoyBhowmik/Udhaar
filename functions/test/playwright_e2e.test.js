@@ -585,4 +585,125 @@ test("Part 6 — Comprehensive Multi-Browser E2E, Regression & Accessibility Sui
 
     await context.close();
   });
+
+  // -------------------------------------------------------------
+  // Test 12: Spark Mode Guest Capability Link & Firebase SDK E2E (Auth + Firestore Emulators)
+  // -------------------------------------------------------------
+  await t.test("12. Spark Mode Guest Capability Link & Fixed-ID Action Flow (Firebase JS SDK + Emulators)", async () => {
+    const crypto = require("crypto");
+    const secret = "spark_e2e_secret_capability_token_2026";
+    const linkId = crypto.createHash("sha256").update(secret, "utf8").digest("hex");
+
+    // If Auth + Firestore emulators are running, seed a guestLinks/{linkId} document as a verified lender
+    const firestoreHost = process.env.FIRESTORE_EMULATOR_HOST;
+    const authHost = process.env.FIREBASE_AUTH_EMULATOR_HOST;
+    if (firestoreHost) {
+      const [hostname, portStr] = firestoreHost.split(":");
+      const port = Number(portStr || 8080);
+      const header = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url");
+      const payload = Buffer.from(
+        JSON.stringify({
+          iss: "https://securetoken.google.com/demo-udhaar",
+          aud: "demo-udhaar",
+          sub: "lender_e2e_uid",
+          user_id: "lender_e2e_uid",
+          email: "lender@example.com",
+          email_verified: true,
+          iat: Math.floor(Date.now() / 1000) - 60,
+          exp: Math.floor(Date.now() / 1000) + 3600,
+        })
+      ).toString("base64url");
+      const lenderJwt = `${header}.${payload}.`;
+
+      const seedBody = JSON.stringify({
+        fields: {
+          ownerUid: { stringValue: "lender_e2e_uid" },
+          recordId: { stringValue: "rec_spark_e2e_1" },
+          lenderName: { stringValue: "Jyotirmoy" },
+          borrowerName: { stringValue: "Aarav" },
+          direction: { stringValue: "GIVEN" },
+          principalAmount: { doubleValue: 4200 },
+          amountPaise: { integerValue: "420000" },
+          remainingBalance: { doubleValue: 4200 },
+          currency: { stringValue: "INR" },
+          note: { stringValue: "Spark emulator E2E test" },
+          verificationStatus: { stringValue: "PENDING_CONFIRMATION" },
+          status: { stringValue: "active" },
+          revoked: { booleanValue: false },
+          expiresAtMs: { integerValue: String(Date.now() + 86400000) },
+        },
+      });
+
+      await new Promise((resolve, reject) => {
+        const req = http.request(
+          {
+            hostname,
+            port,
+            method: "PATCH",
+            path: `/v1/projects/demo-udhaar/databases/(default)/documents/guestLinks/${linkId}`,
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${lenderJwt}`,
+            },
+          },
+          (res) => {
+            res.on("data", () => {});
+            res.on("end", () => resolve(res.statusCode));
+          }
+        );
+        req.on("error", reject);
+        req.write(seedBody);
+        req.end();
+      });
+    }
+
+    const context = await browserCr.newContext({ viewport: { width: 390, height: 844 } });
+    const page = await context.newPage();
+
+    if (firestoreHost && authHost) {
+      await page.addInitScript(
+        ({ fsHost, auHost }) => {
+          window.__UDHAAR_FIREBASE_CONFIG = {
+            apiKey: "fake-api-key-for-emulator",
+            authDomain: "demo-udhaar.firebaseapp.com",
+            projectId: "demo-udhaar",
+            appId: "1:000000000000:web:000000000000",
+            useEmulator: true,
+            authEmulatorUrl: `http://${auHost}`,
+            firestoreEmulatorHost: fsHost.split(":")[0],
+            firestoreEmulatorPort: Number(fsHost.split(":")[1] || 8080),
+          };
+        },
+        { fsHost: firestoreHost, auHost: authHost }
+      );
+
+      await page.goto(`${serverUrl}/u/r/rec_spark_e2e_1#k=${secret}`);
+      await page.waitForSelector("#screen-step1", { state: "visible", timeout: 8000 });
+      const amtText = await page.textContent("#step1-amount-number");
+      assert.ok(amtText.includes("4,200") || amtText.includes("4200"), `Expected ₹4,200 from Firestore guestLinks doc, got ${amtText}`);
+
+      // Click Confirm -> Step 2 -> Confirm in Step 2 (writes fixed action 'confirm')
+      await page.click("#btn-confirm-yes");
+      await page.waitForSelector("#screen-step2", { state: "visible" });
+      await page.click("#btn-submit-code");
+      await page.waitForSelector("#screen-step3", { state: "visible", timeout: 8000 });
+    } else {
+      // Self-contained v2 token fallback when running without emulators
+      const rawV2 = `v2|rec_spark_v2|${secret}|G|Jyotirmoy|Aarav|4200|Spark v2 test|${Date.now().toString(36)}`;
+      const tokenV2 = Buffer.from(rawV2, "utf8").toString("base64url");
+      await page.goto(`${serverUrl}/u/r/rec_spark_v2#k=${tokenV2}`);
+      await page.waitForSelector("#screen-step1", { state: "visible", timeout: 5000 });
+      const amtText = await page.textContent("#step1-amount-number");
+      assert.ok(amtText.includes("4,200") || amtText.includes("4200"), `Expected ₹4,200, got ${amtText}`);
+    }
+
+    // Verify local vendor Firebase SDK module is served and loads cleanly with zero CDN calls
+    const sdkLoaded = await page.evaluate(async () => {
+      const mod = await import("/u/vendor/firebase-sdk.js");
+      return Boolean(mod && typeof mod.initializeApp === "function" && typeof mod.signInAnonymously === "function" && typeof mod.getDoc === "function" && typeof mod.setDoc === "function");
+    });
+    assert.strictEqual(sdkLoaded, true, "Local bundled /u/vendor/firebase-sdk.js must export Firebase Auth & Firestore functions");
+
+    await context.close();
+  });
 });

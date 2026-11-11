@@ -121,14 +121,13 @@ test("Stage W2 Web Client UI & Zero-Cost WhatsApp OTP Verification", async (t) =
     assert.equal(decodedV1.recordId, "rec-legacy");
     assert.equal(decodedV1.principalAmount, 2500);
 
-    // Verify all firebase.json /api/* rewrites are exported by functions/guestWebFlowEndpoints.js
-    const endpointsModule = require("../guestWebFlowEndpoints");
+    // Verify Spark Mode: zero /api/* Cloud Functions rewrites in firebase.json, and guest.js exports Firebase SDK helpers
     const apiRewrites = (firebaseJson.hosting.rewrites || []).filter((r) => r.source && r.source.startsWith("/api/"));
-    assert.ok(apiRewrites.length >= 8, "Expected all guest API rewrites in firebase.json");
-    for (const rw of apiRewrites) {
-      const fnName = rw.function && rw.function.functionId;
-      assert.equal(typeof endpointsModule[fnName], "function", `Cloud Function '${fnName}' for '${rw.source}' must be exported`);
-    }
+    assert.equal(apiRewrites.length, 0, "Expected zero /api/* rewrites in firebase.json in Spark Mode");
+    const guestModule = require("../../web/u/guest.js");
+    assert.equal(typeof guestModule.fetchGuestLinkFromFirestore, "function", "fetchGuestLinkFromFirestore must be exported");
+    assert.equal(typeof guestModule.writeGuestActionToFirestore, "function", "writeGuestActionToFirestore must be exported");
+    assert.equal(typeof guestModule.sha256Hex, "function", "sha256Hex must be exported");
   });
 
   await t.test("11. Nested Route Asset Resolution (/u/r/*) & Production OTP Auto-Jump / Paste / Backspace", () => {

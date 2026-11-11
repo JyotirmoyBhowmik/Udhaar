@@ -71,7 +71,7 @@ internal fun UdhaarOverlaysHost(
     }
 
     val activeThreadKey = uiState.activeChatThreadKey
-    if (!activeThreadKey.isNullOrBlank()) {
+    if (BuildConfig.CLOUD_FEATURES && !activeThreadKey.isNullOrBlank()) {
         val activeTxId = uiState.activeChatTransactionId
         val activeTxSummary = activeTxId?.let { id -> uiState.allCalculatedItems.find { it.transaction.id == id } }
         val activeParty = uiState.allParties.find { p ->
@@ -158,7 +158,7 @@ internal fun UdhaarOverlaysHost(
 
     val verifyShareTxId = uiState.verificationShareTransactionId
     val verifyShareLink = uiState.verificationShareLink
-    if (verifyShareTxId != null && !verifyShareLink.isNullOrBlank()) {
+    if (BuildConfig.CLOUD_FEATURES && verifyShareTxId != null && !verifyShareLink.isNullOrBlank()) {
         val txSummary = uiState.allCalculatedItems.find { it.transaction.id == verifyShareTxId }
         if (txSummary != null) {
             VerificationShareSheet(

@@ -126,8 +126,9 @@ open class GuestWebRepository @Inject constructor(
 
     suspend fun revokeGuestWebLink(transactionId: Long): Boolean {
         val tx = dao.getTransactionById(transactionId) ?: return false
-        val ok = if (tx.remoteId.isNotBlank()) {
-            guestWebCloudRepository.revokeGuestWebLink(tx.remoteId)
+        val targetTokenOrId = tx.shareToken.ifBlank { tx.remoteId }
+        val ok = if (targetTokenOrId.isNotBlank()) {
+            guestWebCloudRepository.revokeGuestWebLink(targetTokenOrId)
         } else true
 
         if (ok) {
