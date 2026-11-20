@@ -38,6 +38,15 @@ service cloud.firestore {
         && (!('expiresAtMs' in d) || d.expiresAtMs > request.time.toMillis());
     }
 
+    function canGuestAccessLink(d) {
+      return (!('verificationLevel' in d) || d.verificationLevel != 'GOOGLE_VERIFIED'
+        || (request.auth.token.firebase.sign_in_provider == 'google.com'
+            && request.auth.token.email_verified == true
+            && (!('expectedGuestEmailHash' in d)
+                || d.expectedGuestEmailHash == null
+                || hashing.sha256(request.auth.token.email.lower()).toHexString().lower() == d.expectedGuestEmailHash.lower())));
+    }
+
     match /users/{uid} {
       allow read, delete: if isVerifiedOwner(uid);
       allow create, update: if isVerifiedOwner(uid) && withinSize(4096);
@@ -88,7 +97,7 @@ service cloud.firestore {
     match /guestLinks/{linkId} {
       allow get: if isSignedIn()
         && ((request.auth.uid == resource.data.ownerUid && request.auth.token.email_verified == true)
-            || validGuestLinkDoc(resource.data));
+            || (validGuestLinkDoc(resource.data) && canGuestAccessLink(resource.data)));
       allow list: if false;
       allow create, update: if isSignedIn()
         && request.auth.token.email_verified == true
@@ -107,6 +116,7 @@ service cloud.firestore {
           && actionId in ['confirm', 'dispute', 'claim_1', 'claim_2', 'claim_3', 'claim_4', 'claim_5', 'date_1', 'date_2', 'date_3']
           && exists(/databases/$(database)/documents/guestLinks/$(linkId))
           && validGuestLinkDoc(get(/databases/$(database)/documents/guestLinks/$(linkId)).data)
+          && canGuestAccessLink(get(/databases/$(database)/documents/guestLinks/$(linkId)).data)
           && request.resource.data.linkId == linkId
           && request.resource.data.ownerUid == get(/databases/$(database)/documents/guestLinks/$(linkId)).data.ownerUid
           && (!('reason' in request.resource.data) || request.resource.data.reason.size() <= 500)

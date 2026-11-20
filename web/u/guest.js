@@ -28,6 +28,7 @@
 
       // Badges
       badge_link_verified: "Private link",
+      badge_google_verified: "Verified with Google",
       badge_code_checked: "Code checked",
       badge_app_confirmed: "Confirmed in the app",
       badge_due_today: "Due today",
@@ -208,6 +209,7 @@
       step_3_label: "पूर्ण हुआ",
 
       badge_link_verified: "प्राइवेट लिंक",
+      badge_google_verified: "Google से सत्यापित",
       badge_code_checked: "कोड जाँचा गया",
       badge_app_confirmed: "ऐप में पुष्टि हुई",
       badge_due_today: "आज देय है",
@@ -377,6 +379,7 @@
       step_3_label: "সম্পন্ন",
 
       badge_link_verified: "ব্যক্তিগত লিঙ্ক",
+      badge_google_verified: "Google দিয়ে যাচাইকৃত",
       badge_code_checked: "কোড পরীক্ষা করা হয়েছে",
       badge_app_confirmed: "অ্যাপে নিশ্চিত করা হয়েছে",
       badge_due_today: "আজই পরিশোধের দিন",
@@ -543,6 +546,7 @@
       step_3_label: "সম্পূৰ্ণ হ'ল",
 
       badge_link_verified: "ব্যক্তিগত সংযোগ",
+      badge_google_verified: "Google দ্বাৰা সত্যায়িত",
       badge_code_checked: "কোড পৰীক্ষা কৰা হ'ল",
       badge_app_confirmed: "এপত নিশ্চিত কৰা হৈছে",
       badge_due_today: "আজি পৰিশোধৰ দিন",
@@ -709,6 +713,7 @@
       step_3_label: "सम्पन्न भयो",
 
       badge_link_verified: "निजी लिङ्क",
+      badge_google_verified: "Google बाट प्रमाणित",
       badge_code_checked: "कोड जाँचियो",
       badge_app_confirmed: "एपमा पुष्टि भयो",
       badge_due_today: "आजै भुक्तानी गर्नुपर्ने",
@@ -1164,6 +1169,16 @@
     return services.auth.currentUser;
   }
 
+  async function signInWithGoogleGuest(services) {
+    if (!services || !services.auth || !services.sdk) return null;
+    const provider = new services.sdk.GoogleAuthProvider();
+    if (typeof services.sdk.signInWithPopup === "function") {
+      const res = await services.sdk.signInWithPopup(services.auth, provider);
+      return res.user;
+    }
+    return null;
+  }
+
   async function fetchGuestLinkFromFirestore(secret) {
     const services = _getFirebaseGuestServices();
     if (!services) {
@@ -1174,7 +1189,15 @@
     await ensureAnonymousGuestAuth(services);
     const linkId = await sha256Hex(secret);
     const ref = services.sdk.doc(services.db, "guestLinks", linkId);
-    const snap = await services.sdk.getDoc(ref);
+    let snap;
+    try {
+      snap = await services.sdk.getDoc(ref);
+    } catch (err) {
+      if (err.code === "permission-denied" || (err.message && err.message.includes("permission"))) {
+        err.isAuthRequired = true;
+      }
+      throw err;
+    }
     if (!snap.exists()) {
       const err = new Error("Guest link not found or expired");
       err.status = 410;
@@ -1312,7 +1335,7 @@
 
   // 6. View State Controllers
   function showView(viewId) {
-    const views = ["loading-view", "screen-step1", "screen-step2", "screen-step3", "error-view"];
+    const views = ["loading-view", "screen-google-auth", "screen-step1", "screen-step2", "screen-step3", "error-view"];
     views.forEach((id) => {
       const el = document.getElementById(id);
       if (el) {
@@ -1338,6 +1361,72 @@
     } else {
       updateStepper(0);
     }
+  }
+
+  function showGoogleAuthRequired(onSignInSuccess) {
+    showView("screen-google-auth");
+    const errBox = document.getElementById("google-auth-error");
+    if (errBox) {
+      errBox.hidden = true;
+      errBox.classList.add("hidden");
+    }
+    const btnGoogle = document.getElementById("btn-google-signin");
+    if (btnGoogle) {
+      btnGoogle.onclick = async () => {
+        const services = _getFirebaseGuestServices();
+        try {
+          btnGoogle.disabled = true;
+          await signInWithGoogleGuest(services);
+          if (typeof onSignInSuccess === "function") {
+            await onSignInSuccess();
+          }
+        } catch (err) {
+          const errText = document.getElementById("google-auth-error-text");
+          if (errBox && errText) {
+            errBox.hidden = false;
+            errBox.classList.remove("hidden");
+            errText.textContent = err.message || "Google sign-in was canceled or failed.";
+          }
+        } finally {
+          btnGoogle.disabled = false;
+        }
+      };
+    }
+  }
+
+  function showAwaitingConfirmation(message = "Sent – awaiting lender confirmation") {
+    let notice = document.getElementById("action-awaiting-notice");
+    if (!notice) {
+      notice = document.createElement("div");
+      notice.id = "action-awaiting-notice";
+      notice.className = "notice-box notice-green";
+      notice.style.marginBottom = "16px";
+      notice.style.fontSize = "1rem";
+      notice.style.fontWeight = "600";
+      notice.style.textAlign = "center";
+      notice.style.display = "flex";
+      notice.style.alignItems = "center";
+      notice.style.justifyContent = "center";
+      notice.style.gap = "8px";
+      const card = document.querySelector(".card:not(.hidden)");
+      if (card) {
+        card.insertBefore(notice, card.firstChild);
+      }
+    }
+    notice.innerHTML = `<span>✓</span> <span>${message}</span>`;
+    notice.hidden = false;
+    notice.style.display = "flex";
+    notice.classList.remove("hidden");
+    notice.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+    const btnYes = document.getElementById("btn-confirm-yes");
+    if (btnYes) {
+      btnYes.disabled = true;
+      btnYes.textContent = "✓ " + message;
+      btnYes.style.opacity = "0.7";
+      btnYes.style.cursor = "default";
+    }
+    announce(message);
   }
 
   function showErrorState(titleKey, descKey, actionKey, params = {}) {
@@ -1459,12 +1548,17 @@
 
     // Trust badge
     const trustBadge = document.getElementById("trust-badge");
-    if (rec.whatsappVerified) {
-      trustBadge.className = "badge badge-green";
-      trustBadge.textContent = "✓ " + t("badge_code_checked");
-    } else {
-      trustBadge.className = "badge badge-slate";
-      trustBadge.textContent = "✓ " + t("badge_link_verified");
+    if (trustBadge) {
+      if (rec.verificationLevel === "GOOGLE_VERIFIED") {
+        trustBadge.className = "badge badge-green";
+        const email = _getFirebaseGuestServices()?.auth?.currentUser?.email;
+        trustBadge.textContent = email
+          ? "✓ " + t("badge_google_verified") + " (" + email + ")"
+          : "✓ " + t("badge_google_verified") + " (email)";
+      } else {
+        trustBadge.className = "badge badge-slate";
+        trustBadge.textContent = "✓ " + t("badge_link_verified");
+      }
     }
 
     // Installment progress box
@@ -1546,7 +1640,8 @@
     announce(questionText);
   }
 
-  // 8. 6-Digit Code Screen Setup
+  // [BLAZE-DISABLED START] reason: needs Blaze + a server-side OTP + a guest session token | restore: restore WhatsApp OTP verification when upgrading to Blaze plan with secure Cloud Functions
+  /*
   function setupScreen2Code() {
     showView("screen-step2");
     const otherName = recordData ? (recordData.lenderName || "the sender") : "the sender";
@@ -1585,41 +1680,31 @@
     if (firstBox) firstBox.focus();
     announce(t("screen2_title", { name: otherName }));
   }
+  */
+  // [BLAZE-DISABLED END]
 
-  // 9. Submit Confirmation with Code
-  async function submitConfirmation(codeStr) {
+  // 9. Submit Confirmation
+  async function submitConfirmation() {
     try {
-      if (recordData && recordData.isSelfContainedToken && recordData.expectedOtp) {
-        if (String(codeStr || "").trim() !== String(recordData.expectedOtp).trim()) {
-          const err = new Error("Invalid verification code");
-          err.status = 403;
-          throw err;
-        }
-      }
       announce("Confirming record...", false);
       await writeGuestActionToFirestore(urlSecret, ["confirm"], {
-        actionType: "CONFIRM",
-        whatsappOtp: codeStr || null
+        actionType: "CONFIRM"
       });
 
+      // [BLAZE-DISABLED START] reason: Spark cannot confirm records client-side without lender confirmation; status updates require lender approval | restore: restore automatic client confirmation with Blaze Cloud Functions
+      /*
       if (recordData) {
         recordData.status = "CONFIRMED";
         recordData.whatsappVerified = true;
         recordData.confirmedAtMillis = Date.now();
       }
       renderRecordView(recordData);
+      */
+      // [BLAZE-DISABLED END]
+
+      showAwaitingConfirmation("Sent – awaiting lender confirmation");
     } catch (err) {
-      if (err.status === 403) {
-        showErrorState("state_wrong_code_title", "state_wrong_code_desc", "state_wrong_code_action", {
-          name: recordData?.lenderName || "the sender"
-        });
-      } else if (err.status === 429) {
-        showErrorState("state_too_many_tries_title", "state_too_many_tries_desc", "state_too_many_tries_action", {
-          name: recordData?.lenderName || "the sender"
-        });
-      } else {
-        alert(err.message || t("toast_network_error"));
-      }
+      alert(err.message || t("toast_network_error"));
     }
   }
 
@@ -1711,6 +1796,8 @@
     }
   }
 
+  // [BLAZE-DISABLED START] reason: needs Blaze + a server-side OTP + a guest session token | restore: restore WhatsApp OTP input binding when upgrading to Blaze plan with secure Cloud Functions
+  /*
   function bindOtpInputs(otpBoxesNodeList, onComplete) {
     const boxes = Array.from(otpBoxesNodeList || []);
     if (boxes.length === 0) return;
@@ -1845,6 +1932,8 @@
       });
     });
   }
+  */
+  // [BLAZE-DISABLED END]
 
   // 12. Initialization & Event Binding
   async function init() {
@@ -1915,11 +2004,16 @@
     const btnYes = document.getElementById("btn-confirm-yes");
     if (btnYes) {
       btnYes.addEventListener("click", () => {
+        // [BLAZE-DISABLED START] reason: needs Blaze + a server-side OTP + a guest session token | restore: restore WhatsApp OTP verification when upgrading to Blaze plan with secure Cloud Functions
+        /*
         if (recordData?.trustLevelRequired === "LINK_ONLY") {
           submitConfirmation("");
         } else {
           setupScreen2Code();
         }
+        */
+        // [BLAZE-DISABLED END]
+        submitConfirmation();
       });
     }
 
@@ -1931,6 +2025,8 @@
       });
     }
 
+    // [BLAZE-DISABLED START] reason: needs Blaze + a server-side OTP + a guest session token | restore: restore WhatsApp OTP event listeners when upgrading to Blaze plan with secure Cloud Functions
+    /*
     // Screen 2: OTP inputs auto-advance, paste, overwrite & backspace
     const otpBoxes = document.querySelectorAll(".otp-box");
     bindOtpInputs(otpBoxes);
@@ -1960,6 +2056,8 @@
         showView("screen-step1");
       });
     }
+    */
+    // [BLAZE-DISABLED END]
 
     // Modal Close buttons
     document.querySelectorAll("[data-close]").forEach((btn) => {
@@ -2017,7 +2115,7 @@
           });
           _dateSlotCursor = Math.min(4, _dateSlotCursor + 1);
           closeModal("date-modal");
-          alert(t("toast_success"));
+          showAwaitingConfirmation("Sent – awaiting lender confirmation");
         } catch (err) {
           alert(err.message || t("toast_network_error"));
         }
@@ -2051,7 +2149,7 @@
           });
           _claimSlotCursor = Math.min(6, _claimSlotCursor + 1);
           closeModal("paid-modal");
-          alert(t("toast_success"));
+          showAwaitingConfirmation("Sent – awaiting lender confirmation");
         } catch (err) {
           alert(err.message || t("toast_network_error"));
         }
@@ -2332,6 +2430,26 @@
       const remoteRecord = await fetchGuestLinkFromFirestore(urlSecret);
       renderRecordView(remoteRecord);
     } catch (err) {
+      if (err.isAuthRequired || err.code === "permission-denied" || (err.message && err.message.includes("permission"))) {
+        showGoogleAuthRequired(async () => {
+          try {
+            const remoteRecord = await fetchGuestLinkFromFirestore(urlSecret);
+            renderRecordView(remoteRecord);
+          } catch (retryErr) {
+            const errBox = document.getElementById("google-auth-error");
+            const errText = document.getElementById("google-auth-error-text");
+            if (errBox && errText) {
+              errBox.hidden = false;
+              errBox.classList.remove("hidden");
+              const currentEmail = _getFirebaseGuestServices()?.auth?.currentUser?.email;
+              errText.textContent = currentEmail
+                ? `Signed in as ${currentEmail}, but this link requires the borrower's registered Google email. Please sign in with the correct account.`
+                : (retryErr.message || "Access denied. Please sign in with the borrower's Google account.");
+            }
+          }
+        });
+        return;
+      }
       if (err.status === 410) {
         showErrorState("state_expired_title", "state_expired_desc", "state_expired_action", { name: "the sender" });
       } else if (err.status === 403) {
@@ -2376,7 +2494,7 @@
       formatDate,
       maskUpi,
       decodeEmbeddedVerificationToken,
-      bindOtpInputs,
+      bindOtpInputs: typeof bindOtpInputs !== "undefined" ? bindOtpInputs : () => {},
       sha256Hex,
       fetchGuestLinkFromFirestore,
       writeGuestActionToFirestore

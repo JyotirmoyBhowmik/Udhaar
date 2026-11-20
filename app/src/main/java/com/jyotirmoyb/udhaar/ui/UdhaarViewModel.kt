@@ -463,12 +463,13 @@ class UdhaarViewModel(
     fun generateWebLink(
         transactionId: Long,
         expiryDays: Int = 30,
-        trustLevel: String = "WHATSAPP_OTP",
+        trustLevel: String = "PRIVATE_LINK",
         allowNote: Boolean = true,
         allowAttachments: Boolean = false,
         showUpi: Boolean = true,
-        allowedActions: List<String> = listOf("view", "confirm", "dispute", "pay_claim", "propose_date", "set_upi", "show_pay_qr")
-    ) = verificationViewModel.generateWebLink(transactionId, expiryDays, trustLevel, allowNote, allowAttachments, showUpi, allowedActions)
+        allowedActions: List<String> = listOf("view", "confirm", "dispute", "pay_claim", "propose_date", "set_upi", "show_pay_qr"),
+        expectedGuestEmail: String = ""
+    ) = verificationViewModel.generateWebLink(transactionId, expiryDays, trustLevel, allowNote, allowAttachments, showUpi, allowedActions, expectedGuestEmail)
     fun revokeWebLink(transactionId: Long) =
         verificationViewModel.revokeWebLink(transactionId)
     fun openUpdatesScreen() =

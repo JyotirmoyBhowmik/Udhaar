@@ -40,11 +40,12 @@ open class GuestWebRepository @Inject constructor(
     suspend fun createGuestWebLink(
         transactionId: Long,
         expiryDays: Int = 30,
-        trustLevelRequired: String = "WHATSAPP_OTP",
+        trustLevelRequired: String = "PRIVATE_LINK",
         allowNote: Boolean = true,
         allowAttachments: Boolean = false,
         showUpiQr: Boolean = true,
-        allowedActions: List<String> = listOf("view", "confirm", "dispute", "pay_claim", "propose_date", "set_upi", "show_pay_qr")
+        allowedActions: List<String> = listOf("view", "confirm", "dispute", "pay_claim", "propose_date", "set_upi", "show_pay_qr"),
+        expectedGuestEmail: String = ""
     ): GuestWebLinkCreateResult {
         val tx = dao.getTransactionById(transactionId) ?: return GuestWebLinkCreateResult(
             success = false,
@@ -100,7 +101,8 @@ open class GuestWebRepository @Inject constructor(
             note = if (allowNote) preparedTx.notes else "",
             contentHash = computedHash,
             lenderUpiId = if (showUpiQr) settings.upiId else "",
-            creatorPhone = settings.phoneNumber
+            creatorPhone = settings.phoneNumber,
+            expectedGuestEmail = expectedGuestEmail
         )
 
         if (result.success) {

@@ -18,12 +18,18 @@ Udhaar Platform v2 strictly complies with Google Play's Data Safety policies. Wh
 
 | Data Type | Collected? | Shared? | Purpose | Optional / Required |
 | :--- | :--- | :--- | :--- | :--- |
-| **Personal Info > Phone Number** | Yes | No | Account management, WhatsApp OTP authentication | Required |
+| **Personal Info > Phone Number** | Yes | No | Account management, contact association (No OTP in Spark mode) | Optional |
 | **Personal Info > Email Address** | Yes | No | Account verification, security alerts, statements | Required |
 | **Financial Info > Purchase History / Debt Records** | Yes | No | Core app functionality (personal credit/debt ledger) | Required |
 | **Contacts > Contact List** | No (Local only) | No | Optional local-only contact picker for party name autocomplete; never uploaded to server | Optional |
 | **Messages > In-App Chat** | Yes | No | Ledger negotiation between borrower and lender | Optional |
 | **Device or Other IDs** | Yes | No | App Check fraud prevention, push notifications | Required |
+
+### 1.3 Spark Free Tier Declarations
+On the Firebase Spark free plan:
+- **Zero Paid SMS / WhatsApp OTP**: Udhaar operates on zero-cost free infrastructure. No server-side SMS or WhatsApp OTP is dispatched. Phone numbers function as local/contact references only.
+- **Honest Web Verification**: Web confirmation links use either **Private Link** (capability secret URL with Anonymous Auth) or **Google Verified** (cryptographic email hash matching with verified Google account).
+- **Zero Billing Guarantee**: The app never charges users or incurs server fees for verification.
 
 ---
 

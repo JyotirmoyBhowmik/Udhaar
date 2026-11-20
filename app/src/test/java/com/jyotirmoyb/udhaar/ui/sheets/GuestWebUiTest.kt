@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import com.jyotirmoyb.udhaar.data.cloud.GuestWebLinkCreateResult
 import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.TransactionType
@@ -46,10 +47,10 @@ class GuestWebUiTest {
         composeRule.setContent {
             WebShareSheet(
                 transaction = tx,
-                settings = UserSettings(defaultWebLinkExpiryDays = 30, defaultWebTrustLevel = "WHATSAPP_OTP"),
+                settings = UserSettings(defaultWebLinkExpiryDays = 30, defaultWebTrustLevel = "PRIVATE_LINK"),
                 isGenerating = false,
                 existingResult = null,
-                onGenerateLink = { exp, trust, _, _, _, _ ->
+                onGenerateLink = { exp, trust, _, _, _, _, _ ->
                     generatedExpiry = exp
                     generatedTrust = trust
                 },
@@ -64,7 +65,7 @@ class GuestWebUiTest {
         composeRule.waitForIdle()
 
         assertEquals(30, generatedExpiry)
-        assertEquals("WHATSAPP_OTP", generatedTrust)
+        assertEquals("PRIVATE_LINK", generatedTrust)
     }
 
     @Test
@@ -94,7 +95,7 @@ class GuestWebUiTest {
                     success = false,
                     errorMessage = "Unable to publish guest link"
                 ),
-                onGenerateLink = { _, _, _, _, _, _ ->
+                onGenerateLink = { _, _, _, _, _, _, _ ->
                     retried = true
                 },
                 onRevokeLink = {},
@@ -141,7 +142,7 @@ class GuestWebUiTest {
                     success = true,
                     errorMessage = ""
                 ),
-                onGenerateLink = { _, _, _, _, _, _ -> },
+                onGenerateLink = { _, _, _, _, _, _, _ -> },
                 onRevokeLink = {},
                 onDismiss = {}
             )
@@ -155,6 +156,52 @@ class GuestWebUiTest {
 
         // Error banner must not exist
         composeRule.onNodeWithTag("web_share_error_banner").assertDoesNotExist()
+    }
+
+    @Test
+    fun webShareSheet_whenGoogleVerifiedSelected_showsEmailInputAndPassesEmail() {
+        val tx = UdhaarTransaction(
+            id = 45L,
+            partyName = "Pooja Das",
+            principalAmount = 3000.0,
+            currency = CurrencyType.INR,
+            transactionType = TransactionType.GIVEN
+        )
+
+        var generatedTrust = ""
+        var generatedEmail = ""
+
+        composeRule.setContent {
+            WebShareSheet(
+                transaction = tx,
+                settings = UserSettings(defaultWebLinkExpiryDays = 30, defaultWebTrustLevel = "PRIVATE_LINK"),
+                isGenerating = false,
+                existingResult = null,
+                onGenerateLink = { _, trust, _, _, _, _, email ->
+                    generatedTrust = trust
+                    generatedEmail = email
+                },
+                onRevokeLink = {},
+                onDismiss = {}
+            )
+        }
+
+        composeRule.waitForIdle()
+        // Select Google Verified
+        composeRule.onNodeWithTag("trust_level_whatsapp_otp").performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        // Email field must exist
+        composeRule.onNodeWithTag("input_borrower_google_email").assertExists()
+        composeRule.onNodeWithTag("input_borrower_google_email").performTextInput("borrower@gmail.com")
+        composeRule.waitForIdle()
+
+        // Click generate
+        composeRule.onNodeWithTag("btn_generate_web_link").performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        assertEquals("GOOGLE_VERIFIED", generatedTrust)
+        assertEquals("borrower@gmail.com", generatedEmail)
     }
 
     @Test

@@ -183,11 +183,12 @@ class VerificationViewModel @Inject constructor(
     fun generateWebLink(
         transactionId: Long,
         expiryDays: Int = 30,
-        trustLevel: String = "WHATSAPP_OTP",
+        trustLevel: String = "PRIVATE_LINK",
         allowNote: Boolean = true,
         allowAttachments: Boolean = false,
         showUpi: Boolean = true,
-        allowedActions: List<String> = listOf("view", "confirm", "dispute", "pay_claim", "propose_date", "set_upi", "show_pay_qr")
+        allowedActions: List<String> = listOf("view", "confirm", "dispute", "pay_claim", "propose_date", "set_upi", "show_pay_qr"),
+        expectedGuestEmail: String = ""
     ) {
         viewModelScope.launch {
             _isGeneratingWebLink.value = true
@@ -199,7 +200,8 @@ class VerificationViewModel @Inject constructor(
                     allowNote = allowNote,
                     allowAttachments = allowAttachments,
                     showUpiQr = showUpi,
-                    allowedActions = allowedActions
+                    allowedActions = allowedActions,
+                    expectedGuestEmail = expectedGuestEmail
                 )
                 _webShareResult.value = result
             } finally {

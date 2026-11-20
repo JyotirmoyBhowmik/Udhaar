@@ -101,8 +101,9 @@ fun TransactionVerificationCard(
                     ) {
                         Text(
                             text = when (tx.trustLevel) {
-                                "WHATSAPP_OTP", "PHONE_VERIFIED" -> "WhatsApp Verified ✓"
-                                "LINK_ONLY" -> "Link Only"
+                                "GOOGLE_VERIFIED" -> "Google-verified ✓"
+                                "PRIVATE_LINK", "LINK_ONLY" -> "Private link ✓"
+                                "WHATSAPP_OTP", "PHONE_VERIFIED" -> "Private link ✓"
                                 "APP_VERIFIED" -> "App Verified ✓"
                                 else -> tx.trustLevel
                             },

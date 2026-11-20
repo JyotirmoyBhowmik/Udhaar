@@ -50,7 +50,7 @@ fun WebLinkSettingsSection(
     onRevokeAllLinks: () -> Unit
 ) {
     var expiryDays by rememberSaveable { mutableIntStateOf(settings.defaultWebLinkExpiryDays) }
-    var trustLevel by rememberSaveable { mutableStateOf(settings.defaultWebTrustLevel.ifBlank { "WHATSAPP_OTP" }) }
+    var trustLevel by rememberSaveable { mutableStateOf(if (settings.defaultWebTrustLevel == "GOOGLE_VERIFIED") "GOOGLE_VERIFIED" else "PRIVATE_LINK") }
     var showUpi by rememberSaveable { mutableStateOf(settings.defaultWebShowUpi) }
     var showRevokeConfirmDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -104,30 +104,10 @@ fun WebLinkSettingsSection(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 FilterChip(
-                    selected = trustLevel == "WHATSAPP_OTP",
+                    selected = trustLevel == "PRIVATE_LINK" || trustLevel == "LINK_ONLY",
                     onClick = {
-                        trustLevel = "WHATSAPP_OTP"
-                        onSaveDefaults(expiryDays, "WHATSAPP_OTP", showUpi)
-                    },
-                    label = {
-                        Text(
-                            text = stringResource(R.string.trust_level_whatsapp_otp),
-                            maxLines = 1
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(Icons.Default.VerifiedUser, contentDescription = null, modifier = Modifier.size(16.dp))
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .testTag("settings_trust_whatsapp")
-                )
-                FilterChip(
-                    selected = trustLevel == "LINK_ONLY",
-                    onClick = {
-                        trustLevel = "LINK_ONLY"
-                        onSaveDefaults(expiryDays, "LINK_ONLY", showUpi)
+                        trustLevel = "PRIVATE_LINK"
+                        onSaveDefaults(expiryDays, "PRIVATE_LINK", showUpi)
                     },
                     label = {
                         Text(
@@ -142,6 +122,26 @@ fun WebLinkSettingsSection(
                         .fillMaxWidth()
                         .heightIn(min = 48.dp)
                         .testTag("settings_trust_link_only")
+                )
+                FilterChip(
+                    selected = trustLevel == "GOOGLE_VERIFIED" || trustLevel == "WHATSAPP_OTP",
+                    onClick = {
+                        trustLevel = "GOOGLE_VERIFIED"
+                        onSaveDefaults(expiryDays, "GOOGLE_VERIFIED", showUpi)
+                    },
+                    label = {
+                        Text(
+                            text = stringResource(R.string.trust_level_google_verified),
+                            maxLines = 1
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Default.VerifiedUser, contentDescription = null, modifier = Modifier.size(16.dp))
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .testTag("settings_trust_whatsapp")
                 )
             }
 

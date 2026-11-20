@@ -186,8 +186,8 @@ internal fun UdhaarOverlaysHost(
                 settings = uiState.userSettings,
                 existingResult = uiState.webShareResult,
                 isGenerating = uiState.isGeneratingWebLink,
-                onGenerateLink = { expiry, trust, note, att, upi, actions ->
-                    viewModel.generateWebLink(webShareTxId, expiry, trust, note, att, upi, actions)
+                onGenerateLink = { expiry, trust, note, att, upi, actions, email ->
+                    viewModel.generateWebLink(webShareTxId, expiry, trust, note, att, upi, actions, email)
                 },
                 onRevokeLink = { viewModel.revokeWebLink(webShareTxId) },
                 onDismiss = viewModel::closeWebShareModal

@@ -57,6 +57,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -104,14 +105,16 @@ fun WebShareSheet(
         allowNote: Boolean,
         allowAttachments: Boolean,
         showUpi: Boolean,
-        allowedActions: List<String>
+        allowedActions: List<String>,
+        expectedGuestEmail: String
     ) -> Unit,
     onRevokeLink: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
     var expiryDays by rememberSaveable { mutableIntStateOf(if (settings.defaultWebLinkExpiryDays in listOf(7, 30, 90)) settings.defaultWebLinkExpiryDays else 30) }
-    var trustLevel by rememberSaveable { mutableStateOf(settings.defaultWebTrustLevel.ifBlank { "WHATSAPP_OTP" }) }
+    var trustLevel by rememberSaveable { mutableStateOf(if (settings.defaultWebTrustLevel == "GOOGLE_VERIFIED") "GOOGLE_VERIFIED" else "PRIVATE_LINK") }
+    var borrowerGoogleEmail by rememberSaveable { mutableStateOf("") }
     var allowNote by rememberSaveable { mutableStateOf(true) }
     var allowAttachments by rememberSaveable { mutableStateOf(false) }
     var showUpi by rememberSaveable { mutableStateOf(settings.defaultWebShowUpi) }
@@ -277,7 +280,7 @@ fun WebShareSheet(
                                         allowed.add("set_upi")
                                         if (showUpi) allowed.add("show_pay_qr")
 
-                                        onGenerateLink(expiryDays, trustLevel, allowNote, allowAttachments, showUpi, allowed)
+                                        onGenerateLink(expiryDays, trustLevel, allowNote, allowAttachments, showUpi, allowed, borrowerGoogleEmail.trim().lowercase())
                                     },
                                     enabled = !isGenerating,
                                     modifier = Modifier
@@ -345,24 +348,8 @@ fun WebShareSheet(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             FilterChip(
-                                selected = trustLevel == "WHATSAPP_OTP",
-                                onClick = { trustLevel = "WHATSAPP_OTP" },
-                                label = {
-                                    Text(
-                                        text = stringResource(R.string.trust_level_whatsapp_otp),
-                                        maxLines = 1
-                                    )
-                                },
-                                leadingIcon = {
-                                    Icon(Icons.Default.VerifiedUser, contentDescription = null, modifier = Modifier.size(16.dp))
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .testTag("trust_level_whatsapp_otp")
-                            )
-                            FilterChip(
-                                selected = trustLevel == "LINK_ONLY",
-                                onClick = { trustLevel = "LINK_ONLY" },
+                                selected = trustLevel == "PRIVATE_LINK" || trustLevel == "LINK_ONLY",
+                                onClick = { trustLevel = "PRIVATE_LINK" },
                                 label = {
                                     Text(
                                         text = stringResource(R.string.trust_level_link_only),
@@ -376,6 +363,34 @@ fun WebShareSheet(
                                     .fillMaxWidth()
                                     .testTag("trust_level_link_only")
                             )
+                            FilterChip(
+                                selected = trustLevel == "GOOGLE_VERIFIED" || trustLevel == "WHATSAPP_OTP",
+                                onClick = { trustLevel = "GOOGLE_VERIFIED" },
+                                label = {
+                                    Text(
+                                        text = stringResource(R.string.trust_level_google_verified),
+                                        maxLines = 1
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.VerifiedUser, contentDescription = null, modifier = Modifier.size(16.dp))
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("trust_level_whatsapp_otp")
+                            )
+                            if (trustLevel == "GOOGLE_VERIFIED" || trustLevel == "WHATSAPP_OTP") {
+                                OutlinedTextField(
+                                    value = borrowerGoogleEmail,
+                                    onValueChange = { borrowerGoogleEmail = it },
+                                    label = { Text(stringResource(R.string.input_borrower_google_email)) },
+                                    placeholder = { Text(stringResource(R.string.input_borrower_google_email_hint)) },
+                                    singleLine = true,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("input_borrower_google_email")
+                                )
+                            }
                         }
 
                         // Permissions & Toggles
@@ -451,7 +466,7 @@ fun WebShareSheet(
                                 allowed.add("set_upi")
                                 if (showUpi) allowed.add("show_pay_qr")
 
-                                onGenerateLink(expiryDays, trustLevel, allowNote, allowAttachments, showUpi, allowed)
+                                onGenerateLink(expiryDays, trustLevel, allowNote, allowAttachments, showUpi, allowed, borrowerGoogleEmail.trim().lowercase())
                             },
                             enabled = !isGenerating,
                             modifier = Modifier

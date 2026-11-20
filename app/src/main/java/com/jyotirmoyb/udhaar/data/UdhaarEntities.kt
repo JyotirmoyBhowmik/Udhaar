@@ -766,7 +766,7 @@ data class UserSettings(
     val reminderLevel3MaxOverdueDays: Int = 30,
     // --- Stage W3: Web Link Defaults ---
     val defaultWebLinkExpiryDays: Int = 30,
-    val defaultWebTrustLevel: String = "WHATSAPP_OTP",
+    val defaultWebTrustLevel: String = "PRIVATE_LINK",
     val defaultWebShowUpi: Boolean = true,
     // --- v20: Opt-in Crashlytics & Screen Analytics (Off by default, Zero PII) & Backup Recovery Key ---
     val analyticsCrashConsent: Boolean = false,

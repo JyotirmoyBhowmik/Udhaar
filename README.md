@@ -179,6 +179,14 @@ npx firebase deploy \
   --project <YOUR_FIREBASE_PROJECT_ID>
 ```
 
+### D. Firebase Console Setup Checklist (Spark Free Tier)
+To enable the two honest verification levels for web guest confirmation links without Blaze billing:
+1. Open [Firebase Console](https://console.firebase.google.com/) and select your project.
+2. Navigate to **Build** &rarr; **Authentication** &rarr; **Sign-in method** tab.
+3. **Enable Anonymous Provider**: Click **Anonymous**, toggle **Enable**, and click **Save**. This powers **LEVEL A ("PRIVATE_LINK")** capability URLs.
+4. **Enable Google Provider**: Click **Google**, toggle **Enable**, select the project support email, and click **Save**. This powers **LEVEL B ("GOOGLE_VERIFIED")** where rules cryptographically check email hashes and `email_verified == true`.
+5. Under **Authorized domains**, ensure your custom hosting domain (`udhaar.jyotirmoyb.com`) and `localhost` are listed.
+
 ---
 
 ## 6. Open-Source Governance, Legal & Support Contacts

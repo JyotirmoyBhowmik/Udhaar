@@ -145,7 +145,7 @@ object SettingsPreferenceHelper {
             reminderLevel2MaxOverdueDays = prefs[PrefKeys.REMINDER_L2_MAX_OVERDUE] ?: 7,
             reminderLevel3MaxOverdueDays = prefs[PrefKeys.REMINDER_L3_MAX_OVERDUE] ?: 30,
             defaultWebLinkExpiryDays = prefs[PrefKeys.DEFAULT_WEB_LINK_EXPIRY] ?: 30,
-            defaultWebTrustLevel = prefs[PrefKeys.DEFAULT_WEB_TRUST_LEVEL] ?: "WHATSAPP_OTP",
+            defaultWebTrustLevel = prefs[PrefKeys.DEFAULT_WEB_TRUST_LEVEL] ?: "PRIVATE_LINK",
             defaultWebShowUpi = prefs[PrefKeys.DEFAULT_WEB_SHOW_UPI] ?: true,
             analyticsCrashConsent = prefs[PrefKeys.ANALYTICS_CRASH_CONSENT] ?: false,
             backupRecoveryKeyId = prefs[PrefKeys.BACKUP_RECOVERY_KEY_ID] ?: "",

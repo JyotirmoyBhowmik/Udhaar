@@ -786,8 +786,11 @@
     <string name="dialog_revoke_all_web_links_msg">पहले से शेयर किए गए सभी वेब लिंक तुरंत काम करना बंद कर देंगे। अन्य व्यक्ति पुराने लिंक से रिकॉर्ड नहीं देख सकेंगे।</string>
     <string name="settings_web_link_upi_title">वेब पेज पर सीधे यूपीआई क्यूआर दिखाएं</string>
     <string name="settings_web_link_upi_subtitle">दूसरे व्यक्ति को सीधे वेब पेज से यूपीआई क्यूआर कोड स्कैन करके भुगतान करने की सुविधा दें</string>
-    <string name="trust_level_whatsapp_otp">व्हाट्सएप कोड (मुफ्त)</string>
+    <string name="trust_level_whatsapp_otp">Google साइन-इन आवश्यक (ईमेल)</string>
+    <string name="trust_level_google_verified">Google साइन-इन आवश्यक (ईमेल)</string>
     <string name="trust_level_link_only">निजी लिंक</string>
+    <string name="input_borrower_google_email">उधारकर्ता का Google ईमेल</string>
+    <string name="input_borrower_google_email_hint">उदा. borrower@gmail.com</string>
     <string name="web_share_show_note">विवरण / कारण दिखाएं</string>
     <string name="web_share_show_attachments">रसीद / बिल फोटो दिखाएं</string>
     <string name="web_share_show_upi">वेब पेज पर मेरा यूपीआई क्यूआर दिखाएं</string>
