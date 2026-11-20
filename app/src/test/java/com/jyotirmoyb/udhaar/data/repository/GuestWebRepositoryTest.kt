@@ -46,7 +46,46 @@ class GuestWebRepositoryTest {
             cloudRepository = null,
             installmentRepository = installmentRepository
         )
-        val dummyCloudRepo = GuestWebCloudRepository(null, null, null)
+        val dummyCloudRepo = object : GuestWebCloudRepository(null, null, null) {
+            override suspend fun createGuestWebLink(
+                recordId: String,
+                counterpartyRole: String,
+                intendedPhone: String,
+                expiryDays: Int,
+                trustLevelRequired: String,
+                allowedActions: List<String>,
+                allowNote: Boolean,
+                allowAttachments: Boolean,
+                showUpiQr: Boolean,
+                lenderName: String,
+                borrowerName: String,
+                principalAmountPaise: Long,
+                amountPaidPaise: Long,
+                currency: String,
+                startDateMillis: Long,
+                expiryDateMillis: Long?,
+                note: String,
+                contentHash: String,
+                lenderUpiId: String,
+                creatorPhone: String,
+                expectedGuestEmail: String
+            ): GuestWebLinkCreateResult {
+                val secret = generateSecretBase64Url(32)
+                val linkId = sha256Hex(secret)
+                return GuestWebLinkCreateResult(
+                    linkId = linkId,
+                    secret = secret,
+                    url = "$WEB_BASE_URL/u/#k=$secret",
+                    whatsappOtp = "123456",
+                    expiresAtMillis = System.currentTimeMillis() + expiryDays * 86400000L,
+                    trustLevel = trustLevelRequired,
+                    success = true,
+                    errorMessage = ""
+                )
+            }
+
+            override suspend fun revokeGuestWebLink(recordIdOrSecretOrLinkId: String): Boolean = true
+        }
         guestWebRepository = GuestWebRepository(
             dao = fakeDao,
             settingsRepository = settingsRepository,

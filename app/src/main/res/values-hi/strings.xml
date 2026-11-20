@@ -800,6 +800,8 @@
     <string name="web_share_whatsapp_btn">व्हाट्सएप पर शेयर करें</string>
     <string name="web_share_copy_btn">लिंक और कोड कॉपी करें</string>
     <string name="web_share_revoke_btn">लिंक रद्द करें</string>
+    <string name="web_share_error_publish">अतिथि लिंक प्रकाशित करने में असमर्थ</string>
+    <string name="btn_retry">पुनः प्रयास करें</string>
     <string name="inbox_proof_image_attached">रसीद की फोटो संलग्न है</string>
     <string name="inbox_view_record_detail">रिकॉर्ड का विवरण देखें →</string>
     <string name="days_count">%1$d दिन</string>

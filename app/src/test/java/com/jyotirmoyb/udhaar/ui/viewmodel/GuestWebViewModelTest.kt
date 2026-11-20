@@ -5,6 +5,7 @@ import com.jyotirmoyb.udhaar.data.PaymentMode
 import com.jyotirmoyb.udhaar.data.TransactionType
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
 import com.jyotirmoyb.udhaar.data.cloud.GuestWebCloudRepository
+import com.jyotirmoyb.udhaar.data.cloud.GuestWebLinkCreateResult
 import com.jyotirmoyb.udhaar.data.repository.FakeUdhaarDao
 import com.jyotirmoyb.udhaar.data.repository.GuestWebRepository
 import com.jyotirmoyb.udhaar.data.repository.InstallmentRepository
@@ -58,12 +59,52 @@ class GuestWebViewModelTest {
         installmentRepository = InstallmentRepository(fakeDao, settingsRepository, null)
         paymentRepository = PaymentRepository(fakeDao, settingsRepository, null, installmentRepository)
         verificationRepository = VerificationRepository(fakeDao, settingsRepository, null, null)
+        val fakeCloudRepo = object : GuestWebCloudRepository(null, null, null, testDispatcher) {
+            override suspend fun createGuestWebLink(
+                recordId: String,
+                counterpartyRole: String,
+                intendedPhone: String,
+                expiryDays: Int,
+                trustLevelRequired: String,
+                allowedActions: List<String>,
+                allowNote: Boolean,
+                allowAttachments: Boolean,
+                showUpiQr: Boolean,
+                lenderName: String,
+                borrowerName: String,
+                principalAmountPaise: Long,
+                amountPaidPaise: Long,
+                currency: String,
+                startDateMillis: Long,
+                expiryDateMillis: Long?,
+                note: String,
+                contentHash: String,
+                lenderUpiId: String,
+                creatorPhone: String,
+                expectedGuestEmail: String
+            ): GuestWebLinkCreateResult {
+                val secret = generateSecretBase64Url(32)
+                val linkId = sha256Hex(secret)
+                return GuestWebLinkCreateResult(
+                    linkId = linkId,
+                    secret = secret,
+                    url = "$WEB_BASE_URL/u/#k=$secret",
+                    whatsappOtp = "123456",
+                    expiresAtMillis = System.currentTimeMillis() + expiryDays * 86400000L,
+                    trustLevel = trustLevelRequired,
+                    success = true,
+                    errorMessage = ""
+                )
+            }
+
+            override suspend fun revokeGuestWebLink(recordIdOrSecretOrLinkId: String): Boolean = true
+        }
         guestWebRepository = GuestWebRepository(
             dao = fakeDao,
             settingsRepository = settingsRepository,
             paymentRepository = paymentRepository,
             installmentRepository = installmentRepository,
-            guestWebCloudRepository = GuestWebCloudRepository(null, null, null, testDispatcher),
+            guestWebCloudRepository = fakeCloudRepo,
             context = null
         )
         appStateHolder = AppStateHolder()

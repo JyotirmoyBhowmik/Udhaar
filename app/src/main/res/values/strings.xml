@@ -805,6 +805,8 @@
     <string name="web_share_whatsapp_btn">Share via WhatsApp</string>
     <string name="web_share_copy_btn">Copy Link &amp; Verification Code</string>
     <string name="web_share_revoke_btn">Revoke Link</string>
+    <string name="web_share_error_publish">Unable to publish guest link</string>
+    <string name="btn_retry">Retry</string>
     <string name="inbox_proof_image_attached">Proof image attached</string>
     <string name="inbox_view_record_detail">View Record Detail →</string>
     <string name="days_count">%1$d Days</string>

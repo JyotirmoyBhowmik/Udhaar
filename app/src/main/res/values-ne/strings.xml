@@ -800,6 +800,8 @@
     <string name="web_share_whatsapp_btn">ह्वाट्सएपमा शेयर गर्नुहोस्</string>
     <string name="web_share_copy_btn">लिङ्क र कोड कपी गर्नुहोस्</string>
     <string name="web_share_revoke_btn">लिङ्क रद्द गर्नुहोस्</string>
+    <string name="web_share_error_publish">अतिथि लिङ्क प्रकाशित गर्न असमर्थ</string>
+    <string name="btn_retry">पुनः प्रयास गर्नुहोस्</string>
     <string name="inbox_proof_image_attached">प्रमाणको फोटो संलग्न छ</string>
     <string name="inbox_view_record_detail">रेकर्डको विवरण हेर्नुहोस् →</string>
     <string name="days_count">%1$d दिन</string>

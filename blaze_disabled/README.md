@@ -24,6 +24,7 @@ Under Udhaar's **Code Preservation Rules**, code requiring billing or paid servi
 | **Platform CI Functions & Emulator Tests** | `.github/workflows/ci.yml` | Lines 31, 61–67, 81–99, 126–145, 161–166 | Functions dependencies, tests, and audit commented out with `[BLAZE-DISABLED]`. | Uncomment the commented blocks in `.github/workflows/ci.yml`. |
 | **Deploy Production Conformance Gate** | `.github/workflows/deploy-prod.yml` | Lines 38–41 | Functions unit test step commented out with `[BLAZE-DISABLED]`. | Uncomment `npm --prefix functions test`. |
 | **Deploy Staging Smoke Check** | `.github/workflows/deploy-staging.yml` | Lines 66–69 | Functions E2E smoke test commented out with `[BLAZE-DISABLED]`. | Uncomment `node functions/test/playwright_e2e.test.js`. |
+| **Guest Link whatsappOtp Firestore Field** | `app/src/main/java/com/jyotirmoyb/udhaar/data/cloud/GuestWebCloudRepository.kt` | Lines 140–147 | An OTP stored in a readable document provides no security on Spark; capability URL `#k=<secret>` is used instead. | Uncomment `whatsappOtp` write inside `[BLAZE-DISABLED]` markers. |
 
 ---
 

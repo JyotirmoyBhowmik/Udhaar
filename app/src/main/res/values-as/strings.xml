@@ -800,6 +800,8 @@
     <string name="web_share_whatsapp_btn">হোৱাটছএপত পঠিয়াওক</string>
     <string name="web_share_copy_btn">লিংক আৰু ক’ড কপি কৰক</string>
     <string name="web_share_revoke_btn">লিংক বাতিল কৰক</string>
+    <string name="web_share_error_publish">অতিথি লিংক প্ৰকাশ কৰাত ব্যৰ্থ</string>
+    <string name="btn_retry">পুনৰ চেষ্টা কৰক</string>
     <string name="inbox_proof_image_attached">প্ৰমাণৰ ফটো সংলগ্ন আছে</string>
     <string name="inbox_view_record_detail">ৰেকৰ্ডৰ বিৱৰণ চাওক →</string>
     <string name="days_count">%1$d দিন</string>

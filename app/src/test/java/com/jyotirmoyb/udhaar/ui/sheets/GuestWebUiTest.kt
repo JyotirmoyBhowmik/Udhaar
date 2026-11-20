@@ -8,12 +8,14 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import com.jyotirmoyb.udhaar.data.cloud.GuestWebLinkCreateResult
 import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.TransactionType
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
 import com.jyotirmoyb.udhaar.data.UserSettings
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -63,6 +65,96 @@ class GuestWebUiTest {
 
         assertEquals(30, generatedExpiry)
         assertEquals("WHATSAPP_OTP", generatedTrust)
+    }
+
+    @Test
+    fun webShareSheet_whenGenerationFails_showsErrorAndRetry_hidesShareButton() {
+        val tx = UdhaarTransaction(
+            id = 43L,
+            partyName = "Aman Sharma",
+            principalAmount = 2500.0,
+            currency = CurrencyType.INR,
+            transactionType = TransactionType.GIVEN
+        )
+
+        var retried = false
+
+        composeRule.setContent {
+            WebShareSheet(
+                transaction = tx,
+                settings = UserSettings(defaultWebLinkExpiryDays = 30, defaultWebTrustLevel = "WHATSAPP_OTP"),
+                isGenerating = false,
+                existingResult = GuestWebLinkCreateResult(
+                    linkId = "",
+                    secret = "",
+                    url = "",
+                    whatsappOtp = "",
+                    expiresAtMillis = 0L,
+                    trustLevel = "LINK_ONLY",
+                    success = false,
+                    errorMessage = "Unable to publish guest link"
+                ),
+                onGenerateLink = { _, _, _, _, _, _ ->
+                    retried = true
+                },
+                onRevokeLink = {},
+                onDismiss = {}
+            )
+        }
+
+        composeRule.waitForIdle()
+        // Error banner must be displayed
+        composeRule.onNodeWithTag("web_share_error_banner").assertExists()
+        composeRule.onNodeWithTag("web_share_error_text").assertExists()
+
+        // WhatsApp / Share button must NOT exist on failure
+        composeRule.onNodeWithTag("btn_share_whatsapp").assertDoesNotExist()
+
+        // Clicking retry invokes onGenerateLink
+        composeRule.onNodeWithTag("btn_retry_generate_link").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        assertTrue("Retry button must invoke onGenerateLink", retried)
+    }
+
+    @Test
+    fun webShareSheet_whenGenerationSucceeds_showsWhatsAppButton_hidesErrorBanner() {
+        val tx = UdhaarTransaction(
+            id = 44L,
+            partyName = "Rohit Verma",
+            principalAmount = 10000.0,
+            currency = CurrencyType.INR,
+            transactionType = TransactionType.GIVEN
+        )
+
+        composeRule.setContent {
+            WebShareSheet(
+                transaction = tx,
+                settings = UserSettings(defaultWebLinkExpiryDays = 30, defaultWebTrustLevel = "WHATSAPP_OTP"),
+                isGenerating = false,
+                existingResult = GuestWebLinkCreateResult(
+                    linkId = "abc123456",
+                    secret = "xyzSecret123",
+                    url = "https://udhaar.jyotirmoyb.com/u/#k=xyzSecret123",
+                    whatsappOtp = "",
+                    expiresAtMillis = System.currentTimeMillis() + 86400000L * 30,
+                    trustLevel = "LINK_ONLY",
+                    success = true,
+                    errorMessage = ""
+                ),
+                onGenerateLink = { _, _, _, _, _, _ -> },
+                onRevokeLink = {},
+                onDismiss = {}
+            )
+        }
+
+        composeRule.waitForIdle()
+        // WhatsApp button must be present only when success == true
+        composeRule.onNodeWithTag("btn_share_whatsapp").assertExists()
+        composeRule.onNodeWithTag("btn_copy_web_link").assertExists()
+        composeRule.onNodeWithTag("btn_revoke_web_link").assertExists()
+
+        // Error banner must not exist
+        composeRule.onNodeWithTag("web_share_error_banner").assertDoesNotExist()
     }
 
     @Test

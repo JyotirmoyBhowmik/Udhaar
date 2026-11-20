@@ -42,7 +42,9 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -230,8 +232,83 @@ fun WebShareSheet(
                         }
                     }
 
-                    // Configuration Options (if link not generated yet or creating new)
-                    if (linkResult == null || linkResult.url.isBlank()) {
+                    val isLinkActive = linkResult != null && linkResult.success && linkResult.url.isNotBlank()
+
+                    // Error Banner & Retry (shown when link creation failed)
+                    if (linkResult != null && !linkResult.success) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("web_share_error_banner")
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = linkResult.errorMessage.ifBlank { stringResource(R.string.web_share_error_publish) },
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .testTag("web_share_error_text")
+                                    )
+                                }
+                                Button(
+                                    onClick = {
+                                        val allowed = mutableListOf<String>("view")
+                                        if (actionConfirm) allowed.add("confirm")
+                                        if (actionDispute) allowed.add("dispute")
+                                        if (actionPayClaim) allowed.add("pay_claim")
+                                        if (actionProposeDate) allowed.add("propose_date")
+                                        allowed.add("set_upi")
+                                        if (showUpi) allowed.add("show_pay_qr")
+
+                                        onGenerateLink(expiryDays, trustLevel, allowNote, allowAttachments, showUpi, allowed)
+                                    },
+                                    enabled = !isGenerating,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(48.dp)
+                                        .testTag("btn_retry_generate_link"),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.error,
+                                        contentColor = MaterialTheme.colorScheme.onError
+                                    )
+                                ) {
+                                    if (isGenerating) {
+                                        CircularProgressIndicator(
+                                            color = MaterialTheme.colorScheme.onError,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(stringResource(R.string.web_share_generating))
+                                    } else {
+                                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(stringResource(R.string.btn_retry))
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Configuration Options (shown if link is not active)
+                    if (!isLinkActive) {
                         Text(
                             text = stringResource(R.string.web_share_link_expiry),
                             style = MaterialTheme.typography.labelMedium,
@@ -263,9 +340,8 @@ fun WebShareSheet(
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold
                         )
-                        FlowRow(
+                        Column(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             FilterChip(
@@ -274,14 +350,15 @@ fun WebShareSheet(
                                 label = {
                                     Text(
                                         text = stringResource(R.string.trust_level_whatsapp_otp),
-                                        maxLines = 1,
-                                        softWrap = false
+                                        maxLines = 1
                                     )
                                 },
                                 leadingIcon = {
                                     Icon(Icons.Default.VerifiedUser, contentDescription = null, modifier = Modifier.size(16.dp))
                                 },
-                                modifier = Modifier.testTag("trust_level_whatsapp_otp")
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("trust_level_whatsapp_otp")
                             )
                             FilterChip(
                                 selected = trustLevel == "LINK_ONLY",
@@ -289,14 +366,15 @@ fun WebShareSheet(
                                 label = {
                                     Text(
                                         text = stringResource(R.string.trust_level_link_only),
-                                        maxLines = 1,
-                                        softWrap = false
+                                        maxLines = 1
                                     )
                                 },
                                 leadingIcon = {
                                     Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
                                 },
-                                modifier = Modifier.testTag("trust_level_link_only")
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("trust_level_link_only")
                             )
                         }
 

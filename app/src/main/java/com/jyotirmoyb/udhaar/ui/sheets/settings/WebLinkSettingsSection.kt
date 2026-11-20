@@ -99,9 +99,8 @@ fun WebLinkSettingsSection(
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold
             )
-            FlowRow(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 FilterChip(
@@ -113,14 +112,14 @@ fun WebLinkSettingsSection(
                     label = {
                         Text(
                             text = stringResource(R.string.trust_level_whatsapp_otp),
-                            maxLines = 1,
-                            softWrap = false
+                            maxLines = 1
                         )
                     },
                     leadingIcon = {
                         Icon(Icons.Default.VerifiedUser, contentDescription = null, modifier = Modifier.size(16.dp))
                     },
                     modifier = Modifier
+                        .fillMaxWidth()
                         .heightIn(min = 48.dp)
                         .testTag("settings_trust_whatsapp")
                 )
@@ -133,14 +132,14 @@ fun WebLinkSettingsSection(
                     label = {
                         Text(
                             text = stringResource(R.string.trust_level_link_only),
-                            maxLines = 1,
-                            softWrap = false
+                            maxLines = 1
                         )
                     },
                     leadingIcon = {
                         Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
                     },
                     modifier = Modifier
+                        .fillMaxWidth()
                         .heightIn(min = 48.dp)
                         .testTag("settings_trust_link_only")
                 )
