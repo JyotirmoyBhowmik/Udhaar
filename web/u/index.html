@@ -27,6 +27,8 @@
   <link rel="stylesheet" href="guest.css" />
   <script src="../assets/qrcode.min.js"></script>
   <script type="module" src="vendor/firebase-sdk.js"></script>
+  <script src="config.js" defer></script>
+  <script src="actionSchema.js" defer></script>
   <script src="firebase-init.js" defer></script>
   <script src="guest.js" defer></script>
 </head>
@@ -433,12 +435,16 @@
           <select id="select-paid-mode" class="form-select">
             <option value="UPI" data-i18n="mode_upi">UPI</option>
             <option value="CASH" data-i18n="mode_cash">Cash</option>
-            <option value="BANK" data-i18n="mode_bank">Bank transfer</option>
+            <option value="BANK_TRANSFER" data-i18n="mode_bank">Bank transfer</option>
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label" for="input-paid-ref" data-i18n="paid_ref_label">Reference number / note (optional)</label>
-          <input type="text" id="input-paid-ref" class="form-input" maxlength="100" />
+          <label class="form-label" for="input-paid-ref" data-i18n="paid_ref_label">UTR / Reference number</label>
+          <input type="text" id="input-paid-ref" class="form-input" maxlength="64" placeholder="e.g. 12-digit UTR or Txn ID" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="input-paid-note" data-i18n="paid_note_label">Note (optional)</label>
+          <input type="text" id="input-paid-note" class="form-input" maxlength="300" placeholder="Optional message to lender" />
         </div>
         <p class="notice-text-sm" data-i18n="paid_notice">The lender will confirm your payment in their app.</p>
         <button id="btn-submit-paid" class="btn btn-primary" data-i18n="btn_submit_paid">Submit payment proof</button>
@@ -510,11 +516,14 @@
           <h3 id="title-upi-sheet" class="sheet-title" data-i18n="upi_sheet_title">Pay now by UPI</h3>
           <button class="close-btn" id="close-upi-modal" data-close="upi-modal" aria-label="Close">×</button>
         </div>
-        <div class="qr-container">
+        <div class="qr-container" id="upi-qr-wrapper">
           <div id="qrcode-canvas" aria-label="UPI Payment QR Code"></div>
           <span class="upi-scan-label" data-i18n="scan_with_phone">
             Scan with your phone
           </span>
+        </div>
+        <div class="notice-box notice-amber hidden" id="upi-missing-notice" hidden role="alert">
+          <span data-i18n="lender_no_upi">Lender has not added a UPI ID</span>
         </div>
         <div class="data-row upi-row-box" id="upi-display-container">
           <span class="data-label" data-i18n="upi_id_label">UPI ID</span>

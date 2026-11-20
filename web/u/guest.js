@@ -150,7 +150,12 @@
       mode_upi: "UPI",
       mode_cash: "Cash",
       mode_bank: "Bank transfer",
-      paid_ref_label: "Reference number / note (optional)",
+      paid_ref_label: "UTR / Reference number",
+      paid_note_label: "Note (optional)",
+      lender_no_upi: "Lender has not added a UPI ID",
+      err_pending_action: "You already have a pending request. Please wait for the lender.",
+      err_quota_exhausted: "Daily free limit reached, try again tomorrow",
+      err_service_unavailable: "Service temporarily unavailable. Please check your connection and try again.",
       paid_proof_label: "Photo of proof (receipt / screenshot)",
       btn_submit_paid: "Submit payment proof",
       paid_notice: "The lender will confirm your payment in their app.",
@@ -324,7 +329,12 @@
       mode_upi: "UPI",
       mode_cash: "नकद (Cash)",
       mode_bank: "बैंक ट्रांसफर",
-      paid_ref_label: "संदर्भ संख्या / नोट (वैकल्पिक)",
+      paid_ref_label: "यूटीआर / संदर्भ संख्या (UTR / Ref)",
+      paid_note_label: "नोट (वैकल्पिक)",
+      lender_no_upi: "उधारदाता ने कोई यूपीआई आईडी नहीं जोड़ी है",
+      err_pending_action: "आपका एक अनुरोध पहले से लंबित है। कृपया उधारदाता की पुष्टि की प्रतीक्षा करें।",
+      err_quota_exhausted: "दैनिक सीमा समाप्त हो गई है, कृपया कल पुनः प्रयास करें",
+      err_service_unavailable: "सेवा अस्थायी रूप से अनुपलब्ध है। कृपया अपना इंटरनेट कनेक्शन जांचें।",
       paid_proof_label: "प्रमाण की फोटो (रसीद / स्क्रीनशॉट)",
       btn_submit_paid: "भुगतान प्रमाण जमा करें",
       paid_notice: "रकम देने वाले व्यक्ति अपने ऐप में भुगतान की पुष्टि करेंगे।",
@@ -491,7 +501,12 @@
       mode_upi: "UPI",
       mode_cash: "নগদ (Cash)",
       mode_bank: "ব্যাংক ট্রান্সফার",
-      paid_ref_label: "রেফারেন্স নম্বর / নোট (ঐচ্ছিক)",
+      paid_ref_label: "ইউটিআর / রেফারেন্স নম্বর",
+      paid_note_label: "নোট (ঐচ্ছিক)",
+      lender_no_upi: "ঋণদাতা কোনো ইউপিআই আইডি যুক্ত করেননি",
+      err_pending_action: "আপনার একটি অনুরোধ ইতিমধ্যে অপেক্ষারত রয়েছে। অনুগ্রহ করে অপেক্ষা করুন।",
+      err_quota_exhausted: "দৈনিক ফ্রি সীমা শেষ হয়েছে, আগামীকাল আবার চেষ্টা করুন",
+      err_service_unavailable: "পরিষেবা সাময়িকভাবে অনুপলব্ধ। আপনার সংযোগ পরীক্ষা করে পুনরায় চেষ্টা করুন।",
       paid_proof_label: "প্রমাণের ছবি (রসিদ / স্ক্রিনশট)",
       btn_submit_paid: "প্রমাণপত্র জমা দিন",
       paid_notice: "টাকা প্রাপক তার অ্যাপে এই অর্থ প্রাপ্তি নিশ্চিত করবেন।",
@@ -658,7 +673,12 @@
       mode_upi: "UPI",
       mode_cash: "নগদ (Cash)",
       mode_bank: "বেংক ট্ৰান্সফাৰ",
-      paid_ref_label: "ৰেফাৰেন্স নম্বৰ / নোট (ঐচ্ছিক)",
+      paid_ref_label: "ইউটিআৰ / ৰেফাৰেন্স নম্বৰ",
+      paid_note_label: "টোকাত (ঐচ্ছিক)",
+      lender_no_upi: "ঋণদাতাই কোনো ইউপিআই আইডি যোগ কৰা নাই",
+      err_pending_action: "আপোনাৰ এটা অনুৰোধ ইতিমধ্যে বাকী আছে। অনুগ্ৰহ কৰি অপেক্ষা কৰক।",
+      err_quota_exhausted: "দৈনিক বিনামূলীয়া সীমা শেষ হ'ল, কাইলৈ পুনৰ চেষ্টা কৰক",
+      err_service_unavailable: "সেৱা সাময়িকভাৱে উপলব্ধ নহয়। আপোনাৰ সংযোগ পৰীক্ষা কৰক।",
       paid_proof_label: "প্ৰমাণৰ ফটো (ৰচিদ / স্ক্ৰীণশ্বট)",
       btn_submit_paid: "প্ৰমাণ জমা দিয়ক",
       paid_notice: "প্ৰাপকে তেওঁৰ এপত এই ধন পোৱা বুলি নিশ্চিত কৰিব।",
@@ -825,7 +845,12 @@
       mode_upi: "UPI / अनलाइन",
       mode_cash: "नगद (Cash)",
       mode_bank: "बैंक ट्रान्सफर",
-      paid_ref_label: "सन्दर्भ नम्बर / नोट (वैकल्पिक)",
+      paid_ref_label: "यूटीआर / सन्दर्भ नम्बर",
+      paid_note_label: "नोट (वैकल्पिक)",
+      lender_no_upi: "ऋणदाताले कुनै यूपीआई आईडी थप्नुभएको छैन",
+      err_pending_action: "तपाईंको एउटा अनुरोध पहिले नै विचाराधीन छ। कृपया ऋणदाताको प्रतीक्षा गर्नुहोस्।",
+      err_quota_exhausted: "दैनिक निःशुल्क सीमा सकियो, भोलि फेरि प्रयास गर्नुहोस्",
+      err_service_unavailable: "सेवा अस्थायी रूपमा अनुपलब्ध छ। कृपया आफ्नो इन्टरनेट जाँच गर्नुहोस्।",
       paid_proof_label: "प्रमाणको फोटो (रसिद / स्क्रिनसट)",
       btn_submit_paid: "प्रमाण पेस गर्नुहोस्",
       paid_notice: "रकम पाउने व्यक्तिले आफ्नो एपमा पुष्टि गर्नुहुनेछ।",
@@ -1195,6 +1220,12 @@
     } catch (err) {
       if (err.code === "permission-denied" || (err.message && err.message.includes("permission"))) {
         err.isAuthRequired = true;
+      } else if (err.code === "resource-exhausted" || (err.message && (err.message.includes("resource-exhausted") || err.message.includes("quota")))) {
+        err.status = 429;
+        err.userMessage = "Daily free limit reached, try again tomorrow";
+      } else if (err.code === "unavailable" || (err.message && err.message.includes("unavailable")) || !navigator.onLine) {
+        err.status = 503;
+        err.userMessage = "Service temporarily unavailable. Please check your connection and try again.";
       }
       throw err;
     }
@@ -1229,6 +1260,18 @@
     };
   }
 
+  function _resolveActionSchema() {
+    if (typeof globalThis !== "undefined" && globalThis.UdhaarActionSchema) {
+      return globalThis.UdhaarActionSchema;
+    }
+    if (typeof require === "function") {
+      try {
+        return require("./actionSchema.js");
+      } catch (_) {}
+    }
+    return null;
+  }
+
   async function writeGuestActionToFirestore(secret, actionIdCandidates, payload = {}) {
     if (isDemoMode) {
       const act = Array.isArray(actionIdCandidates) ? actionIdCandidates[0] : actionIdCandidates;
@@ -1258,39 +1301,88 @@
     else if (actionType.includes("DISPUTE")) actionType = "DISPUTE";
     else if (actionType.includes("CONFIRM")) actionType = "CONFIRM";
 
-    const docData = {
-      schemaVersion: 1,
-      actionType,
-      guestUid,
-      status: "PENDING",
-      createdAtMs: Date.now()
-    };
+    const schema = _resolveActionSchema();
+    const nowMs = Date.now();
+    let docData;
 
-    if (actionType === "CONFIRM") {
-      // Keys allowed: schemaVersion, actionType, guestUid, status, createdAtMs
-    } else if (actionType === "DISPUTE") {
-      docData.reason = String(payload.reason || "Disputed via web link").slice(0, 500);
-    } else if (actionType === "PROPOSE_DATE") {
-      const proposedMs = Number(payload.proposedDateMs);
-      docData.proposedDateMs = !isNaN(proposedMs) && proposedMs > Date.now() ? Math.floor(proposedMs) : Date.now() + 86400000;
-      if (payload.reason && String(payload.reason).trim()) {
-        docData.reason = String(payload.reason).slice(0, 500);
+    if (schema) {
+      if (actionType === "CONFIRM") {
+        docData = schema.buildConfirmAction({ guestUid, nowMs });
+      } else if (actionType === "DISPUTE") {
+        docData = schema.buildDisputeAction({ guestUid, reason: payload.reason, nowMs });
+      } else if (actionType === "PROPOSE_DATE") {
+        docData = schema.buildProposeDateAction({ guestUid, proposedDateMs: payload.proposedDateMs, reason: payload.reason, nowMs });
+      } else if (actionType === "CLAIM_PAYMENT") {
+        const maxPayablePaise = (recordData && typeof recordData.payableAmountPaise === "number")
+          ? recordData.payableAmountPaise
+          : ((recordData && typeof recordData.amountPaise === "number") ? recordData.amountPaise : undefined);
+        docData = schema.buildClaimPaymentAction({
+          guestUid,
+          amountPaise: payload.amountPaise,
+          paymentMode: payload.paymentMode,
+          referenceNumber: payload.referenceNumber || payload.utrLast4,
+          note: payload.note,
+          hasProof: Boolean(payload.hasProof || payload.proofDataB64),
+          payableAmountPaise: maxPayablePaise,
+          nowMs
+        });
+      } else {
+        throw new Error(`Unsupported guest action type: ${actionType}`);
       }
-    } else if (actionType === "CLAIM_PAYMENT") {
-      const amtPaise = Number(payload.amountPaise) || 0;
-      docData.amountPaise = amtPaise > 0 ? Math.floor(amtPaise) : 100;
-      docData.paymentMode = ["UPI", "CASH", "BANK_TRANSFER"].includes(payload.paymentMode) ? payload.paymentMode : "UPI";
-      docData.referenceNumber = String(payload.referenceNumber || payload.utrLast4 || "N/A").slice(0, 64);
-      if (payload.note && String(payload.note).trim()) {
-        docData.note = String(payload.note).slice(0, 300);
-      }
-      docData.hasProof = Boolean(payload.hasProof);
     } else {
-      throw new Error(`Unsupported guest action type: ${actionType}`);
+      docData = {
+        schemaVersion: 1,
+        actionType,
+        guestUid,
+        status: "PENDING",
+        createdAtMs: nowMs
+      };
+      if (actionType === "CONFIRM") {
+        // Keys allowed: schemaVersion, actionType, guestUid, status, createdAtMs
+      } else if (actionType === "DISPUTE") {
+        docData.reason = String(payload.reason || "Disputed via web link").slice(0, 500);
+      } else if (actionType === "PROPOSE_DATE") {
+        const proposedMs = Number(payload.proposedDateMs);
+        docData.proposedDateMs = !isNaN(proposedMs) && proposedMs > nowMs ? Math.floor(proposedMs) : nowMs + 86400000;
+        if (payload.reason && String(payload.reason).trim()) {
+          docData.reason = String(payload.reason).slice(0, 500);
+        }
+      } else if (actionType === "CLAIM_PAYMENT") {
+        const amtPaise = Number(payload.amountPaise) || 0;
+        docData.amountPaise = amtPaise > 0 ? Math.floor(amtPaise) : 100;
+        docData.paymentMode = ["UPI", "CASH", "BANK_TRANSFER"].includes(payload.paymentMode) ? payload.paymentMode : "UPI";
+        docData.referenceNumber = String(payload.referenceNumber || payload.utrLast4 || "N/A").slice(0, 64);
+        if (payload.note && String(payload.note).trim()) {
+          docData.note = String(payload.note).slice(0, 300);
+        }
+        docData.hasProof = Boolean(payload.hasProof || payload.proofDataB64);
+      } else {
+        throw new Error(`Unsupported guest action type: ${actionType}`);
+      }
     }
 
     const actionRef = services.sdk.doc(services.db, "guestLinks", linkId, "actions", actionType);
-    await services.sdk.setDoc(actionRef, docData);
+
+    try {
+      await services.sdk.setDoc(actionRef, docData);
+    } catch (err) {
+      if (err && (err.code === "permission-denied" || (err.message && err.message.toLowerCase().includes("permission")))) {
+        const friendlyErr = new Error("You already have a pending request. Please wait for the lender.");
+        friendlyErr.code = "permission-denied";
+        throw friendlyErr;
+      }
+      if (err && (err.code === "resource-exhausted" || (err.message && (err.message.toLowerCase().includes("resource-exhausted") || err.message.toLowerCase().includes("quota"))))) {
+        const friendlyErr = new Error("Daily free limit reached, try again tomorrow");
+        friendlyErr.code = "resource-exhausted";
+        throw friendlyErr;
+      }
+      if (err && (err.code === "unavailable" || (err.message && err.message.toLowerCase().includes("unavailable")) || !navigator.onLine)) {
+        const friendlyErr = new Error("Service temporarily unavailable. Please check your connection and try again.");
+        friendlyErr.code = "unavailable";
+        throw friendlyErr;
+      }
+      throw err;
+    }
 
     // Optional proof upload to /guestLinks/{linkId}/actions/{actionType}/proof/image
     if (payload.proofDataB64) {
@@ -1728,7 +1820,14 @@
   async function submitConfirmation() {
     try {
       announce("Confirming record...", false);
+      // [LEGACY-DISABLED START] reason: actionType CONFIRM is the document ID | restore: ["confirm"]
+      /*
       await writeGuestActionToFirestore(urlSecret, ["confirm"], {
+        actionType: "CONFIRM"
+      });
+      */
+      // [LEGACY-DISABLED END]
+      await writeGuestActionToFirestore(urlSecret, "CONFIRM", {
         actionType: "CONFIRM"
       });
 
@@ -2141,12 +2240,19 @@
     if (btnSubmitDate) {
       btnSubmitDate.addEventListener("click", async () => {
         const dateVal = document.getElementById("input-return-date")?.value;
-        const noteVal = document.getElementById("input-return-note")?.value || "";
+        const noteVal = (document.getElementById("input-return-note")?.value || "").trim();
         if (!dateVal) {
           alert("Please pick a return date.");
           return;
         }
+        const proposedDateMs = new Date(dateVal).getTime();
+        if (isNaN(proposedDateMs) || proposedDateMs <= Date.now()) {
+          alert("Please select a valid future return date.");
+          return;
+        }
         try {
+          // [LEGACY-DISABLED START] reason: actionType is the document ID (free rate limit of 1 pending proposal) | restore: ordered date slot IDs date_1..date_3
+          /*
           const orderedDateIds = [];
           for (let i = _dateSlotCursor; i <= 3; i++) orderedDateIds.push(`date_${i}`);
           await writeGuestActionToFirestore(urlSecret, orderedDateIds, {
@@ -2155,6 +2261,14 @@
             reason: noteVal
           });
           _dateSlotCursor = Math.min(4, _dateSlotCursor + 1);
+          */
+          // [LEGACY-DISABLED END]
+
+          await writeGuestActionToFirestore(urlSecret, "PROPOSE_DATE", {
+            actionType: "PROPOSE_DATE",
+            proposedDateMs,
+            reason: noteVal
+          });
           closeModal("date-modal");
           showAwaitingConfirmation("Sent – awaiting lender confirmation");
         } catch (err) {
@@ -2172,14 +2286,34 @@
     if (btnSubmitPaid) {
       btnSubmitPaid.addEventListener("click", async () => {
         const amtInput = document.getElementById("input-paid-amount");
-        const amtVal = parseFloat(amtInput?.value || "0");
-        const modeVal = document.getElementById("select-paid-mode")?.value || "UPI";
-        const refVal = document.getElementById("input-paid-ref")?.value || "";
-        if (isNaN(amtVal) || amtVal <= 0) {
-          alert("Please enter a valid amount paid.");
+        const rupeeVal = amtInput ? amtInput.value.trim() : "";
+        const amountPaise = Math.round(Number(rupeeVal) * 100);
+
+        const maxPayablePaise = (recordData && typeof recordData.payableAmountPaise === "number")
+          ? recordData.payableAmountPaise
+          : ((recordData && typeof recordData.amountPaise === "number") ? recordData.amountPaise : Infinity);
+
+        if (isNaN(amountPaise) || amountPaise <= 0 || !Number.isInteger(amountPaise)) {
+          alert("Please enter a valid positive amount.");
           return;
         }
+        if (amountPaise > maxPayablePaise) {
+          alert(`Amount cannot exceed remaining payable balance of ₹${(maxPayablePaise / 100).toFixed(2)}.`);
+          return;
+        }
+
+        const modeVal = document.getElementById("select-paid-mode")?.value || "UPI";
+        const refVal = (document.getElementById("input-paid-ref")?.value || "").trim().slice(0, 64);
+        const noteVal = (document.getElementById("input-paid-note")?.value || "").trim().slice(0, 300);
+
+        if (!refVal) {
+          alert("Please enter a reference number or UTR.");
+          return;
+        }
+
         try {
+          // [LEGACY-DISABLED START] reason: full referenceNumber up to 64 chars required by schema | restore: slice(-4) for utrLast4
+          /*
           const orderedClaimIds = [];
           for (let i = _claimSlotCursor; i <= 5; i++) orderedClaimIds.push(`claim_${i}`);
           await writeGuestActionToFirestore(urlSecret, orderedClaimIds, {
@@ -2189,6 +2323,17 @@
             utrLast4: String(refVal || "").slice(-4)
           });
           _claimSlotCursor = Math.min(6, _claimSlotCursor + 1);
+          */
+          // [LEGACY-DISABLED END]
+
+          await writeGuestActionToFirestore(urlSecret, "CLAIM_PAYMENT", {
+            actionType: "CLAIM_PAYMENT",
+            amountPaise,
+            paymentMode: modeVal,
+            referenceNumber: refVal,
+            note: noteVal,
+            hasProof: false
+          });
           closeModal("paid-modal");
           showAwaitingConfirmation("Sent – awaiting lender confirmation");
         } catch (err) {
@@ -2246,15 +2391,70 @@
       btnPayUpi.addEventListener("click", () => {
         openModal("upi-modal");
         const qrContainer = document.getElementById("qrcode-canvas");
+        const qrWrapper = document.getElementById("upi-qr-wrapper");
+        const missingNotice = document.getElementById("upi-missing-notice");
+        const displayContainer = document.getElementById("upi-display-container");
+        const actionsContainer = document.getElementById("upi-actions-container");
+
+        const UPI_REGEX = /^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/;
+        const candidateUpi = (recordData && recordData.lenderUpiId && String(recordData.lenderUpiId).trim()) || "";
+        const hasValidUpi = UPI_REGEX.test(candidateUpi);
+
+        if (!hasValidUpi) {
+          if (qrWrapper) {
+            qrWrapper.hidden = true;
+            qrWrapper.style.display = "none";
+          }
+          if (displayContainer) {
+            displayContainer.hidden = true;
+            displayContainer.style.display = "none";
+          }
+          if (actionsContainer) {
+            actionsContainer.hidden = true;
+            actionsContainer.style.display = "none";
+          }
+          if (missingNotice) {
+            missingNotice.hidden = false;
+            missingNotice.style.display = "flex";
+            missingNotice.classList.remove("hidden");
+          }
+          return;
+        }
+
+        if (missingNotice) {
+          missingNotice.hidden = true;
+          missingNotice.style.display = "none";
+          missingNotice.classList.add("hidden");
+        }
+        if (qrWrapper) {
+          qrWrapper.hidden = false;
+          qrWrapper.style.display = "flex";
+        }
+        if (displayContainer) {
+          displayContainer.hidden = false;
+          displayContainer.style.display = "flex";
+        }
+        if (actionsContainer) {
+          actionsContainer.hidden = false;
+          actionsContainer.style.display = "flex";
+        }
+
         if (qrContainer) {
           qrContainer.innerHTML = "";
+
+          // [LEGACY-DISABLED START] reason: hardcoded fallback UPI ID violates honest verification | restore: fallback to udhaar@okaxis
+          /*
           actualUpiId = recordData?.lenderUpiId || "udhaar@okaxis";
+          */
+          // [LEGACY-DISABLED END]
+          actualUpiId = candidateUpi;
           isUpiMasked = true;
 
-          const rawAmt = (recordData?.principalAmount !== undefined && recordData?.principalAmount !== null)
-            ? recordData.principalAmount
-            : (recordData?.amountPaise !== undefined ? recordData.amountPaise / 100 : 0);
-          const amt = Number(rawAmt || 0).toFixed(2);
+          // UPI intent/QR amount = payableAmountPaise / 100 (remaining balance), NOT the principal
+          const payablePaise = (recordData && typeof recordData.payableAmountPaise === "number")
+            ? recordData.payableAmountPaise
+            : ((recordData && typeof recordData.amountPaise === "number") ? recordData.amountPaise : 0);
+          const amt = (Math.max(0, payablePaise) / 100).toFixed(2);
           const name = encodeURIComponent(recordData?.lenderName || "Udhaar");
           const upiUri = `upi://pay?pa=${actualUpiId}&pn=${name}&am=${amt}&cu=INR&tn=Udhaar%20Settlement`;
 
@@ -2349,18 +2549,27 @@
     if (btnSubmitDispute) {
       btnSubmitDispute.addEventListener("click", async () => {
         const reasonCode = document.getElementById("select-dispute-reason")?.value || "OTHER";
-        const note = document.getElementById("input-dispute-note")?.value || "";
+        const note = (document.getElementById("input-dispute-note")?.value || "").trim();
+        const finalReason = (note || reasonCode).slice(0, 500);
         try {
+          // [LEGACY-DISABLED START] reason: actionType is the document ID (free rate limit of 1 pending dispute) | restore: ["dispute"]
+          /*
           await writeGuestActionToFirestore(urlSecret, ["dispute"], {
             actionType: "DISPUTE",
             reasonCategory: reasonCode,
             reason: note || reasonCode
           });
-          closeModal("dispute-modal");
-          showErrorState("state_disputed_title", "state_disputed_desc", "state_disputed_action", {
-            name: recordData?.lenderName || "the sender",
-            reason: note || reasonCode
+          */
+          // [LEGACY-DISABLED END]
+
+          await writeGuestActionToFirestore(urlSecret, "DISPUTE", {
+            actionType: "DISPUTE",
+            reason: finalReason
           });
+          closeModal("dispute-modal");
+
+          // Remove client-side status change: Page only shows status read from Firestore
+          showAwaitingConfirmation("Sent – awaiting lender confirmation");
         } catch (err) {
           alert(err.message || t("toast_network_error"));
         }
@@ -2495,6 +2704,8 @@
         showErrorState("state_expired_title", "state_expired_desc", "state_expired_action", { name: "the sender" });
       } else if (err.status === 403) {
         showErrorState("state_revoked_title", "state_revoked_desc", "state_revoked_action", { name: "the sender" });
+      } else if (err.status === 429) {
+        showErrorState("state_server_error_title", "err_quota_exhausted", "state_server_error_action", { name: "the sender" });
       } else if (urlRecordId && urlSecret && (err.status === 503 || err.status === 404 || err.status === 502 || !err.status)) {
         const qs = new URLSearchParams((typeof window !== "undefined" && window.location.search) || "");
         const qsAmt = parseFloat(qs.get("amt") || "0") || 0;

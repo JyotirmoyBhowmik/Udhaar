@@ -26,6 +26,8 @@ Under Udhaar's **Code Preservation Rules**, code requiring billing or paid servi
 | **Deploy Production Conformance Gate** | `.github/workflows/deploy-prod.yml` | Lines 38–41 | Functions unit test step commented out with `[BLAZE-DISABLED]`. | Uncomment `npm --prefix functions test`. |
 | **Deploy Staging Smoke Check** | `.github/workflows/deploy-staging.yml` | Lines 66–69 | Functions E2E smoke test commented out with `[BLAZE-DISABLED]`. | Uncomment `node functions/test/playwright_e2e.test.js`. |
 | **Guest Link whatsappOtp Firestore Field** | `app/src/main/java/com/jyotirmoyb/udhaar/data/cloud/GuestWebCloudRepository.kt` | Lines 140–147 | An OTP stored in a readable document provides no security on Spark; capability URL `#k=<secret>` is used instead. | Uncomment `whatsappOtp` write inside `[BLAZE-DISABLED]` markers. |
+| **Legacy Web Hardcoded UPI Fallback** | `web/u/guest.js` | Lines 2420–2426 | Hardcoded `udhaar@okaxis` fallback disabled; honest checks require lender's valid UPI ID or hide payment options. | Uncomment `actualUpiId = recordData?.lenderUpiId \|\| "udhaar@okaxis"` inside `[LEGACY-DISABLED]` block. |
+| **Legacy Web UTR Suffix Slice** | `web/u/guest.js` | Lines 2315–2330 | Capped `utrLast4` slice disabled; full `referenceNumber` (up to 64 chars) is sent per action schema. | Uncomment `utrLast4` slice inside `[LEGACY-DISABLED]` block. |
 
 ---
 

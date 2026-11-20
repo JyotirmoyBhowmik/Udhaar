@@ -34,6 +34,8 @@ const CRITICAL_FILES = [
   "guide/guide.js",
   "u/index.html",
   "u/guest.css",
+  "u/config.js",
+  "u/actionSchema.js",
   "u/firebase-init.js",
   "u/guest.js",
   "assets/idb-outbox.js",
