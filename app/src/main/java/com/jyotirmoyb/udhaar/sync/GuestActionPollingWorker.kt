@@ -10,6 +10,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.jyotirmoyb.udhaar.data.UdhaarDatabase
 import com.jyotirmoyb.udhaar.data.VerificationStatus
@@ -52,10 +53,31 @@ class GuestActionPollingWorker(
         return try {
             val firestore = com.jyotirmoyb.udhaar.di.FirebaseModule.getFirestore(applicationContext)
                 ?: return Result.success()
-            val snapshot = firestore.collectionGroup("actions")
-                .whereEqualTo("ownerUid", ownerUid)
-                .get()
-                .await()
+
+            val actionDocs = mutableListOf<DocumentSnapshot>()
+            try {
+                // Spark Mode: Lender lists up to 50 of their own guestLinks, then queries each link's /actions
+                val linksSnapshot = firestore.collection("guestLinks")
+                    .whereEqualTo("ownerUid", ownerUid)
+                    .limit(50)
+                    .get()
+                    .await()
+                for (linkDoc in linksSnapshot.documents) {
+                    val actionsSnap = linkDoc.reference.collection("actions").get().await()
+                    actionDocs.addAll(actionsSnap.documents)
+                }
+            } catch (e: Exception) {
+                // Fallback attempt with collectionGroup (e.g. if Blaze rules are active)
+                try {
+                    val cgSnapshot = firestore.collectionGroup("actions")
+                        .whereEqualTo("ownerUid", ownerUid)
+                        .get()
+                        .await()
+                    actionDocs.addAll(cgSnapshot.documents)
+                } catch (_: Exception) {
+                    // Ignored
+                }
+            }
 
             val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val processedIds = prefs.getStringSet(KEY_PROCESSED_ACTION_IDS, emptySet())
@@ -71,7 +93,7 @@ class GuestActionPollingWorker(
             }.getOrDefault(emptyList())
 
             var newlyDiscovered = 0
-            for (doc in snapshot.documents) {
+            for (doc in actionDocs) {
                 val linkId = doc.getString("linkId")
                     ?: doc.reference.parent.parent?.id
                     ?: continue

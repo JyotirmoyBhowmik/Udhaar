@@ -32,21 +32,6 @@ service cloud.firestore {
         && withinSize(16384);
     }
 
-    function validGuestLinkDoc(d) {
-      return (!('status' in d) || d.status in ['ACTIVE', 'active'])
-        && (!('revoked' in d) || d.revoked != true)
-        && (!('expiresAtMs' in d) || d.expiresAtMs > request.time.toMillis());
-    }
-
-    function canGuestAccessLink(d) {
-      return (!('verificationLevel' in d) || d.verificationLevel != 'GOOGLE_VERIFIED'
-        || (request.auth.token.firebase.sign_in_provider == 'google.com'
-            && request.auth.token.email_verified == true
-            && (!('expectedGuestEmailHash' in d)
-                || d.expectedGuestEmailHash == null
-                || hashing.sha256(request.auth.token.email.lower()).toHexString().lower() == d.expectedGuestEmailHash.lower())));
-    }
-
     match /users/{uid} {
       allow read, delete: if isVerifiedOwner(uid);
       allow create, update: if isVerifiedOwner(uid) && withinSize(4096);
@@ -92,46 +77,112 @@ service cloud.firestore {
       }
     }
 
-    // Capability-based guest links: linkId = sha256(secret).
-    // Anyone who knows linkId can get the single doc (never list) when active and unrevoked/unexpired.
     match /guestLinks/{linkId} {
-      allow get: if isSignedIn()
-        && ((request.auth.uid == resource.data.ownerUid && request.auth.token.email_verified == true)
-            || (validGuestLinkDoc(resource.data) && canGuestAccessLink(resource.data)));
-      allow list: if false;
-      allow create, update: if isSignedIn()
-        && request.auth.token.email_verified == true
-        && request.resource.data.ownerUid == request.auth.uid
-        && linkId.size() >= 12
-        && withinSize(4096);
-      allow delete: if isSignedIn()
-        && request.auth.token.email_verified == true
-        && resource.data.ownerUid == request.auth.uid;
+      function isOwner() {
+        return request.auth != null && resource.data.ownerUid == request.auth.uid;
+      }
 
-      // Guest actions: fixed IDs cap total actions per link without server counters.
-      match /actions/{actionId} {
-        allow get, list: if isSignedIn()
-          && resource.data.ownerUid == request.auth.uid;
-        allow create: if isSignedIn()
-          && actionId in ['confirm', 'dispute', 'claim_1', 'claim_2', 'claim_3', 'claim_4', 'claim_5', 'date_1', 'date_2', 'date_3']
-          && exists(/databases/$(database)/documents/guestLinks/$(linkId))
-          && validGuestLinkDoc(get(/databases/$(database)/documents/guestLinks/$(linkId)).data)
-          && canGuestAccessLink(get(/databases/$(database)/documents/guestLinks/$(linkId)).data)
-          && request.resource.data.linkId == linkId
-          && request.resource.data.ownerUid == get(/databases/$(database)/documents/guestLinks/$(linkId)).data.ownerUid
-          && (!('reason' in request.resource.data) || request.resource.data.reason.size() <= 500)
-          && (!('utrLast4' in request.resource.data) || request.resource.data.utrLast4.size() <= 12)
-          && withinSize(2048);
-        allow update, delete: if false;
+      function googleOk(l) {
+        return l.verificationLevel != 'GOOGLE_VERIFIED' || (
+          request.auth.token.firebase.sign_in_provider == 'google.com'
+          && request.auth.token.email_verified == true
+          && hashing.sha256(request.auth.token.email.lower()).toHexString().lower() == l.expectedGuestEmailHash);
+      }
+
+      allow get: if request.auth != null && (
+          isOwner() || (resource.data.status == 'ACTIVE'
+                        && resource.data.expiresAtMs > request.time.toMillis()
+                        && googleOk(resource.data)));
+
+      allow list: if request.auth != null && request.query.limit <= 50
+                  && resource.data.ownerUid == request.auth.uid;   // lender's own links only
+
+      allow create: if isVerifiedOwner(request.auth.uid)
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.status == 'ACTIVE'
+        && request.resource.data.payableAmountPaise is int
+        && !('whatsappOtp' in request.resource.data)
+        && !('otp' in request.resource.data);
+
+      allow update: if isVerifiedOwner(request.auth.uid)
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.recordId == resource.data.recordId
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status','paidPaise','payableAmountPaise','dueDateMs','updatedAtMs','revokedAtMs','expiresAtMs']);
+
+      allow delete: if isOwner();
+
+      match /actions/{actionType} {
+        function link() { return get(/databases/$(database)/documents/guestLinks/$(linkId)).data; }
+        function d() { return request.resource.data; }
+        function common() {
+          return request.auth != null
+            && link().status == 'ACTIVE'
+            && link().expiresAtMs > request.time.toMillis()
+            && googleOk(link())
+            && actionType in link().allowedActions
+            && d().schemaVersion == 1
+            && d().actionType == actionType
+            && d().guestUid == request.auth.uid
+            && d().status == 'PENDING'
+            && d().createdAtMs is int;
+        }
+
+        allow create: if common() && (
+          (actionType == 'CONFIRM' && d().keys().hasOnly(['schemaVersion','actionType','guestUid','status','createdAtMs']))
+          || (actionType == 'DISPUTE' && d().reason is string && d().reason.size() <= 500
+              && d().keys().hasOnly(['schemaVersion','actionType','guestUid','status','createdAtMs','reason']))
+          || (actionType == 'PROPOSE_DATE' && d().proposedDateMs is int
+              && d().proposedDateMs > request.time.toMillis()
+              && (!('reason' in d()) || (d().reason is string && d().reason.size() <= 500))
+              && d().keys().hasOnly(['schemaVersion','actionType','guestUid','status','createdAtMs','proposedDateMs','reason']))
+          || (actionType == 'CLAIM_PAYMENT' && d().amountPaise is int && d().amountPaise > 0
+              && d().amountPaise <= link().payableAmountPaise
+              && d().paymentMode in ['UPI','CASH','BANK_TRANSFER']
+              && d().referenceNumber is string && d().referenceNumber.size() <= 64
+              && (!('note' in d()) || (d().note is string && d().note.size() <= 300))
+              && d().keys().hasOnly(['schemaVersion','actionType','guestUid','status','createdAtMs',
+                                     'amountPaise','paymentMode','referenceNumber','note','hasProof']))
+        );
+
+        allow get: if request.auth != null
+          && (resource.data.guestUid == request.auth.uid || link().ownerUid == request.auth.uid);
+
+        allow list: if request.auth != null && link().ownerUid == request.auth.uid;
+
+        allow update: if request.auth != null && link().ownerUid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedAtMs','rejectReason'])
+          && request.resource.data.status in ['ACCEPTED','REJECTED'];
+
+        allow delete: if request.auth != null && link().ownerUid == request.auth.uid;
+
+        match /proof/{docId} {
+          allow create: if request.auth != null && docId == 'image'
+            && get(/databases/$(database)/documents/guestLinks/$(linkId)/actions/$(actionType)).data.guestUid == request.auth.uid
+            && request.resource.data.dataB64 is string && request.resource.data.dataB64.size() <= 700000
+            && request.resource.data.mime in ['image/webp','image/jpeg'];
+
+          allow read: if request.auth != null && (
+            get(/databases/$(database)/documents/guestLinks/$(linkId)/actions/$(actionType)).data.guestUid == request.auth.uid
+            || link().ownerUid == request.auth.uid);
+
+          allow update: if false;
+
+          allow delete: if request.auth != null && link().ownerUid == request.auth.uid;
+        }
       }
     }
 
-    // Collection-group read on `actions` so GuestActionPollingWorker can query all actions for `ownerUid`
-    match /{path=**}/actions/{actionId} {
-      allow read: if isSignedIn()
-        && request.auth.token.email_verified == true
-        && resource.data.ownerUid == request.auth.uid;
-    }
+    // [BLAZE-DISABLED START] reason: Cloud Functions and server-mediated collections not supported on Spark free plan | restore: uncomment when moving to Blaze plan with backend microservices
+    // Legacy Blaze-only collections denied by catch-all:
+    // - webLinks
+    // - shared_records
+    // - partial_payments
+    // - audit_trail
+    // - chat
+    // [BLAZE-DISABLED END]
 
     match /{document=**} {
       allow read, write: if false;

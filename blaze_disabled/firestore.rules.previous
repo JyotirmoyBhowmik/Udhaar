@@ -1,0 +1,140 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedOwner(uid) {
+      return isSignedIn()
+        && request.auth.uid == uid
+        && request.auth.token.email_verified == true;
+    }
+
+    function withinSize(maxBytes) {
+      return request.resource.data.size() < 60
+        && request.resource.data.keys().size() < 60;
+    }
+
+    function validRecord() {
+      let d = request.resource.data;
+      return d.ownerUid == request.auth.uid
+        && (!('amountPaise' in d) || (d.amountPaise is int && d.amountPaise >= 0 && d.amountPaise <= 100000000000))
+        && (!('principalAmountPaise' in d) || (d.principalAmountPaise is int && d.principalAmountPaise >= 0 && d.principalAmountPaise <= 100000000000))
+        && (!('currency' in d) || d.currency in ['INR', 'NPR'])
+        && (!('direction' in d) || d.direction in ['GIVEN', 'TAKEN'])
+        && (!('transactionType' in d) || d.transactionType in ['GIVEN', 'TAKEN'])
+        && d.updatedAtMs is int
+        && (!('note' in d) || (d.note is string && d.note.size() <= 1000))
+        && (!('notes' in d) || (d.notes is string && d.notes.size() <= 1000))
+        && withinSize(16384);
+    }
+
+    function validGuestLinkDoc(d) {
+      return (!('status' in d) || d.status in ['ACTIVE', 'active'])
+        && (!('revoked' in d) || d.revoked != true)
+        && (!('expiresAtMs' in d) || d.expiresAtMs > request.time.toMillis());
+    }
+
+    function canGuestAccessLink(d) {
+      return (!('verificationLevel' in d) || d.verificationLevel != 'GOOGLE_VERIFIED'
+        || (request.auth.token.firebase.sign_in_provider == 'google.com'
+            && request.auth.token.email_verified == true
+            && (!('expectedGuestEmailHash' in d)
+                || d.expectedGuestEmailHash == null
+                || hashing.sha256(request.auth.token.email.lower()).toHexString().lower() == d.expectedGuestEmailHash.lower())));
+    }
+
+    match /users/{uid} {
+      allow read, delete: if isVerifiedOwner(uid);
+      allow create, update: if isVerifiedOwner(uid) && withinSize(4096);
+
+      match /records/{recordId} {
+        allow read: if isVerifiedOwner(uid);
+        allow create, update: if isVerifiedOwner(uid) && validRecord();
+        allow delete: if isVerifiedOwner(uid);
+      }
+
+      match /people/{personId} {
+        allow read, delete: if isVerifiedOwner(uid);
+        allow create, update: if isVerifiedOwner(uid)
+          && request.resource.data.ownerUid == uid
+          && withinSize(4096);
+      }
+
+      match /events/{eventId} {
+        allow read: if isVerifiedOwner(uid);
+        allow create: if isVerifiedOwner(uid)
+          && request.resource.data.ownerUid == uid
+          && withinSize(4096);
+        allow update, delete: if false; // append-only audit log
+      }
+
+      match /plans/{planId} {
+        allow read, delete: if isVerifiedOwner(uid);
+        allow create, update: if isVerifiedOwner(uid)
+          && request.resource.data.ownerUid == uid
+          && withinSize(8192);
+      }
+
+      match /attachments/{attachmentId} {
+        allow read, delete: if isVerifiedOwner(uid);
+        allow create, update: if isVerifiedOwner(uid)
+          && request.resource.data.ownerUid == uid
+          && withinSize(4096);
+      }
+
+      match /meta/syncSignal {
+        allow read, delete: if isVerifiedOwner(uid);
+        allow create, update: if isVerifiedOwner(uid) && withinSize(512);
+      }
+    }
+
+    // Capability-based guest links: linkId = sha256(secret).
+    // Anyone who knows linkId can get the single doc (never list) when active and unrevoked/unexpired.
+    match /guestLinks/{linkId} {
+      allow get: if isSignedIn()
+        && ((request.auth.uid == resource.data.ownerUid && request.auth.token.email_verified == true)
+            || (validGuestLinkDoc(resource.data) && canGuestAccessLink(resource.data)));
+      allow list: if false;
+      allow create, update: if isSignedIn()
+        && request.auth.token.email_verified == true
+        && request.resource.data.ownerUid == request.auth.uid
+        && linkId.size() >= 12
+        && withinSize(4096);
+      allow delete: if isSignedIn()
+        && request.auth.token.email_verified == true
+        && resource.data.ownerUid == request.auth.uid;
+
+      // Guest actions: fixed IDs cap total actions per link without server counters.
+      match /actions/{actionId} {
+        allow get, list: if isSignedIn()
+          && resource.data.ownerUid == request.auth.uid;
+        allow create: if isSignedIn()
+          && actionId in ['confirm', 'dispute', 'claim_1', 'claim_2', 'claim_3', 'claim_4', 'claim_5', 'date_1', 'date_2', 'date_3']
+          && exists(/databases/$(database)/documents/guestLinks/$(linkId))
+          && validGuestLinkDoc(get(/databases/$(database)/documents/guestLinks/$(linkId)).data)
+          && canGuestAccessLink(get(/databases/$(database)/documents/guestLinks/$(linkId)).data)
+          && request.resource.data.linkId == linkId
+          && request.resource.data.ownerUid == get(/databases/$(database)/documents/guestLinks/$(linkId)).data.ownerUid
+          && (!('reason' in request.resource.data) || request.resource.data.reason.size() <= 500)
+          && (!('utrLast4' in request.resource.data) || request.resource.data.utrLast4.size() <= 12)
+          && withinSize(2048);
+        allow update, delete: if false;
+      }
+    }
+
+    // Collection-group read on `actions` so GuestActionPollingWorker can query all actions for `ownerUid`
+    match /{path=**}/actions/{actionId} {
+      allow read: if isSignedIn()
+        && request.auth.token.email_verified == true
+        && resource.data.ownerUid == request.auth.uid;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

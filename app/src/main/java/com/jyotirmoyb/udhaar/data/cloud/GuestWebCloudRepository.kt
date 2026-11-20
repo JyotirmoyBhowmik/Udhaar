@@ -356,11 +356,31 @@ open class GuestWebCloudRepository @Inject constructor(
             val currentUser = auth?.currentUser ?: return@withContext true
             val firestore = firestoreOverride ?: com.jyotirmoyb.udhaar.di.FirebaseModule.getFirestore() ?: return@withContext true
 
-            val snapshot = firestore.collectionGroup("actions")
-                .whereEqualTo("ownerUid", currentUser.uid)
-                .get()
-                .await()
-            snapshot.documents.isNotEmpty() || recordId.isNotBlank() || secret.isNotBlank()
+            if (secret.isNotBlank()) {
+                val linkId = sha256Hex(secret)
+                val actionsSnap = runCatching {
+                    firestore.collection("guestLinks").document(linkId).collection("actions").get().await()
+                }.getOrNull()
+                if (actionsSnap != null && !actionsSnap.isEmpty) {
+                    return@withContext true
+                }
+            }
+
+            val linksSnapshot = runCatching {
+                firestore.collection("guestLinks")
+                    .whereEqualTo("ownerUid", currentUser.uid)
+                    .limit(50)
+                    .get()
+                    .await()
+            }.getOrNull()
+
+            val hasActions = linksSnapshot?.documents?.any { linkDoc ->
+                runCatching {
+                    !linkDoc.reference.collection("actions").get().await().isEmpty
+                }.getOrDefault(false)
+            } ?: false
+
+            hasActions || recordId.isNotBlank() || secret.isNotBlank()
         } catch (e: Exception) {
             SafeLogger.w("GuestWebCloudRepo", "claimGuestActions fallback", e)
             true

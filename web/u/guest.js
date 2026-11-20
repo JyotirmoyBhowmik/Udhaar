@@ -1229,42 +1229,83 @@
     };
   }
 
-  async function writeGuestActionToFirestore(secret, actionIdCandidates, payload) {
+  async function writeGuestActionToFirestore(secret, actionIdCandidates, payload = {}) {
     if (isDemoMode) {
-      return { success: true, actionId: actionIdCandidates[0] };
+      const act = Array.isArray(actionIdCandidates) ? actionIdCandidates[0] : actionIdCandidates;
+      return { success: true, actionId: act };
     }
     if (recordData && recordData.isSelfContainedToken && !recordData.ownerUid) {
-      return { success: true, actionId: actionIdCandidates[0] };
+      const act = Array.isArray(actionIdCandidates) ? actionIdCandidates[0] : actionIdCandidates;
+      return { success: true, actionId: act };
     }
     const services = _getFirebaseGuestServices();
     if (!services) {
       if (recordData && recordData.isSelfContainedToken) {
-        return { success: true, actionId: actionIdCandidates[0] };
+        const act = Array.isArray(actionIdCandidates) ? actionIdCandidates[0] : actionIdCandidates;
+        return { success: true, actionId: act };
       }
       throw new Error("Firebase SDK unavailable");
     }
-    await ensureAnonymousGuestAuth(services);
+    const guestUser = await ensureAnonymousGuestAuth(services);
     const linkId = (recordData && recordData.linkId) || (await sha256Hex(secret));
-    const ownerUid = (recordData && recordData.ownerUid) || "";
-    const candidates = Array.isArray(actionIdCandidates) ? actionIdCandidates : [actionIdCandidates];
+    const guestUid = (guestUser && guestUser.uid) || (services.auth.currentUser && services.auth.currentUser.uid) || "";
 
-    let lastErr = null;
-    for (const actionId of candidates) {
+    // Action type as document ID provides free rate-limiting: 1 pending action per type per link
+    const candidateStr = Array.isArray(actionIdCandidates) ? actionIdCandidates[0] : actionIdCandidates;
+    let actionType = (payload.actionType || candidateStr || "").toUpperCase();
+    if (actionType.startsWith("CLAIM")) actionType = "CLAIM_PAYMENT";
+    else if (actionType.startsWith("DATE") || actionType.includes("DATE")) actionType = "PROPOSE_DATE";
+    else if (actionType.includes("DISPUTE")) actionType = "DISPUTE";
+    else if (actionType.includes("CONFIRM")) actionType = "CONFIRM";
+
+    const docData = {
+      schemaVersion: 1,
+      actionType,
+      guestUid,
+      status: "PENDING",
+      createdAtMs: Date.now()
+    };
+
+    if (actionType === "CONFIRM") {
+      // Keys allowed: schemaVersion, actionType, guestUid, status, createdAtMs
+    } else if (actionType === "DISPUTE") {
+      docData.reason = String(payload.reason || "Disputed via web link").slice(0, 500);
+    } else if (actionType === "PROPOSE_DATE") {
+      const proposedMs = Number(payload.proposedDateMs);
+      docData.proposedDateMs = !isNaN(proposedMs) && proposedMs > Date.now() ? Math.floor(proposedMs) : Date.now() + 86400000;
+      if (payload.reason && String(payload.reason).trim()) {
+        docData.reason = String(payload.reason).slice(0, 500);
+      }
+    } else if (actionType === "CLAIM_PAYMENT") {
+      const amtPaise = Number(payload.amountPaise) || 0;
+      docData.amountPaise = amtPaise > 0 ? Math.floor(amtPaise) : 100;
+      docData.paymentMode = ["UPI", "CASH", "BANK_TRANSFER"].includes(payload.paymentMode) ? payload.paymentMode : "UPI";
+      docData.referenceNumber = String(payload.referenceNumber || payload.utrLast4 || "N/A").slice(0, 64);
+      if (payload.note && String(payload.note).trim()) {
+        docData.note = String(payload.note).slice(0, 300);
+      }
+      docData.hasProof = Boolean(payload.hasProof);
+    } else {
+      throw new Error(`Unsupported guest action type: ${actionType}`);
+    }
+
+    const actionRef = services.sdk.doc(services.db, "guestLinks", linkId, "actions", actionType);
+    await services.sdk.setDoc(actionRef, docData);
+
+    // Optional proof upload to /guestLinks/{linkId}/actions/{actionType}/proof/image
+    if (payload.proofDataB64) {
       try {
-        const actionRef = services.sdk.doc(services.db, "guestLinks", linkId, "actions", actionId);
-        await services.sdk.setDoc(actionRef, {
-          ...payload,
-          linkId,
-          ownerUid,
-          recordId: (recordData && recordData.recordId) || urlRecordId || "",
-          createdAtMs: Date.now()
+        const proofRef = services.sdk.doc(services.db, "guestLinks", linkId, "actions", actionType, "proof", "image");
+        await services.sdk.setDoc(proofRef, {
+          dataB64: String(payload.proofDataB64),
+          mime: payload.proofMime && ["image/webp", "image/jpeg"].includes(payload.proofMime) ? payload.proofMime : "image/jpeg"
         });
-        return { success: true, actionId, linkId };
-      } catch (err) {
-        lastErr = err;
+      } catch (proofErr) {
+        console.warn("[Udhaar] Proof upload failed (action was recorded):", proofErr);
       }
     }
-    throw lastErr || new Error("Action limit reached for this guest link.");
+
+    return { success: true, actionId: actionType, linkId };
   }
 
   // Update Stepper Visuals
