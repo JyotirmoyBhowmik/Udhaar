@@ -1,13 +1,13 @@
 {
   "version": "28.0.0",
-  "timestamp": "2026-11-20T20:11:53.090Z",
+  "timestamp": "2026-11-20T21:32:19.963Z",
   "budgets": {
-    "landingKb": 251.3,
+    "landingKb": 251.5,
     "guestKb": 203.9
   },
   "hashes": {
     "index.html": "df9ac844ae",
-    "landing.css": "28e742e9a2",
+    "landing.css": "c4dfaa7b81",
     "landing.js": "ce054da63e",
     "calculator.js": "0af822d14f",
     "site-config.js": "b89175602e",

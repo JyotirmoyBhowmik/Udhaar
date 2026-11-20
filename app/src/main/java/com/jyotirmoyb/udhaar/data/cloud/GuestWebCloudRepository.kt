@@ -4,6 +4,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.jyotirmoyb.udhaar.util.SafeLogger
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
@@ -41,10 +42,11 @@ data class GuestWebLinkCreateResult(
 open class GuestWebCloudRepository @Inject constructor(
     private val firestoreOverride: FirebaseFirestore? = null,
     @Suppress("UNUSED_PARAMETER") functionsUnused: Any? = null,
-    private val authOverride: FirebaseAuth? = null
+    private val authOverride: FirebaseAuth? = null,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {
 
-    constructor() : this(null, null, null)
+    constructor() : this(null, null, null, Dispatchers.IO)
 
     companion object {
         const val WEB_BASE_URL = "https://udhaar.jyotirmoyb.com"
@@ -83,7 +85,7 @@ open class GuestWebCloudRepository @Inject constructor(
         contentHash: String,
         lenderUpiId: String,
         creatorPhone: String = ""
-    ): GuestWebLinkCreateResult = withContext(Dispatchers.IO) {
+    ): GuestWebLinkCreateResult = withContext(ioDispatcher) {
         val now = System.currentTimeMillis()
         val expiresAt = now + expiryDays.coerceIn(1, 365) * 86_400_000L
         val secret = generateSecretHex(16)
@@ -161,7 +163,7 @@ open class GuestWebCloudRepository @Inject constructor(
         }
     }
 
-    open suspend fun revokeGuestWebLink(recordIdOrSecretOrLinkId: String): Boolean = withContext(Dispatchers.IO) {
+    open suspend fun revokeGuestWebLink(recordIdOrSecretOrLinkId: String): Boolean = withContext(ioDispatcher) {
         try {
             val auth = authOverride ?: runCatching { FirebaseAuth.getInstance() }.getOrNull()
             val currentUser = auth?.currentUser ?: return@withContext true
@@ -203,14 +205,14 @@ open class GuestWebCloudRepository @Inject constructor(
         }
     }
 
-    open suspend fun revokeAllGuestWebLinks(recordIdsOrTokens: List<String>): Boolean = withContext(Dispatchers.IO) {
+    open suspend fun revokeAllGuestWebLinks(recordIdsOrTokens: List<String>): Boolean = withContext(ioDispatcher) {
         for (item in recordIdsOrTokens) {
             revokeGuestWebLink(item)
         }
         true
     }
 
-    open suspend fun claimGuestActions(recordId: String, secret: String): Boolean = withContext(Dispatchers.IO) {
+    open suspend fun claimGuestActions(recordId: String, secret: String): Boolean = withContext(ioDispatcher) {
         try {
             val auth = runCatching { FirebaseAuth.getInstance() }.getOrNull()
             val currentUser = auth?.currentUser ?: return@withContext true

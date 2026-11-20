@@ -250,7 +250,7 @@ fun InstallmentPlanBuilderSheet(
                             FilterChip(
                                 selected = frequency == freq,
                                 onClick = { frequency = freq },
-                                label = { Text(stringResource(freqLabelRes), style = MaterialTheme.typography.labelSmall) },
+                                label = { Text(stringResource(freqLabelRes), style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) },
                                 colors = FilterChipDefaults.filterChipColors()
                             )
                         }
@@ -273,12 +273,12 @@ fun InstallmentPlanBuilderSheet(
                             FilterChip(
                                 selected = interestMode == InstallmentInterestMode.NONE,
                                 onClick = { interestMode = InstallmentInterestMode.NONE },
-                                label = { Text(stringResource(R.string.interest_none)) }
+                                label = { Text(stringResource(R.string.interest_none), maxLines = 1, softWrap = false) }
                             )
                             FilterChip(
                                 selected = interestMode == InstallmentInterestMode.FLAT,
                                 onClick = { interestMode = InstallmentInterestMode.FLAT },
-                                label = { Text(stringResource(R.string.interest_flat)) }
+                                label = { Text(stringResource(R.string.interest_flat), maxLines = 1, softWrap = false) }
                             )
                         }
                     }

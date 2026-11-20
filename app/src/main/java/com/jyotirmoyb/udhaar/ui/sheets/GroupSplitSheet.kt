@@ -400,7 +400,7 @@ fun GroupSplitSheet(
                                             )
                                         }
                                     },
-                                    label = { Text(party.name) },
+                                    label = { Text(party.name, maxLines = 1, softWrap = false) },
                                     leadingIcon = if (isAdded) {
                                         {
                                             Icon(

@@ -16,6 +16,7 @@ const ASSETS_DIR = path.join(ROOT_DIR, "web", "assets");
 const WEB_DIR = path.join(ROOT_DIR, "web");
 const WEBAPP_DIR = path.join(ROOT_DIR, "webapp");
 const FUNCTIONS_DIR = path.join(ROOT_DIR, "functions");
+const BLAZE_DISABLED_DIR = path.join(ROOT_DIR, "blaze_disabled");
 
 if (!fs.existsSync(ASSETS_DIR)) {
   console.error("FAIL: web/assets directory does not exist at", ASSETS_DIR);
@@ -50,7 +51,7 @@ function getAllSourceText(dir, extensions = [".html", ".js", ".ts", ".css", ".js
   return text;
 }
 
-const corpus = getAllSourceText(WEB_DIR) + " " + getAllSourceText(WEBAPP_DIR) + " " + getAllSourceText(FUNCTIONS_DIR);
+const corpus = getAllSourceText(WEB_DIR) + " " + getAllSourceText(WEBAPP_DIR) + " " + getAllSourceText(FUNCTIONS_DIR) + " " + getAllSourceText(BLAZE_DISABLED_DIR);
 
 for (const file of entries) {
   if (file === "Image_3_9457855d.markdown" || file === "hero-banner.jpg") {

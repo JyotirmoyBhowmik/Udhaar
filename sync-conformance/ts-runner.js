@@ -11,11 +11,14 @@ const assert = require("assert");
 
 const { LedgerDatabase } = require("../webapp/src/db/ledgerDb");
 const { SyncEngine } = require("../webapp/src/sync/syncEngine");
+const syncServicePath = fs.existsSync(path.resolve(__dirname, "../functions/src/sync/syncService.js"))
+  ? "../functions/src/sync/syncService"
+  : "../blaze_disabled/functions/src/sync/syncService";
 const {
   processSyncPush,
   processSyncPull,
   resetSyncStore
-} = require("../functions/src/sync/syncService");
+} = require(syncServicePath);
 
 // In-process transport connecting a SyncEngine client directly to syncService
 function createInProcessTransport(uid) {

@@ -1819,6 +1819,8 @@
   }
 
   async function apiCall(endpoint, payload, token) {
+    // [BLAZE-DISABLED START] reason: Cloud Functions not deployed on Spark plan | restore: uncomment when moving to Blaze
+    /*
     if (isSparkFreeTierDetected) {
       return handleSparkOfflineApi(endpoint, payload);
     }
@@ -1857,6 +1859,9 @@
       }
       throw err;
     }
+    */
+    // [BLAZE-DISABLED END]
+    return handleSparkOfflineApi(endpoint, payload);
   }
 
   async function syncLedgerFromCloud() {
@@ -2658,8 +2663,7 @@
   // 13. App Initialization
   function init() {
     const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME);
-    const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const initialTheme = savedTheme || (prefersDark ? "dark" : "light");
+    const initialTheme = savedTheme === "dark" ? "dark" : "light";
     document.documentElement.setAttribute("data-theme", initialTheme);
     const themeIcon = document.getElementById("theme-icon");
     if (themeIcon) themeIcon.textContent = initialTheme === "dark" ? "☀️" : "🌙";

@@ -64,4 +64,6 @@ jobs:
       - name: Run Post-Deploy Smoke & OWASP ZAP Baseline Check
         run: |
           echo "Running Staging Post-Deploy Smoke Checks..."
-          node functions/test/playwright_e2e.test.js
+          # [BLAZE-DISABLED START] reason: functions/ moved to blaze_disabled/ on Spark plan | restore: uncomment when upgrading to Blaze
+          # node functions/test/playwright_e2e.test.js
+          # [BLAZE-DISABLED END]

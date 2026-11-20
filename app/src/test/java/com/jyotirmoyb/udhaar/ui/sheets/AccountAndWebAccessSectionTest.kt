@@ -299,7 +299,9 @@ class AccountAndWebAccessSectionTest {
                 idToken = "token_verified_4"
             )
         )
-        val tokenStore = FakeTokenStore()
+        val tokenStore = FakeTokenStore().apply {
+            setCloudSyncEnabled(true)
+        }
 
         composeRule.setContent {
             MaterialTheme {
@@ -319,7 +321,7 @@ class AccountAndWebAccessSectionTest {
             "btn_sync_now",
             "btn_open_reauth",
             "btn_delete_cloud_data",
-            "btn_sign_out"
+            "btn_account_signout"
         )
         for (tag in accountTags) {
             val node = composeRule.onNodeWithTag(tag).performScrollTo()

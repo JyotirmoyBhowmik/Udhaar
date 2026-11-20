@@ -27,6 +27,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.res.stringResource
+import com.jyotirmoyb.udhaar.BuildConfig
 import com.jyotirmoyb.udhaar.R
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,7 +50,7 @@ fun WebLinkSettingsSection(
     onRevokeAllLinks: () -> Unit
 ) {
     var expiryDays by rememberSaveable { mutableIntStateOf(settings.defaultWebLinkExpiryDays) }
-    var trustLevel by rememberSaveable { mutableStateOf(settings.defaultWebTrustLevel) }
+    var trustLevel by rememberSaveable { mutableStateOf(settings.defaultWebTrustLevel.ifBlank { "WHATSAPP_OTP" }) }
     var showUpi by rememberSaveable { mutableStateOf(settings.defaultWebShowUpi) }
     var showRevokeConfirmDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -66,7 +67,11 @@ fun WebLinkSettingsSection(
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold
             )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 listOf(7, 30, 90).forEach { days ->
                     FilterChip(
                         selected = expiryDays == days,
@@ -74,7 +79,13 @@ fun WebLinkSettingsSection(
                             expiryDays = days
                             onSaveDefaults(days, trustLevel, showUpi)
                         },
-                        label = { Text(stringResource(R.string.days_count, days)) },
+                        label = {
+                            Text(
+                                text = stringResource(R.string.days_count, days),
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        },
                         modifier = Modifier
                             .heightIn(min = 48.dp)
                             .testTag("settings_expiry_chip_$days")
@@ -88,14 +99,24 @@ fun WebLinkSettingsSection(
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold
             )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 FilterChip(
                     selected = trustLevel == "WHATSAPP_OTP",
                     onClick = {
                         trustLevel = "WHATSAPP_OTP"
                         onSaveDefaults(expiryDays, "WHATSAPP_OTP", showUpi)
                     },
-                    label = { Text(stringResource(R.string.trust_level_whatsapp_otp)) },
+                    label = {
+                        Text(
+                            text = stringResource(R.string.trust_level_whatsapp_otp),
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    },
                     leadingIcon = {
                         Icon(Icons.Default.VerifiedUser, contentDescription = null, modifier = Modifier.size(16.dp))
                     },
@@ -109,7 +130,13 @@ fun WebLinkSettingsSection(
                         trustLevel = "LINK_ONLY"
                         onSaveDefaults(expiryDays, "LINK_ONLY", showUpi)
                     },
-                    label = { Text(stringResource(R.string.trust_level_link_only)) },
+                    label = {
+                        Text(
+                            text = stringResource(R.string.trust_level_link_only),
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    },
                     leadingIcon = {
                         Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
                     },

@@ -35,7 +35,9 @@ jobs:
           npm run check:checklist
           npm run check:nomaps
           npm run check:assets
-          npm --prefix functions test
+          # [BLAZE-DISABLED START] reason: Cloud Functions test disabled on Spark plan | restore: uncomment when upgrading to Blaze
+          # npm --prefix functions test
+          # [BLAZE-DISABLED END]
           node sync-conformance/ts-runner.js
 
       - name: Build production web & webapp bundles

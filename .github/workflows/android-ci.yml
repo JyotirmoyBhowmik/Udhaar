@@ -32,11 +32,13 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Run Cloud Functions & Security Rules unit tests
-        working-directory: functions
-        run: |
-          npm ci --ignore-scripts || npm install --ignore-scripts
-          node --test
+      # [BLAZE-DISABLED START] reason: Cloud Functions moved to blaze_disabled/ on Spark plan | restore: uncomment when upgrading to Blaze
+      # - name: Run Cloud Functions & Security Rules unit tests
+      #   working-directory: functions
+      #   run: |
+      #     npm ci --ignore-scripts || npm install --ignore-scripts
+      #     node --test
+      # [BLAZE-DISABLED END]
 
       - name: Install and run ktlint
         run: |

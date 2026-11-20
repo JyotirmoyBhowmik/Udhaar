@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import com.jyotirmoyb.udhaar.BuildConfig
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -236,12 +237,22 @@ fun WebShareSheet(
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold
                         )
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             listOf(7, 30, 90).forEach { days ->
                                 FilterChip(
                                     selected = expiryDays == days,
                                     onClick = { expiryDays = days },
-                                    label = { Text(stringResource(R.string.days_count, days)) },
+                                    label = {
+                                        Text(
+                                            text = stringResource(R.string.days_count, days),
+                                            maxLines = 1,
+                                            softWrap = false
+                                        )
+                                    },
                                     modifier = Modifier.testTag("expiry_chip_$days")
                                 )
                             }
@@ -252,11 +263,21 @@ fun WebShareSheet(
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold
                         )
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             FilterChip(
                                 selected = trustLevel == "WHATSAPP_OTP",
                                 onClick = { trustLevel = "WHATSAPP_OTP" },
-                                label = { Text(stringResource(R.string.trust_level_whatsapp_otp)) },
+                                label = {
+                                    Text(
+                                        text = stringResource(R.string.trust_level_whatsapp_otp),
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                },
                                 leadingIcon = {
                                     Icon(Icons.Default.VerifiedUser, contentDescription = null, modifier = Modifier.size(16.dp))
                                 },
@@ -265,7 +286,13 @@ fun WebShareSheet(
                             FilterChip(
                                 selected = trustLevel == "LINK_ONLY",
                                 onClick = { trustLevel = "LINK_ONLY" },
-                                label = { Text(stringResource(R.string.trust_level_link_only)) },
+                                label = {
+                                    Text(
+                                        text = stringResource(R.string.trust_level_link_only),
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                },
                                 leadingIcon = {
                                     Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
                                 },

@@ -1045,6 +1045,7 @@ fun AccountAndWebAccessSection(
                                     SyncWorker.cancelSync(context)
                                     GuestActionPollingWorker.cancel(context)
                                     tokenStore.setCloudSyncEnabled(false)
+                                    tokenStore.setLastSyncTimestamp(0L)
                                     isCloudSyncEnabled = false
                                     authController.deleteCloudData(uid, knownLinkIds)
                                     for (tx in allTxs) {

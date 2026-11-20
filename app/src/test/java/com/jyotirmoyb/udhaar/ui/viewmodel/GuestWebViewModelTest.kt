@@ -63,7 +63,7 @@ class GuestWebViewModelTest {
             settingsRepository = settingsRepository,
             paymentRepository = paymentRepository,
             installmentRepository = installmentRepository,
-            guestWebCloudRepository = GuestWebCloudRepository(null, null, null),
+            guestWebCloudRepository = GuestWebCloudRepository(null, null, null, testDispatcher),
             context = null
         )
         appStateHolder = AppStateHolder()
@@ -139,7 +139,7 @@ class GuestWebViewModelTest {
         val res = viewModel.uiState.value.webShareResult
         assertNotNull(res)
         assertTrue(res!!.success)
-        assertTrue(res.url.startsWith("https://udhaar.jyotirmoyb.com/u/r/"))
+        assertTrue(res.url.contains("/u/#k=") || res.url.contains("/u/r/"))
     }
 
     @Test

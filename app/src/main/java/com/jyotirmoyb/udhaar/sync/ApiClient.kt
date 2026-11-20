@@ -29,7 +29,8 @@ class ApiClient(
     private val tokenStore: TokenStore,
     private val appCheckProvider: AppCheckProvider = DefaultAppCheckProvider(),
     private val allowCleartextForTests: Boolean = false,
-    customClient: OkHttpClient? = null
+    customClient: OkHttpClient? = null,
+    private val blazeEnabled: Boolean = com.jyotirmoyb.udhaar.BuildConfig.BLAZE_FEATURES_ENABLED
 ) {
     private val json = Json {
         ignoreUnknownKeys = true
@@ -170,6 +171,11 @@ class ApiClient(
     }
 
     suspend fun signOut(): Boolean = withContext(Dispatchers.IO) {
+        if (!blazeEnabled) {
+            tokenStore.clearSession()
+            return@withContext true
+        }
+        // [BLAZE-DISABLED START] reason: Cloud Functions Signout API unavailable on Spark plan | restore: toggle BLAZE_FEATURES_ENABLED = true
         try {
             val request = Request.Builder()
                 .url(sanitizeUrl("/api/v1/auth/signout"))
@@ -184,6 +190,7 @@ class ApiClient(
             tokenStore.clearSession()
             true
         }
+        // [BLAZE-DISABLED END]
     }
 
     suspend fun getDevices(): DeviceListResponse = withContext(Dispatchers.IO) {
@@ -191,6 +198,10 @@ class ApiClient(
     }
 
     suspend fun revokeDevice(deviceId: String): Boolean = withContext(Dispatchers.IO) {
+        if (!blazeEnabled) {
+            throw com.jyotirmoyb.udhaar.util.FeatureUnavailableOnFreePlan("HTTP DELETE /api/v1/auth/devices/$deviceId")
+        }
+        // [BLAZE-DISABLED START] reason: Cloud Functions Revoke device API unavailable on Spark plan | restore: toggle BLAZE_FEATURES_ENABLED = true
         val request = Request.Builder()
             .url(sanitizeUrl("/api/v1/auth/devices/$deviceId"))
             .delete()
@@ -201,6 +212,7 @@ class ApiClient(
             }
             true
         }
+        // [BLAZE-DISABLED END]
     }
 
     // -------------------------------------------------------------------------
@@ -212,6 +224,10 @@ class ApiClient(
     }
 
     suspend fun pullSync(cursor: Long, limit: Int = 100): SyncPullResponse = withContext(Dispatchers.IO) {
+        if (!blazeEnabled) {
+            throw com.jyotirmoyb.udhaar.util.FeatureUnavailableOnFreePlan("HTTP GET /api/v1/sync/pull")
+        }
+        // [BLAZE-DISABLED START] reason: Cloud Functions Sync pull API unavailable on Spark plan | restore: toggle BLAZE_FEATURES_ENABLED = true
         val url = sanitizeUrl("/api/v1/sync/pull").toHttpUrl().newBuilder()
             .addQueryParameter("cursor", cursor.toString())
             .addQueryParameter("limit", limit.toString())
@@ -229,12 +245,17 @@ class ApiClient(
             }
             json.decodeFromString<SyncPullResponse>(bodyString)
         }
+        // [BLAZE-DISABLED END]
     }
 
     // -------------------------------------------------------------------------
     // Helper Execution Methods
     // -------------------------------------------------------------------------
     private inline fun <reified T> executePost(path: String, jsonPayload: String): T {
+        if (!blazeEnabled) {
+            throw com.jyotirmoyb.udhaar.util.FeatureUnavailableOnFreePlan("HTTP POST $path")
+        }
+        // [BLAZE-DISABLED START] reason: Cloud Functions API unavailable on Spark plan | restore: toggle BLAZE_FEATURES_ENABLED = true
         val request = Request.Builder()
             .url(sanitizeUrl(path))
             .post(jsonPayload.toRequestBody(jsonMediaType))
@@ -247,9 +268,14 @@ class ApiClient(
             }
             json.decodeFromString(bodyString)
         }
+        // [BLAZE-DISABLED END]
     }
 
     private inline fun <reified T> executeGet(path: String): T {
+        if (!blazeEnabled) {
+            throw com.jyotirmoyb.udhaar.util.FeatureUnavailableOnFreePlan("HTTP GET $path")
+        }
+        // [BLAZE-DISABLED START] reason: Cloud Functions API unavailable on Spark plan | restore: toggle BLAZE_FEATURES_ENABLED = true
         val request = Request.Builder()
             .url(sanitizeUrl(path))
             .get()
@@ -262,5 +288,6 @@ class ApiClient(
             }
             json.decodeFromString(bodyString)
         }
+        // [BLAZE-DISABLED END]
     }
 }

@@ -30,6 +30,10 @@ android {
       .map { it.equals("true", ignoreCase = true) }
       .getOrElse(false)
     buildConfigField("boolean", "CLOUD_FEATURES", cloudFeatures.toString())
+    val blazeFeaturesEnabled = providers.gradleProperty("udhaar.blaze.enabled")
+      .map { it.equals("true", ignoreCase = true) }
+      .getOrElse(false)
+    buildConfigField("boolean", "BLAZE_FEATURES_ENABLED", blazeFeaturesEnabled.toString())
   androidResources {
     localeFilters += listOf("en", "hi", "bn", "as", "ne")
   }
@@ -223,6 +227,7 @@ dependencies {
   // Sign-In via Credential Manager:
   implementation(libs.firebase.auth)
   implementation(libs.firebase.messaging)
+  // [BLAZE-DISABLED] firebase-functions & firebase-storage: Preserved for Blaze plan upgrade; unused in Spark mode.
   implementation(libs.firebase.functions)
   implementation(libs.androidx.credentials)
   implementation(libs.androidx.credentials.play.services)

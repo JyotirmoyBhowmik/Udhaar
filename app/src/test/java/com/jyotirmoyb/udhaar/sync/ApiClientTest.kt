@@ -74,8 +74,22 @@ class ApiClientTest {
             baseUrl = server.url("/").toString(),
             tokenStore = fakeTokenStore,
             appCheckProvider = fakeAppCheckProvider,
-            allowCleartextForTests = true
+            allowCleartextForTests = true,
+            blazeEnabled = true
         )
+    }
+
+    @Test(expected = com.jyotirmoyb.udhaar.util.FeatureUnavailableOnFreePlan::class)
+    fun `spark mode fails closed with FeatureUnavailableOnFreePlan`(): Unit = runBlocking {
+        val sparkClient = ApiClient(
+            baseUrl = server.url("/").toString(),
+            tokenStore = fakeTokenStore,
+            appCheckProvider = fakeAppCheckProvider,
+            allowCleartextForTests = true,
+            blazeEnabled = false
+        )
+        sparkClient.startSignup("+919876543210")
+        Unit
     }
 
     @After

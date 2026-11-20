@@ -66,12 +66,17 @@ object FirebaseModule {
     @Provides
     @Singleton
     fun provideFirebaseFunctions(app: FirebaseApp?): FirebaseFunctions? {
+        if (!com.jyotirmoyb.udhaar.BuildConfig.BLAZE_FEATURES_ENABLED) {
+            return null
+        }
+        // [BLAZE-DISABLED START] reason: Cloud Functions unavailable on Spark plan | restore: toggle BLAZE_FEATURES_ENABLED = true
         if (app == null) return null
         return try {
             FirebaseFunctions.getInstance(app, "asia-south1")
         } catch (_: Throwable) {
             null
         }
+        // [BLAZE-DISABLED END]
     }
 
     @Provides

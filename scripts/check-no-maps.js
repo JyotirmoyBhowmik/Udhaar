@@ -11,9 +11,12 @@
 const fs = require("fs");
 const path = require("path");
 
-const SRC_DIR = path.resolve(__dirname, "../functions/src");
+const defaultSrc = path.resolve(__dirname, "../functions/src");
+const disabledSrc = path.resolve(__dirname, "../blaze_disabled/functions/src");
+const SRC_DIR = fs.existsSync(defaultSrc) ? defaultSrc : (fs.existsSync(disabledSrc) ? disabledSrc : null);
 
 function getJsFiles(dir) {
+  if (!dir || !fs.existsSync(dir)) return [];
   let files = [];
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {

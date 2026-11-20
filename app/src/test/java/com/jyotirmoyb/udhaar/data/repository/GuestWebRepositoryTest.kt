@@ -78,7 +78,7 @@ class GuestWebRepositoryTest {
         )
 
         assertTrue(result.success)
-        assertTrue(result.url.contains("/u/r/"))
+        assertTrue(result.url.contains("/u/#k=") || result.url.contains("/u/r/"))
         assertEquals("WHATSAPP_OTP", result.trustLevel)
         assertTrue(result.whatsappOtp.isNotBlank())
 

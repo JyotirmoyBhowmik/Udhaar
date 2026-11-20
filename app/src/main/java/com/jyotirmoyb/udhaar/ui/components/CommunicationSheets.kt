@@ -673,7 +673,7 @@ fun ChatThreadBottomSheet(
                                 FilterChip(
                                     selected = customReportReason == preset,
                                     onClick = { customReportReason = preset },
-                                    label = { Text(preset, style = MaterialTheme.typography.labelSmall) }
+                                    label = { Text(preset, style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) }
                                 )
                             }
                         }
