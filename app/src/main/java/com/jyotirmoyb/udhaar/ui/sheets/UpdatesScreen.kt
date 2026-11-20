@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
@@ -127,7 +128,7 @@ fun UpdatesScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    IconButton(onClick = onDismiss, modifier = Modifier.size(44.dp)) {
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp)) {
                         Icon(Icons.Default.Close, contentDescription = "Close")
                     }
                 }
@@ -258,7 +259,7 @@ fun UpdatesScreen(
                                                         onClick = { onConfirmPaymentClaim(tx.id) },
                                                         modifier = Modifier
                                                             .weight(1f)
-                                                            .height(40.dp)
+                                                            .heightIn(min = 48.dp)
                                                             .testTag("btn_confirm_claim_${tx.id}"),
                                                         shape = RoundedCornerShape(8.dp),
                                                         colors = ButtonDefaults.buttonColors(
@@ -274,7 +275,7 @@ fun UpdatesScreen(
                                                         onClick = { onRejectPaymentClaim(tx.id, "Not received") },
                                                         modifier = Modifier
                                                             .weight(1f)
-                                                            .height(40.dp)
+                                                            .heightIn(min = 48.dp)
                                                             .testTag("btn_reject_claim_${tx.id}"),
                                                         shape = RoundedCornerShape(8.dp),
                                                         colors = ButtonDefaults.outlinedButtonColors(
@@ -332,7 +333,7 @@ fun UpdatesScreen(
                                                         onClick = { onAcceptDateProposal(tx.id) },
                                                         modifier = Modifier
                                                             .weight(1f)
-                                                            .height(40.dp)
+                                                            .heightIn(min = 48.dp)
                                                             .testTag("btn_accept_date_${tx.id}"),
                                                         shape = RoundedCornerShape(8.dp)
                                                     ) {
@@ -342,7 +343,7 @@ fun UpdatesScreen(
                                                         onClick = { onDeclineDateProposal(tx.id, "Declined") },
                                                         modifier = Modifier
                                                             .weight(1f)
-                                                            .height(40.dp)
+                                                            .heightIn(min = 48.dp)
                                                             .testTag("btn_decline_date_${tx.id}"),
                                                         shape = RoundedCornerShape(8.dp)
                                                     ) {
@@ -352,7 +353,7 @@ fun UpdatesScreen(
                                                         onClick = { suggestingCounterDateTxId = tx.id },
                                                         modifier = Modifier
                                                             .weight(1.2f)
-                                                            .height(40.dp)
+                                                            .heightIn(min = 48.dp)
                                                             .testTag("btn_suggest_date_${tx.id}"),
                                                         shape = RoundedCornerShape(8.dp)
                                                     ) {

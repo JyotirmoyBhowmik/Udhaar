@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -165,7 +166,7 @@ fun DriveDiagnosticsCard(
             enabled = !isDriveOperationInProgress,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(46.dp)
+                .heightIn(min = 48.dp)
                 .testTag("drive_connection_test_button"),
             shape = RoundedCornerShape(12.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
@@ -253,7 +254,9 @@ fun DriveDiagnosticsCard(
                 if (techDetails.isNotBlank()) {
                     TextButton(
                         onClick = { showTechnicalDetails = !showTechnicalDetails },
-                        modifier = Modifier.testTag("toggle_technical_details_button")
+                        modifier = Modifier
+                            .heightIn(min = 48.dp)
+                            .testTag("toggle_technical_details_button")
                     ) {
                         Text(
                             text = if (showTechnicalDetails) {
@@ -285,7 +288,7 @@ fun DriveDiagnosticsCard(
                     onClick = onClearDriveConnectionTestReport,
                     modifier = Modifier
                         .align(Alignment.End)
-                        .height(34.dp),
+                        .heightIn(min = 48.dp),
                     shape = RoundedCornerShape(8.dp),
                     border = BorderStroke(1.dp, testBorderColor)
                 ) {
@@ -345,7 +348,7 @@ fun DriveDiagnosticsCard(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(40.dp)
+                        .heightIn(min = 48.dp)
                         .testTag("drive_privacy_policy_button"),
                     shape = RoundedCornerShape(8.dp)
                 ) {
@@ -364,7 +367,7 @@ fun DriveDiagnosticsCard(
                 enabled = !isDriveOperationInProgress,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(42.dp)
+                    .heightIn(min = 48.dp)
                     .testTag("drive_delete_all_backups_button"),
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.outlinedButtonColors(

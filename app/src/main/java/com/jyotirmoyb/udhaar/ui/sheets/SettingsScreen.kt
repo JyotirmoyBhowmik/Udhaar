@@ -169,6 +169,7 @@ fun SettingsScreen(
     var showBackupDialog by rememberSaveable { mutableStateOf(false) }
     var isLocalUdhaarExportMode by rememberSaveable { mutableStateOf(false) }
     var showRestoreDialog by rememberSaveable { mutableStateOf(false) }
+    var showHelpAndContactSheet by rememberSaveable { mutableStateOf(false) }
     var selectedRestoreBackup by remember { mutableStateOf<DriveRemoteBackup?>(null) }
 
     var quietHoursEnabled by rememberSaveable(currentSettings.quietHoursEnabled) { mutableStateOf(currentSettings.quietHoursEnabled) }
@@ -617,7 +618,10 @@ fun SettingsScreen(
                 if (selectedCategory == "ALL" || selectedCategory == "ACCOUNT" || selectedCategory == "BACKUP") {
                     item(key = "section_account_and_web_access") {
                         val dao = remember { UdhaarDatabase.getInstance(context).udhaarDao() }
-                        AccountAndWebAccessSection(dao = dao)
+                        AccountAndWebAccessSection(
+                            dao = dao,
+                            onDeleteMyCloudDataCallback = onDeleteMyCloudData
+                        )
                     }
                 }
 
@@ -625,12 +629,19 @@ fun SettingsScreen(
                 if (selectedCategory == "ALL" || selectedCategory == "ABOUT") {
                     item(key = "section_about") {
                         AboutSection(
-                            onOpenShareAppModal = onOpenShareAppModal
+                            onOpenShareAppModal = onOpenShareAppModal,
+                            onOpenHelpAndContact = { showHelpAndContactSheet = true }
                         )
                     }
                 }
             }
         }
+    }
+
+    if (showHelpAndContactSheet) {
+        HelpAndContactSheet(
+            onDismiss = { showHelpAndContactSheet = false }
+        )
     }
 
     if (showBackupDialog) {

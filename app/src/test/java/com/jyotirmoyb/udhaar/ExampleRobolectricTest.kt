@@ -1285,18 +1285,40 @@ class ExampleRobolectricTest {
             val heightDp = with(composeRule.density) { bounds.height.toDp() }
             assertTrue("Node $tag height ($heightDp) must be >= 47.5.dp at fontScale 2.0", heightDp.value >= 47.5f)
         }
+
+        // Verify zero UI source files contain sub-48dp fixed button heights (.height(30..47.dp))
+        val uiRootCandidates = listOf(
+            java.io.File("src/main/java/com/jyotirmoyb/udhaar/ui"),
+            java.io.File("app/src/main/java/com/jyotirmoyb/udhaar/ui")
+        )
+        val uiRoot = uiRootCandidates.firstOrNull { it.exists() && it.isDirectory }
+        assertNotNull("UI source directory must exist", uiRoot)
+        val sub48HeightRegex = Regex("""\.height\((3[0-9]|4[0-7])\.dp\)""")
+        val offending = mutableListOf<String>()
+        uiRoot!!.walkTopDown().filter { it.isFile && it.extension == "kt" }.forEach { ktFile ->
+            ktFile.readLines().forEachIndexed { idx, line ->
+                if (sub48HeightRegex.containsMatchIn(line)) {
+                    offending.add("${ktFile.name}:${idx + 1}: ${line.trim()}")
+                }
+            }
+        }
+        assertTrue(
+            "Zero UI files may contain sub-48dp fixed button heights, found: $offending",
+            offending.isEmpty()
+        )
     }
 
     @Test
-    @Config(sdk = [36], qualifiers = "w800dp-h1280dp-xlarge-port-mdpi")
+    @Config(sdk = [36], qualifiers = "w840dp-h600dp-xlarge-land-mdpi", fontScale = 2.0f)
     fun `adaptiveLayout_twoPaneAt600dp_and_centeredForm560dp`() {
         composeRule.waitForIdle()
 
-        // At 800dp width (>= 600dp), list and detail render side-by-side
+        // At 840x600dp landscape (>= 600dp width & maxWidth > maxHeight), landscape root and two-pane list+detail render side-by-side
+        composeRule.onNode(androidx.compose.ui.test.hasTestTag("dashboard_landscape_root")).assertExists()
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("dashboard_adaptive_two_pane")).assertExists()
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("adaptive_detail_pane")).assertExists()
 
-        // Navigate to Add/Edit form and verify centered form container has width <= 560.dp
+        // Navigate to Add/Edit form and verify centered form container has width <= 560.dp even at fontScale = 2.0
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("add_udhaar_fab")).performClick()
         composeRule.waitForIdle()
 
@@ -1304,7 +1326,7 @@ class ExampleRobolectricTest {
         formNode.assertExists()
         val formBounds = formNode.fetchSemanticsNode().boundsInRoot
         val formWidthDp = with(composeRule.density) { formBounds.width.toDp() }
-        assertTrue("Centered form width ($formWidthDp) must be <= 561.dp on 800dp screen", formWidthDp.value <= 561f)
+        assertTrue("Centered form width ($formWidthDp) must be <= 561.dp on 840dp screen", formWidthDp.value <= 561f)
     }
 
     @Test

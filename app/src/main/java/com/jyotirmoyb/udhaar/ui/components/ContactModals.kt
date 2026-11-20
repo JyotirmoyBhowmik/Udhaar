@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
@@ -314,8 +315,8 @@ fun InAppContactPickerModal(
                             selectedLookupKeys.addAll(allVisibleKeys)
                         },
                         shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                        modifier = Modifier.height(30.dp)
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                        modifier = Modifier.heightIn(min = 48.dp)
                     ) {
                         Text(stringResource(R.string.ui_str_select_all_9ea8d5), style = MaterialTheme.typography.labelSmall)
                     }
@@ -323,8 +324,8 @@ fun InAppContactPickerModal(
                         OutlinedButton(
                             onClick = { selectedLookupKeys.clear() },
                             shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                            modifier = Modifier.height(30.dp)
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                            modifier = Modifier.heightIn(min = 48.dp)
                         ) {
                             Text(stringResource(R.string.ui_str_deselect_9bb254), style = MaterialTheme.typography.labelSmall)
                         }
@@ -525,7 +526,7 @@ private fun ContactRowItem(
                 checkmarkColor = PureWhite,
                 uncheckedColor = PureBlack
             ),
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(48.dp)
         )
 
         Spacer(modifier = Modifier.width(10.dp))
@@ -786,7 +787,7 @@ private fun DuplicatePairCard(
                 ),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                 modifier = Modifier
-                    .height(32.dp)
+                    .heightIn(min = 48.dp)
                     .testTag("merge_pair_${pair.primaryParty.partyId}_${pair.duplicateParty.partyId}")
             ) {
                 Icon(Icons.Default.Merge, contentDescription = null, modifier = Modifier.size(14.dp))

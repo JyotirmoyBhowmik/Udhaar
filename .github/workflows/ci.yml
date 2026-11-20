@@ -74,6 +74,13 @@ jobs:
       - name: Install Firebase Tools CLI
         run: npm install -g firebase-tools
 
+      - name: Run Spark Firestore Security Rules Suite on Emulator
+        run: npx firebase emulators:exec --project demo-udhaar --only auth,firestore "node --test functions/test/firestore_rules.test.js"
+        env:
+          NODE_ENV: "test"
+          FIRESTORE_EMULATOR_HOST: "127.0.0.1:8080"
+          FIREBASE_AUTH_EMULATOR_HOST: "127.0.0.1:9099"
+
       - name: Run Backend Suite (Run 2: Auth & Firestore Emulators Real Persistence)
         run: npx firebase emulators:exec --project demo-udhaar --only auth,firestore "npm --prefix functions test"
         env:

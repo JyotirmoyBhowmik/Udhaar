@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -475,8 +476,9 @@ fun BiometricSecurityScreen(
                             style = MaterialTheme.typography.labelSmall,
                             color = SecondaryInkGrey,
                             modifier = Modifier
+                                .heightIn(min = 48.dp)
                                 .clickable { showManualPinField = true }
-                                .padding(vertical = 4.dp)
+                                .padding(vertical = 12.dp, horizontal = 8.dp)
                                 .testTag("expand_manual_pin_button")
                         )
                     }
@@ -488,7 +490,7 @@ fun BiometricSecurityScreen(
                         onClick = onAuthenticated,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(44.dp)
+                            .heightIn(min = 48.dp)
                             .testTag("unlock_ledger_fallback_button"),
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, BorderGrey),

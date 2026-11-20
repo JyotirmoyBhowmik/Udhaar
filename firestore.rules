@@ -39,7 +39,8 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read, write: if isVerifiedOwner(uid) && withinSize(4096);
+      allow read, delete: if isVerifiedOwner(uid);
+      allow create, update: if isVerifiedOwner(uid) && withinSize(4096);
 
       match /records/{recordId} {
         allow read: if isVerifiedOwner(uid);
@@ -77,7 +78,8 @@ service cloud.firestore {
       }
 
       match /meta/syncSignal {
-        allow read, write: if isVerifiedOwner(uid) && withinSize(512);
+        allow read, delete: if isVerifiedOwner(uid);
+        allow create, update: if isVerifiedOwner(uid) && withinSize(512);
       }
     }
 

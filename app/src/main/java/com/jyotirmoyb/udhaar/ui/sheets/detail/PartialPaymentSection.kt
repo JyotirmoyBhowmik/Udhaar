@@ -343,7 +343,7 @@ fun PartialPaymentSection(
                             AttachmentManager.deleteAttachmentFile(context, currentProof.localPath)
                             pendingProofAttachment = null
                         },
-                        modifier = Modifier.size(26.dp)
+                        modifier = Modifier.size(48.dp)
                     ) {
                         Icon(Icons.Default.Close, contentDescription = "Remove proof", modifier = Modifier.size(14.dp))
                     }
@@ -405,7 +405,7 @@ fun PartialPaymentSection(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(42.dp)
+                .heightIn(min = 48.dp)
                 .pressScaleFeedback()
                 .testTag("submit_partial_payment_button"),
             shape = RoundedCornerShape(10.dp),

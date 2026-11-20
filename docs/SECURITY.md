@@ -1,8 +1,8 @@
 # Udhaar Platform v2 — Production Security Architecture & Technical Specifications
 
-**Document Version**: 2.0.0-PROD  
+**Document Version**: 28.0.0  
 **Target Region**: `asia-south1` (Mumbai, India)  
-**Security Classification**: CONFIDENTIAL & RESTRICTED  
+**Classification**: PUBLIC SECURITY ARCHITECTURE SPECIFICATION  
 
 ---
 

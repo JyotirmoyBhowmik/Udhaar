@@ -3,7 +3,7 @@
 - **System**: Udhaar Platform v2
 - **Document Version**: 2.0.0
 - **Scope**: Cloud KMS Master KEK (`asia-south1`), Per-User DEKs (`users/{uid}/crypto/dek`), and Secret Manager HMAC Peppers
-- **Classification**: STRICT CONFIDENTIAL • INTERNAL SRE & SECURITY RUNBOOK
+- **Classification**: PUBLIC SRE & SECURITY RUNBOOK (OPTIONAL BLAZE TIER)
 
 ---
 

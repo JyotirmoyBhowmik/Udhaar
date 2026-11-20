@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -148,7 +149,7 @@ fun DriveBackupCard(
                     onClick = onReconnectGoogleDrive,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(42.dp)
+                        .heightIn(min = 48.dp)
                         .testTag("drive_reconnect_prompt_button"),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
@@ -222,7 +223,7 @@ fun DriveBackupCard(
                         onClick = onClearDriveOperationError,
                         modifier = Modifier
                             .align(Alignment.End)
-                            .height(34.dp)
+                            .heightIn(min = 48.dp)
                             .testTag("dismiss_drive_error_button"),
                         shape = RoundedCornerShape(8.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
@@ -327,7 +328,7 @@ fun DriveBackupCard(
                         enabled = !isDriveOperationInProgress,
                         modifier = Modifier
                             .weight(1.3f)
-                            .height(44.dp)
+                            .heightIn(min = 48.dp)
                             .testTag("drive_backup_now_button"),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
@@ -355,7 +356,7 @@ fun DriveBackupCard(
                         enabled = !isDriveOperationInProgress,
                         modifier = Modifier
                             .weight(1f)
-                            .height(44.dp)
+                            .heightIn(min = 48.dp)
                             .testTag("drive_reconnect_button"),
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
@@ -370,7 +371,7 @@ fun DriveBackupCard(
                     onClick = onSignOutFromDrive,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(40.dp)
+                        .heightIn(min = 48.dp)
                         .testTag("drive_sign_out_button"),
                     shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
@@ -428,6 +429,7 @@ fun DriveBackupCard(
                                         null
                                     )
                                 }
+                                .heightIn(min = 48.dp)
                                 .padding(vertical = 8.dp),
                             contentAlignment = Alignment.Center
                         ) {
@@ -555,7 +557,7 @@ fun DriveBackupCard(
                                     onClick = { onRestoreBackupClicked(backup) },
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(38.dp)
+                                        .heightIn(min = 48.dp)
                                         .testTag("restore_backup_${backup.fileId}_button"),
                                     shape = RoundedCornerShape(8.dp),
                                     colors = ButtonDefaults.buttonColors(
@@ -572,7 +574,7 @@ fun DriveBackupCard(
                                     onClick = { onDeleteDriveBackup(backup) },
                                     modifier = Modifier
                                         .weight(0.8f)
-                                        .height(38.dp)
+                                        .heightIn(min = 48.dp)
                                         .testTag("delete_backup_${backup.fileId}_button"),
                                     shape = RoundedCornerShape(8.dp),
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)

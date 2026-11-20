@@ -166,4 +166,27 @@ test("Part 3 — Upgrade Landing Page, Privacy Page, and Asset Optimization", as
     assert.match(landingCss, /--primary:\s*#064E3B/i, "Emerald primary color scheme");
     assert.match(landingCss, /prefers-color-scheme:\s*dark/i, "Dark mode media query");
   });
+
+  await t.test("11. Terms of Service Page in 5 Languages + Support & Grievance Contacts + Links", () => {
+    const termsHtmlPath = path.resolve(__dirname, "../../web/terms.html");
+    const termsJsPath = path.resolve(__dirname, "../../web/terms.js");
+    assert.ok(fs.existsSync(termsHtmlPath), "web/terms.html must exist");
+    assert.ok(fs.existsSync(termsJsPath), "web/terms.js must exist");
+
+    const termsHtml = fs.readFileSync(termsHtmlPath, "utf8");
+    const { TERMS_I18N } = require(termsJsPath);
+
+    const languages = ["en", "hi", "bn", "as", "ne"];
+    for (const lang of languages) {
+      assert.ok(TERMS_I18N[lang], `TERMS_I18N must include '${lang}'`);
+      assert.ok(Object.keys(TERMS_I18N[lang]).length >= 18, `TERMS_I18N['${lang}'] must have complete translations`);
+      assert.match(termsHtml, new RegExp(`<option\\s+value=["']${lang}["']`, "i"), `Terms language select must include '${lang}'`);
+    }
+
+    assert.match(termsHtml, /mailto:admin@jyotirmoyb\.com/i, "Terms must include support contact admin@jyotirmoyb.com");
+    assert.match(termsHtml, /mailto:grievance@jyotirmoyb\.com/i, "Terms must include grievance contact grievance@jyotirmoyb.com");
+    assert.match(landingHtml, /href=["']\/terms\.html["']/i, "Landing page must link to /terms.html");
+    assert.match(privacyHtml, /href=["']\/terms\.html["']/i, "Privacy page must link to /terms.html");
+    assert.match(privacyHtml, /mailto:grievance@jyotirmoyb\.com/i, "Privacy page must include grievance contact");
+  });
 });

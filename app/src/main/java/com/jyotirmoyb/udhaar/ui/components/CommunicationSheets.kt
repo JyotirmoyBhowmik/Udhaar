@@ -464,7 +464,7 @@ fun ChatThreadBottomSheet(
                         onClick = { showExtensionBar = !showExtensionBar },
                         modifier = Modifier
                             .weight(1f)
-                            .height(40.dp)
+                            .heightIn(min = 48.dp)
                             .testTag("toggle_request_extension_button"),
                         shape = RoundedCornerShape(12.dp),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
@@ -511,7 +511,7 @@ fun ChatThreadBottomSheet(
                     },
                     modifier = Modifier
                         .weight(1f)
-                        .height(40.dp)
+                        .heightIn(min = 48.dp)
                         .testTag("chat_whatsapp_fallback_button"),
                     shape = RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
@@ -584,7 +584,7 @@ fun ChatThreadBottomSheet(
                                     },
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(40.dp)
+                                        .heightIn(min = 48.dp)
                                         .testTag("request_ext_${days}d_button"),
                                     shape = RoundedCornerShape(12.dp),
                                     contentPadding = PaddingValues(horizontal = 6.dp)
@@ -619,7 +619,7 @@ fun ChatThreadBottomSheet(
                                     ).show()
                                 },
                                 modifier = Modifier
-                                    .height(40.dp)
+                                    .heightIn(min = 48.dp)
                                     .testTag("request_ext_custom_date_button"),
                                 shape = RoundedCornerShape(12.dp),
                                 contentPadding = PaddingValues(horizontal = 8.dp)
@@ -909,7 +909,7 @@ fun ChatThreadBottomSheet(
                     },
                     enabled = !isBlocked,
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(48.dp)
                         .testTag("attach_payment_proof_image_button")
                 ) {
                     Icon(
@@ -925,7 +925,7 @@ fun ChatThreadBottomSheet(
                     },
                     enabled = !isBlocked,
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(48.dp)
                         .testTag("attach_payment_proof_pdf_button")
                 ) {
                     Icon(
@@ -1216,7 +1216,7 @@ private fun ChatMessageBubbleItem(
                                         onClick = onAcceptExtension,
                                         modifier = Modifier
                                             .weight(1f)
-                                            .height(36.dp)
+                                            .heightIn(min = 48.dp)
                                             .testTag("accept_extension_button_${message.id}"),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = financeColors.receiveAccent,
@@ -1234,7 +1234,7 @@ private fun ChatMessageBubbleItem(
                                         onClick = onDeclineExtension,
                                         modifier = Modifier
                                             .weight(1f)
-                                            .height(36.dp)
+                                            .heightIn(min = 48.dp)
                                             .testTag("decline_extension_button_${message.id}"),
                                         shape = RoundedCornerShape(12.dp),
                                         contentPadding = PaddingValues(horizontal = 8.dp)

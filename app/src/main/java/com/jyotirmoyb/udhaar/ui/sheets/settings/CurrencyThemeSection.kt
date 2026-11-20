@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -188,6 +189,7 @@ fun CurrencyThemeSection(
                             shape = RoundedCornerShape(12.dp)
                         )
                         .clickable { onFontScaleChange(scaleOption) }
+                        .heightIn(min = 48.dp)
                         .padding(vertical = 8.dp, horizontal = 4.dp)
                         .testTag("font_scale_${scaleOption.name.lowercase()}"),
                     contentAlignment = Alignment.Center
@@ -274,6 +276,7 @@ fun CurrencyThemeSection(
                             shape = RoundedCornerShape(12.dp)
                         )
                         .clickable { onThemeModeChange(mode) }
+                        .heightIn(min = 48.dp)
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                         .testTag("theme_option_${mode.name.lowercase()}")
                 ) {
@@ -321,7 +324,7 @@ fun CurrencyThemeSection(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .height(44.dp)
+                    .heightIn(min = 48.dp)
                     .testTag("open_phone_display_settings_button"),
                 shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
@@ -343,7 +346,7 @@ fun CurrencyThemeSection(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .height(44.dp)
+                    .heightIn(min = 48.dp)
                     .testTag("open_phone_security_settings_button"),
                 shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
@@ -370,7 +373,7 @@ fun CurrencyThemeSection(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(44.dp)
+                .heightIn(min = 48.dp)
                 .testTag("open_app_system_settings_button"),
             shape = RoundedCornerShape(12.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)

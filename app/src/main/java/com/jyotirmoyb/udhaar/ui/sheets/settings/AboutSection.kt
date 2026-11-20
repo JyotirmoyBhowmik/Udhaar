@@ -11,23 +11,25 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SupportAgent
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -43,6 +45,7 @@ import com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily
 @Composable
 fun AboutSection(
     onOpenShareAppModal: () -> Unit,
+    onOpenHelpAndContact: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -78,7 +81,7 @@ fun AboutSection(
                 onClick = onOpenShareAppModal,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
+                    .heightIn(min = 48.dp)
                     .testTag("open_share_app_modal_from_settings"),
                 shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
@@ -134,6 +137,18 @@ fun AboutSection(
                 fontFamily = IbmPlexMonoFamily,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            Button(
+                onClick = onOpenHelpAndContact,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .testTag("open_help_contact_button"),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(stringResource(R.string.about_help_and_contact_btn), style = MaterialTheme.typography.labelMedium)
+            }
             OutlinedButton(
                 onClick = {
                     val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
@@ -148,7 +163,7 @@ fun AboutSection(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
+                    .heightIn(min = 48.dp)
                     .testTag("contact_admin_button"),
                 shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
@@ -171,36 +186,53 @@ fun AboutSection(
                     },
                     modifier = Modifier
                         .weight(1f)
-                        .height(48.dp)
+                        .heightIn(min = 48.dp)
                         .testTag("open_privacy_policy_button"),
                     shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                 ) {
                     Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(15.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    val privacyPolicyLabel = remember { "Privacy Policy" }
-                    Text(text = privacyPolicyLabel, style = MaterialTheme.typography.labelSmall)
+                    Text(text = stringResource(R.string.about_privacy_policy_btn), style = MaterialTheme.typography.labelSmall)
                 }
                 OutlinedButton(
                     onClick = {
                         runCatching {
                             context.startActivity(
-                                Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar"))
+                                Intent(Intent.ACTION_VIEW, Uri.parse("https://udhaar.jyotirmoyb.com/terms.html"))
                             )
                         }
                     },
                     modifier = Modifier
                         .weight(1f)
-                        .height(48.dp)
-                        .testTag("check_play_update_button"),
+                        .heightIn(min = 48.dp)
+                        .testTag("open_terms_of_service_button"),
                     shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                 ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(15.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    val checkUpdateLabel = remember { "Check Update" }
-                    Text(text = checkUpdateLabel, style = MaterialTheme.typography.labelSmall)
+                    Text(text = stringResource(R.string.about_terms_of_service_btn), style = MaterialTheme.typography.labelSmall)
                 }
+            }
+            OutlinedButton(
+                onClick = {
+                    runCatching {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar"))
+                        )
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .testTag("check_play_update_button"),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(15.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(text = stringResource(R.string.about_check_update_btn), style = MaterialTheme.typography.labelSmall)
             }
         }
     }

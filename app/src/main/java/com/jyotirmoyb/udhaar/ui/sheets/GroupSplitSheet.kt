@@ -596,7 +596,7 @@ fun GroupSplitSheet(
                                     onClick = {
                                         members = members.filterNot { it.id == member.id }
                                     },
-                                    modifier = Modifier.size(32.dp)
+                                    modifier = Modifier.size(48.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.DeleteOutline,

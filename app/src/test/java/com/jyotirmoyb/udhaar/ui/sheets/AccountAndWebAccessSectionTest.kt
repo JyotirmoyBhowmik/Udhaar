@@ -74,6 +74,8 @@ private class FakeSparkAuthController(
     var verificationEmailsSent = 0
     var passwordResetEmailsSentTo: String? = null
     var lastReauthEmail: String? = null
+    var deletedCloudDataForUid: String? = null
+    var deletedLinkIds: List<String> = emptyList()
 
     override fun currentSession(): SparkAuthSession? = current
 
@@ -137,6 +139,11 @@ private class FakeSparkAuthController(
     }
 
     override suspend fun reauthenticateWithGoogle(context: Context) {}
+
+    override suspend fun deleteCloudData(uid: String, knownLinkIds: List<String>) {
+        deletedCloudDataForUid = uid
+        deletedLinkIds = knownLinkIds
+    }
 
     override suspend fun signOut() {
         current = null
@@ -235,4 +242,106 @@ class AccountAndWebAccessSectionTest {
 
         assertEquals("ravi@example.com", fakeAuth.lastReauthEmail)
     }
+
+    @Test
+    fun verifiedSession_deleteMyCloudData_deletesSparkCloudData_andTurnsOffSync() {
+        val fakeAuth = FakeSparkAuthController(
+            current = SparkAuthSession(
+                uid = "uid_verified_3",
+                email = "meera@example.com",
+                displayName = "Meera",
+                isEmailVerified = true,
+                providerId = "password",
+                idToken = "token_verified_3"
+            )
+        )
+        val tokenStore = FakeTokenStore().apply {
+            saveSession("token_verified_3", "uid_verified_3", null, "meera@example.com")
+            setCloudSyncEnabled(true)
+            setLastSyncTimestamp(1700000000000L)
+        }
+        var callbackInvoked = false
+
+        composeRule.setContent {
+            MaterialTheme {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    AccountAndWebAccessSection(
+                        dao = null,
+                        tokenStoreOverride = tokenStore,
+                        authControllerOverride = fakeAuth,
+                        onDeleteMyCloudDataCallback = { callbackInvoked = true }
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithTag("btn_delete_cloud_data").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("btn_confirm_delete_cloud_data").performClick()
+        composeRule.waitForIdle()
+
+        assertEquals("uid_verified_3", fakeAuth.deletedCloudDataForUid)
+        assertFalse("Cloud sync must be disabled after deleting cloud data", tokenStore.isCloudSyncEnabled())
+        assertEquals(0L, tokenStore.getLastSyncTimestamp())
+        assertTrue("onDeleteMyCloudDataCallback should be invoked", callbackInvoked)
+    }
+
+    @Test
+    @Config(sdk = [36], qualifiers = "w411dp-h891dp-normal-long-port-xxhdpi", fontScale = 2.0f)
+    fun helpAndContactSheet_and_accountSection_touchTargetsAtFontScale2_0() {
+        val fakeAuth = FakeSparkAuthController(
+            current = SparkAuthSession(
+                uid = "uid_verified_4",
+                email = "kiran@example.com",
+                displayName = "Kiran",
+                isEmailVerified = true,
+                providerId = "password",
+                idToken = "token_verified_4"
+            )
+        )
+        val tokenStore = FakeTokenStore()
+
+        composeRule.setContent {
+            MaterialTheme {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    AccountAndWebAccessSection(
+                        dao = null,
+                        tokenStoreOverride = tokenStore,
+                        authControllerOverride = fakeAuth
+                    )
+                }
+                HelpAndContactSheet(onDismiss = {})
+            }
+        }
+
+        composeRule.waitForIdle()
+        val accountTags = listOf(
+            "btn_sync_now",
+            "btn_open_reauth",
+            "btn_delete_cloud_data",
+            "btn_sign_out"
+        )
+        for (tag in accountTags) {
+            val node = composeRule.onNodeWithTag(tag).performScrollTo()
+            val bounds = node.fetchSemanticsNode().boundsInRoot
+            val heightDp = with(composeRule.density) { bounds.height.toDp() }
+            assertTrue("Node $tag height ($heightDp) must be >= 47.5.dp at fontScale 2.0", heightDp.value >= 47.5f)
+        }
+
+        val helpTags = listOf(
+            "close_help_contact_button",
+            "help_email_support_button",
+            "help_email_grievance_button",
+            "help_privacy_policy_button",
+            "help_terms_of_service_button"
+        )
+        for (tag in helpTags) {
+            val node = composeRule.onNodeWithTag(tag).performScrollTo()
+            val bounds = node.fetchSemanticsNode().boundsInRoot
+            val heightDp = with(composeRule.density) { bounds.height.toDp() }
+            assertTrue("Node $tag height ($heightDp) must be >= 47.5.dp at fontScale 2.0", heightDp.value >= 47.5f)
+        }
+    }
 }
+
+

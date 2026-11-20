@@ -28,6 +28,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -281,26 +282,32 @@ fun UdhaarAnimatedSwitch(
 
     Box(
         modifier = modifier
-            .width(48.dp)
-            .height(28.dp)
-            .clip(UdhaarShapeTokens.Pill)
-            .background(trackColor, UdhaarShapeTokens.Pill)
-            .border(1.dp, if (checked) PureBlack else BorderGrey, UdhaarShapeTokens.Pill)
+            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
             .pressScaleFeedback(enabled = enabled, pressedScale = 0.96f)
             .clickable(
                 enabled = enabled,
                 role = Role.Switch,
                 onClick = { onCheckedChange(!checked) }
             ),
-        contentAlignment = Alignment.CenterStart
+        contentAlignment = Alignment.Center
     ) {
         Box(
             modifier = Modifier
-                .offset(x = thumbOffset)
-                .size(thumbSize)
-                .clip(CircleShape)
-                .background(thumbColor, CircleShape)
-        )
+                .width(48.dp)
+                .height(28.dp)
+                .clip(UdhaarShapeTokens.Pill)
+                .background(trackColor, UdhaarShapeTokens.Pill)
+                .border(1.dp, if (checked) PureBlack else BorderGrey, UdhaarShapeTokens.Pill),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Box(
+                modifier = Modifier
+                    .offset(x = thumbOffset)
+                    .size(thumbSize)
+                    .clip(CircleShape)
+                    .background(thumbColor, CircleShape)
+            )
+        }
     }
 }
 

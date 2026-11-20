@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -174,7 +175,7 @@ fun InstallmentTimelineCard(
                         shape = RoundedCornerShape(6.dp),
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                         modifier = Modifier
-                            .height(32.dp)
+                            .heightIn(min = 48.dp)
                             .testTag("pay_installment_now_button")
                     ) {
                         Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(14.dp))
@@ -263,8 +264,8 @@ fun InstallmentTimelineCard(
                         if (canMoveThisPayment) {
                             TextButton(
                                 onClick = { movingPaymentFromInstallment = inst },
-                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                                modifier = Modifier.height(28.dp)
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                modifier = Modifier.heightIn(min = 48.dp)
                             ) {
                                 Text(
                                     text = stringResource(R.string.move_installment_payment_btn),

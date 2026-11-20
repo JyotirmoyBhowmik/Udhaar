@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -178,7 +179,7 @@ fun ProfileUpiSection(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .height(42.dp)
+                    .heightIn(min = 48.dp)
                     .testTag("settings_pick_profile_photo_button"),
                 shape = RoundedCornerShape(10.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
@@ -197,7 +198,7 @@ fun ProfileUpiSection(
                 onClick = onShareMyPaymentDetails,
                 modifier = Modifier
                     .weight(1.2f)
-                    .height(42.dp)
+                    .heightIn(min = 48.dp)
                     .testTag("settings_share_payment_profile_button"),
                 shape = RoundedCornerShape(10.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
@@ -212,7 +213,7 @@ fun ProfileUpiSection(
             onClick = onOpenGlobalQrModal,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(42.dp)
+                .heightIn(min = 48.dp)
                 .testTag("settings_open_upi_qr_button"),
             shape = RoundedCornerShape(10.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)

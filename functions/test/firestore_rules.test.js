@@ -53,15 +53,21 @@ function createRulesEvaluator() {
     // 1. /users/{userId}
     if (segs.length === 2 && segs[0] === "users") {
       const userId = segs[1];
-      if (op === "get" || op === "list") return isOwner(auth, userId);
+      if (op === "get" || op === "list" || op === "delete") return isVerifiedOwner(auth, userId);
       if (op === "create" || op === "update") return isVerifiedOwner(auth, userId);
-      if (op === "delete") return false;
     }
 
     // 2. /users/{userId}/{subcoll}/{docId}
     if (segs.length === 4 && segs[0] === "users") {
-      const [, userId, subcoll] = segs;
+      const [, userId, subcoll, docId] = segs;
       const existing = getDoc(cleanPath);
+
+      // /users/{userId}/meta/syncSignal
+      if (subcoll === "meta" && docId === "syncSignal") {
+        if (op === "get" || op === "list" || op === "create" || op === "update" || op === "delete") {
+          return isVerifiedOwner(auth, userId);
+        }
+      }
 
       if (subcoll === "records") {
         if (op === "get" || op === "list") return isVerifiedOwner(auth, userId);
@@ -190,7 +196,7 @@ function createRulesEvaluator() {
         ) {
           return true;
         }
-        return Boolean(parentLink && auth.uid === parentLink.ownerUid);
+        return Boolean(parentLink && auth.uid === parentLink.ownerUid && Boolean(auth.token && auth.token.email_verified === true));
       }
       if (op === "create") {
         if (!isSignedIn(auth) || !parentLink) return false;
@@ -335,18 +341,24 @@ test("Spark Collections Matrix: stranger, other user, unverified email, expired/
   const otherVerifiedUser = { uid: "u_other", token: { email_verified: true } };
   const anonGuest = { uid: "u_anon_guest", token: { email_verified: false } };
 
-  await t.test("1. User profile & Ledger collections (records, people, events, plans, attachments, syncSignal)", () => {
+  await t.test("1. User profile & Ledger collections (users, records, people, events, plans, attachments, meta/syncSignal)", () => {
     const ev = createRulesEvaluator();
     ev.setSeedDoc("users/u_owner/records/rec_1", { ownerUid: "u_owner", rev: 1 });
+    ev.setSeedDoc("users/u_owner/people/p_1", { ownerUid: "u_owner", name: "Asha" });
+    ev.setSeedDoc("users/u_owner/plans/pl_1", { ownerUid: "u_owner", count: 3 });
+    ev.setSeedDoc("users/u_owner/attachments/att_1", { ownerUid: "u_owner", sha256: "abc" });
     ev.setSeedDoc("users/u_owner/events/ev_1", { ownerUid: "u_owner", type: "CREATE" });
 
-    // Profile: owner can read even before verification, but only verified owner can write; never delete
+    // Profile: only verified owner can read, create, update, or delete (for "Delete my cloud data")
     assert.equal(ev.evaluate({ op: "get", path: "users/u_owner", auth: stranger }), false);
     assert.equal(ev.evaluate({ op: "get", path: "users/u_owner", auth: otherVerifiedUser }), false);
-    assert.equal(ev.evaluate({ op: "get", path: "users/u_owner", auth: unverifiedOwner }), true);
+    assert.equal(ev.evaluate({ op: "get", path: "users/u_owner", auth: unverifiedOwner }), false);
+    assert.equal(ev.evaluate({ op: "get", path: "users/u_owner", auth: verifiedOwner }), true);
     assert.equal(ev.evaluate({ op: "create", path: "users/u_owner", auth: unverifiedOwner, data: {} }), false);
     assert.equal(ev.evaluate({ op: "create", path: "users/u_owner", auth: verifiedOwner, data: {} }), true);
-    assert.equal(ev.evaluate({ op: "delete", path: "users/u_owner", auth: verifiedOwner }), false);
+    assert.equal(ev.evaluate({ op: "delete", path: "users/u_owner", auth: unverifiedOwner }), false);
+    assert.equal(ev.evaluate({ op: "delete", path: "users/u_owner", auth: otherVerifiedUser }), false);
+    assert.equal(ev.evaluate({ op: "delete", path: "users/u_owner", auth: verifiedOwner }), true);
 
     // Subcollections: stranger, other user, and unverified owner are denied across all Spark collections
     const subcollections = ["records", "people", "events", "plans", "attachments"];
@@ -359,6 +371,26 @@ test("Spark Collections Matrix: stranger, other user, unverified email, expired/
       assert.equal(ev.evaluate({ op: "create", path: docPath, auth: unverifiedOwner, data: payload }), false, `unverified create ${sub}`);
       assert.equal(ev.evaluate({ op: "create", path: docPath, auth: otherVerifiedUser, data: payload }), false, `other user create ${sub}`);
       assert.equal(ev.evaluate({ op: "create", path: docPath, auth: verifiedOwner, data: payload }), true, `verified owner create ${sub}`);
+    }
+
+    // Verified owner can update and delete people, plans, attachments
+    for (const sub of ["people", "plans", "attachments"]) {
+      const docPath = `users/u_owner/${sub}/${sub === "people" ? "p_1" : sub === "plans" ? "pl_1" : "att_1"}`;
+      assert.equal(
+        ev.evaluate({ op: "update", path: docPath, auth: verifiedOwner, data: { ownerUid: "u_owner" } }),
+        true,
+        `verified owner update ${sub}`
+      );
+      assert.equal(
+        ev.evaluate({ op: "delete", path: docPath, auth: verifiedOwner }),
+        true,
+        `verified owner delete ${sub}`
+      );
+      assert.equal(
+        ev.evaluate({ op: "delete", path: docPath, auth: otherVerifiedUser }),
+        false,
+        `other user delete ${sub} denied`
+      );
     }
 
     // Records monotonic revision check (rev == existing.rev + 1)
@@ -404,12 +436,15 @@ test("Spark Collections Matrix: stranger, other user, unverified email, expired/
       "Events must reject deletes"
     );
 
-    // SyncSignal requires verified owner
-    assert.equal(ev.evaluate({ op: "get", path: "users/u_owner/meta/syncSignal/latest", auth: unverifiedOwner }), false);
-    assert.equal(ev.evaluate({ op: "create", path: "users/u_owner/meta/syncSignal/latest", auth: verifiedOwner, data: {} }), true);
+    // SyncSignal requires verified owner for get/create/update/delete
+    assert.equal(ev.evaluate({ op: "get", path: "users/u_owner/meta/syncSignal", auth: stranger }), false);
+    assert.equal(ev.evaluate({ op: "get", path: "users/u_owner/meta/syncSignal", auth: otherVerifiedUser }), false);
+    assert.equal(ev.evaluate({ op: "get", path: "users/u_owner/meta/syncSignal", auth: unverifiedOwner }), false);
+    assert.equal(ev.evaluate({ op: "create", path: "users/u_owner/meta/syncSignal", auth: verifiedOwner, data: {} }), true);
+    assert.equal(ev.evaluate({ op: "delete", path: "users/u_owner/meta/syncSignal", auth: verifiedOwner }), true);
   });
 
-  await t.test("2. guestLinks/{linkId}: active vs expired vs revoked, no listing, owner-only creation", () => {
+  await t.test("2. guestLinks/{linkId}: active vs expired vs revoked, no listing, owner-only creation/update/delete", () => {
     const ev = createRulesEvaluator();
     ev.setSeedDoc("guestLinks/link_active", {
       ownerUid: "u_owner",
@@ -441,9 +476,11 @@ test("Spark Collections Matrix: stranger, other user, unverified email, expired/
     // Expired or revoked links are denied to guests
     assert.equal(ev.evaluate({ op: "get", path: "guestLinks/link_expired", auth: anonGuest, nowMs }), false);
     assert.equal(ev.evaluate({ op: "get", path: "guestLinks/link_revoked", auth: anonGuest, nowMs }), false);
-    // Verified owner can still read their own expired/revoked link to manage it
+    // Verified owner can still read and delete their own expired/revoked link to manage it
     assert.equal(ev.evaluate({ op: "get", path: "guestLinks/link_expired", auth: verifiedOwner, nowMs }), true);
     assert.equal(ev.evaluate({ op: "get", path: "guestLinks/link_revoked", auth: verifiedOwner, nowMs }), true);
+    assert.equal(ev.evaluate({ op: "delete", path: "guestLinks/link_active", auth: otherVerifiedUser, nowMs }), false);
+    assert.equal(ev.evaluate({ op: "delete", path: "guestLinks/link_active", auth: verifiedOwner, nowMs }), true);
     // Unverified owner or other user cannot create a link for u_owner
     assert.equal(
       ev.evaluate({
@@ -627,93 +664,218 @@ test("Spark Collections Matrix: stranger, other user, unverified email, expired/
   });
 
   if (process.env.FIRESTORE_EMULATOR_HOST) {
-    await t.test("4. Live Firestore Emulator REST verification of Spark rules", async () => {
+    await t.test("4. Live Firestore Emulator REST verification of every Spark collection and rule", async () => {
       const verifiedOwnerJwt = makeEmulatorJwt({ uid: "emu_owner", emailVerified: true });
       const unverifiedOwnerJwt = makeEmulatorJwt({ uid: "emu_owner", emailVerified: false });
       const otherUserJwt = makeEmulatorJwt({ uid: "emu_other", emailVerified: true });
       const anonGuestJwt = makeEmulatorJwt({ uid: "emu_guest", emailVerified: false, isAnonymous: true });
+      const now = Date.now();
 
-      // Stranger denied on users/emu_owner/records/r1
-      const strangerRes = await emulatorRequest({
-        method: "GET",
-        docPath: "users/emu_owner/records/r1",
-        token: null,
-      });
-      assert.equal(strangerRes.status, 403, "Stranger must receive 403 on records");
+      // A. Profile /users/emu_owner (stranger, unverified, other user denied; verified owner create/get/delete allowed)
+      assert.equal(
+        (await emulatorRequest({ method: "GET", docPath: "users/emu_owner", token: null })).status,
+        403
+      );
+      assert.equal(
+        (
+          await emulatorRequest({
+            method: "PATCH",
+            docPath: "users/emu_owner",
+            token: unverifiedOwnerJwt,
+            body: toFirestoreFields({ email: "emu_owner@example.com", updatedAtMs: now }),
+          })
+        ).status,
+        403
+      );
+      assert.equal(
+        (
+          await emulatorRequest({
+            method: "PATCH",
+            docPath: "users/emu_owner",
+            token: verifiedOwnerJwt,
+            body: toFirestoreFields({ email: "emu_owner@example.com", updatedAtMs: now }),
+          })
+        ).status,
+        200
+      );
+      assert.equal(
+        (await emulatorRequest({ method: "GET", docPath: "users/emu_owner", token: otherUserJwt })).status,
+        403
+      );
 
-      // Unverified email denied creating record
-      const unverifiedRes = await emulatorRequest({
-        method: "PATCH",
-        docPath: "users/emu_owner/records/r1",
-        token: unverifiedOwnerJwt,
-        body: toFirestoreFields({ ownerUid: "emu_owner", rev: 1, updatedAtMs: Date.now() }),
-      });
-      assert.equal(unverifiedRes.status, 403, "Unverified owner must receive 403 creating record");
+      // B. Every Spark subcollection: records, people, events, plans, attachments, meta/syncSignal
+      const sparkSubcollections = [
+        {
+          path: "users/emu_owner/records/r1",
+          fields: { ownerUid: "emu_owner", rev: 1, updatedAtMs: now },
+        },
+        {
+          path: "users/emu_owner/people/p1",
+          fields: { ownerUid: "emu_owner", name: "Ramesh", updatedAtMs: now },
+        },
+        {
+          path: "users/emu_owner/events/ev1",
+          fields: { ownerUid: "emu_owner", type: "CREATE", createdAtMs: now },
+        },
+        {
+          path: "users/emu_owner/plans/pl1",
+          fields: { ownerUid: "emu_owner", installmentCount: 3, updatedAtMs: now },
+        },
+        {
+          path: "users/emu_owner/attachments/att1",
+          fields: { ownerUid: "emu_owner", sha256: "deadbeef", updatedAtMs: now },
+        },
+        {
+          path: "users/emu_owner/meta/syncSignal",
+          fields: { lastSyncMs: now },
+        },
+      ];
 
-      // Verified owner creates record
-      const verifiedRes = await emulatorRequest({
+      for (const item of sparkSubcollections) {
+        // Stranger denied GET
+        const strangerGet = await emulatorRequest({ method: "GET", docPath: item.path, token: null });
+        assert.equal(strangerGet.status, 403, `Stranger GET denied on ${item.path}`);
+
+        // Unverified owner denied write
+        const unverifiedWrite = await emulatorRequest({
+          method: "PATCH",
+          docPath: item.path,
+          token: unverifiedOwnerJwt,
+          body: toFirestoreFields(item.fields),
+        });
+        assert.equal(unverifiedWrite.status, 403, `Unverified write denied on ${item.path}`);
+
+        // Other user denied write
+        const otherWrite = await emulatorRequest({
+          method: "PATCH",
+          docPath: item.path,
+          token: otherUserJwt,
+          body: toFirestoreFields(item.fields),
+        });
+        assert.equal(otherWrite.status, 403, `Other user write denied on ${item.path}`);
+
+        // Verified owner allowed create
+        const ownerCreate = await emulatorRequest({
+          method: "PATCH",
+          docPath: item.path,
+          token: verifiedOwnerJwt,
+          body: toFirestoreFields(item.fields),
+        });
+        assert.equal(ownerCreate.status, 200, `Verified owner create allowed on ${item.path}`);
+
+        // Other user denied GET
+        const otherGet = await emulatorRequest({ method: "GET", docPath: item.path, token: otherUserJwt });
+        assert.equal(otherGet.status, 403, `Other user GET denied on ${item.path}`);
+      }
+
+      // C. Records monotonic revision: rev=1 update rejected (403), rev=2 update allowed (200)
+      const staleRevUpdate = await emulatorRequest({
         method: "PATCH",
         docPath: "users/emu_owner/records/r1",
         token: verifiedOwnerJwt,
-        body: toFirestoreFields({ ownerUid: "emu_owner", rev: 1, updatedAtMs: Date.now() }),
+        body: toFirestoreFields({ ownerUid: "emu_owner", rev: 1, updatedAtMs: now + 1 }),
       });
-      assert.equal(verifiedRes.status, 200, "Verified owner must succeed creating record");
+      assert.equal(staleRevUpdate.status, 403, "Stale rev=1 update on records/r1 must be rejected");
 
-      // Other verified user denied reading emu_owner's record
-      const otherReadRes = await emulatorRequest({
-        method: "GET",
+      const nextRevUpdate = await emulatorRequest({
+        method: "PATCH",
         docPath: "users/emu_owner/records/r1",
-        token: otherUserJwt,
-      });
-      assert.equal(otherReadRes.status, 403, "Other user must receive 403 reading owner's record");
-
-      // Verified owner creates active guestLink and expired guestLink
-      const futureMs = Date.now() + 3_600_000;
-      const pastMs = Date.now() - 3_600_000;
-      const createActiveLink = await emulatorRequest({
-        method: "PATCH",
-        docPath: "guestLinks/emu_link_active",
         token: verifiedOwnerJwt,
-        body: toFirestoreFields({
-          ownerUid: "emu_owner",
-          recordId: "r1",
-          status: "active",
-          revoked: false,
-          expiresAtMs: futureMs,
-        }),
+        body: toFirestoreFields({ ownerUid: "emu_owner", rev: 2, updatedAtMs: now + 2 }),
       });
-      assert.equal(createActiveLink.status, 200, "Verified owner must create active guestLink");
+      assert.equal(nextRevUpdate.status, 200, "Incremented rev=2 update on records/r1 must succeed");
 
-      const createExpiredLink = await emulatorRequest({
+      // D. Events append-only: update and delete rejected even for verified owner
+      const eventUpdate = await emulatorRequest({
         method: "PATCH",
-        docPath: "guestLinks/emu_link_expired",
+        docPath: "users/emu_owner/events/ev1",
         token: verifiedOwnerJwt,
-        body: toFirestoreFields({
-          ownerUid: "emu_owner",
-          recordId: "r2",
-          status: "active",
-          revoked: false,
-          expiresAtMs: pastMs,
-        }),
+        body: toFirestoreFields({ ownerUid: "emu_owner", type: "TAMPER", createdAtMs: now }),
       });
-      assert.equal(createExpiredLink.status, 200, "Verified owner must create expired guestLink");
+      assert.equal(eventUpdate.status, 403, "Events update must be rejected");
 
-      // Anonymous guest can GET active link, but fails on expired link
-      const guestGetActive = await emulatorRequest({
-        method: "GET",
-        docPath: "guestLinks/emu_link_active",
-        token: anonGuestJwt,
+      const eventDelete = await emulatorRequest({
+        method: "DELETE",
+        docPath: "users/emu_owner/events/ev1",
+        token: verifiedOwnerJwt,
       });
-      assert.equal(guestGetActive.status, 200, "Anon guest must GET active guestLink");
+      assert.equal(eventDelete.status, 403, "Events delete must be rejected");
 
-      const guestGetExpired = await emulatorRequest({
-        method: "GET",
-        docPath: "guestLinks/emu_link_expired",
-        token: anonGuestJwt,
-      });
-      assert.equal(guestGetExpired.status, 403, "Anon guest must be denied GET on expired guestLink");
+      // E. guestLinks: active, expired, and revoked links
+      const futureMs = now + 3_600_000;
+      const pastMs = now - 3_600_000;
+      assert.equal(
+        (
+          await emulatorRequest({
+            method: "PATCH",
+            docPath: "guestLinks/emu_link_active",
+            token: verifiedOwnerJwt,
+            body: toFirestoreFields({
+              ownerUid: "emu_owner",
+              recordId: "r1",
+              status: "active",
+              revoked: false,
+              expiresAtMs: futureMs,
+            }),
+          })
+        ).status,
+        200
+      );
+      assert.equal(
+        (
+          await emulatorRequest({
+            method: "PATCH",
+            docPath: "guestLinks/emu_link_expired",
+            token: verifiedOwnerJwt,
+            body: toFirestoreFields({
+              ownerUid: "emu_owner",
+              recordId: "r2",
+              status: "active",
+              revoked: false,
+              expiresAtMs: pastMs,
+            }),
+          })
+        ).status,
+        200
+      );
+      assert.equal(
+        (
+          await emulatorRequest({
+            method: "PATCH",
+            docPath: "guestLinks/emu_link_revoked",
+            token: verifiedOwnerJwt,
+            body: toFirestoreFields({
+              ownerUid: "emu_owner",
+              recordId: "r3",
+              status: "revoked",
+              revoked: true,
+              expiresAtMs: futureMs,
+            }),
+          })
+        ).status,
+        200
+      );
 
-      // Anonymous guest creates fixed action 'confirm' on active link -> 200
+      // Anonymous guest GET: active -> 200, expired -> 403, revoked -> 403; LIST -> 403
+      assert.equal(
+        (await emulatorRequest({ method: "GET", docPath: "guestLinks/emu_link_active", token: anonGuestJwt })).status,
+        200
+      );
+      assert.equal(
+        (await emulatorRequest({ method: "GET", docPath: "guestLinks/emu_link_expired", token: anonGuestJwt })).status,
+        403
+      );
+      assert.equal(
+        (await emulatorRequest({ method: "GET", docPath: "guestLinks/emu_link_revoked", token: anonGuestJwt })).status,
+        403
+      );
+      assert.equal(
+        (await emulatorRequest({ method: "GET", docPath: "guestLinks", token: anonGuestJwt })).status,
+        403,
+        "Listing guestLinks must be rejected"
+      );
+
+      // F. guestLinks/{linkId}/actions/{actionId}: fixed IDs, caps, expired/revoked link rejection, no updates/deletes
       const guestConfirm = await emulatorRequest({
         method: "POST",
         docPath: "guestLinks/emu_link_active/actions?documentId=confirm",
@@ -722,38 +884,110 @@ test("Spark Collections Matrix: stranger, other user, unverified email, expired/
           linkId: "emu_link_active",
           ownerUid: "emu_owner",
           type: "CONFIRM",
-          createdAtMs: Date.now(),
+          createdAtMs: now,
         }),
       });
       assert.equal(guestConfirm.status, 200, "Anon guest must create 'confirm' action");
 
-      // Anonymous guest cannot overwrite/update 'confirm' -> 403
-      const guestUpdateConfirm = await emulatorRequest({
-        method: "PATCH",
-        docPath: "guestLinks/emu_link_active/actions/confirm",
-        token: anonGuestJwt,
-        body: toFirestoreFields({
-          linkId: "emu_link_active",
-          ownerUid: "emu_owner",
-          type: "DISPUTE",
-          createdAtMs: Date.now(),
-        }),
-      });
-      assert.equal(guestUpdateConfirm.status, 403, "Anon guest must not update existing action");
+      // Action on expired or revoked link -> 403
+      assert.equal(
+        (
+          await emulatorRequest({
+            method: "POST",
+            docPath: "guestLinks/emu_link_expired/actions?documentId=confirm",
+            token: anonGuestJwt,
+            body: toFirestoreFields({
+              linkId: "emu_link_expired",
+              ownerUid: "emu_owner",
+              type: "CONFIRM",
+              createdAtMs: now,
+            }),
+          })
+        ).status,
+        403,
+        "Action on expired link must be rejected"
+      );
+      assert.equal(
+        (
+          await emulatorRequest({
+            method: "POST",
+            docPath: "guestLinks/emu_link_revoked/actions?documentId=confirm",
+            token: anonGuestJwt,
+            body: toFirestoreFields({
+              linkId: "emu_link_revoked",
+              ownerUid: "emu_owner",
+              type: "CONFIRM",
+              createdAtMs: now,
+            }),
+          })
+        ).status,
+        403,
+        "Action on revoked link must be rejected"
+      );
 
-      // Anonymous guest cannot create out-of-cap 'claim_6' -> 403
-      const guestClaim6 = await emulatorRequest({
-        method: "POST",
-        docPath: "guestLinks/emu_link_active/actions?documentId=claim_6",
-        token: anonGuestJwt,
-        body: toFirestoreFields({
-          linkId: "emu_link_active",
-          ownerUid: "emu_owner",
-          type: "CLAIM_PAYMENT",
-          createdAtMs: Date.now(),
-        }),
-      });
-      assert.equal(guestClaim6.status, 403, "Anon guest must be denied out-of-cap 'claim_6'");
+      // Updating or deleting an existing action -> 403
+      assert.equal(
+        (
+          await emulatorRequest({
+            method: "PATCH",
+            docPath: "guestLinks/emu_link_active/actions/confirm",
+            token: anonGuestJwt,
+            body: toFirestoreFields({
+              linkId: "emu_link_active",
+              ownerUid: "emu_owner",
+              type: "DISPUTE",
+              createdAtMs: now,
+            }),
+          })
+        ).status,
+        403,
+        "Updating an existing action must be rejected"
+      );
+      assert.equal(
+        (
+          await emulatorRequest({
+            method: "DELETE",
+            docPath: "guestLinks/emu_link_active/actions/confirm",
+            token: verifiedOwnerJwt,
+          })
+        ).status,
+        403,
+        "Deleting an existing action must be rejected"
+      );
+
+      // Out-of-cap action IDs (claim_6, date_4) -> 403
+      for (const badId of ["claim_6", "date_4"]) {
+        const res = await emulatorRequest({
+          method: "POST",
+          docPath: `guestLinks/emu_link_active/actions?documentId=${badId}`,
+          token: anonGuestJwt,
+          body: toFirestoreFields({
+            linkId: "emu_link_active",
+            ownerUid: "emu_owner",
+            type: "CLAIM_PAYMENT",
+            createdAtMs: now,
+          }),
+        });
+        assert.equal(res.status, 403, `Out-of-cap actionId '${badId}' must be rejected`);
+      }
+
+      // G. Verified owner can delete cloud data (records, people, plans, attachments, syncSignal, guestLinks, users/{uid})
+      for (const delPath of [
+        "users/emu_owner/records/r1",
+        "users/emu_owner/people/p1",
+        "users/emu_owner/plans/pl1",
+        "users/emu_owner/attachments/att1",
+        "users/emu_owner/meta/syncSignal",
+        "guestLinks/emu_link_active",
+        "users/emu_owner",
+      ]) {
+        const delRes = await emulatorRequest({
+          method: "DELETE",
+          docPath: delPath,
+          token: verifiedOwnerJwt,
+        });
+        assert.equal(delRes.status, 200, `Verified owner delete must succeed on ${delPath}`);
+      }
     });
   }
 });

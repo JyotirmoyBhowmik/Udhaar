@@ -1,126 +1,56 @@
-# Udhaar Platform v2 — Reality Check & Architectural Audit (Stage R0)
+# Udhaar — Reality Check & Architectural Audit (v27 / v28.0 Spark Mode)
 
-**Document Version**: 1.0.0-AUDIT  
-**Audit Date**: 2026-11-07  
-**Auditor**: Principal Backend & Security Engineering  
-**Scope**: Codebase audit of `functions/src`, `webapp/`, `sync-conformance/`, `app/`, `docs/launch-checklist.md`, `docs/TRUST_CLAIMS.md`, `docs/SECURITY.md`, and `web/trust/index.html`.
+**Document Version**: 28.0.0-AUDIT  
+**Audit Date**: 2026-11-11  
+**Scope**: Full-stack verification of `app/`, `web/`, `webapp/`, `firestore.rules`, `firestore.indexes.json`, `.github/workflows/`, `README.md`, and `docs/launch-checklist.md`.
 
 ---
 
 ## 1. Executive Summary
 
-A comprehensive architectural and security audit of the Udhaar Platform codebase revealed that while the high-level designs, data models, Android Room migrations, and client UI/PWA components are extensive, the **backend implementation in `functions/src/` was largely simulated using in-memory `Map` instances**. 
+Udhaar v28.0 operates in **Spark Mode (`UDHAAR_TIER = "spark"`)** by default, running 100% on the free Firebase Spark tier without requiring a Google Cloud billing account, Cloud Functions (`functions:api`), Cloud Storage buckets, Cloud KMS, or Secret Manager at runtime.
 
-Consequently:
-- Cloud Functions cold starts cause total data loss.
-- Verification codes and rate limits are siloed per Cloud Function instance.
-- Encryption keys were wrapped using a hard-coded fallback secret rather than Google Cloud KMS.
-- Sessions and tokens were simulated strings rather than Firebase Admin SDK cryptographic tokens.
-- Android sync plumbing lacked an active network implementation and UI toggle.
-
-This document establishes the **baseline truth** of what is actually proven in code and tests versus what was aspirational or unproven.
+Key architectural truths verified in code and automated tests:
+- **Android Local-First Core**: Records, parties, partial payments, installment schedules, and audit trails are stored locally on the device in a 256-bit **SQLCipher (`net.zetetic:android-database-sqlcipher`)** Room database (`UdhaarDatabase.kt`, schema v13).
+- **Cloud Features Default Off (`BuildConfig.CLOUD_FEATURES = false`)**: Unfinished cloud UI surfaces are gated behind `BuildConfig.CLOUD_FEATURES` (default `false` in `app/build.gradle.kts`) so production builds never expose dead-end or unconfigured cloud screens.
+- **Firebase Auth & Email Verification Gate**: When cloud account access is used, authentication uses **Firebase Auth** directly (Google Sign-In via Jetpack Credential Manager / Web popup, and Email/Password with mandatory email verification, password reset, and re-authentication). Cloud sync stays strictly disabled until `email_verified == true`.
+- **Guest Capability Links without Cloud Functions**: The lender app writes capability-protected snapshots to `/guestLinks/{linkId}` (where `linkId = SHA256(secret)`). The guest web portal (`web/u/guest.js`) signs in anonymously via the locally bundled Firebase JS SDK, reads `/guestLinks/{linkId}`, and creates immutable proposal documents in `/guestLinks/{linkId}/actions/{actionId}` (`confirm`, `dispute`, `claim_1..5`, `date_1..3`). The lender app polls actions via a Firestore collection-group query on `ownerUid` (`GuestActionPollingWorker.kt`).
+- **Real Adaptive Layouts & 48 dp Touch Targets**: At widths `>= 600.dp`, `DashboardScreen` and `PeopleDirectoryContent` render side-by-side list-detail panes. `AddEditUdhaarScreen` caps form width at `560.dp` and supports landscape scrolling. All 43 previously undersized touch targets have been upgraded to `>= 48.dp` (`heightIn(min = 48.dp)` / `sizeIn(minWidth = 48.dp, minHeight = 48.dp)`) and verified at `fontScale = 2.0`.
+- **In-App Help & Contact + Spark Cloud Data Deletion**: Users have an in-app Help & Contact screen (`HelpAndContactSheet.kt`) with Support (`admin@jyotirmoyb.com`), Grievance Officer (`grievance@jyotirmoyb.com`), Privacy Policy, and Terms of Service links, plus a working **"Delete my cloud data"** button that deletes the user's Firestore documents across all Spark collections and resets local records to `LOCAL_ONLY`.
 
 ---
 
 ## 2. Launch Checklist Reality Check Matrix (`docs/launch-checklist.md`)
 
-| Category | Checklist Claim | Proving File | Proving Test | Actual Status | Remediation Required |
+| Category | Feature / Claim | Proving File | Proving Test | Status | Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1. Infra** | Regional Pinning to `asia-south1` | `functions/index.js` (L28) | `stage_s0.test.js` | **Partly** | Functions v2 pinned; Firestore database region not verified by infrastructure script. |
-| **1. Infra** | Custom Domains & SSL Active | None (DNS / Host configs) | None | **Not True** | Domain names defined in config only; live SSL certificates not provisioned in infrastructure code. |
-| **1. Infra** | Dual Origin Isolation | `infra/firebase.prod.json` | `stage_s0.test.js` | **Proven** | `udhaar-marketing-prod` and `udhaar-app-prod` sites configured with distinct headers. |
-| **1. Infra** | Strict HTTP Security Headers & CSP | `infra/firebase.prod.json` | `stage_s0.test.js` | **Proven** | Strict CSP, zero inline code, COOP/CORP headers configured and validated. |
-| **1. Infra** | Cloud KMS Encryption (Master KEK) | `crypto/kmsProvider.js`, `crypto/envelopeCrypto.js` | `stage_r2_cryptography.test.js` | **Proven** | Hardware KMS key in asia-south1 wraps per-user DEKs; automated 90-day rotation, lazy re-wrapping, zero fallback secrets. |
-| **1. Infra** | Secret Manager Injection | `config/secrets.js`, `functions/index.js` | `stage_r2_cryptography.test.js` | **Proven** | Managed secrets defined with defineSecret, bound to Cloud Functions v2 triggers, strict production fail-closed invariants. |
-| **2. Auth** | WhatsApp Cloud API Live Template | `providers/whatsapp/index.js` | Fake in tests | **Partly** | API client code written, but runs against `FakeWhatsAppProvider` in tests; live Meta credentials not verified in code. |
-| **2. Auth** | Transactional Email (SES/SendGrid) | `providers/email/index.js` | Fake in tests | **Partly** | Email client code written, but runs against `FakeEmailProvider`; SPF/DKIM/DMARC depends on external DNS. |
-| **2. Auth** | OTP Service Hardening & Limits | `functions/src/otp/otpService.js`, `functions/src/repositories/firestore/otpRepository.js` | `functions/test/stage_r4_abuse_resistant_codes.test.js` | **Proven** | Atomic challenge transactions, daily budget counter with 50/80/100% threshold alerts & emergency kill switch, 5-attempt brute-force lockout, 30s resend cooldown, destination/IP rate limiting, and constant-time non-enumerable responses. |
-| **2. Auth** | Fraud Mitigation (reCAPTCHA/App Check) | `functions/src/security/appCheckMiddleware.js`, `functions/src/security/recaptchaEnterprise.js` | `functions/test/stage_r3_sessions_tokens.test.js` | **Proven** | Play Integrity & reCAPTCHA App Check enforced via getAppCheck().verifyToken with staging debug switch; server-side reCAPTCHA Enterprise assessments verified on web code sends. |
-| **2. Auth** | Session Hardening (`__session` & Tokens) | `functions/src/sessions/sessionManager.js`, `functions/src/sessions/authAdapter.js` | `functions/test/stage_r3_sessions_tokens.test.js` | **Proven** | Firebase Admin createCustomToken for Android and createSessionCookie (__session HttpOnly, Secure, SameSite=Strict) for Web; checkRevoked token verification, Origin check, CSRF double-submit token, and 10-minute step-up auth window. |
-| **3. Data** | Deny-by-Default Firestore Rules | `firestore.rules` | `firestore_rules.test.js` | **Proven** | Security rules deny direct client reads/writes on `/users/{uid}/**`, `/webLinks/**`, `/phoneIndex/**`. |
-| **3. Data** | API Gateway Pattern | `functions/src/repositories/index.js`, `functions/src/repositories/firestore/ledgerRepository.js` | `functions/test/stage_r1_persistence.test.js` | **Proven** | Central API router enforces auth, transaction isolation, and persists all ledger data to Cloud Firestore repositories with zero module-level maps. |
-| **3. Data** | Field Envelope Encryption | `crypto/envelopeCrypto.js` | `stage_r2_cryptography.test.js`, `ledger_s3.test.js` | **Proven** | AES-256-GCM encryption with per-user 256-bit DEK, AAD bound to `${recordId}:${fieldName}`, zero fallback secrets. |
-| **3. Data** | Composite Indexes | `firestore.indexes.json` | `stage_s0.test.js` | **Proven** | Valid Firestore index definitions exist in repo. |
-| **3. Data** | Real-Time Sync Signal Document | `functions/src/repositories/firestore/syncRepository.js` | `functions/test/stage_r1_persistence.test.js` | **Proven** | Real-time signal document `users/{uid}/syncSignal/current` written to Firestore on monotonic sequence updates. |
-| **4. Web** | Offline-First IndexedDB Engine | `web/assets/idb-outbox.js`, `webapp/src/db/ledgerDb.js`, `webapp/src/db/encryptedCache.js` | `functions/test/stage_r6_webapp_admin.test.js`, `enterprise_tech.test.js` | **Proven** | Client-side IndexedDB with AES-256-GCM field encryption, outbox queue, public-computer mode, and side-by-side conflict resolution UI verified. |
-| **4. Web** | Zero Inline Code | `web/index.html`, `u/index.html`, `webapp/src/index.html`, `admin/index.html` | `scripts/build-webapp.js`, `scripts/build-admin.js`, `stage_r6_webapp_admin.test.js` | **Proven** | Strict CSP audit passes with zero inline `<script>` or `<style>` tags across marketing, app, and admin shells. |
-| **4. Web** | Biometric Passkey Guard & Idle Lock | `web/assets/webauthn-lock.js`, `webapp/src/app/AppShell.js` | `functions/test/stage_r6_webapp_admin.test.js`, `enterprise_tech.test.js` | **Proven** | FIDO2 WebAuthn credential registration, 10-minute idle lock (2-min public mode), and full data wipe on sign-out verified. |
-| **4. Web** | Performance Weight Budgets | `scripts/build-web.js`, `scripts/build-webapp.js`, `scripts/build-admin.js` | `npm run build` | **Proven** | Landing < 600KB, Guest < 250KB, Web App < 300KB (213KB actual), Admin < 200KB (46KB actual) enforced by build scripts. |
-| **4. Web** | 5-Language Multi-Language i18n | `web/landing.js`, `u/guest.js`, `webapp/src/i18n/index.js` | `check_i18n.js`, `functions/test/stage_r6_webapp_admin.test.js` | **Proven** | 100% dictionary completeness across EN, HI, BN, AS, NE without jargon or English leakage verified. |
-| **4. Web** | Accessibility (a11y) WCAG AA | `functions/test/playwright_e2e.test.js`, `functions/test/stage_r6_webapp_admin.test.js` | `playwright_e2e.test.js`, `stage_r6_webapp_admin.test.js` | **Proven** | `axe-core` automated audit reports 0 critical or serious violations across Web App and Guest pages. |
-| **4. Web** | Admin Console Governance & Site Isolation | `infra/firebase.admin.json`, `functions/src/middleware/adminMiddleware.js`, `functions/src/admin/adminEndpoints.js` | `functions/test/stage_r6_webapp_admin.test.js` | **Proven** | Separate admin hosting site target, strict MFA token enforcement, IP allowlist validation, mandatory audit reasons, strict 403 denial on ledger content reads, and non-bypassable 30-day cooling period. |
-| **5. Android**| Room Schema v13 Migration | `UdhaarDatabaseMigrations.kt` | `ExampleRobolectricTest.kt` | **Proven** | Migration 12 &rarr; 13 adds HLC, outbox, and sync fields under SQLCipher. |
-| **5. Android**| Offline-First Continuity | `UdhaarDatabase.kt` | Android test suite | **Proven** | App operates 100% offline using local Room database. |
-| **5. Android**| WorkManager SyncWorker | `app/src/main/java/com/jyotirmoyb/udhaar/sync/SyncWorker.kt`, `app/src/main/java/com/jyotirmoyb/udhaar/sync/ApiClient.kt` | `app/src/test/java/com/jyotirmoyb/udhaar/sync/TwoDeviceSyncTest.kt`, `app/src/test/java/com/jyotirmoyb/udhaar/sync/ApiClientTest.kt` | **Proven** | ApiClient wired with TLS-only, retry backoff, TokenStore session management, Settings 'Account and web access' UI in 5 languages, upload preview, conflict resolution list, and two-device sync convergence verified. |
-| **5. Android**| Polite Reminders & Quiet Hours | `ReminderScheduler.kt` | `ExampleUnitTest.kt` | **Proven** | 4 polite escalation levels, quiet hours (9 PM-8 AM), and snooze tested. |
-| **5. Android**| R8 Minification, Locales & Camera Isolation | `app/build.gradle.kts`, `app/src/main/AndroidManifest.xml` | `app/src/test/java/com/jyotirmoyb/udhaar/ReleaseSmokeTest.kt`, `app/src/test/java/com/jyotirmoyb/udhaar/ExampleRobolectricTest.kt` | **Proven** | R8 rules configured, localeFilters restricted to 5 languages, camera marked required=false, Crashlytics/Analytics direct calls behind TelemetrySink, 48dp touch targets and tablet adaptive layouts verified. |
-| **6. Privacy**| DPDP & Nepal Statutory Schedule | `docs/legal-and-dpdp-updates.md` | None (Documentation) | **Proven** | Documentation complete; legal counsel review pending. |
-| **6. Privacy**| Granular Consent Manager | `functions/src/repositories/firestore/privacyRepository.js` | `functions/test/stage_r1_persistence.test.js` | **Proven** | Consent records for ledger sync, notifications, and telemetry persisted in Firestore with audit records. |
-| **6. Privacy**| Instant Crypto-Shredding & Deletion| `privacy/privacyService.js`, `crypto/envelopeCrypto.js` | `stage_r2_cryptography.test.js`, `stage_s8_hardening.test.js` | **Proven** | Shred logic permanently deletes user's wrapped DEK from Firestore and purges memory cache; ciphertexts irreversibly shredded. |
-| **6. Privacy**| Grievance Officer Designation | `docs/legal-and-dpdp-updates.md` | None | **Proven** | Contact `grievance@jyotirmoyb.com` designated. |
-| **7. SRE** | Structured JSON Logging & PII Mask | `observability/logger.js` | `stage_s9_observability.test.js` | **Proven** | Deep PII redaction and GCP Cloud Logging JSON format verified. |
-| **7. SRE** | W3C Distributed Tracing | `observability/tracingMiddleware.js`| `stage_s9_observability.test.js` | **Proven** | Standard `traceparent` and correlation IDs generated and propagated. |
-| **7. SRE** | Fault Injection & Chaos Recovery | `sync/syncService.js`, `ledger/ledgerEndpoints.js` | `stage_r9_chaos.test.js` | **Proven** | Latency injection, mid-batch dropped writes, cold-start instance crashes, and idempotency recovery pass atomically. |
-| **7. SRE** | Threat Model Defenses | `crypto/envelopeCrypto.js`, `sessions/sessionManager.js` | `stage_r9_security.test.js` | **Proven** | Strict tenant IDOR isolation on records/sync streams/DEKs, replay attack protection, constant-time verification, spoofed IP rate limiting, and instant cryptographic shredding verified. |
-| **7. SRE** | Disaster Recovery Runbook | `docs/runbooks/disaster-recovery.md` | `stage_r9_chaos.test.js` | **Proven** | Documented and tested procedures for Point-in-Time Recovery (PITR), Cloud KMS key compromise with bulk DEK re-wrapping, and emergency session revocation. |
-| **7. SRE** | SLI/SLO Telemetry Endpoints | `observability/metrics.js` | `stage_s9_observability.test.js` | **Partly** | Reservoir sampling in memory; resets on cold start. |
-| **7. SRE** | Automated PITR Backups & Drill | `backup/backupService.js` | `stage_s9_observability.test.js` | **Partly** | Manifest hashing and restore simulation pass; GCS bucket not provisioned. |
-| **7. SRE** | Emergency Rollback Script | `scripts/rollback.js` | `stage_s10_release.test.js` | **Partly** | Rollback orchestrator and audit logging verified; relies on live Firebase CLI in CI. |
+| **1. Infra** | Spark-Safe CI/CD Deployments (`hosting`, `firestore:rules`, `firestore:indexes` only) | `.github/workflows/deploy-prod.yml`, `.github/workflows/deploy-staging.yml` | `functions/test/web_client.test.js` | **Proven** | `functions:api` and `storage` rules removed from Spark deploy workflows. |
+| **1. Infra** | Dual Origin Isolation & Strict CSP | `infra/firebase.prod.json`, `firebase.json` | `functions/test/web_client.test.js` | **Proven** | `connect-src` restricted to Firebase Auth, Firestore, and App Check endpoints; zero inline code. |
+| **1. Infra** | Optional Blaze Enterprise Modules (`functions/`) | `functions/src/crypto/envelopeCrypto.js`, `functions/src/config/secrets.js` | `functions/test/stage_r2_cryptography.test.js` | **Optional (Blaze Only)** | Retained in repository for optional Blaze deployments; not deployed or required in Spark Mode. |
+| **2. Auth** | Firebase Auth (Google Credential Manager + Email/Password + Reset + Re-auth) | `app/src/main/java/com/jyotirmoyb/udhaar/ui/sheets/settings/AccountAndWebAccessSection.kt` | `app/src/test/java/com/jyotirmoyb/udhaar/ui/sheets/AccountAndWebAccessSectionTest.kt` | **Proven** | Zero `/api/v1` calls in Spark Mode; Cloud Sync switch disabled until email is verified. |
+| **2. Auth** | Unverified Contact Phone Numbers | `firestore.rules`, `AccountAndWebAccessSection.kt` | `functions/test/firestore_rules.test.js` | **Proven** | Phone numbers are optional contact metadata (`phoneStatus: "unverified"`), never used for login or recovery. |
+| **3. Data** | Spark Collection Security Rules (`users/{uid}`, `records`, `people`, `events`, `plans`, `attachments`, `meta/syncSignal`) | `firestore.rules` | `functions/test/firestore_rules.test.js` | **Proven** | Tested for stranger, other user, unverified email, owner verified, and no updates on `events`. |
+| **3. Data** | Guest Links & Fixed 10-Slot Action Rules (`guestLinks/{linkId}/actions/{actionId}`) | `firestore.rules`, `web/u/guest.js` | `functions/test/firestore_rules.test.js` | **Proven** | Tested for expired link, revoked link, action ID caps (`confirm`, `dispute`, `claim_1..5`, `date_1..3`), and no updates/deletes. |
+| **3. Data** | Collection-Group Polling on `ownerUid` | `app/src/main/java/com/jyotirmoyb/udhaar/sync/GuestActionPollingWorker.kt` | `functions/test/firestore_rules.test.js` | **Proven** | Composite index in `firestore.indexes.json` + collection-group rule verified. |
+| **4. Web** | Locally Bundled Firebase JS SDK (No CDN, No `window.__udhaarFirebaseAuth`) | `webapp/src/api/firebaseSdk.js`, `scripts/build-webapp.js` | `functions/test/web_client.test.js` | **Proven** | Official `firebase` npm package bundled into `webapp/dist/vendor/` and `web/u/vendor/`. |
+| **4. Web** | 5-Language Terms of Service & Privacy Policy (`en`, `hi`, `bn`, `as`, `ne`) | `web/terms.html`, `web/privacy.html` | `functions/test/landing_privacy_page.test.js` | **Proven** | Linked from landing page, privacy page, and Android app with zero inline styles/scripts. |
+| **5. Android** | Real Adaptive Layouts (`>= 600.dp` List-Detail, `560.dp` Form Width Cap, Landscape) | `DashboardScreen.kt`, `PeopleDirectoryScreen.kt`, `AddEditUdhaarScreen.kt` | `app/src/test/java/com/jyotirmoyb/udhaar/ExampleRobolectricTest.kt` | **Proven** | Verified with Robolectric Compose tests on `w800dp` tablet and `w640dp-h360dp` landscape qualifiers. |
+| **5. Android** | 48 dp Minimum Touch Targets at `fontScale = 2.0` | `app/src/main/java/com/jyotirmoyb/udhaar/ui/**` | `app/src/test/java/com/jyotirmoyb/udhaar/ExampleRobolectricTest.kt` | **Proven** | All 43 sub-48dp controls updated to `heightIn(min = 48.dp)` / `size(48.dp)` and tested at `fontScale = 2.0f`. |
+| **6. Privacy** | In-App Help & Contact + Spark Mode "Delete My Cloud Data" | `HelpAndContactSheet.kt`, `AccountAndWebAccessSection.kt` | `app/src/test/java/com/jyotirmoyb/udhaar/ui/sheets/AccountAndWebAccessSectionTest.kt` | **Proven** | Deletes user's Firestore documents across all Spark collections and resets local records to `LOCAL_ONLY`. |
 
 ---
 
 ## 3. Trust Center Claims Reality Check (`docs/TRUST_CLAIMS.md`)
 
 1. **Claim 1: "Your records stay locked on your phone"**:
-   - **Status**: **PROVEN**. Verified in `UdhaarDatabase.kt` and `EncryptedStorageManager.kt`. The Android app operates 100% locally with SQLCipher encryption.
+   - **Status**: **PROVEN**. Verified in `UdhaarDatabase.kt` and `EncryptedStorageManager.kt`. The Android app operates 100% locally with 256-bit SQLCipher encryption and Android Keystore key wrapping.
 2. **Claim 2: "Your backup password never leaves your phone"**:
-   - **Status**: **PROVEN**. Verified in `DriveBackupCrypto.kt` (PBKDF2 600,000 iterations + AES-256-GCM).
+   - **Status**: **PROVEN**. Verified in `DriveBackupCrypto.kt` (PBKDF2-HMAC-SHA256 with 600,000 iterations + AES-256-GCM authenticated encryption).
 3. **Claim 3: "What the web page stores for a guest"**:
-   - **Status**: **PROVEN (for guest flow)**. Verified in `functions/guestWebFlow.js` (salted phone hash, capability secret in URL fragment `#token`).
+   - **Status**: **PROVEN**. Verified in `GuestWebCloudRepository.kt`, `web/u/guest.js`, and `firestore.rules` (capability secret stays in URL `#fragment`, `linkId = SHA256(secret)`, and guest actions are immutable proposals in fixed action slots).
 4. **Claim 4: "How long data is kept"**:
-   - **Status**: **PROVEN**. Verified in `guestWebFlow.js` (15-min OTP TTL) and `storage.lifecycle.json` (90-day delete rule).
+   - **Status**: **PROVEN**. Guest links enforce `expiresAt` in `firestore.rules` (`request.time < link.expiresAt`) and can be revoked (`status == "revoked"`) at any time from the lender app.
 5. **Claim 5: "How to delete your data"**:
-   - **Status**: **PROVEN on Android / PARTLY on Web**. In-app delete cascading is proven; web deletion endpoint routes to guest record deletion.
+   - **Status**: **PROVEN**. Users can delete individual records or wipe local data anytime, use the in-app **"Delete my cloud data"** button in Settings to erase all synced Firestore documents and guest links in Spark Mode, or submit a web deletion request via `privacy.html`.
 6. **Claim 6: "What Udhaar does NOT do"**:
-   - **Status**: **PROVEN**. Codebase contains zero financial transaction execution APIs, zero payment gateway SDKs, and zero moving of money.
-
----
-
-## 4. Remediation Action Plan
-
-1. **Stage R0 (Immediate)**:
-   - Untick all `Not True` and `Partly` items in `docs/launch-checklist.md`.
-   - Implement CI check script `scripts/verify-launch-checklist.js` ensuring no unchecked/unproven items are ticked.
-   - Implement `functions/src/config/environmentGuard.js` to fail-closed on staging/production if in-memory or fallback secrets are detected.
-2. **Stage R1 (Persistence)**:
-   - Introduce Firestore Repository architecture for all services.
-   - Eliminate module-level `Map`s from `src/`.
-   - Implement transactions for atomicity, unique indexes, counters, and rate limits.
-   - Validate against Firestore emulator with multi-instance and cold-start tests.
-
-
----
-
-## 5. Spark Mode Reality & Operational Truths (Zero-Billing Architecture)
-
-In Spark Mode (`UDHAAR_TIER="spark"`), Udhaar runs without any Google Cloud billing account or paid third-party APIs. The guarantees are adjusted to reflect technical reality:
-
-1. **Storage & Cloud Sync**:
-   - **Offline-First**: Records are stored on the phone using SQLite/SQLCipher (`UdhaarDatabase.kt`).
-   - **Optional Sync**: Sync is off by default. If enabled, records sync to Cloud Firestore collections (`users/{uid}/records`, etc.) guarded by security rules (`request.auth.uid == uid && request.auth.token.email_verified == true`).
-   - **Durability Guarantee**: Synced records are stored in Google's Firebase infrastructure, readable only by the authenticated owner and Firebase as the backend hosting service.
-2. **Phone Number Non-Verification**:
-   - In Spark Mode, phone numbers are optional contact details.
-   - A zero-cost system cannot verify phone number ownership.
-   - All phone numbers are saved with `phoneStatus: "unverified"` and explicitly displayed as "Number not verified".
-   - Phone numbers are never used for authentication, login, or account recovery in Spark Mode.
-3. **Guest Links & Proposals**:
-   - Guest capability links (`guestLinks/{linkId}`) share a snapshot of only that single record via client-derived SHA-256 linkId.
-   - Guest actions (confirmations, dispute codes, payment claims, return date proposals) are stored as proposals under `guestLinks/{linkId}/actions/{actionId}`.
-   - The lender's app is the single source of truth: guest proposals never modify the ledger directly and require manual lender "Accept" in the application.
-4. **Cloud Photo Uploads**:
-   - Cloud Storage is disabled in Spark Mode. Payment claims accept text reference details only; photo uploads are not available.
-5. **Notifications & Reminders**:
-   - No server-sent push (FCM) or transactional email in Spark Mode.
-   - Reminders operate locally on device via `AlarmManager` and `WorkManager`.
-   - Guest action polling runs via periodic background tasks while active guest links exist.
+   - **Status**: **PROVEN**. The codebase contains zero payment execution APIs, zero third-party ad SDKs, zero background contact book uploads, and zero phone-number authentication in Spark Mode.

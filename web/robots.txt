@@ -1,6 +1,7 @@
 User-agent: *
 Allow: /
 Allow: /privacy.html
+Allow: /terms.html
 Disallow: /u/
 Disallow: /api/
 

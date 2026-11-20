@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
@@ -264,7 +265,7 @@ fun UpiQrCodeModal(
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(44.dp)
+                                .heightIn(min = 48.dp)
                                 .testTag("save_upi_from_qr_button"),
                             shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)

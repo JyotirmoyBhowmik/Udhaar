@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -74,7 +75,9 @@ fun WebLinkSettingsSection(
                             onSaveDefaults(days, trustLevel, showUpi)
                         },
                         label = { Text(stringResource(R.string.days_count, days)) },
-                        modifier = Modifier.testTag("settings_expiry_chip_$days")
+                        modifier = Modifier
+                            .heightIn(min = 48.dp)
+                            .testTag("settings_expiry_chip_$days")
                     )
                 }
             }
@@ -96,7 +99,9 @@ fun WebLinkSettingsSection(
                     leadingIcon = {
                         Icon(Icons.Default.VerifiedUser, contentDescription = null, modifier = Modifier.size(16.dp))
                     },
-                    modifier = Modifier.testTag("settings_trust_whatsapp")
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .testTag("settings_trust_whatsapp")
                 )
                 FilterChip(
                     selected = trustLevel == "LINK_ONLY",
@@ -108,7 +113,9 @@ fun WebLinkSettingsSection(
                     leadingIcon = {
                         Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
                     },
-                    modifier = Modifier.testTag("settings_trust_link_only")
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .testTag("settings_trust_link_only")
                 )
             }
 
@@ -147,7 +154,7 @@ fun WebLinkSettingsSection(
                 onClick = { showRevokeConfirmDialog = true },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(44.dp)
+                    .heightIn(min = 48.dp)
                     .testTag("btn_settings_revoke_all_links"),
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)

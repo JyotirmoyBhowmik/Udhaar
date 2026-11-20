@@ -20,8 +20,8 @@ android {
     applicationId = "com.jyotirmoyb.udhaar"
     minSdk = 24
     targetSdk = 36
-    versionCode = 27
-    versionName = "27.0"
+    versionCode = 29
+    versionName = "29.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     val udhaarTier = providers.gradleProperty("udhaar.tier").getOrElse("spark")
@@ -149,7 +149,10 @@ tasks.matching { it.name == "bundleRelease" || it.name == "packageReleaseBundle"
 }
 
 tasks.matching {
-  it.name.contains("ArtProfile") || it.name.contains("CrashlyticsMappingFile")
+  it.name.contains("ArtProfile") ||
+    it.name.contains("CrashlyticsMappingFile") ||
+    it.name == "extractReleaseNativeSymbolTables" ||
+    it.name == "extractReleaseVersionControlInfo"
 }.configureEach {
   enabled = false
 }

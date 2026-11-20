@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -189,7 +190,7 @@ fun TransactionAttachmentsSection(
                 onClick = onCameraClick,
                 modifier = Modifier
                     .weight(1f)
-                    .height(34.dp)
+                    .heightIn(min = 48.dp)
                     .testTag("attach_camera_button"),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 4.dp)
@@ -207,7 +208,7 @@ fun TransactionAttachmentsSection(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .height(34.dp)
+                    .heightIn(min = 48.dp)
                     .testTag("attach_gallery_button"),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 4.dp)
@@ -223,7 +224,7 @@ fun TransactionAttachmentsSection(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .height(34.dp)
+                    .heightIn(min = 48.dp)
                     .testTag("attach_doc_button"),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 4.dp)

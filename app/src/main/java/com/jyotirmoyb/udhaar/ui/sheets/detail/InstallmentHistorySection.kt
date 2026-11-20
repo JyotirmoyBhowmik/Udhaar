@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -171,7 +172,7 @@ fun InstallmentHistorySection(
                     }
                     IconButton(
                         onClick = { onDeletePartialPayment(payment) },
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.DeleteOutline,
@@ -189,7 +190,7 @@ fun InstallmentHistorySection(
                         onClick = { onAcknowledgePartialPayment(payment) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(40.dp)
+                            .heightIn(min = 48.dp)
                             .testTag("acknowledge_payment_${payment.id}"),
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)

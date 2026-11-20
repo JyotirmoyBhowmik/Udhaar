@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
@@ -61,9 +62,11 @@ import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.firestore.FirebaseFirestore
 import com.jyotirmoyb.udhaar.R
 import com.jyotirmoyb.udhaar.data.SyncStatus
 import com.jyotirmoyb.udhaar.data.UdhaarDao
+import com.jyotirmoyb.udhaar.data.cloud.GuestWebCloudRepository
 import com.jyotirmoyb.udhaar.security.EncryptedTokenStore
 import com.jyotirmoyb.udhaar.security.TokenStore
 import com.jyotirmoyb.udhaar.sync.GuestActionPollingWorker
@@ -95,12 +98,16 @@ interface SparkAuthController {
     suspend fun sendPasswordResetEmail(email: String)
     suspend fun reauthenticateWithPassword(email: String, password: String)
     suspend fun reauthenticateWithGoogle(context: Context)
+    suspend fun deleteCloudData(uid: String, knownLinkIds: List<String> = emptyList())
     suspend fun signOut()
 }
 
 class FirebaseSparkAuthController(
     private val authProvider: () -> FirebaseAuth? = {
         runCatching { FirebaseAuth.getInstance() }.getOrNull()
+    },
+    private val firestoreProvider: () -> FirebaseFirestore? = {
+        runCatching { FirebaseFirestore.getInstance() }.getOrNull()
     }
 ) : SparkAuthController {
 
@@ -227,6 +234,34 @@ class FirebaseSparkAuthController(
         }
     }
 
+    override suspend fun deleteCloudData(uid: String, knownLinkIds: List<String>) {
+        if (uid.isBlank()) return
+        val db = firestoreProvider() ?: return
+        val userDoc = db.collection("users").document(uid)
+
+        // Delete mutable subcollections allowed by Spark firestore.rules
+        val subcollections = listOf("records", "people", "plans", "attachments")
+        for (sub in subcollections) {
+            runCatching {
+                val snap = userDoc.collection(sub).get().await()
+                for (doc in snap.documents) {
+                    runCatching { doc.reference.delete().await() }
+                }
+            }
+        }
+
+        // Delete syncSignal and root user document
+        runCatching { userDoc.collection("meta").document("syncSignal").delete().await() }
+        runCatching { userDoc.delete().await() }
+
+        // Delete known capability guestLinks by direct document ID (since guestLinks list is forbidden)
+        for (linkId in knownLinkIds.distinct()) {
+            if (linkId.length >= 12) {
+                runCatching { db.collection("guestLinks").document(linkId).delete().await() }
+            }
+        }
+    }
+
     override suspend fun signOut() {
         runCatching { authProvider()?.signOut() }
     }
@@ -243,7 +278,8 @@ private enum class SparkAuthUiMode {
 fun AccountAndWebAccessSection(
     dao: UdhaarDao? = null,
     tokenStoreOverride: TokenStore? = null,
-    authControllerOverride: SparkAuthController? = null
+    authControllerOverride: SparkAuthController? = null,
+    onDeleteMyCloudDataCallback: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -277,6 +313,7 @@ fun AccountAndWebAccessSection(
     var showReauthPanel by rememberSaveable { mutableStateOf(false) }
     var reauthPasswordInput by rememberSaveable { mutableStateOf("") }
     var isReauthenticated by rememberSaveable { mutableStateOf(false) }
+    var confirmDeleteCloudData by rememberSaveable { mutableStateOf(false) }
 
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -340,7 +377,7 @@ fun AccountAndWebAccessSection(
                         text = when (authMode) {
                             SparkAuthUiMode.SIGNUP -> stringResource(R.string.account_sign_up_heading)
                             SparkAuthUiMode.SIGNIN -> stringResource(R.string.account_sign_in_heading)
-                            SparkAuthUiMode.PASSWORD_RESET -> "Reset your password"
+                            SparkAuthUiMode.PASSWORD_RESET -> stringResource(R.string.account_reset_password_heading)
                         },
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
@@ -357,7 +394,9 @@ fun AccountAndWebAccessSection(
                                 errorMessage = null
                                 statusMessage = null
                             },
-                            modifier = Modifier.testTag("btn_toggle_auth_mode")
+                            modifier = Modifier
+                                .heightIn(min = 48.dp)
+                                .testTag("btn_toggle_auth_mode")
                         ) {
                             Text(
                                 text = if (authMode == SparkAuthUiMode.SIGNUP) {
@@ -394,7 +433,7 @@ fun AccountAndWebAccessSection(
                     enabled = !isLoading,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
+                        .heightIn(min = 48.dp)
                         .testTag("btn_google_credential_signin"),
                     shape = RoundedCornerShape(10.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
@@ -405,7 +444,7 @@ fun AccountAndWebAccessSection(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Continue with Google")
+                    Text(stringResource(R.string.account_continue_with_google))
                 }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -416,7 +455,7 @@ fun AccountAndWebAccessSection(
                             value = emailInput,
                             onValueChange = { emailInput = it },
                             label = { Text(stringResource(R.string.account_email_label)) },
-                            placeholder = { Text("you@example.com") },
+                            placeholder = { Text(stringResource(R.string.account_email_placeholder)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                             singleLine = true,
                             modifier = Modifier
@@ -448,11 +487,11 @@ fun AccountAndWebAccessSection(
                             enabled = !isLoading && emailInput.contains("@"),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(48.dp)
+                                .heightIn(min = 48.dp)
                                 .testTag("btn_send_password_reset"),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("Send password reset email")
+                            Text(stringResource(R.string.account_send_password_reset_btn))
                         }
 
                         TextButton(
@@ -462,9 +501,10 @@ fun AccountAndWebAccessSection(
                             },
                             modifier = Modifier
                                 .align(Alignment.CenterHorizontally)
+                                .heightIn(min = 48.dp)
                                 .testTag("btn_back_to_signin")
                         ) {
-                            Text("Back to sign in")
+                            Text(stringResource(R.string.account_back_to_signin_btn))
                         }
                     }
 
@@ -474,7 +514,7 @@ fun AccountAndWebAccessSection(
                             value = emailInput,
                             onValueChange = { emailInput = it },
                             label = { Text(stringResource(R.string.account_email_label)) },
-                            placeholder = { Text("you@example.com") },
+                            placeholder = { Text(stringResource(R.string.account_email_placeholder)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                             singleLine = true,
                             modifier = Modifier
@@ -488,9 +528,9 @@ fun AccountAndWebAccessSection(
                             label = {
                                 Text(
                                     if (authMode == SparkAuthUiMode.SIGNUP) {
-                                        "Password (min. 10 characters)"
+                                        stringResource(R.string.account_password_signup_label)
                                     } else {
-                                        "Password"
+                                        stringResource(R.string.account_password_signin_label)
                                     }
                                 )
                             },
@@ -506,8 +546,8 @@ fun AccountAndWebAccessSection(
                             OutlinedTextField(
                                 value = contactPhoneInput,
                                 onValueChange = { contactPhoneInput = it },
-                                label = { Text("Contact phone (optional — not verified)") },
-                                placeholder = { Text("+91 98765 43210") },
+                                label = { Text(stringResource(R.string.account_contact_phone_optional_label)) },
+                                placeholder = { Text(stringResource(R.string.account_contact_phone_placeholder)) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                                 singleLine = true,
                                 modifier = Modifier
@@ -525,9 +565,11 @@ fun AccountAndWebAccessSection(
                                         errorMessage = null
                                         statusMessage = null
                                     },
-                                    modifier = Modifier.testTag("btn_forgot_password")
+                                    modifier = Modifier
+                                        .heightIn(min = 48.dp)
+                                        .testTag("btn_forgot_password")
                                 ) {
-                                    Text("Forgot password?", style = MaterialTheme.typography.labelSmall)
+                                    Text(stringResource(R.string.account_forgot_password_btn), style = MaterialTheme.typography.labelSmall)
                                 }
                             }
                         }
@@ -586,7 +628,7 @@ fun AccountAndWebAccessSection(
                             enabled = !isLoading && emailInput.contains("@") && passwordInput.isNotEmpty(),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(48.dp)
+                                .heightIn(min = 48.dp)
                                 .testTag("btn_submit_email_auth"),
                             shape = RoundedCornerShape(10.dp)
                         ) {
@@ -600,9 +642,9 @@ fun AccountAndWebAccessSection(
                             }
                             Text(
                                 if (authMode == SparkAuthUiMode.SIGNUP) {
-                                    "Create Account & Send Verification Email"
+                                    stringResource(R.string.account_create_and_verify_btn)
                                 } else {
-                                    "Sign In with Email"
+                                    stringResource(R.string.account_signin_email_btn)
                                 }
                             )
                         }
@@ -610,7 +652,7 @@ fun AccountAndWebAccessSection(
                 }
             } else {
                 // =============================================================
-                // SIGNED-IN STATE: Verification Gate, Cloud Sync, Re-Auth
+                // SIGNED-IN STATE: Verification Gate, Cloud Sync, Re-Auth, Delete Cloud Data
                 // =============================================================
                 Surface(
                     shape = RoundedCornerShape(12.dp),
@@ -636,7 +678,7 @@ fun AccountAndWebAccessSection(
                                 text = if (isEmailVerified) {
                                     stringResource(R.string.ui_verified_account_caps)
                                 } else {
-                                    "Signed in (Email unverified — Cloud sync off)"
+                                    stringResource(R.string.account_unverified_badge)
                                 },
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
@@ -652,7 +694,7 @@ fun AccountAndWebAccessSection(
                         }
                         if (userPhone.isNotBlank()) {
                             Text(
-                                text = "${stringResource(R.string.account_phone_fmt, userPhone)} (Contact only — not verified)",
+                                text = stringResource(R.string.account_phone_fmt, userPhone),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -675,13 +717,13 @@ fun AccountAndWebAccessSection(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                text = "Email verification required for Cloud Sync",
+                                text = stringResource(R.string.account_unverified_banner_title),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )
                             Text(
-                                text = "Cloud sync stays off until your email address is verified. Check your inbox for the verification link.",
+                                text = stringResource(R.string.account_unverified_banner_body),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )
@@ -705,11 +747,13 @@ fun AccountAndWebAccessSection(
                                         }
                                     },
                                     enabled = !isLoading,
-                                    modifier = Modifier.testTag("btn_resend_verification_email")
+                                    modifier = Modifier
+                                        .heightIn(min = 48.dp)
+                                        .testTag("btn_resend_verification_email")
                                 ) {
                                     Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Resend verification email")
+                                    Text(stringResource(R.string.account_resend_verification_btn))
                                 }
 
                                 Button(
@@ -737,11 +781,13 @@ fun AccountAndWebAccessSection(
                                         }
                                     },
                                     enabled = !isLoading,
-                                    modifier = Modifier.testTag("btn_refresh_verification_status")
+                                    modifier = Modifier
+                                        .heightIn(min = 48.dp)
+                                        .testTag("btn_refresh_verification_status")
                                 ) {
                                     Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("I've verified my email")
+                                    Text(stringResource(R.string.account_refresh_verification_btn))
                                 }
                             }
                         }
@@ -780,7 +826,7 @@ fun AccountAndWebAccessSection(
                             }
                             Text(
                                 text = if (!isEmailVerified) {
-                                    "Verify your email address first to turn on Cloud Sync"
+                                    stringResource(R.string.account_verify_first_hint)
                                 } else {
                                     stringResource(R.string.account_sync_status_on)
                                 },
@@ -835,7 +881,7 @@ fun AccountAndWebAccessSection(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(42.dp)
+                            .heightIn(min = 48.dp)
                             .testTag("btn_sync_now"),
                         shape = RoundedCornerShape(10.dp)
                     ) {
@@ -855,13 +901,19 @@ fun AccountAndWebAccessSection(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(42.dp)
+                            .heightIn(min = 48.dp)
                             .testTag("btn_open_reauth"),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(if (isReauthenticated) "Re-authenticated ✓" else "Re-authenticate account")
+                        Text(
+                            if (isReauthenticated) {
+                                stringResource(R.string.account_reauthenticated_done)
+                            } else {
+                                stringResource(R.string.account_reauthenticate_btn)
+                            }
+                        )
                     }
                 } else {
                     Surface(
@@ -876,14 +928,14 @@ fun AccountAndWebAccessSection(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                text = "Confirm your identity",
+                                text = stringResource(R.string.account_confirm_identity_title),
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold
                             )
                             OutlinedTextField(
                                 value = reauthPasswordInput,
                                 onValueChange = { reauthPasswordInput = it },
-                                label = { Text("Current password") },
+                                label = { Text(stringResource(R.string.account_current_password_label)) },
                                 visualTransformation = PasswordVisualTransformation(),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                                 singleLine = true,
@@ -914,9 +966,11 @@ fun AccountAndWebAccessSection(
                                         }
                                     },
                                     enabled = !isLoading && reauthPasswordInput.isNotEmpty(),
-                                    modifier = Modifier.testTag("btn_confirm_reauth")
+                                    modifier = Modifier
+                                        .heightIn(min = 48.dp)
+                                        .testTag("btn_confirm_reauth")
                                 ) {
-                                    Text("Verify Password")
+                                    Text(stringResource(R.string.account_verify_password_btn))
                                 }
                                 OutlinedButton(
                                     onClick = {
@@ -936,22 +990,106 @@ fun AccountAndWebAccessSection(
                                         }
                                     },
                                     enabled = !isLoading,
-                                    modifier = Modifier.testTag("btn_reauth_google")
+                                    modifier = Modifier
+                                        .heightIn(min = 48.dp)
+                                        .testTag("btn_reauth_google")
                                 ) {
-                                    Text("Re-auth with Google")
+                                    Text(stringResource(R.string.account_reauth_google_btn))
                                 }
                                 TextButton(
                                     onClick = {
                                         showReauthPanel = false
                                         reauthPasswordInput = ""
                                     },
-                                    modifier = Modifier.testTag("btn_cancel_reauth")
+                                    modifier = Modifier
+                                        .heightIn(min = 48.dp)
+                                        .testTag("btn_cancel_reauth")
                                 ) {
                                     Text(stringResource(R.string.btn_cancel))
                                 }
                             }
                         }
                     }
+                }
+
+                // Delete My Cloud Data (Spark Mode native Firestore cleanup)
+                Text(
+                    text = stringResource(R.string.account_delete_cloud_data_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedButton(
+                    onClick = {
+                        if (!confirmDeleteCloudData) {
+                            confirmDeleteCloudData = true
+                            errorMessage = null
+                        } else {
+                            confirmDeleteCloudData = false
+                            isLoading = true
+                            errorMessage = null
+                            scope.launch {
+                                try {
+                                    val uid = session?.uid?.ifBlank { tokenStore.getUserId().orEmpty() }
+                                        ?: tokenStore.getUserId().orEmpty()
+                                    val allTxs = dao?.getAllTransactionsSnapshot().orEmpty()
+                                    val knownLinkIds = allTxs.mapNotNull { tx ->
+                                        val token = tx.shareToken.trim()
+                                        when {
+                                            token.length == 64 && token.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' } ->
+                                                token.lowercase(Locale.ROOT)
+                                            token.length == 32 && token.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' } ->
+                                                GuestWebCloudRepository.sha256Hex(token.lowercase(Locale.ROOT))
+                                            else -> null
+                                        }
+                                    }
+                                    SyncWorker.cancelSync(context)
+                                    GuestActionPollingWorker.cancel(context)
+                                    tokenStore.setCloudSyncEnabled(false)
+                                    isCloudSyncEnabled = false
+                                    authController.deleteCloudData(uid, knownLinkIds)
+                                    for (tx in allTxs) {
+                                        if (tx.syncStatus != SyncStatus.LOCAL_ONLY || tx.webLinkStatus == "ACTIVE") {
+                                            dao?.updateTransaction(
+                                                tx.copy(
+                                                    syncStatus = SyncStatus.LOCAL_ONLY,
+                                                    webLinkStatus = if (tx.webLinkStatus == "ACTIVE") "REVOKED" else tx.webLinkStatus
+                                                )
+                                            )
+                                        }
+                                    }
+                                    onDeleteMyCloudDataCallback()
+                                    statusMessage = context.getString(R.string.account_delete_cloud_data_done)
+                                } catch (e: Exception) {
+                                    errorMessage = e.message ?: "Failed to delete cloud data"
+                                } finally {
+                                    isLoading = false
+                                }
+                            }
+                        }
+                    },
+                    enabled = !isLoading,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .testTag(if (confirmDeleteCloudData) "btn_confirm_delete_cloud_data" else "btn_delete_cloud_data"),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteOutline,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        if (confirmDeleteCloudData) {
+                            stringResource(R.string.account_delete_cloud_data_confirm_btn)
+                        } else {
+                            stringResource(R.string.account_delete_cloud_data_btn)
+                        }
+                    )
                 }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -977,6 +1115,7 @@ fun AccountAndWebAccessSection(
                                 isEmailVerified = false
                                 isCloudSyncEnabled = false
                                 isReauthenticated = false
+                                confirmDeleteCloudData = false
                                 userEmail = ""
                                 userPhone = ""
                                 statusMessage = null
@@ -989,7 +1128,7 @@ fun AccountAndWebAccessSection(
                     enabled = !isLoading,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(44.dp)
+                        .heightIn(min = 48.dp)
                         .testTag("btn_account_signout"),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)

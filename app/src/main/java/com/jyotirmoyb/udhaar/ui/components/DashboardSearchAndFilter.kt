@@ -145,7 +145,7 @@ internal fun SearchAndFilterBar(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 42.dp)
+                .heightIn(min = 48.dp)
                 .clip(UdhaarShapeTokens.Corner12)
                 .background(CardSurfaceWhite)
                 .border(1.dp, BorderGrey, UdhaarShapeTokens.Corner12)
