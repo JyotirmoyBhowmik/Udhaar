@@ -54,12 +54,36 @@ object FirebaseModule {
     ): FirebaseFirestore? {
         if (app == null) return null
         return try {
-            FirebaseFirestore.getInstance(
-                app,
-                context.getString(R.string.firestore_database_id)
-            )
+            // [BLAZE-DISABLED START] reason: free tier covers only one database | restore: uncomment FirebaseFirestore.getInstance(app, context.getString(R.string.firestore_database_id)) when upgraded to Blaze plan
+            // FirebaseFirestore.getInstance(
+            //     app,
+            //     context.getString(R.string.firestore_database_id)
+            // )
+            // [BLAZE-DISABLED END]
+            FirebaseFirestore.getInstance()
         } catch (_: Throwable) {
             null
+        }
+    }
+
+    /**
+     * Single provider accessor for non-injected contexts (Workers, Receivers, Utility helpers, Tests).
+     * Routes strictly through this single Firestore provider to ensure only the (default) database is used.
+     */
+    fun getFirestore(context: Context? = null): FirebaseFirestore? {
+        val app = if (context != null) {
+            provideFirebaseApp(context.applicationContext)
+        } else {
+            runCatching { FirebaseApp.getInstance() }.getOrNull()
+        }
+        return if (app != null) {
+            provideFirebaseFirestore(app, context ?: app.applicationContext)
+        } else {
+            try {
+                FirebaseFirestore.getInstance()
+            } catch (_: Throwable) {
+                null
+            }
         }
     }
 

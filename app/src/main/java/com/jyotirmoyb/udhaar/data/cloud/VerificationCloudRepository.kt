@@ -156,18 +156,7 @@ class VerificationCloudRepository(
     companion object {
         private fun initFirestoreSafely(context: Context): FirebaseFirestore? {
             return try {
-                val apps = FirebaseApp.getApps(context)
-                val app = if (apps.isEmpty()) {
-                    FirebaseApp.initializeApp(context)
-                } else {
-                    apps.first()
-                }
-                if (app != null) {
-                    FirebaseFirestore.getInstance(
-                        app,
-                        context.applicationContext.getString(R.string.firestore_database_id)
-                    )
-                } else null
+                com.jyotirmoyb.udhaar.di.FirebaseModule.getFirestore(context)
             } catch (_: Throwable) {
                 null
             }

@@ -107,7 +107,7 @@ class FirebaseSparkAuthController(
         runCatching { FirebaseAuth.getInstance() }.getOrNull()
     },
     private val firestoreProvider: () -> FirebaseFirestore? = {
-        runCatching { FirebaseFirestore.getInstance() }.getOrNull()
+        com.jyotirmoyb.udhaar.di.FirebaseModule.getFirestore()
     }
 ) : SparkAuthController {
 

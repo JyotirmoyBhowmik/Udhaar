@@ -1098,32 +1098,43 @@
 
   function _getFirebaseGuestServices() {
     if (_fbServices) return _fbServices;
+
+    // Single Provider Pattern: Get database instance from web/u/firebase-init.js
+    let fbInit = null;
+    if (typeof globalThis !== "undefined" && globalThis.__UDHAAR_FIREBASE_INIT__) {
+      fbInit = globalThis.__UDHAAR_FIREBASE_INIT__;
+    } else if (typeof require === "function") {
+      try {
+        fbInit = require("./firebase-init.js");
+      } catch (_) {}
+    }
+
+    if (fbInit && fbInit.db) {
+      _fbServices = {
+        app: fbInit.app,
+        auth: fbInit.auth,
+        db: fbInit.db,
+        sdk: fbInit.sdk || _resolveFirebaseSdk()
+      };
+      return _fbServices;
+    }
+
+    if (fbInit && typeof fbInit.initFirebase === "function") {
+      const initialized = fbInit.initFirebase();
+      if (initialized && initialized.db) {
+        _fbServices = initialized;
+        return _fbServices;
+      }
+    }
+
     const sdk = _resolveFirebaseSdk();
     if (!sdk || typeof sdk.initializeApp !== "function") {
       return null;
     }
     const apps = typeof sdk.getApps === "function" ? sdk.getApps() : [];
     const app = apps.length > 0 ? apps[0] : sdk.initializeApp(FIREBASE_GUEST_CONFIG);
-    const auth = sdk.getAuth(app);
-    const db = sdk.getFirestore(app);
-
-    const search = (typeof window !== "undefined" && window.location && window.location.search) || "";
-    const urlParams = new URLSearchParams(search);
-    const emulatorCfg = (typeof globalThis !== "undefined" && globalThis.__UDHAAR_EMULATORS__) || null;
-    const useEmulator = Boolean(emulatorCfg || urlParams.get("emulator") === "1");
-
-    if (useEmulator) {
-      const authHost = (emulatorCfg && emulatorCfg.authHost) || urlParams.get("authHost") || "127.0.0.1:9099";
-      const fsHostPort = (emulatorCfg && emulatorCfg.firestoreHost) || urlParams.get("firestoreHost") || "127.0.0.1:8080";
-      try {
-        const authUrl = authHost.startsWith("http") ? authHost : `http://${authHost}`;
-        sdk.connectAuthEmulator(auth, authUrl, { disableWarnings: true });
-      } catch (_) {}
-      try {
-        const [host, portStr] = fsHostPort.replace(/^https?:\/\//, "").split(":");
-        sdk.connectFirestoreEmulator(db, host || "127.0.0.1", parseInt(portStr || "8080", 10));
-      } catch (_) {}
-    }
+    const auth = typeof sdk.getAuth === "function" ? sdk.getAuth(app) : null;
+    const db = fbInit ? fbInit.db : null;
 
     _fbServices = { app, auth, db, sdk };
     return _fbServices;

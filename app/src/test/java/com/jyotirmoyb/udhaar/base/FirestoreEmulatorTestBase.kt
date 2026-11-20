@@ -41,9 +41,7 @@ abstract class FirestoreEmulatorTestBase {
     @Before
     fun baseSetUp() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        databaseId = runCatching {
-            context.getString(com.jyotirmoyb.udhaar.R.string.firestore_database_id).takeIf { it.isNotBlank() }
-        }.getOrNull() ?: "(default)"
+        databaseId = "(default)"
 
         if (FirebaseApp.getApps(context).isEmpty()) {
             val options = FirebaseOptions.Builder()
@@ -55,11 +53,9 @@ abstract class FirestoreEmulatorTestBase {
         }
 
         val app = FirebaseApp.getInstance()
-        db = if (databaseId == "(default)") {
-            FirebaseFirestore.getInstance(app)
-        } else {
-            FirebaseFirestore.getInstance(app, databaseId)
-        }
+        db = com.jyotirmoyb.udhaar.di.FirebaseModule.getFirestore(context)
+            ?: com.jyotirmoyb.udhaar.di.FirebaseModule.provideFirebaseFirestore(app, context)
+            ?: throw IllegalStateException("Failed to obtain Firestore instance from FirebaseModule provider")
         auth = FirebaseAuth.getInstance(app)
 
         try {

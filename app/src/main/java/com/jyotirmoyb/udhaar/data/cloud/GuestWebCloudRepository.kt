@@ -96,7 +96,7 @@ open class GuestWebCloudRepository @Inject constructor(
         try {
             val auth = authOverride ?: runCatching { FirebaseAuth.getInstance() }.getOrNull()
             val currentUser = auth?.currentUser
-            val firestore = firestoreOverride ?: runCatching { FirebaseFirestore.getInstance() }.getOrNull()
+            val firestore = firestoreOverride ?: com.jyotirmoyb.udhaar.di.FirebaseModule.getFirestore()
 
             if (currentUser != null && firestore != null) {
                 val docData = hashMapOf<String, Any?>(
@@ -167,7 +167,7 @@ open class GuestWebCloudRepository @Inject constructor(
         try {
             val auth = authOverride ?: runCatching { FirebaseAuth.getInstance() }.getOrNull()
             val currentUser = auth?.currentUser ?: return@withContext true
-            val firestore = firestoreOverride ?: runCatching { FirebaseFirestore.getInstance() }.getOrNull() ?: return@withContext true
+            val firestore = firestoreOverride ?: com.jyotirmoyb.udhaar.di.FirebaseModule.getFirestore() ?: return@withContext true
 
             val resolvedLinkId = when {
                 recordIdOrSecretOrLinkId.length == 64 && recordIdOrSecretOrLinkId.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' } ->
@@ -216,7 +216,7 @@ open class GuestWebCloudRepository @Inject constructor(
         try {
             val auth = runCatching { FirebaseAuth.getInstance() }.getOrNull()
             val currentUser = auth?.currentUser ?: return@withContext true
-            val firestore = runCatching { FirebaseFirestore.getInstance() }.getOrNull() ?: return@withContext true
+            val firestore = firestoreOverride ?: com.jyotirmoyb.udhaar.di.FirebaseModule.getFirestore() ?: return@withContext true
 
             val snapshot = firestore.collectionGroup("actions")
                 .whereEqualTo("ownerUid", currentUser.uid)

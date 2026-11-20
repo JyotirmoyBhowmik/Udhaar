@@ -34,6 +34,7 @@ const CRITICAL_FILES = [
   "guide/guide.js",
   "u/index.html",
   "u/guest.css",
+  "u/firebase-init.js",
   "u/guest.js",
   "assets/idb-outbox.js",
   "assets/merkle-chain.js",
@@ -83,7 +84,7 @@ for (const relPath of CRITICAL_FILES) {
   }
 
   // Accumulate guest page weight
-  if (["u/index.html", "u/guest.css", "u/guest.js", "design-tokens.css"].includes(relPath)) {
+  if (["u/index.html", "u/guest.css", "u/guest.js", "u/firebase-init.js", "design-tokens.css"].includes(relPath)) {
     totalGuestBytes += content.length;
   }
 }

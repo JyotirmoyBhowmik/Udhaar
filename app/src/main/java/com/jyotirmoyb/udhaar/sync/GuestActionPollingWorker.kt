@@ -50,7 +50,8 @@ class GuestActionPollingWorker(
         if (ownerUid.isBlank()) return Result.success()
 
         return try {
-            val firestore = FirebaseFirestore.getInstance()
+            val firestore = com.jyotirmoyb.udhaar.di.FirebaseModule.getFirestore(applicationContext)
+                ?: return Result.success()
             val snapshot = firestore.collectionGroup("actions")
                 .whereEqualTo("ownerUid", ownerUid)
                 .get()

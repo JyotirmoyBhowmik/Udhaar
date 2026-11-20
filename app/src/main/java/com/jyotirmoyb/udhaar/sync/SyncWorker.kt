@@ -37,7 +37,7 @@ class SyncWorker @AssistedInject constructor(
             transport = if (com.jyotirmoyb.udhaar.BuildConfig.UDHAAR_TIER.equals("blaze", ignoreCase = true)) {
                 HttpSyncCloudTransport(ApiClient("https://app.udhaar.jyotirmoyb.com", EncryptedTokenStore(appContext)))
             } else {
-                FirestoreSyncTransport()
+                FirestoreSyncTransport(com.jyotirmoyb.udhaar.di.FirebaseModule.getFirestore(appContext))
             },
             tokenStore = EncryptedTokenStore(appContext)
         ),

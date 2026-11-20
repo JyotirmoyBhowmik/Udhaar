@@ -206,13 +206,15 @@ object RepositoryModule {
         dao: UdhaarDao,
         outboxDao: com.jyotirmoyb.udhaar.data.SyncOutboxDao,
         tokenStore: com.jyotirmoyb.udhaar.security.TokenStore,
-        apiClient: com.jyotirmoyb.udhaar.sync.ApiClient
+        apiClient: com.jyotirmoyb.udhaar.sync.ApiClient,
+        firestore: com.google.firebase.firestore.FirebaseFirestore?,
+        auth: com.google.firebase.auth.FirebaseAuth?
     ): com.jyotirmoyb.udhaar.sync.SyncRepository {
         val transport: com.jyotirmoyb.udhaar.sync.SyncCloudTransport =
             if (com.jyotirmoyb.udhaar.BuildConfig.UDHAAR_TIER.equals("blaze", ignoreCase = true)) {
                 com.jyotirmoyb.udhaar.sync.HttpSyncCloudTransport(apiClient)
             } else {
-                com.jyotirmoyb.udhaar.sync.FirestoreSyncTransport()
+                com.jyotirmoyb.udhaar.sync.FirestoreSyncTransport(firestore, auth)
             }
         return com.jyotirmoyb.udhaar.sync.SyncRepository(dao, outboxDao, transport, tokenStore)
     }

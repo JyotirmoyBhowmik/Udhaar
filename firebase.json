@@ -22,6 +22,10 @@
         "destination": "/u/guest.css"
       },
       {
+        "source": "/u/**/firebase-init.js",
+        "destination": "/u/firebase-init.js"
+      },
+      {
         "source": "/u/**/guest.js",
         "destination": "/u/guest.js"
       },

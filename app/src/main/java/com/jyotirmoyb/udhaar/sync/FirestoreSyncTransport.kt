@@ -20,9 +20,17 @@ import kotlinx.coroutines.withContext
  * - Preserves Room + SQLCipher as the offline-first source of truth.
  */
 class FirestoreSyncTransport(
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+    private val firestoreOverride: FirebaseFirestore? = null,
+    private val authOverride: FirebaseAuth? = null
 ) : SyncCloudTransport {
+
+    private val firestore: FirebaseFirestore
+        get() = firestoreOverride ?: com.jyotirmoyb.udhaar.di.FirebaseModule.getFirestore()
+            ?: throw IllegalStateException("Firestore unavailable")
+
+    private val auth: FirebaseAuth
+        get() = authOverride ?: runCatching { FirebaseAuth.getInstance() }.getOrNull()
+            ?: throw IllegalStateException("FirebaseAuth unavailable")
 
     companion object {
         private const val TAG = "FirestoreSyncTransport"

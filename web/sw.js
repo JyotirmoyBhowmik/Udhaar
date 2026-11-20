@@ -8,6 +8,7 @@ const SHELL_ASSETS = [
   "/u/",
   "/u/index.html",
   "/u/guest.css",
+  "/u/firebase-init.js",
   "/u/guest.js",
   "/ledger/",
   "/ledger/index.html",
