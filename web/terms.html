@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="/privacy.css" />
   <script src="/site-config.js" defer></script>
   <script src="/terms.js" defer></script>
+  <script src="/nav-drawer.js" defer></script>
 </head>
 <body>
 
@@ -57,9 +58,54 @@
         <a href="https://play.google.com/apps/testing/com.jyotirmoyb.udhaar" class="btn-header-play" id="header-play-btn">
           Join early access
         </a>
+        <button
+          id="mobile-menu-btn"
+          class="mobile-menu-btn"
+          type="button"
+          aria-label="Open navigation menu"
+          aria-expanded="false"
+          aria-controls="mobile-drawer"
+        >
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+          <span class="hamburger-bar"></span>
+        </button>
       </div>
     </div>
   </header>
+
+  <!-- Mobile Drawer -->
+  <div class="mobile-drawer-backdrop" id="mobile-drawer-backdrop" aria-hidden="true"></div>
+  <aside class="mobile-drawer" id="mobile-drawer" role="dialog" aria-modal="true" aria-label="Mobile Navigation" inert>
+    <div class="drawer-header">
+      <div class="brand-logo">
+        <span class="brand-icon">₹</span>
+        <span>UDHAAR</span>
+      </div>
+      <button class="drawer-close-btn" id="drawer-close-btn" type="button" aria-label="Close navigation menu">✕</button>
+    </div>
+    <nav class="drawer-nav" aria-label="Mobile Navigation Links">
+      <a href="/" class="drawer-link">Home</a>
+      <a href="/guide/" class="drawer-link">App Guide</a>
+      <a href="/ledger/" class="drawer-link">Web Ledger</a>
+      <a href="/trust/" class="drawer-link">Trust Center</a>
+      <a href="/updates/" class="drawer-link">What's New</a>
+      <a href="/privacy" class="drawer-link">Privacy Policy</a>
+      <a href="/terms.html" class="drawer-link">Terms of Service</a>
+      <a href="/delete-account" class="drawer-link">Delete Account</a>
+    </nav>
+    <div class="drawer-footer">
+      <a
+        href="https://play.google.com/apps/testing/com.jyotirmoyb.udhaar"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="btn-primary drawer-cta"
+        data-store-button="drawer"
+      >
+        Join early access
+      </a>
+    </div>
+  </aside>
 
   <!-- =========================================================
        MAIN CONTENT

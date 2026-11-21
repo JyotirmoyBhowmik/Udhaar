@@ -650,13 +650,13 @@
     <string name="drive_connection_test_step_fmt">Failed step: %1$s</string>
     <string name="drive_connection_test_code_fmt">Error code: %1$s</string>
     <string name="drive_common_causes_title">Common Google Drive Setup Causes</string>
-    <string name="drive_common_causes_body">1. Google Drive api not enabled in Google Cloud Console.\n2. sha-1 certificate fingerprint not registered in Android OAuth Client ID.\n3. Signed-in account not added to OAuth Consent Screen test users.</string>
+    <string name="drive_common_causes_body">1. Google Drive API not enabled in Google Cloud Console.\n2. SHA-1 certificate fingerprint not registered in Android OAuth Client ID.\n3. Signed-in account not added to OAuth Consent Screen test users.</string>
     <string name="drive_backing_up_progress">Backing up…</string>
     <string name="drive_signing_credentials_title">App Signing Credentials</string>
     <string name="drive_signing_credentials_desc">Copy these values into Google Cloud Console (APIs &amp; Services &gt; Credentials &gt; OAuth client ID &gt; Android) and Firebase Project Settings.</string>
     <string name="drive_package_name_label">Package name</string>
-    <string name="drive_sha1_label">sha-1 Certificate Fingerprint</string>
-    <string name="drive_sha256_label">record fingerprint Certificate Fingerprint</string>
+    <string name="drive_sha1_label">SHA-1 Certificate Fingerprint</string>
+    <string name="drive_sha256_label">App Certificate Fingerprint (256-bit)</string>
     <string name="drive_copied_toast_fmt">Copied %1$s to clipboard</string>
     <string name="drive_copy_button_content_desc">Copy %1$s</string>
     <string name="drive_technical_details_title">Technical details</string>

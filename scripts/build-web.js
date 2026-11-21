@@ -29,6 +29,7 @@ const CRITICAL_FILES = [
   "privacy.js",
   "terms.html",
   "terms.js",
+  "nav-drawer.js",
   "404.html",
   "guide/index.html",
   "guide/guide.js",

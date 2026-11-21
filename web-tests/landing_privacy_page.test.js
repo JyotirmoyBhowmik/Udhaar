@@ -243,6 +243,32 @@ test("Landing Page, Privacy Page, Terms Page & Asset Integrity", async (t) => {
       assert.ok(Array.isArray(updatesJson[0].highlights[lang]) && updatesJson[0].highlights[lang].length >= 3, `v30.0 highlights missing '${lang}'`);
     }
   });
+
+  await t.test("14. No Default reCAPTCHA Test Key, /ledger/ Browser-Local Notice & Subpage Mobile Drawers", () => {
+    const webappFirebaseSdk = fs.readFileSync(path.resolve(__dirname, "../webapp/src/api/firebaseSdk.js"), "utf8");
+    const ledgerHtml = fs.readFileSync(path.resolve(__dirname, "../web/ledger/index.html"), "utf8");
+    const navDrawerJs = fs.readFileSync(path.resolve(__dirname, "../web/nav-drawer.js"), "utf8");
+
+    // reCAPTCHA must be opt-in only (no hardcoded Google test site key)
+    assert.doesNotMatch(webappFirebaseSdk, /6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI/, "webapp firebaseSdk must not ship hardcoded reCAPTCHA test key");
+    assert.match(webappFirebaseSdk, /const\s+DEFAULT_RECAPTCHA_V3_SITE_KEY\s*=\s*""/, "DEFAULT_RECAPTCHA_V3_SITE_KEY must default to empty string");
+
+    // /ledger/ Browser-Local Mode banner
+    assert.match(ledgerHtml, /id=["']local-mode-banner["']/i, "/ledger/index.html must display Browser-Local Mode banner");
+    assert.match(ledgerHtml, /Browser-Local Mode/i, "/ledger/index.html banner must explain Browser-Local Mode");
+
+    // Shared mobile nav drawer on all subpages
+    assert.match(navDrawerJs, /mobile-menu-btn/, "nav-drawer.js must wire mobile-menu-btn");
+    const subpages = ["trust/index.html", "updates/index.html", "privacy.html", "terms.html", "delete-account.html"];
+    for (const relPath of subpages) {
+      const html = fs.readFileSync(path.resolve(__dirname, "../web", relPath), "utf8");
+      assert.match(html, /src=["']\/nav-drawer\.js["']/i, `${relPath} must load /nav-drawer.js`);
+      assert.match(html, /id=["']mobile-menu-btn["']/i, `${relPath} must include mobile hamburger button`);
+      assert.match(html, /id=["']mobile-drawer["']/i, `${relPath} must include mobile drawer`);
+      assert.doesNotMatch(html, /\sstyle=["'][^"']*["']/i, `${relPath} must stay 100% free of inline styles`);
+    }
+  });
 });
+
 
 

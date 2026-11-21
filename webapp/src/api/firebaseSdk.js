@@ -16,7 +16,7 @@ const FIREBASE_CONFIG = {
   appId: "1:528046585099:android:468fd8b6debc32fcbade0e"
 };
 
-const DEFAULT_RECAPTCHA_V3_SITE_KEY = "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
+const DEFAULT_RECAPTCHA_V3_SITE_KEY = "";
 
 let _appInstance = null;
 let _authInstance = null;
@@ -86,7 +86,7 @@ function initFirebaseSdk(options = {}) {
     } catch (_) {}
   }
 
-  // Initialise App Check in browser environments (skip on emulator unless explicitly requested)
+  // App Check (reCAPTCHA v3) is opt-in only: skip unless an explicit non-placeholder key is supplied
   if (
     !_appCheckInstance &&
     !isEmulatorEnv &&
@@ -99,10 +99,12 @@ function initFirebaseSdk(options = {}) {
         options.recaptchaSiteKey ||
         (typeof window !== "undefined" && window.__UDHAAR_APPCHECK_KEY__) ||
         DEFAULT_RECAPTCHA_V3_SITE_KEY;
-      _appCheckInstance = sdk.initializeAppCheck(_appInstance, {
-        provider: new sdk.ReCaptchaV3Provider(siteKey),
-        isTokenAutoRefreshEnabled: true
-      });
+      if (siteKey && !siteKey.includes("placeholder")) {
+        _appCheckInstance = sdk.initializeAppCheck(_appInstance, {
+          provider: new sdk.ReCaptchaV3Provider(siteKey),
+          isTokenAutoRefreshEnabled: true
+        });
+      }
     } catch (_) {}
   }
 

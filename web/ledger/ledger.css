@@ -156,6 +156,55 @@ body {
   gap: 8px;
 }
 
+/* Browser-Local Mode Notice */
+.local-mode-banner {
+  background: var(--emerald-50);
+  border: 1px solid var(--emerald-200);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  color: var(--text-primary);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+[data-theme="dark"] .local-mode-banner {
+  background: rgba(6, 78, 59, 0.35);
+  border-color: var(--emerald-800);
+}
+.local-mode-copy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+.local-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  background: var(--emerald-700);
+  color: #FFFFFF;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.local-mode-text {
+  flex: 1 1 260px;
+  color: var(--text-primary);
+}
+.local-mode-link {
+  color: var(--emerald-700);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.local-mode-link:hover {
+  color: var(--emerald-800);
+}
+[data-theme="dark"] .local-mode-link {
+  color: var(--emerald-500);
+}
+
 /* Sticky App Header */
 .app-header {
   position: sticky;

@@ -1,6 +1,6 @@
 {
   "version": "30.0.0",
-  "timestamp": "2026-11-21T19:47:19.431Z",
+  "timestamp": "2026-11-21T21:10:24.170Z",
   "budgets": {
     "landingKb": 248.1,
     "guestKb": 234.2
@@ -14,11 +14,12 @@
     "design-tokens.css": "becd0a6737",
     "manifest.json": "7883e2a0ba",
     "sw.js": "b5fa257f92",
-    "privacy.html": "a14b553a5e",
+    "privacy.html": "b0b46fd369",
     "privacy.css": "51f2334a29",
     "privacy.js": "ea5ac4bb6d",
-    "terms.html": "ae3bf249b8",
+    "terms.html": "685d012e6e",
     "terms.js": "bfbea78047",
+    "nav-drawer.js": "d61ef9788f",
     "404.html": "30ee00828b",
     "guide/index.html": "9cd1a88a3c",
     "guide/guide.js": "9e02cd2e5c",
