@@ -21,6 +21,8 @@ android {
     applicationId = "com.jyotirmoyb.udhaar"
     minSdk = 24
     targetSdk = 36
+    versionCode = 29
+    versionName = "29.0"
 
     val versionPropsFile = rootProject.file("version.properties")
     val versionProps = Properties().apply {
@@ -31,7 +33,8 @@ android {
 
     val minVersionCode = versionProps.getProperty("minVersionCode")?.trim()?.toIntOrNull() ?: 28
     val ciVersionCodeBase = versionProps.getProperty("ciVersionCodeBase")?.trim()?.toIntOrNull() ?: 100
-    val propVersionCode = providers.gradleProperty("versionCode").orNull?.trim()?.toIntOrNull()
+    val cliVersionCode = providers.gradleProperty("versionCode").orNull?.trim()?.toIntOrNull()
+    val propVersionCode = cliVersionCode
       ?: versionProps.getProperty("versionCode")?.trim()?.toIntOrNull()
     val rawCiRunNumber = providers.environmentVariable("BUILD_NUMBER")
       .orElse(providers.environmentVariable("GITHUB_RUN_NUMBER"))
@@ -51,18 +54,33 @@ android {
         "Invalid versionCode=$resolvedVersionCode: versionCode can never go below $minVersionCode."
       )
     }
-    versionCode = resolvedVersionCode
+    if (cliVersionCode == null && (rawCiRunNumber == null || rawCiRunNumber <= 0) && propVersionCode != versionCode) {
+      throw GradleException(
+        "Version mismatch: app/build.gradle.kts versionCode ($versionCode) != version.properties versionCode ($propVersionCode)."
+      )
+    }
+    if (resolvedVersionCode != versionCode) {
+      this::versionCode.set(resolvedVersionCode)
+    }
 
-    val resolvedVersionName = providers.environmentVariable("VERSION_NAME")
+    val cliVersionName = providers.environmentVariable("VERSION_NAME")
       .orElse(providers.gradleProperty("versionName"))
       .orNull
       ?.trim()
       ?.takeIf { it.isNotBlank() }
+    val resolvedVersionName = cliVersionName
       ?: versionProps.getProperty("versionName")?.trim()?.takeIf { it.isNotBlank() }
       ?: throw GradleException(
         "Missing versionName: define versionName in root version.properties."
       )
-    versionName = resolvedVersionName
+    if (cliVersionName == null && resolvedVersionName != versionName) {
+      throw GradleException(
+        "Version mismatch: app/build.gradle.kts versionName ($versionName) != version.properties versionName ($resolvedVersionName)."
+      )
+    }
+    if (resolvedVersionName != versionName) {
+      this::versionName.set(resolvedVersionName)
+    }
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     val udhaarTier = providers.gradleProperty("udhaar.tier").getOrElse("spark")
