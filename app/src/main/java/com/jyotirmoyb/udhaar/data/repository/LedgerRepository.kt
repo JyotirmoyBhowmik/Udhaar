@@ -184,27 +184,33 @@ open class LedgerRepository(
             needsMyConfirmation = if (termsChanged) false else transaction.needsMyConfirmation
         )
 
-        val savedId = dao.insertTransaction(preparedTx)
         val actorDisplay = myProfileName.trim().ifEmpty { "You" }
 
-        if (existingTx == null) {
-            AuditTrailHelper.appendLocalAuditEvent(
-                dao = dao,
-                transactionId = savedId,
+        val auditEntry = if (existingTx == null) {
+            AuditTrailEntry(
+                transactionId = 0L,
                 eventType = AuditEventType.CREATED,
                 actorName = actorDisplay,
                 summaryText = "$actorDisplay created ${preparedTx.transactionType.label} record of ${InterestCalculator.formatCurrencyPaise(preparedTx.principalAmountPaise, preparedTx.currency)} with ${preparedTx.partyName}",
                 contentHashSnapshot = computedHash
             )
         } else if (termsChanged) {
-            AuditTrailHelper.appendLocalAuditEvent(
-                dao = dao,
-                transactionId = savedId,
+            AuditTrailEntry(
+                transactionId = 0L,
                 eventType = AuditEventType.EDITED,
                 actorName = actorDisplay,
                 summaryText = "$actorDisplay edited record terms (new hash ${computedHash.take(8)}…). Re-confirmation required.",
                 contentHashSnapshot = computedHash
             )
+        } else null
+
+        val savedId = if (auditEntry != null) {
+            dao.saveTransactionWithAuditAtomic(preparedTx, auditEntry)
+        } else {
+            dao.insertTransaction(preparedTx)
+        }
+
+        if (existingTx != null && termsChanged) {
             syncEditedTermsToCloudIfEnabled(preparedTx.copy(id = savedId), actorDisplay)
         }
 
@@ -223,12 +229,7 @@ open class LedgerRepository(
                     AttachmentManager.deleteAttachmentFile(ctx, att.localPath)
                 }
             }
-            dao.deleteAttachmentsForTransaction(txId)
-            dao.deletePartialPaymentsForTransaction(txId)
-            dao.deleteAuditTrailForTransaction(txId)
-            dao.deleteChatMessagesForTransaction(txId)
-            dao.deleteChatThreadsForTransaction(txId)
-            dao.deleteTransactionById(txId)
+            dao.deleteTransactionAtomic(txId)
         } else {
             dao.deleteTransaction(transaction)
         }
@@ -246,14 +247,11 @@ open class LedgerRepository(
         val settings = settingsRepository.userSettings.first()
         val actorName = settings.payeeName.ifBlank { "You" }
         if (transaction.isSettled) {
-            dao.updateTransaction(
-                transaction.copy(
-                    isSettled = false,
-                    settledAtMillis = null
-                )
+            val updatedTx = transaction.copy(
+                isSettled = false,
+                settledAtMillis = null
             )
-            AuditTrailHelper.appendLocalAuditEvent(
-                dao = dao,
+            val auditEntry = AuditTrailEntry(
                 transactionId = transaction.id,
                 eventType = AuditEventType.EDITED,
                 actorUserId = settings.cloudUserId,
@@ -261,16 +259,14 @@ open class LedgerRepository(
                 summaryText = "$actorName reopened settled record",
                 contentHashSnapshot = transaction.contentHash
             )
+            dao.toggleSettlementAtomic(updatedTx, auditEntry)
         } else {
             val now = System.currentTimeMillis()
-            dao.updateTransaction(
-                transaction.copy(
-                    isSettled = true,
-                    settledAtMillis = now
-                )
+            val updatedTx = transaction.copy(
+                isSettled = true,
+                settledAtMillis = now
             )
-            AuditTrailHelper.appendLocalAuditEvent(
-                dao = dao,
+            val auditEntry = AuditTrailEntry(
                 transactionId = transaction.id,
                 eventType = AuditEventType.SETTLED,
                 actorUserId = settings.cloudUserId,
@@ -279,6 +275,7 @@ open class LedgerRepository(
                 contentHashSnapshot = transaction.contentHash,
                 isAcknowledged = true
             )
+            dao.toggleSettlementAtomic(updatedTx, auditEntry)
         }
     }
 

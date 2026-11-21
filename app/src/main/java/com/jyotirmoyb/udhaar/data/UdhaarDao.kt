@@ -409,5 +409,214 @@ interface UdhaarDao {
 
         return insertedPaymentId
     }
+
+    @Transaction
+    suspend fun recordPartialPaymentAtomic(
+        payment: PartialPayment,
+        proofAttachment: Attachment?,
+        updatedTx: UdhaarTransaction,
+        auditEntry: AuditTrailEntry,
+        settledAuditEntry: AuditTrailEntry? = null
+    ): Long {
+        if (payment.remotePaymentId.isNotBlank()) {
+            val existing = getPartialPaymentsForTransactionSnapshot(payment.transactionId)
+            val duplicate = existing.firstOrNull { it.remotePaymentId == payment.remotePaymentId }
+            if (duplicate != null) return duplicate.id
+        }
+        val insertedPaymentId = insertPartialPayment(payment)
+        if (proofAttachment != null) {
+            insertAttachment(
+                proofAttachment.copy(
+                    id = 0L,
+                    transactionId = payment.transactionId,
+                    paymentId = insertedPaymentId
+                )
+            )
+        }
+        updateTransaction(updatedTx)
+        insertAuditTrailEntry(auditEntry.copy(transactionId = payment.transactionId))
+        if (settledAuditEntry != null) {
+            insertAuditTrailEntry(settledAuditEntry.copy(transactionId = payment.transactionId))
+        }
+        return insertedPaymentId
+    }
+
+    @Transaction
+    suspend fun deletePartialPaymentAtomic(
+        payment: PartialPayment,
+        updatedTx: UdhaarTransaction
+    ) {
+        deletePartialPayment(payment)
+        updateTransaction(updatedTx)
+    }
+
+    @Transaction
+    suspend fun deleteTransactionAtomic(transactionId: Long) {
+        deleteAttachmentsForTransaction(transactionId)
+        deletePartialPaymentsForTransaction(transactionId)
+        deleteAuditTrailForTransaction(transactionId)
+        deleteChatMessagesForTransaction(transactionId)
+        deleteChatThreadsForTransaction(transactionId)
+        deleteInstallmentPlanForTransaction(transactionId)
+        deleteTransactionById(transactionId)
+    }
+
+    @Transaction
+    suspend fun saveTransactionWithAuditAtomic(
+        transaction: UdhaarTransaction,
+        auditEntry: AuditTrailEntry
+    ): Long {
+        val savedId = insertTransaction(transaction)
+        insertAuditTrailEntry(auditEntry.copy(transactionId = savedId))
+        return savedId
+    }
+
+    @Transaction
+    suspend fun toggleSettlementAtomic(
+        updatedTx: UdhaarTransaction,
+        auditEntry: AuditTrailEntry
+    ) {
+        updateTransaction(updatedTx)
+        insertAuditTrailEntry(auditEntry.copy(transactionId = updatedTx.id))
+    }
+
+    @Transaction
+    suspend fun restoreLedgerDataAtomic(
+        replaceExisting: Boolean,
+        parties: List<PartyEntity>,
+        transactions: List<UdhaarTransaction>,
+        partialPayments: List<PartialPayment>,
+        attachments: List<Attachment> = emptyList(),
+        installmentPlans: List<InstallmentPlan> = emptyList(),
+        installments: List<Installment> = emptyList(),
+        chatThreads: List<ChatThreadMetadata> = emptyList(),
+        chatMessages: List<ChatMessageEntity> = emptyList()
+    ): Int {
+        if (replaceExisting) {
+            clearAllLedgerData()
+        }
+        val partyIdMap = mutableMapOf<Long, Long>()
+        for (party in parties) {
+            val existing = getPartyByName(party.name)
+            val newId = if (existing != null) {
+                updateParty(
+                    existing.copy(
+                        phoneNumber = party.phoneNumber.ifBlank { existing.phoneNumber },
+                        upiId = party.upiId.ifBlank { existing.upiId },
+                        email = party.email.ifBlank { existing.email },
+                        tagOrNotes = party.tagOrNotes.ifBlank { existing.tagOrNotes }
+                    )
+                )
+                existing.partyId
+            } else {
+                insertParty(party.copy(partyId = 0L))
+            }
+            if (party.partyId > 0L) {
+                partyIdMap[party.partyId] = newId
+            }
+        }
+
+        val txIdMap = mutableMapOf<Long, Long>()
+        var importedTxCount = 0
+        for (tx in transactions) {
+            val mappedPartyId = tx.partyId?.let { partyIdMap[it] }
+                ?: getPartyByName(tx.partyName)?.partyId
+            val insertedTxId = insertTransaction(
+                tx.copy(
+                    id = 0L,
+                    partyId = mappedPartyId
+                )
+            )
+            if (tx.id > 0L) {
+                txIdMap[tx.id] = insertedTxId
+            }
+            importedTxCount++
+        }
+
+        val paymentIdMap = mutableMapOf<Long, Long>()
+        for (payment in partialPayments) {
+            val targetTxId = txIdMap[payment.transactionId]
+            if (targetTxId != null) {
+                val insertedPaymentId = insertPartialPayment(
+                    payment.copy(
+                        id = 0L,
+                        transactionId = targetTxId
+                    )
+                )
+                if (payment.id > 0L) {
+                    paymentIdMap[payment.id] = insertedPaymentId
+                }
+            }
+        }
+
+        for (att in attachments) {
+            val targetTxId = txIdMap[att.transactionId]
+            if (targetTxId != null) {
+                val targetPaymentId = att.paymentId?.let { paymentIdMap[it] }
+                insertAttachment(
+                    att.copy(
+                        id = 0L,
+                        transactionId = targetTxId,
+                        paymentId = targetPaymentId
+                    )
+                )
+            }
+        }
+
+        val planIdMap = mutableMapOf<Long, Long>()
+        for (plan in installmentPlans) {
+            val targetTxId = txIdMap[plan.transactionId]
+            if (targetTxId != null) {
+                val insertedPlanId = insertInstallmentPlan(
+                    plan.copy(
+                        id = 0L,
+                        transactionId = targetTxId
+                    )
+                )
+                if (plan.id > 0L) {
+                    planIdMap[plan.id] = insertedPlanId
+                }
+            }
+        }
+
+        for (inst in installments) {
+            val targetPlanId = planIdMap[inst.planId]
+            if (targetPlanId != null) {
+                val targetPaymentId = inst.paymentId?.let { paymentIdMap[it] }
+                insertInstallment(
+                    inst.copy(
+                        id = 0L,
+                        planId = targetPlanId,
+                        paymentId = targetPaymentId
+                    )
+                )
+            }
+        }
+
+        for (th in chatThreads) {
+            val mappedTxId = th.transactionId?.let { txIdMap[it] }
+            val mappedPartyId = th.partyId?.let { partyIdMap[it] }
+            upsertChatThreadMetadata(
+                th.copy(
+                    transactionId = mappedTxId,
+                    partyId = mappedPartyId
+                )
+            )
+        }
+
+        for (msg in chatMessages) {
+            val mappedTxId = msg.transactionId?.let { txIdMap[it] }
+            val mappedPartyId = msg.partyId?.let { partyIdMap[it] }
+            insertChatMessage(
+                msg.copy(
+                    id = 0L,
+                    transactionId = mappedTxId,
+                    partyId = mappedPartyId
+                )
+            )
+        }
+
+        return importedTxCount
+    }
 }
 

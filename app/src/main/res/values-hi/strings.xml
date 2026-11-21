@@ -510,10 +510,16 @@
     <string name="db_encryption_subtitle_yes">आपके फोन में 256-बिट सुरक्षित स्टोरेज चालू है</string>
     <string name="db_encryption_subtitle_migrating">स्थानीय डेटाबेस को एन्क्रिप्ट और सत्यापित किया जा रहा है…</string>
     <string name="db_encryption_subtitle_failed">स्थानीय डेटाबेस अभी एन्क्रिप्ट नहीं है। पुनः प्रयास करने के लिए टैप करें।</string>
-    <string name="sqlcipher_error_title">एन्क्रिप्टेड स्टोरेज आवश्यक है</string>
+    <string name="sqlcipher_error_title">सुरक्षित स्टोरेज अनुपलब्ध है (Secure storage unavailable)</string>
     <string name="sqlcipher_error_body">इस फोन पर सुरक्षित स्टोरेज शुरू नहीं हो सका। आपके वित्तीय रिकॉर्ड की सुरक्षा के लिए बिना सुरक्षा का खाता नहीं बनाया जाएगा।</string>
     <string name="sqlcipher_error_export_backup">बैकअप निर्यात करें (Export backup)</string>
+    <string name="sqlcipher_error_restore_backup">बैकअप पुनर्स्थापित करें (Restore backup)</string>
     <string name="sqlcipher_error_try_again">पुनः प्रयास करें (Try again)</string>
+    <string name="sqlcipher_error_reset_app_data">ऐप डेटा रीसेट करें (Reset app data)</string>
+    <string name="sqlcipher_error_reset_confirm_title">सारा ऐप डेटा रीसेट करें?</string>
+    <string name="sqlcipher_error_reset_confirm_body">यह स्थानीय ऋण रिकॉर्ड, अनुलग्नक और एन्क्रिप्शन कुंजियों को हमेशा के लिए हटा देगा। इसका उपयोग तब करें जब स्क्रीन लॉक बदलने से सुरक्षा कुंजियाँ अमान्य हो गई हों। इसे वापस नहीं लाया जा सकता।</string>
+    <string name="sqlcipher_error_reset_confirm_action">डेटा रीसेट करें</string>
+    <string name="sqlcipher_error_reset_cancel_action">रद्द करें</string>
     <string name="export_local_udhaar_backup">एन्क्रिप्टेड .udhaar निर्यात करें</string>
     <string name="cloud_backup_status_backing_up">बैकअप हो रहा है… (Backing up…)</string>
     <string name="cloud_backup_status_just_now">बैकअप पूरा • अभी (Backed up • Just now)</string>

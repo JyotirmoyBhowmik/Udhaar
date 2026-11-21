@@ -886,16 +886,26 @@ abstract class UdhaarDatabase : RoomDatabase() {
                     "udhaar_ledger.db"
                 )
                     .addMigrations(*ALL_MIGRATIONS)
-                    .fallbackToDestructiveMigrationOnDowngrade()
+                    /* [LEGACY-DISABLED: Spark/Zero-Plaintext Policy]
+                     * fallbackToDestructiveMigrationOnDowngrade silently wipes user data on downgrade.
+                     * Reason: Data preservation rule; app must fail closed and alert user instead of destroying ledger data.
+                     * Restore notes: Only re-enable in internal debug builds if explicitly required.
+                     * .fallbackToDestructiveMigrationOnDowngrade()
+                     */
 
-                val configuredBuilder = com.jyotirmoyb.udhaar.security.EncryptedStorageManager
-                    .configureSqlCipherForRoom(appCtx, baseBuilder, "udhaar_ledger.db")
+                val configuredBuilder = try {
+                    com.jyotirmoyb.udhaar.security.EncryptedStorageManager
+                        .configureSqlCipherForRoom(appCtx, baseBuilder, "udhaar_ledger.db")
+                } catch (t: Throwable) {
+                    com.jyotirmoyb.udhaar.util.SafeLogger.e("UdhaarDatabase", "configureSqlCipherForRoom failed closed", t)
+                    null
+                }
 
                 // If SQLCipher failed on a fresh install or existing encrypted database, do NOT
                 // open an encrypted file with plain SQLite or create an unencrypted file on disk.
                 // Return a temporary in-memory database so the UI can render the blocking error screen
                 // with "Export backup" and "Try again".
-                if (com.jyotirmoyb.udhaar.security.EncryptedStorageManager.blockingStartupErrorFlow.value != null) {
+                if (configuredBuilder == null || com.jyotirmoyb.udhaar.security.EncryptedStorageManager.blockingStartupErrorFlow.value != null) {
                     val fallback = existing ?: Room.inMemoryDatabaseBuilder(
                         appCtx,
                         UdhaarDatabase::class.java
@@ -942,7 +952,12 @@ abstract class UdhaarDatabase : RoomDatabase() {
                                         "udhaar_ledger.db"
                                     )
                                         .addMigrations(*ALL_MIGRATIONS)
-                                        .fallbackToDestructiveMigrationOnDowngrade()
+                                        /* [LEGACY-DISABLED: Spark/Zero-Plaintext Policy]
+                                         * fallbackToDestructiveMigrationOnDowngrade silently wipes user data on downgrade.
+                                         * Reason: Data preservation rule; app must fail closed and alert user instead of destroying ledger data.
+                                         * Restore notes: Only re-enable in internal debug builds if explicitly required.
+                                         * .fallbackToDestructiveMigrationOnDowngrade()
+                                         */
                                     val retryConfigured = com.jyotirmoyb.udhaar.security.EncryptedStorageManager
                                         .configureSqlCipherForRoom(appCtx, retryBuilder, "udhaar_ledger.db")
                                     instance = retryConfigured.build()
@@ -998,6 +1013,10 @@ abstract class UdhaarDatabase : RoomDatabase() {
                     com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.ENCRYPTED &&
                     com.jyotirmoyb.udhaar.security.EncryptedStorageManager.blockingStartupErrorFlow.value == null
             }
+        }
+
+        fun resetInstance() {
+            resetInstanceForTesting()
         }
 
         fun resetInstanceForTesting() {

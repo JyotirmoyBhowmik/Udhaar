@@ -61,12 +61,16 @@ fun BreakdownLine(
 fun SqlCipherBlockingErrorScreen(
     errorMessage: String,
     onExportBackup: () -> Unit,
-    onTryAgain: () -> Unit
+    onTryAgain: () -> Unit,
+    onRestoreBackup: (() -> Unit)? = null,
+    onResetAppData: (() -> Unit)? = null
 ) {
     CommonSqlCipherBlockingErrorScreen(
         errorMessage = errorMessage,
         onExportBackup = onExportBackup,
-        onTryAgain = onTryAgain
+        onTryAgain = onTryAgain,
+        onRestoreBackup = onRestoreBackup,
+        onResetAppData = onResetAppData
     )
 }
 

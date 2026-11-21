@@ -511,10 +511,16 @@
     <string name="db_encryption_subtitle_yes">256-bit Secure storage AES database encryption active with Android Phone secure storage key</string>
     <string name="db_encryption_subtitle_migrating">Encrypting local database and verifying table integrity…</string>
     <string name="db_encryption_subtitle_failed">Local database is not encrypted yet. Tap here to retry encryption.</string>
-    <string name="sqlcipher_error_title">Encrypted Storage Required</string>
+    <string name="sqlcipher_error_title">Secure storage unavailable</string>
     <string name="sqlcipher_error_body">Udhaar could not initialize Secure storage encrypted storage on this device. To protect your financial records, Udhaar will not create an unencrypted database.</string>
     <string name="sqlcipher_error_export_backup">Export backup</string>
+    <string name="sqlcipher_error_restore_backup">Restore backup</string>
     <string name="sqlcipher_error_try_again">Try again</string>
+    <string name="sqlcipher_error_reset_app_data">Reset app data</string>
+    <string name="sqlcipher_error_reset_confirm_title">Reset all app data?</string>
+    <string name="sqlcipher_error_reset_confirm_body">This will permanently delete local loan records, attachments, and encryption keys. Use this if your device lock screen was changed and device security keys are permanently invalidated. This cannot be undone.</string>
+    <string name="sqlcipher_error_reset_confirm_action">Reset data</string>
+    <string name="sqlcipher_error_reset_cancel_action">Cancel</string>
     <string name="export_local_udhaar_backup">Export Encrypted .udhaar</string>
     <string name="cloud_backup_status_backing_up">Backing up…</string>
     <string name="cloud_backup_status_just_now">Backed up • Just now</string>

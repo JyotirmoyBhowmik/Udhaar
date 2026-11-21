@@ -23,8 +23,11 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+import com.jyotirmoyb.udhaar.util.SafeLogger
 
 typealias DbEncryptionState = EncryptedStorageManager.DbEncryptionState
+
+class SecureStorageException(message: String, cause: Throwable? = null) : SecurityException(message, cause)
 
 /**
  * Provides hardware-backed Android Keystore (MasterKey) + EncryptedSharedPreferences
@@ -127,7 +130,7 @@ object EncryptedStorageManager {
         if (isRunningOnJvmRobolectric()) {
             return appContext.getSharedPreferences(fileName, Context.MODE_PRIVATE)
         }
-        return runCatching {
+        return try {
             val masterKey = getOrCreateMasterKey(appContext)
             EncryptedSharedPreferences.create(
                 appContext,
@@ -136,8 +139,27 @@ object EncryptedStorageManager {
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )
-        }.getOrElse {
-            appContext.getSharedPreferences("${fileName}_fallback", Context.MODE_PRIVATE)
+        } catch (t: Throwable) {
+            SafeLogger.e("EncryptedStorageManager", "EncryptedSharedPreferences creation failed ($fileName)", t)
+            val isKeyInvalidated = t is android.security.keystore.KeyPermanentlyInvalidatedException ||
+                t.cause is android.security.keystore.KeyPermanentlyInvalidatedException ||
+                t is android.security.keystore.UserNotAuthenticatedException ||
+                t.cause is android.security.keystore.UserNotAuthenticatedException
+            val errDetail = if (isKeyInvalidated) {
+                SafeLogger.recordNonFatal("EncryptedStorageManager", "KEYSTORE_KEY_INVALIDATED", t)
+                "Android Keystore key invalidated (device lock state changed). Local secure storage is locked."
+            } else {
+                SafeLogger.recordNonFatal("EncryptedStorageManager", "SECURE_STORAGE_UNAVAILABLE", t)
+                "Secure storage unavailable: ${t.message ?: t.javaClass.simpleName}"
+            }
+            _blockingStartupErrorFlow.value = errDetail
+            /* [LEGACY-DISABLED: Spark/Zero-Plaintext Policy]
+             * Fallback to unencrypted SharedPreferences when EncryptedSharedPreferences/Keystore fails.
+             * Reason: Encryption must fail closed to prevent sensitive tokens, keys, and settings from leaking in plaintext.
+             * Restore notes: Never restore plaintext fallback in production. The app must prompt the user via the recovery screen.
+             * appContext.getSharedPreferences("${fileName}_fallback", Context.MODE_PRIVATE)
+             */
+            throw SecureStorageException(errDetail, t)
         }
     }
 
@@ -308,10 +330,18 @@ object EncryptedStorageManager {
                 dbFile = dbFile
             )
             if (!migrated) {
-                // Keep the original plain database untouched, record FAILED (already recorded),
-                // and open the untouched plain database so no user records are lost while retry is pending.
-                _blockingStartupErrorFlow.value = null
-                return builder
+                val errMsg = getLastEncryptionError(appContext)
+                    ?: "Database encryption migration failed. Plain database cannot be opened."
+                _blockingStartupErrorFlow.value = errMsg
+                SafeLogger.recordNonFatal("EncryptedStorageManager", "SQLCIPHER_MIGRATION_FAILED")
+                /* [LEGACY-DISABLED: Spark/Zero-Plaintext Policy]
+                 * Opening untouched plain SQLite database when plain-to-encrypted migration fails.
+                 * Reason: Plaintext databases are strictly forbidden. System must fail closed.
+                 * Restore notes: Never open unencrypted database in production.
+                 * _blockingStartupErrorFlow.value = null
+                 * return builder
+                 */
+                throw SecureStorageException(errMsg)
             }
         } else {
             // Fresh install or already encrypted database: NO silent fallback to plain database.
@@ -320,7 +350,14 @@ object EncryptedStorageManager {
                 val errMsg = getLastEncryptionError(appContext)
                     ?: "SQLCipher encrypted storage could not be initialized on this device."
                 _blockingStartupErrorFlow.value = errMsg
-                return builder
+                SafeLogger.recordNonFatal("EncryptedStorageManager", "SQLCIPHER_INIT_FAILED")
+                /* [LEGACY-DISABLED: Spark/Zero-Plaintext Policy]
+                 * Returning unencrypted Room builder when SQLCipher initialization fails.
+                 * Reason: System must fail closed; never create an unencrypted database file.
+                 * Restore notes: Throw SecureStorageException to trigger blocking recovery screen.
+                 * return builder
+                 */
+                throw SecureStorageException(errMsg)
             }
         }
 
@@ -964,8 +1001,17 @@ object EncryptedStorageManager {
         }.getOrDefault(false)
     }
 
+    private var jvmTestSoftwareKey: SecretKey? = null
+
     private fun getOrCreateHardwareKey(): SecretKey? {
-        if (isRunningOnJvmRobolectric()) return null
+        if (isRunningOnJvmRobolectric()) {
+            if (jvmTestSoftwareKey == null) {
+                val keyGen = KeyGenerator.getInstance("AES")
+                keyGen.init(256)
+                jvmTestSoftwareKey = keyGen.generateKey()
+            }
+            return jvmTestSoftwareKey
+        }
         return runCatching {
             val keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER).apply { load(null) }
             val existing = keyStore.getEntry(DB_KEY_ALIAS, null) as? KeyStore.SecretKeyEntry
@@ -988,17 +1034,28 @@ object EncryptedStorageManager {
     private fun wrapWithKeystoreOrEncode(plainBytes: ByteArray): String {
         val secretKey = getOrCreateHardwareKey()
         if (secretKey != null) {
-            runCatching {
+            val wrapped = runCatching {
                 val cipher = Cipher.getInstance(AES_GCM_TRANSFORMATION)
                 cipher.init(Cipher.ENCRYPT_MODE, secretKey)
                 val iv = cipher.iv
                 val cipherText = cipher.doFinal(plainBytes)
                 val ivB64 = Base64.encodeToString(iv, Base64.NO_WRAP)
                 val ctB64 = Base64.encodeToString(cipherText, Base64.NO_WRAP)
-                return "KS1:$ivB64:$ctB64"
+                "KS1:$ivB64:$ctB64"
+            }.getOrNull()
+            if (wrapped != null) {
+                return wrapped
             }
         }
-        return "RAW:" + Base64.encodeToString(plainBytes, Base64.NO_WRAP)
+        SafeLogger.recordNonFatal("EncryptedStorageManager", "KEYSTORE_WRAP_FAILED")
+        _blockingStartupErrorFlow.value = "Hardware keystore encryption unavailable for database key wrapping."
+        /* [LEGACY-DISABLED: Spark/Zero-Plaintext Policy]
+         * Plaintext Base64 fallback for database key wrapping when Android Keystore fails.
+         * Reason: Encryption must fail closed; the database passphrase must NEVER be stored in plaintext.
+         * Restore notes: Never restore plaintext fallback in production. If Keystore fails, show recovery screen.
+         * return "RAW:" + Base64.encodeToString(plainBytes, Base64.NO_WRAP)
+         */
+        throw SecureStorageException("Android Keystore unavailable for database key wrapping")
     }
 
     private fun unwrapWithKeystoreOrDecode(serialized: String): ByteArray? {
@@ -1014,11 +1071,73 @@ object EncryptedStorageManager {
                 cipher.doFinal(cipherText)
             }.getOrNull()
         }
-        if (serialized.startsWith("RAW:")) {
-            return runCatching {
-                Base64.decode(serialized.removePrefix("RAW:"), Base64.NO_WRAP)
-            }.getOrNull()
-        }
+        /* [LEGACY-DISABLED: Spark/Zero-Plaintext Policy]
+         * Reading plaintext Base64 database passphrase with RAW: prefix.
+         * Reason: Plaintext fallback database passphrases are prohibited under fail-closed security.
+         * Restore notes: Legacy RAW: blobs must be rejected; recovery screen must guide user to restore or reinitialize.
+         * if (serialized.startsWith("RAW:")) {
+         *     return runCatching {
+         *         Base64.decode(serialized.removePrefix("RAW:"), Base64.NO_WRAP)
+         *     }.getOrNull()
+         * }
+         */
         return null
+    }
+
+    /**
+     * Securely clears all local database files, attachments, and Keystore keys
+     * when the Keystore is permanently invalidated or the user explicitly confirms app reset.
+     */
+    @Synchronized
+    fun resetAppDataSecurely(context: Context) {
+        val appContext = context.applicationContext
+        // 1. Delete database files
+        val dbFile = appContext.getDatabasePath("udhaar_ledger.db")
+        listOf(
+            dbFile,
+            File(dbFile.parentFile, "${dbFile.name}-wal"),
+            File(dbFile.parentFile, "${dbFile.name}-shm"),
+            File(dbFile.parentFile, "${dbFile.name}.pre_restore_safety")
+        ).forEach { f ->
+            if (f.exists()) {
+                secureDeleteFile(f)
+            }
+        }
+
+        // 2. Clear attachments
+        val attachDir = File(appContext.filesDir, "attachments")
+        if (attachDir.exists()) {
+            attachDir.listFiles()?.forEach { secureDeleteFile(it) }
+        }
+
+        // 3. Delete Keystore keys
+        runCatching {
+            val keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER).apply { load(null) }
+            if (keyStore.containsAlias(DB_KEY_ALIAS)) {
+                keyStore.deleteEntry(DB_KEY_ALIAS)
+            }
+            if (keyStore.containsAlias(MasterKey.DEFAULT_MASTER_KEY_ALIAS)) {
+                keyStore.deleteEntry(MasterKey.DEFAULT_MASTER_KEY_ALIAS)
+            }
+        }
+
+        // 4. Clear wrap and encrypted prefs
+        listOf(
+            FALLBACK_WRAP_FILE,
+            ENCRYPTED_SETTINGS_FILE,
+            ENCRYPTED_SECURITY_FILE,
+            "udhaar_token_store_prefs"
+        ).forEach { prefName ->
+            runCatching {
+                val prefFile = File(appContext.filesDir.parentFile, "shared_prefs/$prefName.xml")
+                if (prefFile.exists()) {
+                    secureDeleteFile(prefFile)
+                }
+            }
+        }
+
+        // 5. Reset internal states
+        _encryptionStateFlow.value = DbEncryptionState.NONE
+        _blockingStartupErrorFlow.value = null
     }
 }

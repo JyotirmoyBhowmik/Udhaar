@@ -233,7 +233,17 @@ class PinSecurityManager(context: Context) {
         }
     }
 
+    private var jvmTestSoftwareKey: SecretKey? = null
+
     private fun getOrCreateKeystoreSecretKey(): SecretKey? {
+        if (EncryptedStorageManager.isRunningOnJvmRobolectric()) {
+            if (jvmTestSoftwareKey == null) {
+                val keyGen = KeyGenerator.getInstance("AES")
+                keyGen.init(256)
+                jvmTestSoftwareKey = keyGen.generateKey()
+            }
+            return jvmTestSoftwareKey
+        }
         return runCatching {
             val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
             val existingKey = keyStore.getKey(KEYSTORE_ALIAS, null) as? SecretKey
@@ -259,17 +269,24 @@ class PinSecurityManager(context: Context) {
     private fun encryptWithKeystoreOrEncode(rawHash: ByteArray): String {
         val secretKey = getOrCreateKeystoreSecretKey()
         if (secretKey != null) {
-            runCatching {
+            val wrapped = runCatching {
                 val cipher = Cipher.getInstance(AES_GCM_TRANSFORMATION)
                 cipher.init(Cipher.ENCRYPT_MODE, secretKey)
                 val iv = cipher.iv
                 val cipherText = cipher.doFinal(rawHash)
                 val ivB64 = Base64.encodeToString(iv, Base64.NO_WRAP)
                 val ctB64 = Base64.encodeToString(cipherText, Base64.NO_WRAP)
-                return "KS1:$ivB64:$ctB64"
-            }
+                "KS1:$ivB64:$ctB64"
+            }.getOrNull()
+            if (wrapped != null) return wrapped
         }
-        return "RAW1:" + Base64.encodeToString(rawHash, Base64.NO_WRAP)
+        /* [LEGACY-DISABLED: Spark/Zero-Plaintext Policy]
+         * Plaintext Base64 fallback for PIN and backup passphrase vault when Android Keystore fails.
+         * Reason: Encryption must fail closed; raw hash and backup passphrase blobs must NEVER be stored in plaintext.
+         * Restore notes: Fail closed with SecureStorageException.
+         * return "RAW1:" + Base64.encodeToString(rawHash, Base64.NO_WRAP)
+         */
+        throw SecureStorageException("Android Keystore encryption unavailable for PIN vault")
     }
 
     private fun decryptWithKeystoreOrDecode(blob: String): ByteArray? {
@@ -286,10 +303,15 @@ class PinSecurityManager(context: Context) {
                     cipher.doFinal(cipherText)
                 }.getOrNull()
             }
-            blob.startsWith("RAW1:") -> {
-                val b64 = blob.removePrefix("RAW1:")
-                runCatching { Base64.decode(b64, Base64.NO_WRAP) }.getOrNull()
-            }
+            /* [LEGACY-DISABLED: Spark/Zero-Plaintext Policy]
+             * Reading plaintext Base64 PIN blob with RAW1: prefix.
+             * Reason: Plaintext fallback PIN blobs are prohibited under fail-closed security.
+             * Restore notes: Legacy RAW1: blobs must be rejected.
+             * blob.startsWith("RAW1:") -> {
+             *     val b64 = blob.removePrefix("RAW1:")
+             *     runCatching { Base64.decode(b64, Base64.NO_WRAP) }.getOrNull()
+             * }
+             */
             else -> null
         }
     }

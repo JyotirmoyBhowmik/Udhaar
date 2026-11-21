@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -30,8 +31,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -237,8 +241,53 @@ val UpiMaskVisualTransformation = VisualTransformation { text ->
 fun SqlCipherBlockingErrorScreen(
     errorMessage: String,
     onExportBackup: () -> Unit,
-    onTryAgain: () -> Unit
+    onTryAgain: () -> Unit,
+    onRestoreBackup: (() -> Unit)? = null,
+    onResetAppData: (() -> Unit)? = null
 ) {
+    var showResetConfirmDialog by remember { mutableStateOf(false) }
+
+    if (showResetConfirmDialog && onResetAppData != null) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirmDialog = false },
+            title = {
+                Text(
+                    text = stringResource(R.string.sqlcipher_error_reset_confirm_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(R.string.sqlcipher_error_reset_confirm_body),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showResetConfirmDialog = false
+                        onResetAppData()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    ),
+                    modifier = Modifier.testTag("sqlcipher_error_confirm_reset_button")
+                ) {
+                    Text(text = stringResource(R.string.sqlcipher_error_reset_confirm_action))
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showResetConfirmDialog = false }
+                ) {
+                    Text(text = stringResource(R.string.sqlcipher_error_reset_cancel_action))
+                }
+            }
+        )
+    }
+
     Surface(
         modifier = Modifier
             .fillMaxSize()
@@ -290,10 +339,49 @@ fun SqlCipherBlockingErrorScreen(
                         textAlign = TextAlign.Center
                     )
                 }
+
+                Button(
+                    onClick = onTryAgain,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .pressScaleFeedback()
+                        .testTag("sqlcipher_error_try_again_button"),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(R.string.sqlcipher_error_try_again),
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    if (onRestoreBackup != null) {
+                        OutlinedButton(
+                            onClick = onRestoreBackup,
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp)
+                                .pressScaleFeedback()
+                                .testTag("sqlcipher_error_restore_backup_button"),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.sqlcipher_error_restore_backup),
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+                    }
                     OutlinedButton(
                         onClick = onExportBackup,
                         modifier = Modifier
@@ -302,32 +390,28 @@ fun SqlCipherBlockingErrorScreen(
                             .pressScaleFeedback()
                             .testTag("sqlcipher_error_export_backup_button"),
                         shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                     ) {
                         Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = stringResource(R.string.sqlcipher_error_export_backup),
-                            style = MaterialTheme.typography.labelLarge
+                            style = MaterialTheme.typography.labelMedium
                         )
                     }
-                    Button(
-                        onClick = onTryAgain,
+                }
+
+                if (onResetAppData != null) {
+                    TextButton(
+                        onClick = { showResetConfirmDialog = true },
                         modifier = Modifier
-                            .weight(1f)
-                            .heightIn(min = 48.dp)
-                            .pressScaleFeedback()
-                            .testTag("sqlcipher_error_try_again_button"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
-                        )
+                            .fillMaxWidth()
+                            .heightIn(min = 44.dp)
+                            .testTag("sqlcipher_error_reset_app_data_button")
                     ) {
-                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = stringResource(R.string.sqlcipher_error_try_again),
+                            text = stringResource(R.string.sqlcipher_error_reset_app_data),
+                            color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.labelLarge
                         )
                     }

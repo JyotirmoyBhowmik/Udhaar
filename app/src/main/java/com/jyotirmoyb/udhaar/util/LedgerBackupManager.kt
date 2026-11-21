@@ -298,6 +298,9 @@ object LedgerBackupManager {
         val root = JSONObject(jsonString)
         val exportType = root.optString("exportType", "FULL_LEDGER")
         val schemaVersion = root.optInt("schemaVersion", 1)
+        if (schemaVersion < 1 || schemaVersion > 13) {
+            throw IllegalArgumentException("Unsupported backup schema version: $schemaVersion (supported: 1..13)")
+        }
 
         val parties = mutableListOf<PartyEntity>()
         val partiesArray = root.optJSONArray("parties") ?: JSONArray()

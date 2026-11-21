@@ -233,67 +233,150 @@ open class BackupRepository(
         }
     }
 
-    suspend fun restoreFullLedgerBackup(
-        backup: ParsedLedgerBackup,
-        replaceExisting: Boolean
-    ): Int {
-        if (replaceExisting) {
-            dao.clearAllLedgerData()
+    companion object {
+        const val MAX_BACKUP_ATTACHMENTS = 500
+        const val MAX_BACKUP_ATTACHMENT_BYTES = 50 * 1024 * 1024L // 50 MB
+        const val MAX_SUPPORTED_SCHEMA_VERSION = 13
+
+        fun sanitizeAttachmentPath(targetDir: File, fileName: String): File {
+            val trimmed = fileName.trim()
+            if (trimmed.isBlank() || trimmed.contains("..") || trimmed.startsWith("/") || trimmed.startsWith("\\") || trimmed.contains(":")) {
+                throw SecurityException("Unsafe attachment path rejected in backup: $fileName")
+            }
+            val safeName = File(trimmed).name
+            val dest = File(targetDir, safeName)
+            val canonicalDest = dest.canonicalPath
+            val canonicalTarget = targetDir.canonicalPath + File.separator
+            if (!canonicalDest.startsWith(canonicalTarget)) {
+                throw SecurityException("Zip-slip path traversal rejected for attachment: $fileName")
+            }
+            return dest
         }
 
-        if (backup.settings.isNotEmpty()) {
-            val s = backup.settings
-            val upi = s["upiId"] as? String
-            val payee = s["payeeName"] as? String
-            val phone = s["phoneNumber"] as? String
-            val currStr = s["defaultCurrency"] as? String
-            val curr = currStr?.let { runCatching { CurrencyType.valueOf(it) }.getOrNull() } ?: CurrencyType.INR
-            val inr = s["inrEnabled"] as? Boolean
-            val npr = s["nprEnabled"] as? Boolean
-            val themeStr = s["themeMode"] as? String
-            val theme = themeStr?.let { runCatching { AppThemeMode.valueOf(it) }.getOrNull() }
-            val fontStr = s["fontScale"] as? String
-            val font = fontStr?.let { runCatching { AppFontScale.valueOf(it) }.getOrNull() }
-
-            settingsRepository.updateSettings(
-                upiId = upi.orEmpty(),
-                payeeName = payee.orEmpty(),
-                defaultCurrency = curr,
-                inrEnabled = inr,
-                nprEnabled = npr,
-                themeMode = theme,
-                fontScale = font,
-                phoneNumber = phone
-            )
+        private fun takeSafetySnapshot(ctx: Context?): List<File> {
+            val c = ctx ?: return emptyList()
+            val dbFile = c.getDatabasePath("udhaar_ledger.db")
+            if (!dbFile.exists() || dbFile.length() == 0L) return emptyList()
+            val safetyList = mutableListOf<File>()
+            listOf(
+                dbFile,
+                File(dbFile.parentFile, "${dbFile.name}-wal"),
+                File(dbFile.parentFile, "${dbFile.name}-shm")
+            ).forEach { f ->
+                if (f.exists() && f.length() > 0L) {
+                    runCatching {
+                        val safetyCopy = File(f.parentFile, "${f.name}.pre_restore_safety")
+                        f.copyTo(safetyCopy, overwrite = true)
+                        safetyList.add(safetyCopy)
+                    }
+                }
+            }
+            return safetyList
         }
 
-        context?.filesDir?.let { fDir ->
-            val attachDir = File(fDir, "attachments").apply { mkdirs() }
-            for ((name, b64) in backup.attachments) {
+        private fun rollbackSafetySnapshot(ctx: Context?, safetyList: List<File>) {
+            safetyList.forEach { safety ->
                 runCatching {
-                    val bytes = android.util.Base64.decode(b64, android.util.Base64.NO_WRAP)
-                    File(attachDir, name).writeBytes(bytes)
+                    val origName = safety.name.removeSuffix(".pre_restore_safety")
+                    val origFile = File(safety.parentFile, origName)
+                    safety.copyTo(origFile, overwrite = true)
+                    safety.delete()
                 }
             }
         }
 
-        val importedTxCount = importLedgerData(
-            parties = backup.parties,
-            transactions = backup.transactions,
-            partialPayments = backup.partialPayments,
-            attachments = backup.attachmentRecords,
-            installmentPlans = backup.installmentPlans,
-            installments = backup.installments
-        )
-
-        for (th in backup.chatThreads) {
-            dao.upsertChatThreadMetadata(th)
+        private fun cleanupSafetySnapshot(safetyList: List<File>) {
+            safetyList.forEach { runCatching { it.delete() } }
         }
-        for (msg in backup.chatMessages) {
-            dao.insertChatMessage(msg.copy(id = 0L))
+    }
+
+    suspend fun restoreFullLedgerBackup(
+        backup: ParsedLedgerBackup,
+        replaceExisting: Boolean
+    ): Int {
+        // 1. Validation BEFORE touching live data
+        if (backup.schemaVersion < 1 || backup.schemaVersion > MAX_SUPPORTED_SCHEMA_VERSION) {
+            throw IllegalArgumentException("Unsupported backup schema version: ${backup.schemaVersion}")
+        }
+        if (backup.attachments.size > MAX_BACKUP_ATTACHMENTS) {
+            throw SecurityException("Backup attachment count (${backup.attachments.size}) exceeds limit ($MAX_BACKUP_ATTACHMENTS)")
         }
 
-        return importedTxCount
+        var totalDecodedBytes = 0L
+        val decodedAttachments = mutableListOf<Pair<String, ByteArray>>()
+        for ((name, b64) in backup.attachments) {
+            // Verify path safety up-front
+            val fakeDir = File("validation_temp")
+            sanitizeAttachmentPath(fakeDir, name)
+
+            val bytes = android.util.Base64.decode(b64, android.util.Base64.NO_WRAP)
+            totalDecodedBytes += bytes.size
+            if (totalDecodedBytes > MAX_BACKUP_ATTACHMENT_BYTES) {
+                throw SecurityException("Backup total attachment size ($totalDecodedBytes bytes) exceeds safety limit")
+            }
+            decodedAttachments.add(name to bytes)
+        }
+
+        // 2. Pre-restore safety snapshot
+        val safetyFiles = if (replaceExisting) takeSafetySnapshot(context) else emptyList()
+
+        return try {
+            // 3. Atomically restore all database entities in ONE Room transaction
+            val importedTxCount = dao.restoreLedgerDataAtomic(
+                replaceExisting = replaceExisting,
+                parties = backup.parties,
+                transactions = backup.transactions,
+                partialPayments = backup.partialPayments,
+                attachments = backup.attachmentRecords,
+                installmentPlans = backup.installmentPlans,
+                installments = backup.installments,
+                chatThreads = backup.chatThreads,
+                chatMessages = backup.chatMessages
+            )
+
+            // 4. Update user settings if present
+            if (backup.settings.isNotEmpty()) {
+                val s = backup.settings
+                val upi = s["upiId"] as? String
+                val payee = s["payeeName"] as? String
+                val phone = s["phoneNumber"] as? String
+                val currStr = s["defaultCurrency"] as? String
+                val curr = currStr?.let { runCatching { CurrencyType.valueOf(it) }.getOrNull() } ?: CurrencyType.INR
+                val inr = s["inrEnabled"] as? Boolean
+                val npr = s["nprEnabled"] as? Boolean
+                val themeStr = s["themeMode"] as? String
+                val theme = themeStr?.let { runCatching { AppThemeMode.valueOf(it) }.getOrNull() }
+                val fontStr = s["fontScale"] as? String
+                val font = fontStr?.let { runCatching { AppFontScale.valueOf(it) }.getOrNull() }
+
+                settingsRepository.updateSettings(
+                    upiId = upi.orEmpty(),
+                    payeeName = payee.orEmpty(),
+                    defaultCurrency = curr,
+                    inrEnabled = inr,
+                    nprEnabled = npr,
+                    themeMode = theme,
+                    fontScale = font,
+                    phoneNumber = phone
+                )
+            }
+
+            // 5. Write attachments using sanitized path resolution
+            context?.filesDir?.let { fDir ->
+                val attachDir = File(fDir, "attachments").apply { mkdirs() }
+                for ((name, bytes) in decodedAttachments) {
+                    val safeFile = sanitizeAttachmentPath(attachDir, name)
+                    safeFile.writeBytes(bytes)
+                }
+            }
+
+            cleanupSafetySnapshot(safetyFiles)
+            importedTxCount
+        } catch (t: Throwable) {
+            SafeLogger.e("BackupRepository", "Restore failed. Rolling back to pre-restore safety snapshot.", t)
+            rollbackSafetySnapshot(context, safetyFiles)
+            throw t
+        }
     }
 
     suspend fun buildFullLedgerJson(): UdhaarResult<String> {

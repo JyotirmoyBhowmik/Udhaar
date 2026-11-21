@@ -344,6 +344,26 @@ class UdhaarViewModel(
         }
     }
 
+    fun resetAppDataAfterKeystoreInvalidation(onComplete: ((Boolean) -> Unit)? = null) {
+        val ctx = appContext
+        if (ctx == null) {
+            onComplete?.invoke(false)
+            return
+        }
+        viewModelScope.launch {
+            val ok = runCatching {
+                com.jyotirmoyb.udhaar.security.EncryptedStorageManager.resetAppDataSecurely(ctx)
+                com.jyotirmoyb.udhaar.data.UdhaarDatabase.resetInstance()
+                true
+            }.getOrDefault(false)
+            val newState = EncryptedStorageManager.getDatabaseEncryptionState(ctx)
+            val err = EncryptedStorageManager.blockingStartupErrorFlow.value
+            appStateHolder.setDbEncryptionState(newState)
+            appStateHolder.setBlockingSqlCipherError(err)
+            onComplete?.invoke(ok)
+        }
+    }
+
     fun markAuthenticated() = settingsViewModel.markAuthenticated()
     fun verifyPin(candidatePin: String): PinVerificationResult = settingsViewModel.verifyPin(candidatePin)
     fun getPinLockoutRemainingMillis(): Long = settingsViewModel.getPinLockoutRemainingMillis()

@@ -2,6 +2,7 @@ package com.jyotirmoyb.udhaar.data.repository
 
 import com.jyotirmoyb.udhaar.data.Attachment
 import com.jyotirmoyb.udhaar.data.AuditEventType
+import com.jyotirmoyb.udhaar.data.AuditTrailEntry
 import com.jyotirmoyb.udhaar.data.PartialPayment
 import com.jyotirmoyb.udhaar.data.PaymentMode
 import com.jyotirmoyb.udhaar.data.UdhaarDao
@@ -68,57 +69,18 @@ open class PaymentRepository(
         val nowMillis = System.currentTimeMillis()
         val isSharedRecord = transaction.verificationStatus != VerificationStatus.LOCAL_ONLY
 
-        val insertedPaymentId = dao.insertPartialPayment(
-            PartialPayment(
-                transactionId = transaction.id,
-                amountPaise = cleanPaymentPaise,
-                paymentMode = paymentMode,
-                paidAtMillis = nowMillis,
-                note = note.trim(),
-                remotePaymentId = remotePaymentId,
-                recordedByUserId = settings.cloudUserId,
-                recordedByName = effectiveActor,
-                isAcknowledged = !isSharedRecord,
-                acknowledgedAtMillis = if (!isSharedRecord) nowMillis else null,
-                needsMyAcknowledgement = false
-            )
-        )
-
-        if (proofAttachment != null) {
-            dao.insertAttachment(
-                proofAttachment.copy(
-                    id = 0L,
-                    transactionId = transaction.id,
-                    paymentId = insertedPaymentId
-                )
-            )
-        }
-
         val plan = dao.getInstallmentPlanForTransactionSnapshot(transaction.id)
-        val planSettled = if (plan != null) {
-            val allocResult = installmentRepository?.applyPaymentToInstallments(
-                txId = transaction.id,
-                paymentAmountPaise = cleanPaymentPaise,
-                paymentId = insertedPaymentId,
-                paidAtMillis = nowMillis
-            )
-            allocResult?.isPlanFullySettled ?: false
-        } else {
-            false
-        }
-
         val updatedPaidPaise = transaction.amountPaidPaise + cleanPaymentPaise
-        val nowSettled = planSettled || (updatedPaidPaise >= totalAccruedAmountPaise && totalAccruedAmountPaise > 0L)
+        val isTotalAccruedSatisfied = (updatedPaidPaise >= totalAccruedAmountPaise && totalAccruedAmountPaise > 0L)
+        val nowSettled = isTotalAccruedSatisfied || (plan != null && updatedPaidPaise >= plan.totalAmountDue)
         val updatedTx = transaction.copy(
             amountPaidPaise = updatedPaidPaise,
             isSettled = nowSettled,
             settledAtMillis = if (nowSettled) nowMillis else transaction.settledAtMillis
         )
-        dao.updateTransaction(updatedTx)
 
         val formattedAmt = "${transaction.currency.symbol}${InterestCalculator.formatPaise(cleanPaymentPaise)}"
-        AuditTrailHelper.appendLocalAuditEvent(
-            dao = dao,
+        val auditEntry = AuditTrailEntry(
             transactionId = transaction.id,
             eventType = AuditEventType.PAYMENT_RECORDED,
             actorUserId = settings.cloudUserId,
@@ -129,9 +91,8 @@ open class PaymentRepository(
             isAcknowledged = !isSharedRecord
         )
 
-        if (nowSettled) {
-            AuditTrailHelper.appendLocalAuditEvent(
-                dao = dao,
+        val settledAuditEntry = if (nowSettled) {
+            AuditTrailEntry(
                 transactionId = transaction.id,
                 eventType = AuditEventType.SETTLED,
                 actorUserId = settings.cloudUserId,
@@ -139,6 +100,37 @@ open class PaymentRepository(
                 summaryText = "Record settled in full ($formattedAmt final payment)",
                 contentHashSnapshot = transaction.contentHash,
                 isAcknowledged = true
+            )
+        } else null
+
+        val paymentToInsert = PartialPayment(
+            transactionId = transaction.id,
+            amountPaise = cleanPaymentPaise,
+            paymentMode = paymentMode,
+            paidAtMillis = nowMillis,
+            note = note.trim(),
+            remotePaymentId = remotePaymentId,
+            recordedByUserId = settings.cloudUserId,
+            recordedByName = effectiveActor,
+            isAcknowledged = !isSharedRecord,
+            acknowledgedAtMillis = if (!isSharedRecord) nowMillis else null,
+            needsMyAcknowledgement = false
+        )
+
+        val insertedPaymentId = dao.recordPartialPaymentAtomic(
+            payment = paymentToInsert,
+            proofAttachment = proofAttachment,
+            updatedTx = updatedTx,
+            auditEntry = auditEntry,
+            settledAuditEntry = settledAuditEntry
+        )
+
+        if (plan != null) {
+            installmentRepository?.applyPaymentToInstallments(
+                txId = transaction.id,
+                paymentAmountPaise = cleanPaymentPaise,
+                paymentId = insertedPaymentId,
+                paidAtMillis = nowMillis
             )
         }
 
@@ -238,7 +230,6 @@ open class PaymentRepository(
         payment: PartialPayment,
         totalAccruedAmountPaise: Long
     ) {
-        dao.deletePartialPayment(payment)
         val updatedPaidPaise = (transaction.amountPaidPaise - payment.amountPaise).coerceAtLeast(0L)
         val planResult = installmentRepository?.recalculateInstallmentsForTotalPaid(
             txId = transaction.id,
@@ -246,12 +237,11 @@ open class PaymentRepository(
         )
         val nowSettled = (planResult?.isPlanFullySettled == true) ||
             (updatedPaidPaise >= totalAccruedAmountPaise && totalAccruedAmountPaise > 0L)
-        dao.updateTransaction(
-            transaction.copy(
-                amountPaidPaise = updatedPaidPaise,
-                isSettled = nowSettled,
-                settledAtMillis = if (nowSettled) transaction.settledAtMillis else null
-            )
+        val updatedTx = transaction.copy(
+            amountPaidPaise = updatedPaidPaise,
+            isSettled = nowSettled,
+            settledAtMillis = if (nowSettled) transaction.settledAtMillis else null
         )
+        dao.deletePartialPaymentAtomic(payment, updatedTx)
     }
 }

@@ -510,10 +510,16 @@
     <string name="db_encryption_subtitle_yes">तपाईंको फोनमा २५६-बिट सुरक्षित भण्डारण सक्रिय छ</string>
     <string name="db_encryption_subtitle_migrating">स्थानीय डाटाबेस इन्क्रिप्ट र प्रमाणीकरण गरिँदैछ…</string>
     <string name="db_encryption_subtitle_failed">स्थानीय डाटाबेस अझै इन्क्रिप्ट भएको छैन। फेरि प्रयास गर्न ट्याप गर्नुहोस्।</string>
-    <string name="sqlcipher_error_title">इन्क्रिप्टेड स्टोरेज आवश्यक छ</string>
+    <string name="sqlcipher_error_title">सुरक्षित भण्डारण उपलब्ध छैन (Secure storage unavailable)</string>
     <string name="sqlcipher_error_body">यस फोनमा सुरक्षित भण्डारण सुरु हुन सकेन। तपाईंको हिसाब सुरक्षित राख्न असुरक्षित डाटाबेस बनाइने छैन।</string>
     <string name="sqlcipher_error_export_backup">ब्याकअप एक्सपोर्ट गर्नुहोस् (Export backup)</string>
+    <string name="sqlcipher_error_restore_backup">ब्याकअप रिस्टोर गर्नुहोस् (Restore backup)</string>
     <string name="sqlcipher_error_try_again">फेरि प्रयास गर्नुहोस् (Try again)</string>
+    <string name="sqlcipher_error_reset_app_data">एप डाटा रिसेट गर्नुहोस् (Reset app data)</string>
+    <string name="sqlcipher_error_reset_confirm_title">सबै एप डाटा रिसेट गर्ने?</string>
+    <string name="sqlcipher_error_reset_confirm_body">यसले स्थानीय ऋण रेकर्डहरू, संलग्न फाइलहरू र इन्क्रिप्सन कुञ्जीहरू स्थायी रूपमा मेटाउनेछ। स्क्रिन लक परिवर्तनका कारण उपकरणको सुरक्षा कुञ्जीहरू अमान्य भएमा यो प्रयोग गर्नुहोस्। यसलाई पूर्ववत गर्न सकिँदैन।</string>
+    <string name="sqlcipher_error_reset_confirm_action">डाटा रिसेट गर्नुहोस्</string>
+    <string name="sqlcipher_error_reset_cancel_action">रद्द गर्नुहोस्</string>
     <string name="export_local_udhaar_backup">इन्क्रिप्टेड .udhaar एक्सपोर्ट गर्नुहोस्</string>
     <string name="cloud_backup_status_backing_up">ब्याकअप हुँदैछ… (Backing up…)</string>
     <string name="cloud_backup_status_just_now">ब्याकअप सम्पन्न • भर्खरै (Backed up • Just now)</string>

@@ -1040,17 +1040,22 @@ class ExampleRobolectricTest {
         freshDbFile.parentFile?.mkdirs()
         freshDbFile.delete()
 
-        // 1. Simulate SQLCipher failure on a fresh install: must NOT create a plain database and must set blocking error
+        // 1. Simulate SQLCipher failure on a fresh install: must NOT create a plain database, must throw SecureStorageException and must set blocking error
         com.jyotirmoyb.udhaar.security.EncryptedStorageManager.TestHooks.simulateFreshInstallFailure = true
-        com.jyotirmoyb.udhaar.security.EncryptedStorageManager.configureSqlCipherForRoom(
-            context = context,
-            builder = androidx.room.Room.databaseBuilder(
-                context,
-                com.jyotirmoyb.udhaar.data.UdhaarDatabase::class.java,
-                freshDbName
-            ),
-            dbName = freshDbName
-        )
+        try {
+            com.jyotirmoyb.udhaar.security.EncryptedStorageManager.configureSqlCipherForRoom(
+                context = context,
+                builder = androidx.room.Room.databaseBuilder(
+                    context,
+                    com.jyotirmoyb.udhaar.data.UdhaarDatabase::class.java,
+                    freshDbName
+                ),
+                dbName = freshDbName
+            )
+            org.junit.Assert.fail("configureSqlCipherForRoom must fail closed with SecureStorageException")
+        } catch (e: com.jyotirmoyb.udhaar.security.SecureStorageException) {
+            // Expected fail-closed behavior
+        }
         assertEquals(
             com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.FAILED,
             com.jyotirmoyb.udhaar.security.EncryptedStorageManager.getDatabaseEncryptionState(context)

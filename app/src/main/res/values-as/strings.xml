@@ -510,10 +510,16 @@
     <string name="db_encryption_subtitle_yes">আপোনাৰ ফোনত ২৫৬-বিট সুৰক্ষিত সংৰক্ষণ সক্ৰিয় আছে</string>
     <string name="db_encryption_subtitle_migrating">স্থানীয় ডেটাবেছ এনক্ৰিপ্ট আৰু সত্যাপন কৰা হৈছে…</string>
     <string name="db_encryption_subtitle_failed">স্থানীয় ডেটাবেছ এতিয়াও এনক্ৰিপ্ট হোৱা নাই। পুনৰ চেষ্টা কৰিবলৈ টেপ কৰক।</string>
-    <string name="sqlcipher_error_title">এনক্ৰিপ্টেড ষ্টোৰেজ আৱশ্যক</string>
+    <string name="sqlcipher_error_title">সুৰক্ষিত সংৰক্ষণ অনুপলব্ধ (Secure storage unavailable)</string>
     <string name="sqlcipher_error_body">এই ফোনত সুৰক্ষিত সংৰক্ষণ আৰম্ভ কৰিব পৰা নগ’ল। আপোনাৰ হিচাপ সুৰক্ষিত ৰাখিবলৈ অসুৰক্ষিত একাউণ্ট সৃষ্টি কৰা নহ’ব।</string>
     <string name="sqlcipher_error_export_backup">বেকআপ এক্সপোৰ্ট কৰক (Export backup)</string>
+    <string name="sqlcipher_error_restore_backup">বেকআপ ৰিষ্ট’ৰ কৰক (Restore backup)</string>
     <string name="sqlcipher_error_try_again">পুনৰ চেষ্টা কৰক (Try again)</string>
+    <string name="sqlcipher_error_reset_app_data">এপ ডেটা ৰিচেট কৰক (Reset app data)</string>
+    <string name="sqlcipher_error_reset_confirm_title">সকলো এপ ডেটা ৰিচেট কৰিবনে?</string>
+    <string name="sqlcipher_error_reset_confirm_body">ই স্থানীয় ঋণৰ ৰেকৰ্ড, সংলগ্ন নথি আৰু এনক্ৰিপশ্বন কী স্থায়ীভাৱে মচি পেলাব। স্ক্ৰীণ লক সলনি হোৱাৰ বাবে ডিভাইচৰ সুৰক্ষা কী বাতিল হ’লে এইটো ব্যৱহাৰ কৰক। এইটো পূৰ্বৰ অৱস্থালৈ ঘূৰাই আনিব নোৱাৰি।</string>
+    <string name="sqlcipher_error_reset_confirm_action">ডেটা ৰিচেট কৰক</string>
+    <string name="sqlcipher_error_reset_cancel_action">বাতিল কৰক</string>
     <string name="export_local_udhaar_backup">এনক্ৰিপ্টেড .udhaar এক্সপোৰ্ট কৰক</string>
     <string name="cloud_backup_status_backing_up">বেকআপ হৈ আছে… (Backing up…)</string>
     <string name="cloud_backup_status_just_now">বেকআপ সম্পন্ন • এইমাত্ৰ (Backed up • Just now)</string>

@@ -84,6 +84,15 @@ internal fun UdhaarScreenRouter(
                     val msg = if (ok) "Encrypted storage initialized." else "SQLCipher initialization failed."
                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                 }
+            },
+            onRestoreBackup = {
+                onLaunchOpenDocument()
+            },
+            onResetAppData = {
+                viewModel.resetAppDataAfterKeystoreInvalidation { ok ->
+                    val msg = if (ok) "App data reset. Ready for initial setup." else "Failed to reset app data."
+                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                }
             }
         )
         return
