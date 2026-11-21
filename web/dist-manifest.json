@@ -1,9 +1,9 @@
 {
   "version": "28.0.0",
-  "timestamp": "2026-11-20T23:55:52.966Z",
+  "timestamp": "2026-11-21T00:31:40.083Z",
   "budgets": {
     "landingKb": 251.5,
-    "guestKb": 228.9
+    "guestKb": 237.4
   },
   "hashes": {
     "index.html": "2f16aebde2",
@@ -22,12 +22,12 @@
     "404.html": "30ee00828b",
     "guide/index.html": "eb6cd93955",
     "guide/guide.js": "af3a8c9c47",
-    "u/index.html": "a0d6419f2b",
+    "u/index.html": "0fa52dcfe7",
     "u/guest.css": "37a956ce58",
     "u/config.js": "d22094fc3d",
     "u/actionSchema.js": "d94a2242a9",
-    "u/firebase-init.js": "b7b395c6f6",
-    "u/guest.js": "e19dad85fa",
+    "u/firebase-init.js": "1022912318",
+    "u/guest.js": "0c72e05f6c",
     "assets/idb-outbox.js": "40e9410e10",
     "assets/merkle-chain.js": "768271e6dc",
     "assets/e2ee-crypto.js": "72b93bad7b",

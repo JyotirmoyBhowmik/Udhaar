@@ -28,6 +28,9 @@ Under Udhaar's **Code Preservation Rules**, code requiring billing or paid servi
 | **Guest Link whatsappOtp Firestore Field** | `app/src/main/java/com/jyotirmoyb/udhaar/data/cloud/GuestWebCloudRepository.kt` | Lines 140–147 | An OTP stored in a readable document provides no security on Spark; capability URL `#k=<secret>` is used instead. | Uncomment `whatsappOtp` write inside `[BLAZE-DISABLED]` markers. |
 | **Legacy Web Hardcoded UPI Fallback** | `web/u/guest.js` | Lines 2420–2426 | Hardcoded `udhaar@okaxis` fallback disabled; honest checks require lender's valid UPI ID or hide payment options. | Uncomment `actualUpiId = recordData?.lenderUpiId \|\| "udhaar@okaxis"` inside `[LEGACY-DISABLED]` block. |
 | **Legacy Web UTR Suffix Slice** | `web/u/guest.js` | Lines 2315–2330 | Capped `utrLast4` slice disabled; full `referenceNumber` (up to 64 chars) is sent per action schema. | Uncomment `utrLast4` slice inside `[LEGACY-DISABLED]` block. |
+| **Android Firebase Storage Provider** | `app/src/main/java/com/jyotirmoyb/udhaar/di/FirebaseModule.kt` | Lines 105–118 | Cloud Storage unavailable on Spark plan (returns 402/403). | Uncomment `provideFirebaseStorage` inside `[BLAZE-DISABLED]` markers. |
+| **Android Attachment Cloud Storage Upload/Download** | `app/src/main/java/com/jyotirmoyb/udhaar/util/AttachmentManager.kt` | Lines 152–160 | Direct upload/download to Cloud Storage disabled on Spark plan. | Uncomment cloud upload/download inside `[BLAZE-DISABLED]` markers. |
+| **Web Firebase Storage Client** | `web/u/firebase-init.js`, `web/u/guest.js` | Lines 47–50, 2465–2472 | Web Cloud Storage access disabled; optional proof stored in Firestore doc `proof/image`. | Uncomment `getStorageInstance` and `uploadProofToFirebaseStorage` in `[BLAZE-DISABLED]` blocks. |
 
 ---
 

@@ -793,6 +793,17 @@
     <string name="input_borrower_google_email_hint">उदा. borrower@gmail.com</string>
     <string name="web_share_show_note">विवरण / कारण दिखाएं</string>
     <string name="web_share_show_attachments">रसीद / बिल फोटो दिखाएं</string>
+    <string name="web_share_allow_screenshot_proof">स्क्रीनशॉट प्रमाण की अनुमति दें</string>
+    <string name="btn_view_payment_proof">स्क्रीनशॉट प्रमाण देखें</string>
+    <string name="proof_dialog_title">भुगतान स्क्रीनशॉट प्रमाण</string>
+    <string name="btn_save_to_ledger">खाते में सहेजें</string>
+    <string name="proof_saved_to_ledger">प्रमाण खाते में सहेजा गया और क्लाउड कोटा मुक्त किया गया।</string>
+    <string name="proof_loading">क्लाउड से प्रमाण प्राप्त किया जा रहा है...</string>
+    <string name="proof_not_found">प्रमाण छवि नहीं मिली या पहले से खाते में सहेजी जा चुकी है।</string>
+    <string name="proof_encryption_notice">खाते में सहेजने पर छवि सुरक्षित (256-bit AES) एन्क्रिप्ट होकर फोन में रहती है और क्लाउड कॉपी हटा दी जाती है।</string>
+    <string name="proof_saving_encrypted">एन्क्रिप्ट करके सहेजा जा रहा है...</string>
+    <string name="proof_saved_status">खाते में सहेजा गया ✓</string>
+    <string name="btn_close">बंद करें</string>
     <string name="web_share_show_upi">वेब पेज पर मेरा यूपीआई क्यूआर दिखाएं</string>
     <string name="web_share_action_confirm">पुष्टि करें</string>
     <string name="web_share_action_dispute">समस्या बताएं</string>

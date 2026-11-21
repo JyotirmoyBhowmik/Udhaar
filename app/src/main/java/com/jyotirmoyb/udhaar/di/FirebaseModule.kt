@@ -103,6 +103,20 @@ object FirebaseModule {
         // [BLAZE-DISABLED END]
     }
 
+    // [BLAZE-DISABLED START] reason: Cloud Storage unavailable on Spark free plan (calls return 402/403) | restore: Blaze: signed URLs, server-validated ownership, storage.rules in blaze_disabled/storage.rules
+    // @Provides
+    // @Singleton
+    // fun provideFirebaseStorage(app: FirebaseApp?): com.google.firebase.storage.FirebaseStorage? {
+    //     if (!com.jyotirmoyb.udhaar.BuildConfig.BLAZE_FEATURES_ENABLED) return null
+    //     if (app == null) return null
+    //     return try {
+    //         com.google.firebase.storage.FirebaseStorage.getInstance(app)
+    //     } catch (_: Throwable) {
+    //         null
+    //     }
+    // }
+    // [BLAZE-DISABLED END]
+
     @Provides
     @Singleton
     fun provideFirebaseMessaging(app: FirebaseApp?): FirebaseMessaging? {

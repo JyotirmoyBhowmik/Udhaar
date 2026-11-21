@@ -217,6 +217,35 @@ fun TransactionVerificationCard(
                         text = modeSummary,
                         style = MaterialTheme.typography.labelSmall
                     )
+
+                    if (claim.hasProof) {
+                        var showProofDialog by rememberSaveable { mutableStateOf(false) }
+
+                        OutlinedButton(
+                            onClick = { showProofDialog = true },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
+                                .testTag("btn_view_payment_proof"),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(stringResource(R.string.btn_view_payment_proof), style = MaterialTheme.typography.labelSmall)
+                        }
+
+                        if (showProofDialog) {
+                            val resolvedLinkId = claim.linkId.ifBlank {
+                                if (tx.shareToken.isNotBlank()) com.jyotirmoyb.udhaar.data.cloud.GuestWebCloudRepository.sha256Hex(tx.shareToken) else ""
+                            }
+                            com.jyotirmoyb.udhaar.ui.components.PaymentProofDialog(
+                                txId = tx.id,
+                                linkId = resolvedLinkId,
+                                onDismiss = { showProofDialog = false }
+                            )
+                        }
+                    }
+
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)) {
                         Button(
                             onClick = onConfirmPaymentClaim,

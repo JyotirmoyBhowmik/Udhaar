@@ -1,6 +1,8 @@
 package com.jyotirmoyb.udhaar.data.repository
 
 import android.content.Context
+import android.util.Base64
+import com.jyotirmoyb.udhaar.data.Attachment
 import com.jyotirmoyb.udhaar.data.AuditEventType
 import com.jyotirmoyb.udhaar.data.Installment
 import com.jyotirmoyb.udhaar.data.InstallmentPlan
@@ -12,13 +14,17 @@ import com.jyotirmoyb.udhaar.data.cloud.GuestWebCloudRepository
 import com.jyotirmoyb.udhaar.data.cloud.GuestWebLinkCreateResult
 import com.jyotirmoyb.udhaar.data.getParsedDateProposal
 import com.jyotirmoyb.udhaar.data.getParsedPaymentClaim
+import com.jyotirmoyb.udhaar.di.FirebaseModule
 import com.jyotirmoyb.udhaar.notification.ReminderScheduler
+import com.jyotirmoyb.udhaar.util.AttachmentManager
 import com.jyotirmoyb.udhaar.util.AuditTrailHelper
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 import com.jyotirmoyb.udhaar.util.SafeLogger
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.tasks.await
+import java.io.File
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -271,5 +277,85 @@ open class GuestWebRepository @Inject constructor(
 
     suspend fun claimGuestActions(recordId: String, secret: String): Boolean {
         return guestWebCloudRepository.claimGuestActions(recordId, secret)
+    }
+
+    suspend fun fetchPaymentClaimProof(linkId: String): Pair<String, String>? {
+        if (linkId.isBlank()) return null
+        val firestore = FirebaseModule.getFirestore(context) ?: return null
+        return try {
+            val doc = firestore.collection("guestLinks").document(linkId)
+                .collection("actions").document("CLAIM_PAYMENT")
+                .collection("proof").document("image")
+                .get()
+                .await()
+            if (doc.exists()) {
+                val b64 = doc.getString("dataB64") ?: return null
+                val mime = doc.getString("mime") ?: "image/webp"
+                Pair(mime, b64)
+            } else null
+        } catch (e: Exception) {
+            SafeLogger.e("GuestWebRepo", "Failed to fetch proof: ${e.javaClass.simpleName}")
+            null
+        }
+    }
+
+    suspend fun saveClaimProofToLedgerAndDeleteCloudDoc(
+        ctx: Context,
+        transactionId: Long,
+        linkId: String,
+        mime: String,
+        dataB64: String
+    ): Boolean {
+        if (dataB64.isBlank()) return false
+        val cleanB64 = if (dataB64.contains(",")) dataB64.substringAfter(",") else dataB64
+        val bytes = try {
+            Base64.decode(cleanB64, Base64.DEFAULT)
+        } catch (_: Exception) {
+            return false
+        }
+        if (bytes == null || bytes.isEmpty()) return false
+
+        val ext = if (mime.contains("webp", ignoreCase = true)) "webp" else "jpg"
+        val fileName = "proof_claim_${System.currentTimeMillis()}.$ext"
+        val destFile = File(AttachmentManager.getAttachmentsDir(ctx), fileName)
+        try {
+            destFile.writeBytes(bytes)
+        } catch (e: Exception) {
+            SafeLogger.e("GuestWebRepo", "Failed to write local attachment: ${e.javaClass.simpleName}")
+            return false
+        }
+
+        val sha256 = AttachmentManager.calculateSha256(bytes)
+        val attachment = Attachment(
+            id = 0L,
+            transactionId = transactionId,
+            paymentId = null,
+            fileName = fileName,
+            mimeType = mime,
+            sizeBytes = destFile.length(),
+            localPath = destFile.absolutePath,
+            remoteUrl = null,
+            addedAtMillis = System.currentTimeMillis(),
+            addedBy = "Guest (Web Proof)",
+            sha256 = sha256
+        )
+        dao.insertAttachment(attachment)
+
+        // Delete cloud proof doc to free quota
+        if (linkId.isNotBlank()) {
+            val firestore = FirebaseModule.getFirestore(ctx)
+            if (firestore != null) {
+                try {
+                    firestore.collection("guestLinks").document(linkId)
+                        .collection("actions").document("CLAIM_PAYMENT")
+                        .collection("proof").document("image")
+                        .delete()
+                        .await()
+                } catch (e: Exception) {
+                    SafeLogger.w("GuestWebRepo", "Failed to delete cloud proof doc: ${e.javaClass.simpleName}")
+                }
+            }
+        }
+        return true
     }
 }

@@ -790,7 +790,10 @@ data class GuestPaymentClaimData(
     val paymentMode: PaymentMode = PaymentMode.UPI,
     val reference: String = "",
     val proofUrl: String = "",
-    val note: String = ""
+    val note: String = "",
+    val hasProof: Boolean = false,
+    val linkId: String = "",
+    val actionId: String = ""
 ) {
     val amountDouble: Double
         get() = paiseLongToRupeesDouble(amountPaise)
@@ -818,7 +821,10 @@ fun UdhaarTransaction.getParsedPaymentClaim(): GuestPaymentClaimData? {
             paymentMode = runCatching { PaymentMode.valueOf(json.optString("paymentMode", "UPI")) }.getOrDefault(PaymentMode.UPI),
             reference = json.optString("reference", ""),
             proofUrl = json.optString("proofUrl", ""),
-            note = json.optString("note", "")
+            note = json.optString("note", ""),
+            hasProof = json.optBoolean("hasProof", false),
+            linkId = json.optString("linkId", ""),
+            actionId = json.optString("actionId", "")
         )
     }.getOrNull()
 }

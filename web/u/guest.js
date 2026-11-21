@@ -156,7 +156,9 @@
       err_pending_action: "You already have a pending request. Please wait for the lender.",
       err_quota_exhausted: "Daily free limit reached, try again tomorrow",
       err_service_unavailable: "Service temporarily unavailable. Please check your connection and try again.",
-      paid_proof_label: "Photo of proof (receipt / screenshot)",
+      paid_proof_label: "Payment screenshot (optional)",
+      remove_proof: "Remove screenshot",
+      err_proof_too_large: "Image is too large even after compression. Please choose a smaller image.",
       btn_submit_paid: "Submit payment proof",
       paid_notice: "The lender will confirm your payment in their app.",
 
@@ -335,7 +337,9 @@
       err_pending_action: "आपका एक अनुरोध पहले से लंबित है। कृपया उधारदाता की पुष्टि की प्रतीक्षा करें।",
       err_quota_exhausted: "दैनिक सीमा समाप्त हो गई है, कृपया कल पुनः प्रयास करें",
       err_service_unavailable: "सेवा अस्थायी रूप से अनुपलब्ध है। कृपया अपना इंटरनेट कनेक्शन जांचें।",
-      paid_proof_label: "प्रमाण की फोटो (रसीद / स्क्रीनशॉट)",
+      paid_proof_label: "भुगतान का स्क्रीनशॉट (वैकल्पिक)",
+      remove_proof: "स्क्रीनशॉट हटाएं",
+      err_proof_too_large: "छवि बहुत बड़ी है। कृपया एक छोटी या सरल छवि चुनें।",
       btn_submit_paid: "भुगतान प्रमाण जमा करें",
       paid_notice: "रकम देने वाले व्यक्ति अपने ऐप में भुगतान की पुष्टि करेंगे।",
 
@@ -507,7 +511,9 @@
       err_pending_action: "আপনার একটি অনুরোধ ইতিমধ্যে অপেক্ষারত রয়েছে। অনুগ্রহ করে অপেক্ষা করুন।",
       err_quota_exhausted: "দৈনিক ফ্রি সীমা শেষ হয়েছে, আগামীকাল আবার চেষ্টা করুন",
       err_service_unavailable: "পরিষেবা সাময়িকভাবে অনুপলব্ধ। আপনার সংযোগ পরীক্ষা করে পুনরায় চেষ্টা করুন।",
-      paid_proof_label: "প্রমাণের ছবি (রসিদ / স্ক্রিনশট)",
+      paid_proof_label: "পেমেন্ট স্ক্রিনশট (ঐচ্ছিক)",
+      remove_proof: "স্ক্রিনশট মুছুন",
+      err_proof_too_large: "ছবিটি খুব বড়। অনুগ্রহ করে একটি ছোট ছবি নির্বাচন করুন।",
       btn_submit_paid: "প্রমাণপত্র জমা দিন",
       paid_notice: "টাকা প্রাপক তার অ্যাপে এই অর্থ প্রাপ্তি নিশ্চিত করবেন।",
 
@@ -679,7 +685,9 @@
       err_pending_action: "আপোনাৰ এটা অনুৰোধ ইতিমধ্যে বাকী আছে। অনুগ্ৰহ কৰি অপেক্ষা কৰক।",
       err_quota_exhausted: "দৈনিক বিনামূলীয়া সীমা শেষ হ'ল, কাইলৈ পুনৰ চেষ্টা কৰক",
       err_service_unavailable: "সেৱা সাময়িকভাৱে উপলব্ধ নহয়। আপোনাৰ সংযোগ পৰীক্ষা কৰক।",
-      paid_proof_label: "প্ৰমাণৰ ফটো (ৰচিদ / স্ক্ৰীণশ্বট)",
+      paid_proof_label: "পেমেন্ট স্ক্ৰীণশ্বট (ঐচ্ছিক)",
+      remove_proof: "স্ক্ৰীণশ্বট আঁতৰাওক",
+      err_proof_too_large: "ছবিখন বহুত ডাঙৰ। অনুগ্ৰহ কৰি এখন সৰু ছবি বাছক।",
       btn_submit_paid: "প্ৰমাণ জমা দিয়ক",
       paid_notice: "প্ৰাপকে তেওঁৰ এপত এই ধন পোৱা বুলি নিশ্চিত কৰিব।",
 
@@ -851,7 +859,9 @@
       err_pending_action: "तपाईंको एउटा अनुरोध पहिले नै विचाराधीन छ। कृपया ऋणदाताको प्रतीक्षा गर्नुहोस्।",
       err_quota_exhausted: "दैनिक निःशुल्क सीमा सकियो, भोलि फेरि प्रयास गर्नुहोस्",
       err_service_unavailable: "सेवा अस्थायी रूपमा अनुपलब्ध छ। कृपया आफ्नो इन्टरनेट जाँच गर्नुहोस्।",
-      paid_proof_label: "प्रमाणको फोटो (रसिद / स्क्रिनसट)",
+      paid_proof_label: "भुक्तानी स्क्रिनसट (वैकल्पिक)",
+      remove_proof: "स्क्रिनसट हटाउनुहोस्",
+      err_proof_too_large: "तस्बिर धेरै ठूलो छ। कृपया सानो तस्बिर छान्नुहोस्।",
       btn_submit_paid: "प्रमाण पेस गर्नुहोस्",
       paid_notice: "रकम पाउने व्यक्तिले आफ्नो एपमा पुष्टि गर्नुहुनेछ।",
 
@@ -1389,8 +1399,9 @@
       try {
         const proofRef = services.sdk.doc(services.db, "guestLinks", linkId, "actions", actionType, "proof", "image");
         await services.sdk.setDoc(proofRef, {
+          mime: payload.proofMime && ["image/webp", "image/jpeg"].includes(payload.proofMime) ? payload.proofMime : "image/webp",
           dataB64: String(payload.proofDataB64),
-          mime: payload.proofMime && ["image/webp", "image/jpeg"].includes(payload.proofMime) ? payload.proofMime : "image/jpeg"
+          createdAtMs: nowMs
         });
       } catch (proofErr) {
         console.warn("[Udhaar] Proof upload failed (action was recorded):", proofErr);
@@ -1626,6 +1637,19 @@
   // 7. Render Record Screen Flow
   function renderRecordView(rec) {
     recordData = rec;
+
+    // Toggle screenshot proof upload field based on lender settings: default ON, if OFF hide upload
+    const proofGroup = document.getElementById("form-group-proof");
+    if (proofGroup) {
+      if (rec && rec.allowScreenshotProof === false) {
+        proofGroup.style.display = "none";
+        proofGroup.hidden = true;
+      } else {
+        proofGroup.style.display = "";
+        proofGroup.hidden = false;
+      }
+    }
+
     const isLender = rec.counterpartyRole === "BORROWER"; // Sender is lender, guest is borrower
     const otherName = isLender ? (rec.lenderName || rec.creatorName || rec.otherPartyName || "The other person") : (rec.borrowerName || rec.counterpartyName || "The other person");
     const rawAmt = (rec.principalAmount !== undefined && rec.principalAmount !== null)
@@ -2278,6 +2302,152 @@
     }
 
     // Action 2: I have paid
+    // Proof processing state for paid-modal
+    let currentProcessedProof = null; // { mime, dataB64, dataUrl }
+
+    function resetProofUpload() {
+      currentProcessedProof = null;
+      const input = document.getElementById("input-paid-proof");
+      if (input) input.value = "";
+      const wrapper = document.getElementById("proof-preview-wrapper");
+      if (wrapper) {
+        wrapper.classList.add("hidden");
+        wrapper.hidden = true;
+      }
+      const preview = document.getElementById("img-proof-preview");
+      if (preview) preview.src = "";
+      const status = document.getElementById("proof-status-text");
+      if (status) status.textContent = "";
+    }
+
+    function processProofImage(file) {
+      return new Promise((resolve, reject) => {
+        if (!file || !file.type || !file.type.startsWith("image/")) {
+          return reject(new Error("Please select a valid image file."));
+        }
+
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error("Unable to read image file."));
+        reader.onload = () => {
+          const img = new Image();
+          img.onerror = () => reject(new Error("Failed to decode image."));
+          img.onload = () => {
+            try {
+              const origW = img.naturalWidth || img.width;
+              const origH = img.naturalHeight || img.height;
+              if (!origW || !origH) {
+                return reject(new Error("Invalid image dimensions."));
+              }
+
+              // Max 1080px on the long edge
+              let targetW = origW;
+              let targetH = origH;
+              const maxEdge = Math.max(origW, origH);
+              if (maxEdge > 1080) {
+                const scale = 1080 / maxEdge;
+                targetW = Math.round(origW * scale);
+                targetH = Math.round(origH * scale);
+              }
+
+              const canvas = document.createElement("canvas");
+              canvas.width = targetW;
+              canvas.height = targetH;
+              const ctx = canvas.getContext("2d");
+              if (!ctx) {
+                return reject(new Error("Canvas context unavailable."));
+              }
+
+              // Drawing to canvas strips EXIF automatically
+              ctx.drawImage(img, 0, 0, targetW, targetH);
+
+              let quality = 0.6;
+              let mime = "image/webp";
+              let dataUrl = canvas.toDataURL(mime, quality);
+              if (!dataUrl.startsWith("data:image/webp")) {
+                mime = "image/jpeg";
+                dataUrl = canvas.toDataURL(mime, quality);
+              }
+
+              let b64 = dataUrl.split(",")[1] || "";
+
+              // Lower the quality until base64 is under 680,000 chars
+              while (b64.length > 680000 && quality > 0.05) {
+                quality = Math.max(0.05, quality - 0.1);
+                dataUrl = canvas.toDataURL(mime, quality);
+                b64 = dataUrl.split(",")[1] || "";
+              }
+
+              if (b64.length > 680000) {
+                return reject(new Error(t("err_proof_too_large") || "Image is too large even after compression. Please choose a smaller image."));
+              }
+
+              resolve({
+                mime: mime,
+                dataB64: b64,
+                dataUrl: dataUrl
+              });
+            } catch (err) {
+              reject(err);
+            }
+          };
+          img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    const inputProof = document.getElementById("input-paid-proof");
+    if (inputProof) {
+      inputProof.addEventListener("change", async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) {
+          resetProofUpload();
+          return;
+        }
+
+        if (!file.type.startsWith("image/")) {
+          alert("Please select a valid image file.");
+          resetProofUpload();
+          return;
+        }
+
+        const statusEl = document.getElementById("proof-status-text");
+        if (statusEl) statusEl.textContent = "Processing image...";
+
+        try {
+          const processed = await processProofImage(file);
+          currentProcessedProof = processed;
+          const previewImg = document.getElementById("img-proof-preview");
+          const wrapper = document.getElementById("proof-preview-wrapper");
+          if (previewImg && wrapper) {
+            previewImg.src = processed.dataUrl;
+            wrapper.classList.remove("hidden");
+            wrapper.hidden = false;
+          }
+          if (statusEl) {
+            const kbSize = Math.round((processed.dataB64.length * 0.75) / 1024);
+            statusEl.textContent = `Screenshot ready (${kbSize} KB, EXIF stripped)`;
+          }
+        } catch (err) {
+          alert(err.message || "Unable to process image.");
+          resetProofUpload();
+        }
+      });
+    }
+
+    const btnRemoveProof = document.getElementById("btn-remove-proof");
+    if (btnRemoveProof) {
+      btnRemoveProof.addEventListener("click", resetProofUpload);
+    }
+
+    // [BLAZE-DISABLED START] reason: Cloud Storage unavailable on Spark free plan (calls return 402/403) | restore: Blaze: signed URLs, server-validated ownership, storage.rules in blaze_disabled/storage.rules
+    /*
+    async function uploadProofToFirebaseStorage(file, linkId) {
+      throw new Error("FeatureUnavailableOnFreePlan: Cloud Storage is unavailable on free Spark tier.");
+    }
+    */
+    // [BLAZE-DISABLED END]
+
     const btnPaid = document.getElementById("btn-open-paid-sheet") || document.getElementById("act-btn-paid");
     if (btnPaid) {
       btnPaid.addEventListener("click", () => openModal("paid-modal"));
@@ -2311,6 +2481,9 @@
           return;
         }
 
+        const hasProof = Boolean(currentProcessedProof && currentProcessedProof.dataB64);
+        const proofSnapshot = currentProcessedProof;
+
         try {
           // [LEGACY-DISABLED START] reason: full referenceNumber up to 64 chars required by schema | restore: slice(-4) for utrLast4
           /*
@@ -2332,8 +2505,11 @@
             paymentMode: modeVal,
             referenceNumber: refVal,
             note: noteVal,
-            hasProof: false
+            hasProof: hasProof,
+            proofDataB64: hasProof ? proofSnapshot.dataB64 : null,
+            proofMime: hasProof ? proofSnapshot.mime : null
           });
+          resetProofUpload();
           closeModal("paid-modal");
           showAwaitingConfirmation("Sent – awaiting lender confirmation");
         } catch (err) {

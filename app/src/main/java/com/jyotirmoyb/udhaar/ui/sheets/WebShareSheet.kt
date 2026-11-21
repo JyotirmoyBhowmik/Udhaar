@@ -116,7 +116,7 @@ fun WebShareSheet(
     var trustLevel by rememberSaveable { mutableStateOf(if (settings.defaultWebTrustLevel == "GOOGLE_VERIFIED") "GOOGLE_VERIFIED" else "PRIVATE_LINK") }
     var borrowerGoogleEmail by rememberSaveable { mutableStateOf("") }
     var allowNote by rememberSaveable { mutableStateOf(true) }
-    var allowAttachments by rememberSaveable { mutableStateOf(false) }
+    var allowAttachments by rememberSaveable { mutableStateOf(true) }
     var showUpi by rememberSaveable { mutableStateOf(settings.defaultWebShowUpi) }
 
     var actionConfirm by rememberSaveable { mutableStateOf(true) }
@@ -419,7 +419,7 @@ fun WebShareSheet(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(stringResource(R.string.web_share_show_attachments), style = MaterialTheme.typography.bodySmall)
+                                    Text(stringResource(R.string.web_share_allow_screenshot_proof), style = MaterialTheme.typography.bodySmall)
                                     Switch(checked = allowAttachments, onCheckedChange = { allowAttachments = it })
                                 }
                                 Row(

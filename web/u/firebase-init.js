@@ -44,6 +44,10 @@ function initFirebase() {
   // Single provider: Spark free tier covers only the "(default)" Firestore database
   const db = typeof sdk.getFirestore === "function" ? sdk.getFirestore(app) : null;
 
+  // [BLAZE-DISABLED START] reason: Cloud Storage unavailable on Spark free plan (calls return 402/403) | restore: Blaze: signed URLs, server-validated ownership, storage.rules in blaze_disabled/storage.rules
+  // const storage = (globalThis.UDHAAR_CONFIG?.BLAZE_FEATURES_ENABLED && typeof sdk.getStorage === "function") ? sdk.getStorage(app) : null;
+  // [BLAZE-DISABLED END]
+
   const search = (typeof window !== "undefined" && window.location && window.location.search) || "";
   const urlParams = new URLSearchParams(search);
   const emulatorCfg = (typeof globalThis !== "undefined" && globalThis.__UDHAAR_EMULATORS__) || null;

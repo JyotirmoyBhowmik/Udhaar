@@ -149,6 +149,15 @@ object AttachmentManager {
         }
     }
 
+    // [BLAZE-DISABLED START] reason: Cloud Storage unavailable on Spark free plan (calls return 402/403) | restore: Blaze: signed URLs, server-validated ownership, storage.rules in blaze_disabled/storage.rules
+    // suspend fun uploadToCloudStorage(context: Context, localPath: String, storagePath: String): String {
+    //     throw IllegalStateException("FeatureUnavailableOnFreePlan: Cloud Storage is not available on Spark plan.")
+    // }
+    // suspend fun downloadFromCloudStorage(context: Context, storagePath: String, localDest: File): Boolean {
+    //     throw IllegalStateException("FeatureUnavailableOnFreePlan: Cloud Storage is not available on Spark plan.")
+    // }
+    // [BLAZE-DISABLED END]
+
     suspend fun processAndSaveUri(
         context: Context,
         sourceUri: Uri,

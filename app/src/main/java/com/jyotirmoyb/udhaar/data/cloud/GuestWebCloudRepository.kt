@@ -100,7 +100,7 @@ open class GuestWebCloudRepository @Inject constructor(
         trustLevelRequired: String = "LINK_ONLY",
         allowedActions: List<String> = listOf("CONFIRM", "DISPUTE", "PROPOSE_DATE", "CLAIM_PAYMENT"),
         allowNote: Boolean = true,
-        allowAttachments: Boolean = false,
+        allowAttachments: Boolean = true,
         showUpiQr: Boolean = true,
         lenderName: String = "",
         borrowerName: String = "",
@@ -182,7 +182,8 @@ open class GuestWebCloudRepository @Inject constructor(
             "dueDateMs" to expiryDateMillis,
             "lenderUpiId" to if (showUpiQr && lenderUpiId.isNotBlank()) lenderUpiId else null,
             "verificationLevel" to verificationLevel,
-            "expectedGuestEmailHash" to emailHash
+            "expectedGuestEmailHash" to emailHash,
+            "allowScreenshotProof" to allowAttachments
         )
 
         // [BLAZE-DISABLED START] reason: an OTP stored in a readable document provides no security on Spark | restore: restore server-generated OTP when upgrading to Blaze plan with secure Cloud Functions verification
@@ -255,7 +256,8 @@ open class GuestWebCloudRepository @Inject constructor(
         lenderUpiId: String? = null,
         verificationLevel: String = "PRIVATE_LINK",
         expectedGuestEmail: String? = null,
-        allowedActions: List<String> = listOf("CONFIRM", "DISPUTE", "PROPOSE_DATE", "CLAIM_PAYMENT")
+        allowedActions: List<String> = listOf("CONFIRM", "DISPUTE", "PROPOSE_DATE", "CLAIM_PAYMENT"),
+        allowScreenshotProof: Boolean = true
     ): GuestWebLinkCreateResult = createGuestWebLink(
         recordId = recordId,
         counterpartyRole = "BORROWER",
@@ -264,7 +266,7 @@ open class GuestWebCloudRepository @Inject constructor(
         trustLevelRequired = verificationLevel,
         allowedActions = allowedActions,
         allowNote = true,
-        allowAttachments = false,
+        allowAttachments = allowScreenshotProof,
         showUpiQr = !lenderUpiId.isNullOrBlank(),
         lenderName = lenderDisplayName,
         borrowerName = borrowerDisplayName,

@@ -241,12 +241,31 @@ fun UpdatesScreen(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
 
-                                                if (claim.proofUrl.isNotBlank()) {
-                                                    Spacer(modifier = Modifier.height(4.dp))
-                                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
-                                                        Spacer(modifier = Modifier.width(4.dp))
-                                                        Text(stringResource(R.string.inbox_proof_image_attached), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                                if (claim.hasProof || claim.proofUrl.isNotBlank()) {
+                                                    var showProofModal by rememberSaveable { mutableStateOf(false) }
+                                                    Spacer(modifier = Modifier.height(6.dp))
+                                                    OutlinedButton(
+                                                        onClick = { showProofModal = true },
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
+                                                            .testTag("btn_updates_view_proof_${tx.id}"),
+                                                        shape = RoundedCornerShape(8.dp)
+                                                    ) {
+                                                        Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                        Text(stringResource(R.string.btn_view_payment_proof), style = MaterialTheme.typography.labelSmall)
+                                                    }
+
+                                                    if (showProofModal) {
+                                                        val resolvedLinkId = claim.linkId.ifBlank {
+                                                            if (tx.shareToken.isNotBlank()) com.jyotirmoyb.udhaar.data.cloud.GuestWebCloudRepository.sha256Hex(tx.shareToken) else ""
+                                                        }
+                                                        com.jyotirmoyb.udhaar.ui.components.PaymentProofDialog(
+                                                            txId = tx.id,
+                                                            linkId = resolvedLinkId,
+                                                            onDismiss = { showProofModal = false }
+                                                        )
                                                     }
                                                 }
 

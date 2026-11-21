@@ -798,6 +798,17 @@
     <string name="input_borrower_google_email_hint">e.g. borrower@gmail.com</string>
     <string name="web_share_show_note">Show Note / Purpose</string>
     <string name="web_share_show_attachments">Show Attachments / Proofs</string>
+    <string name="web_share_allow_screenshot_proof">Allow screenshot proof</string>
+    <string name="btn_view_payment_proof">View screenshot proof</string>
+    <string name="proof_dialog_title">Payment Screenshot Proof</string>
+    <string name="btn_save_to_ledger">Save to records</string>
+    <string name="proof_saved_to_ledger">Proof saved to records and cloud quota freed.</string>
+    <string name="proof_loading">Fetching proof from cloud...</string>
+    <string name="proof_not_found">Proof image not found or already saved to records.</string>
+    <string name="proof_encryption_notice">Saving to records stores the image encrypted on this phone (256-bit AES) and deletes the cloud copy.</string>
+    <string name="proof_saving_encrypted">Saving encrypted...</string>
+    <string name="proof_saved_status">Saved to records ✓</string>
+    <string name="btn_close">Close</string>
     <string name="web_share_show_upi">Show My UPI QR on Web Page</string>
     <string name="web_share_action_confirm">Confirm</string>
     <string name="web_share_action_dispute">Report a problem</string>

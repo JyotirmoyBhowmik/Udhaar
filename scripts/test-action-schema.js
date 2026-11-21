@@ -97,6 +97,20 @@ console.log("======================================================\n");
   const res = schema.validateAction("CLAIM_PAYMENT", action, { payableAmountPaise: 1000000, allowedActions: ["CLAIM_PAYMENT"] });
   assert.equal(res.valid, true);
 
+  // With hasProof: true
+  const actionWithProof = schema.buildClaimPaymentAction({
+    guestUid: "guest-123",
+    amountPaise: 500000,
+    paymentMode: "UPI",
+    referenceNumber: "UPI123456789012",
+    hasProof: true,
+    payableAmountPaise: 1000000,
+    nowMs: now
+  });
+  assert.equal(actionWithProof.hasProof, true);
+  const resProof = schema.validateAction("CLAIM_PAYMENT", actionWithProof, { payableAmountPaise: 1000000, allowedActions: ["CLAIM_PAYMENT"] });
+  assert.equal(resProof.valid, true);
+
   // Rejects amount exceeding payable balance
   assert.throws(() => schema.buildClaimPaymentAction({
     guestUid: "guest-123",

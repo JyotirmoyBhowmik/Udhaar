@@ -793,6 +793,17 @@
     <string name="input_borrower_google_email_hint">উদাহৰণ: borrower@gmail.com</string>
     <string name="web_share_show_note">বিৱৰণ / কাৰণ দেখুৱাওক</string>
     <string name="web_share_show_attachments">ৰচিদ / বিলৰ ফটো দেখুৱাওক</string>
+    <string name="web_share_allow_screenshot_proof">স্ক্ৰীণশ্বট প্ৰমাণৰ অনুমতি দিয়ক</string>
+    <string name="btn_view_payment_proof">স্ক্ৰীণশ্বট প্ৰমাণ চাওক</string>
+    <string name="proof_dialog_title">পেমেন্ট স্ক্ৰীণশ্বট প্ৰমাণ</string>
+    <string name="btn_save_to_ledger">খাতাত সংৰক্ষণ কৰক</string>
+    <string name="proof_saved_to_ledger">প্ৰমাণ খাতাত সংৰক্ষিত হ\'ল আৰু ক্লাউড কোটা মুক্ত হ\'ল।</string>
+    <string name="proof_loading">ক্লাউডৰ পৰা প্ৰমাণ লোড হৈ আছে...</string>
+    <string name="proof_not_found">প্ৰমাণ পোৱা নগ\'ল বা ইতিমধ্যে সংৰক্ষণ কৰা হৈছে।</string>
+    <string name="proof_encryption_notice">খাতাত সংৰক্ষণ কৰিলে ছবিখন ফোনত এনক্ৰিপ্ট (256-bit AES) হৈ থাকে আৰু ক্লাউড কপি মচি পেলোৱা হয়।</string>
+    <string name="proof_saving_encrypted">এনক্ৰিপ্ট কৰি সংৰক্ষণ কৰা হৈছে...</string>
+    <string name="proof_saved_status">খাতাত সংৰক্ষিত ✓</string>
+    <string name="btn_close">বন্ধ কৰক</string>
     <string name="web_share_show_upi">ৱেব পেজত মোৰ ইউপিআই কিউআৰ দেখুৱাওক</string>
     <string name="web_share_action_confirm">নিশ্চিত কৰক</string>
     <string name="web_share_action_dispute">সমস্যা জনাওক</string>

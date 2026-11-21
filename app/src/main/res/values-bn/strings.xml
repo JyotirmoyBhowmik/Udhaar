@@ -793,6 +793,17 @@
     <string name="input_borrower_google_email_hint">যেমন: borrower@gmail.com</string>
     <string name="web_share_show_note">বিবরণ / কারণ দেখান</string>
     <string name="web_share_show_attachments">রসিদ / বিলের ছবি দেখান</string>
+    <string name="web_share_allow_screenshot_proof">স্ক্রিনশট প্রমাণের অনুমতি দিন</string>
+    <string name="btn_view_payment_proof">স্ক্রিনশট প্রমাণ দেখুন</string>
+    <string name="proof_dialog_title">পেমেন্ট স্ক্রিনশট প্রমাণ</string>
+    <string name="btn_save_to_ledger">খাতায় সংরক্ষণ করুন</string>
+    <string name="proof_saved_to_ledger">প্রমাণ খাতায় সংরক্ষণ করা হয়েছে এবং ক্লাউড কোটা মুক্ত হয়েছে।</string>
+    <string name="proof_loading">ক্লাউড থেকে প্রমাণ লোড হচ্ছে...</string>
+    <string name="proof_not_found">প্রমাণ পাওয়া যায়নি বা ইতিমধ্যে খাতায় সংরক্ষণ করা হয়েছে।</string>
+    <string name="proof_encryption_notice">খাতায় সংরক্ষণ করলে ছবিটি ফোনে এনক্রিপ্ট (256-bit AES) হয়ে থাকে এবং ক্লাউড কপি মুছে ফেলা হয়।</string>
+    <string name="proof_saving_encrypted">এনক্রিপ্ট করে সংরক্ষণ করা হচ্ছে...</string>
+    <string name="proof_saved_status">খাতায় সংরক্ষিত ✓</string>
+    <string name="btn_close">বন্ধ করুন</string>
     <string name="web_share_show_upi">ওয়েব পেজে আমার ইউপিআই কিউআর দেখান</string>
     <string name="web_share_action_confirm">নিশ্চিত করুন</string>
     <string name="web_share_action_dispute">সমস্যা জানান</string>

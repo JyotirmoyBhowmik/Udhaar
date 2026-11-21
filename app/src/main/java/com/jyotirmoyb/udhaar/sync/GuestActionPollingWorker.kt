@@ -107,6 +107,9 @@ class GuestActionPollingWorker(
                 val recordIdStr = doc.getString("recordId")
                 val reason = doc.getString("reason") ?: doc.getString("note") ?: ""
                 val utrLast4 = doc.getString("utrLast4") ?: doc.getString("utrSuffix") ?: ""
+                val referenceNumber = doc.getString("referenceNumber") ?: (if (utrLast4.isNotBlank()) "UTR *$utrLast4" else "")
+                val paymentMode = doc.getString("paymentMode") ?: "UPI"
+                val hasProof = doc.getBoolean("hasProof") ?: false
                 val amountPaise = doc.getLong("amountPaise") ?: doc.getLong("claimedAmountPaise") ?: 0L
                 val proposedDateMs = doc.getLong("proposedDateMs") ?: doc.getLong("proposedDueDateMillis") ?: 0L
                 val createdAtMs = doc.getLong("createdAtMs") ?: System.currentTimeMillis()
@@ -120,6 +123,9 @@ class GuestActionPollingWorker(
                     put("recordId", recordIdStr ?: "")
                     put("reason", reason)
                     put("utrLast4", utrLast4)
+                    put("referenceNumber", referenceNumber)
+                    put("paymentMode", paymentMode)
+                    put("hasProof", hasProof)
                     put("amountPaise", amountPaise)
                     put("proposedDateMs", proposedDateMs)
                     put("createdAtMs", createdAtMs)
@@ -159,9 +165,12 @@ class GuestActionPollingWorker(
                                 val claimJson = JSONObject().apply {
                                     put("amountPaise", amountPaise)
                                     put("dateMillis", createdAtMs)
-                                    put("paymentMode", "UPI")
-                                    put("reference", if (utrLast4.isNotBlank()) "UTR *$utrLast4" else "")
+                                    put("paymentMode", paymentMode)
+                                    put("reference", referenceNumber)
                                     put("note", reason)
+                                    put("hasProof", hasProof)
+                                    put("linkId", linkId)
+                                    put("actionId", actionId)
                                 }.toString()
                                 matchedTx.copy(
                                     pendingPaymentClaim = claimJson,
