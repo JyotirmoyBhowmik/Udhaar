@@ -1,5 +1,6 @@
 import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
 import java.time.Duration
+import java.util.Properties
 
 plugins {
   alias(libs.plugins.android.application)
@@ -20,8 +21,18 @@ android {
     applicationId = "com.jyotirmoyb.udhaar"
     minSdk = 24
     targetSdk = 36
-    versionCode = 29
-    versionName = "29.0"
+
+    val ciBuildNumber = providers.environmentVariable("BUILD_NUMBER")
+      .orElse(providers.environmentVariable("GITHUB_RUN_NUMBER"))
+      .orElse(providers.gradleProperty("versionCode"))
+      .map { it.toInt() }
+      .getOrElse(30)
+    versionCode = ciBuildNumber
+
+    val ciVersionName = providers.environmentVariable("VERSION_NAME")
+      .orElse(providers.gradleProperty("versionName"))
+      .getOrElse("1.0.0")
+    versionName = ciVersionName
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     val udhaarTier = providers.gradleProperty("udhaar.tier").getOrElse("spark")
@@ -43,13 +54,33 @@ android {
   // and updating Android apps in AI Studio.
   signingConfigs {
     create("release") {
-      val customPath = System.getenv("KEYSTORE_PATH")
-      val customFile = customPath?.let { file(it) } ?: file("${rootDir}/my-upload-key.jks")
-      if (customFile.exists()) {
+      val localProps = Properties().apply {
+        val localPropsFile = rootProject.file("local.properties")
+        if (localPropsFile.exists()) {
+          localPropsFile.inputStream().use { stream ->
+            load(stream)
+          }
+        }
+      }
+      fun getPropOrEnv(key: String): String? {
+        return System.getenv(key)
+          ?: localProps.getProperty(key)
+          ?: providers.gradleProperty(key).orNull
+      }
+
+      val keystorePath = getPropOrEnv("KEYSTORE_PATH")
+      val keystorePassword = getPropOrEnv("KEYSTORE_PASSWORD") ?: getPropOrEnv("STORE_PASSWORD")
+      val keyAliasVal = getPropOrEnv("KEY_ALIAS") ?: "upload"
+      val keyPasswordVal = getPropOrEnv("KEY_PASSWORD") ?: keystorePassword
+
+      val customFile = keystorePath?.let { file(it) }
+        ?: file("${rootDir}/my-upload-key.jks")
+
+      if (customFile.exists() && !keystorePassword.isNullOrBlank()) {
         storeFile = customFile
-        storePassword = System.getenv("STORE_PASSWORD")
-        keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
-        keyPassword = System.getenv("KEY_PASSWORD")
+        storePassword = keystorePassword
+        keyAlias = keyAliasVal
+        keyPassword = keyPasswordVal
       } else {
         storeFile = file("${rootDir}/debug.keystore")
         storePassword = "android"
@@ -71,6 +102,7 @@ android {
         .map { !it.equals("false", ignoreCase = true) }
         .getOrElse(true)
       isCrunchPngs = false
+      isDebuggable = false
       isMinifyEnabled = enableR8Minify
       isShrinkResources = enableR8Minify
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -79,6 +111,7 @@ android {
       signingConfig = signingConfigs.getByName("release")
     }
     debug {
+      isDebuggable = true
       // Do not remove or modify this signingConfig assignment. It is necessary for Android apps in
       // AI Studio.
       signingConfig = signingConfigs.getByName("debugConfig")
@@ -153,8 +186,7 @@ tasks.matching { it.name == "bundleRelease" || it.name == "packageReleaseBundle"
 }
 
 tasks.matching {
-  it.name.contains("ArtProfile") ||
-    it.name.contains("CrashlyticsMappingFile") ||
+  it.name.contains("CrashlyticsMappingFile") ||
     it.name == "extractReleaseNativeSymbolTables" ||
     it.name == "extractReleaseVersionControlInfo"
 }.configureEach {

@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">Udhaar</string>
     <string name="com.google.firebase.crashlytics.mapping_file_id" translatable="false">udhaar-v24-release-mapping-id</string>
-    <string name="tagline_monochrome_ledger">Minimalist Ledger &amp; Records</string>
+    <string name="tagline_monochrome_ledger">Minimalist Books &amp; Records</string>
     <string name="total_to_receive">Total to receive (given)</string>
     <string name="total_to_pay">Total to pay (taken)</string>
     <string name="net_balance_label">Net position</string>
@@ -518,7 +518,7 @@
     <string name="sqlcipher_error_try_again">Try again</string>
     <string name="sqlcipher_error_reset_app_data">Reset app data</string>
     <string name="sqlcipher_error_reset_confirm_title">Reset all app data?</string>
-    <string name="sqlcipher_error_reset_confirm_body">This will permanently delete local ledger records, attachments, and encryption keys. Use this if your device lock screen was changed and device security keys are permanently invalidated. This cannot be undone.</string>
+    <string name="sqlcipher_error_reset_confirm_body">This will permanently delete local transaction records, attachments, and encryption keys. Use this if your device lock screen was changed and device security keys are permanently invalidated. This cannot be undone.</string>
     <string name="sqlcipher_error_reset_confirm_action">Reset data</string>
     <string name="sqlcipher_error_reset_cancel_action">Cancel</string>
     <string name="settings_screen_security_title">Screen security</string>
@@ -612,7 +612,7 @@
     <string name="receipt_net_balance_due_prefix">Net balance due</string>
     <string name="receipt_scan_to_settle_upi_prefix">Scan to settle via UPI:</string>
     <string name="receipt_net_ledger_position_title">Net Records position</string>
-    <string name="receipt_itemized_loan_records_title">Itemized ledger records</string>
+    <string name="receipt_itemized_loan_records_title">Itemized transaction records</string>
     <string name="receipt_no_active_or_settled_records">No active or Paid back records.</string>
     <string name="receipt_scan_to_settle_net_inr_prefix">Scan to settle net INR balance</string>
     <string name="receipt_generated_offline_footer_prefix">Generated offline by udhaar</string>
@@ -1084,7 +1084,7 @@
     <string name="account_delete_all_data_btn">Delete my account and data</string>
     <string name="account_delete_all_data_title">Delete Account &amp; All Data</string>
     <string name="account_delete_all_data_desc">Permanently deletes your account, local encrypted database, encryption keys, Google Drive backups, and all Firestore records.</string>
-    <string name="account_delete_all_data_warning">This will permanently delete your account, your local encrypted ledger records, device encryption keys, all cloud records in Firestore, and your shared web links. This cannot be undone.</string>
+    <string name="account_delete_all_data_warning">This will permanently delete your account, your local encrypted transaction records, device encryption keys, all cloud records in Firestore, and your shared web links. This cannot be undone.</string>
     <string name="account_delete_drive_backup_checkbox">Also delete encrypted backups from Google Drive</string>
     <string name="account_delete_confirm_btn">Permanently Delete Everything</string>
     <string name="account_delete_cancel_btn">Cancel</string>

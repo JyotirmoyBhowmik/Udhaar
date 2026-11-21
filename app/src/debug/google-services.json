@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "100000000001",
+    "project_id": "udhaar-spark-dev",
+    "storage_bucket": "udhaar-spark-dev.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:100000000001:android:dev0000000000000000001",
+        "android_client_info": {
+          "package_name": "com.jyotirmoyb.udhaar"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "100000000001-devclientidforlocaltestharness.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.jyotirmoyb.udhaar",
+            "certificate_hash": "a693704d0ec3a1da4f2c275569aff90fbd3a40c3"
+          }
+        },
+        {
+          "client_id": "100000000001-devwebclientforlocaltestharness.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDevHarnessFakeKeyDoNotUseInProd000"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "100000000001-devwebclientforlocaltestharness.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
