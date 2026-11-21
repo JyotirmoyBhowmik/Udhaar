@@ -145,6 +145,23 @@ private class FakeSparkAuthController(
         deletedLinkIds = knownLinkIds
     }
 
+    var deletedAccountAndAllDataForUid: String? = null
+    var deletedDriveBackups: Boolean = false
+
+    override suspend fun deleteAccountAndAllData(
+        context: Context,
+        uid: String,
+        knownLinkIds: List<String>,
+        deleteDriveBackups: Boolean,
+        onProgress: (String) -> Unit
+    ) {
+        deletedAccountAndAllDataForUid = uid
+        deletedCloudDataForUid = uid
+        deletedLinkIds = knownLinkIds
+        this.deletedDriveBackups = deleteDriveBackups
+        current = null
+    }
+
     override suspend fun signOut() {
         current = null
     }
@@ -343,6 +360,62 @@ class AccountAndWebAccessSectionTest {
             val heightDp = with(composeRule.density) { bounds.height.toDp() }
             assertTrue("Node $tag height ($heightDp) must be >= 47.5.dp at fontScale 2.0", heightDp.value >= 47.5f)
         }
+    }
+
+    @Test
+    fun deleteAccountAndData_showsConfirmationDialog_and_clearsAllData() {
+        val fakeAuth = FakeSparkAuthController(
+            current = SparkAuthSession(
+                uid = "uid_verified_delete_all",
+                email = "user_delete@example.com",
+                displayName = "Delete User",
+                isEmailVerified = true,
+                providerId = "password",
+                idToken = "token_delete"
+            )
+        )
+        val tokenStore = FakeTokenStore().apply {
+            saveSession("token_delete", "uid_verified_delete_all", "+919876543210", "user_delete@example.com")
+            setCloudSyncEnabled(true)
+            setLastSyncTimestamp(1700000000000L)
+        }
+        var accountDeletedCallbackInvoked = false
+
+        composeRule.setContent {
+            MaterialTheme {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    AccountAndWebAccessSection(
+                        dao = null,
+                        tokenStoreOverride = tokenStore,
+                        authControllerOverride = fakeAuth,
+                        onAccountAndDataDeletedCallback = { accountDeletedCallbackInvoked = true }
+                    )
+                }
+            }
+        }
+
+        // Tap Delete My Account and Data button
+        composeRule.onNodeWithTag("btn_delete_account_and_data").performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        // Confirmation dialog is displayed with Drive backup checkbox
+        composeRule.onNodeWithTag("dialog_account_delete_confirmation").assertIsDisplayed()
+        composeRule.onNodeWithTag("checkbox_delete_drive_backup").assertIsDisplayed()
+
+        // Confirm permanent deletion
+        composeRule.onNodeWithTag("btn_confirm_delete_account_and_data").performClick()
+        composeRule.waitForIdle()
+
+        // Assert Controller received deleteAccountAndAllData invocation
+        assertEquals("uid_verified_delete_all", fakeAuth.deletedAccountAndAllDataForUid)
+        assertTrue("Drive backups deletion should be requested", fakeAuth.deletedDriveBackups)
+        assertFalse("Session should be cleared", tokenStore.isSignedIn())
+        assertFalse("Cloud sync should be disabled", tokenStore.isCloudSyncEnabled())
+        assertTrue("onAccountAndDataDeletedCallback should be invoked", accountDeletedCallbackInvoked)
+
+        // Dismiss final dialog
+        composeRule.onNodeWithTag("btn_account_deleted_done").performClick()
+        composeRule.waitForIdle()
     }
 }
 

@@ -77,7 +77,7 @@
     <string name="ui_fmt_new_6d0cc5">💬 %1$s নতুন</string>
     <string name="ui_fmt_new_8caadb">💬 %1$s নতুন</string>
     <string name="ui_fmt_no_messages_yet_with_2caa5a">%1$s এর সাথে কোনো বার্তা নেই</string>
-    <string name="ui_fmt_no_transactions_recorded_with_yet_301581">No লেনদেন recorded with %1$s yet. Tap + New Loan below to add one.</string>
+    <string name="ui_fmt_no_transactions_recorded_with_yet_301581">%1$s এর সাথে কোনো লেনদেন নেই। যোগ করতে নিচে + নতুন রেকর্ডে ট্যাপ করুন।</string>
     <string name="ui_fmt_of_selected_c710d5">%1$s of %2$s নির্বাচিত</string>
     <string name="ui_fmt_open_party_chat_thread_unread_55743b">OPEN পার্টি চ্যাট THREAD (💬 %1$s অপঠিত)</string>
     <string name="ui_fmt_open_transaction_chat_new_91bcd1">OPEN TRANSACTION চ্যাট (%1$s নতুন)</string>
@@ -298,7 +298,7 @@
     <string name="ui_str_nepalese_rupee_npr_8944f0">নেপালি রুপি — NPR (रू)</string>
     <string name="ui_str_net_remaining_due_3993cb">মোট অবশিষ্ট বাকি</string>
     <string name="ui_str_new_contact_82691e">নতুন কন্টাক্ট</string>
-    <string name="ui_str_new_loan_e72467">নতুন LOAN</string>
+    <string name="ui_str_new_loan_e72467">নতুন রেকর্ড</string>
     <string name="ui_str_new_udhaar_210bee">নতুন উধার</string>
     <string name="ui_str_new_udhaar_record_8b7ed4">নতুন উধার রেকর্ড</string>
     <string name="ui_str_next_1992d5">পরবর্তী</string>
@@ -1072,4 +1072,28 @@
     <string name="help_contact_faq_3_q">৩. আমি কীভাবে আমার ক্লাউড ডেটা মুছে ফেলব?</string>
     <string name="help_contact_faq_3_a">সেটিংস → অ্যাকাউন্ট এবং ওয়েব অ্যাক্সেস (বা ব্যাকআপ ও ক্লাউড) খুলুন এবং \"আমার ক্লাউড ডেটা মুছুন\" চাপুন। আপনার ফোনের রেকর্ড নিরাপদ রেখে Firestore থেকে ক্লাউড রেকর্ড মুছে ফেলা হবে।</string>
     <string name="help_contact_legal_links_title">আইনি ও নথিপত্র</string>
+
+    <!-- Google Play Compliance & Regulatory Positioning -->
+    <string name="app_regulatory_disclaimer">উধার টাকা ধার দেয় না বা পেমেন্ট প্রক্রিয়া করে না।</string>
+    <string name="about_delete_account_web_btn">অ্যাকাউন্ট ও ডেটা মোছার ওয়েব পেজ</string>
+
+    <!-- Account and Data Deletion (Play User Data Policy) -->
+    <string name="account_delete_all_data_btn">আমার অ্যাকাউন্ট ও সমস্ত ডেটা মুছুন</string>
+    <string name="account_delete_all_data_title">অ্যাকাউন্ট ও সমস্ত ডেটা মুছুন</string>
+    <string name="account_delete_all_data_desc">আপনার অ্যাকাউন্ট, স্থানীয় এনক্রিপ্ট করা ডেটাবেস, এনক্রিপশন কী, Google Drive ব্যাকআপ এবং সমস্ত Firestore রেকর্ড স্থায়ীভাবে মুছে ফেলে।</string>
+    <string name="account_delete_all_data_warning">এটি আপনার অ্যাকাউন্ট, স্থানীয় এনক্রিপ্ট করা লেজার রেকর্ড, ডিভাইস এনক্রিপশন কী, Firestore-এ সমস্ত ক্লাউড রেকর্ড এবং আপনার শেয়ার করা ওয়েব লিঙ্ক স্থায়ীভাবে মুছে দেবে। এটি আর ফিরিয়ে আনা যাবে না।</string>
+    <string name="account_delete_drive_backup_checkbox">Google Drive থেকেও এনক্রিপ্ট করা ব্যাকআপ মুছুন</string>
+    <string name="account_delete_confirm_btn">স্থায়ীভাবে সবকিছু মুছুন</string>
+    <string name="account_delete_cancel_btn">বাতিল করুন</string>
+    <string name="account_delete_reauth_title">নিরাপত্তা যাচাইকরণ প্রয়োজন</string>
+    <string name="account_delete_reauth_msg">Google Play নীতি অনুযায়ী অ্যাকাউন্ট ও ডেটা মুছে ফেলার আগে পুনরায় প্রমাণীকরণ আবশ্যক।</string>
+    <string name="account_delete_success_title">অ্যাকাউন্ট মুছে ফেলা হয়েছে</string>
+    <string name="account_delete_success_msg">আপনার অ্যাকাউন্ট, সমস্ত স্থানীয় ও ক্লাউড রেকর্ড, এনক্রিপশন কী এবং শেয়ার করা লিঙ্ক স্থায়ীভাবে মুছে ফেলা হয়েছে।</string>
+    <string name="delete_account_progress_drive">Google Drive ব্যাকআপ মোছা হচ্ছে…</string>
+    <string name="delete_account_progress_firestore">Cloud Firestore রেকর্ড মোছা হচ্ছে…</string>
+    <string name="delete_account_progress_guest_links">শেয়ার করা গেস্ট লিঙ্ক ও প্রস্তাবনা মোছা হচ্ছে…</string>
+    <string name="delete_account_progress_cleanup">ব্যাকগ্রাউন্ড পরিষেবা বাতিল করা হচ্ছে…</string>
+    <string name="delete_account_progress_auth">প্রমাণীকরণ অ্যাকাউন্ট মোছা হচ্ছে…</string>
+    <string name="delete_account_progress_local">স্থানীয় ডেটাবেস ও এনক্রিপশন কী স্থায়ীভাবে মোছা হচ্ছে…</string>
+    <string name="delete_account_done_dismiss">সম্পন্ন</string>
 </resources>

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
@@ -56,6 +57,35 @@ fun AboutSection(
         subtitle = stringResource(R.string.settings_sec_about_sub),
         testTag = "section_about"
     ) {
+        // Regulatory Positioning & Non-Lending Disclaimer Card
+        androidx.compose.material3.Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("about_regulatory_disclaimer_card"),
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = stringResource(R.string.app_regulatory_disclaimer),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
         // Share & Give Access Card
         Column(
             modifier = Modifier
@@ -226,6 +256,25 @@ fun AboutSection(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(text = stringResource(R.string.about_terms_of_service_btn), style = MaterialTheme.typography.labelSmall)
                 }
+            }
+            OutlinedButton(
+                onClick = {
+                    runCatching {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://udhaar.jyotirmoyb.com/delete-account"))
+                        )
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .testTag("open_delete_account_web_button"),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(15.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(text = stringResource(R.string.about_delete_account_web_btn), style = MaterialTheme.typography.labelSmall)
             }
             OutlinedButton(
                 onClick = {

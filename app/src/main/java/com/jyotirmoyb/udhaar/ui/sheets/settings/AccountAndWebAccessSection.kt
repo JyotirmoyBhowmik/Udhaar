@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -99,6 +100,15 @@ interface SparkAuthController {
     suspend fun reauthenticateWithPassword(email: String, password: String)
     suspend fun reauthenticateWithGoogle(context: Context)
     suspend fun deleteCloudData(uid: String, knownLinkIds: List<String> = emptyList())
+    suspend fun deleteAccountAndAllData(
+        context: Context,
+        uid: String,
+        knownLinkIds: List<String> = emptyList(),
+        deleteDriveBackups: Boolean = false,
+        onProgress: (String) -> Unit = {}
+    ) {
+        deleteCloudData(uid, knownLinkIds)
+    }
     suspend fun signOut()
 }
 
@@ -262,6 +272,98 @@ class FirebaseSparkAuthController(
         }
     }
 
+    override suspend fun deleteAccountAndAllData(
+        context: Context,
+        uid: String,
+        knownLinkIds: List<String>,
+        deleteDriveBackups: Boolean,
+        onProgress: (String) -> Unit
+    ) {
+        val db = firestoreProvider()
+        val auth = authProvider()
+        val user = auth?.currentUser
+
+        // 1. Delete Google Drive backups if requested
+        if (deleteDriveBackups) {
+            onProgress(context.getString(R.string.delete_account_progress_drive))
+            runCatching {
+                val driveHelper = com.jyotirmoyb.udhaar.backup.DriveServiceHelper(context)
+                driveHelper.deleteAllBackups()
+            }
+        }
+
+        // 2. Delete Firestore documents
+        if (uid.isNotBlank() && db != null) {
+            onProgress(context.getString(R.string.delete_account_progress_firestore))
+            val userDoc = db.collection("users").document(uid)
+            val subcollections = listOf("records", "people", "plans", "attachments")
+            for (sub in subcollections) {
+                runCatching {
+                    val snap = userDoc.collection(sub).get().await()
+                    for (doc in snap.documents) {
+                        runCatching { doc.reference.delete().await() }
+                    }
+                }
+            }
+            runCatching { userDoc.collection("meta").document("syncSignal").delete().await() }
+            runCatching { userDoc.delete().await() }
+
+            // 3. Delete owned guestLinks (query ownerUid == uid, up to limit 50 as permitted by rules)
+            onProgress(context.getString(R.string.delete_account_progress_guest_links))
+            runCatching {
+                val linksSnap = db.collection("guestLinks")
+                    .whereEqualTo("ownerUid", uid)
+                    .limit(50)
+                    .get()
+                    .await()
+                for (linkDoc in linksSnap.documents) {
+                    val actionsSnap = runCatching { linkDoc.reference.collection("actions").get().await() }.getOrNull()
+                    if (actionsSnap != null) {
+                        for (actionDoc in actionsSnap.documents) {
+                            runCatching { actionDoc.reference.collection("proof").document("image").delete().await() }
+                            runCatching { actionDoc.reference.delete().await() }
+                        }
+                    }
+                    runCatching { linkDoc.reference.delete().await() }
+                }
+            }
+
+            // Also delete known capability link IDs from local database
+            for (linkId in knownLinkIds.distinct()) {
+                if (linkId.length >= 12) {
+                    runCatching {
+                        val actionsSnap = runCatching { db.collection("guestLinks").document(linkId).collection("actions").get().await() }.getOrNull()
+                        if (actionsSnap != null) {
+                            for (actionDoc in actionsSnap.documents) {
+                                runCatching { actionDoc.reference.collection("proof").document("image").delete().await() }
+                                runCatching { actionDoc.reference.delete().await() }
+                            }
+                        }
+                    }
+                    runCatching { db.collection("guestLinks").document(linkId).delete().await() }
+                }
+            }
+        }
+
+        // 4. Cancel background sync and polling jobs
+        onProgress(context.getString(R.string.delete_account_progress_cleanup))
+        SyncWorker.cancelSync(context)
+        GuestActionPollingWorker.cancel(context)
+        com.jyotirmoyb.udhaar.sync.CleanExpiredGuestLinksWorker.cancel(context)
+        com.jyotirmoyb.udhaar.backup.DriveBackupScheduler.cancel(context)
+
+        // 5. Delete Firebase Auth user
+        if (user != null) {
+            onProgress(context.getString(R.string.delete_account_progress_auth))
+            user.delete().await()
+        }
+
+        // 6. Reset local database and encryption keys
+        onProgress(context.getString(R.string.delete_account_progress_local))
+        com.jyotirmoyb.udhaar.data.UdhaarDatabase.resetInstance()
+        com.jyotirmoyb.udhaar.security.EncryptedStorageManager.resetAppDataSecurely(context)
+    }
+
     override suspend fun signOut() {
         runCatching { authProvider()?.signOut() }
     }
@@ -279,7 +381,8 @@ fun AccountAndWebAccessSection(
     dao: UdhaarDao? = null,
     tokenStoreOverride: TokenStore? = null,
     authControllerOverride: SparkAuthController? = null,
-    onDeleteMyCloudDataCallback: () -> Unit = {}
+    onDeleteMyCloudDataCallback: () -> Unit = {},
+    onAccountAndDataDeletedCallback: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -314,6 +417,13 @@ fun AccountAndWebAccessSection(
     var reauthPasswordInput by rememberSaveable { mutableStateOf("") }
     var isReauthenticated by rememberSaveable { mutableStateOf(false) }
     var confirmDeleteCloudData by rememberSaveable { mutableStateOf(false) }
+
+    var showDeleteAccountDialog by rememberSaveable { mutableStateOf(false) }
+    var isDeletingAccount by remember { mutableStateOf(false) }
+    var accountDeleteProgress by remember { mutableStateOf("") }
+    var accountDeleteError by remember { mutableStateOf<String?>(null) }
+    var isAccountDeleteCompleted by rememberSaveable { mutableStateOf(false) }
+    var isDeleteAccountReauthNeeded by rememberSaveable { mutableStateOf(false) }
 
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -1093,6 +1203,42 @@ fun AccountAndWebAccessSection(
                     )
                 }
 
+                // Delete My Account and All Data (Google Play User Data Policy Requirement)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.account_delete_all_data_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Button(
+                    onClick = {
+                        accountDeleteError = null
+                        showDeleteAccountDialog = true
+                    },
+                    enabled = !isLoading && !isDeletingAccount,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .testTag("btn_delete_account_and_data"),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteOutline,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onError
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.account_delete_all_data_btn),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                 // Sign Out Button (100% Spark Firebase Auth + local state cleanup, zero /api/v1 calls)
@@ -1157,4 +1303,72 @@ fun AccountAndWebAccessSection(
             }
         }
     }
+
+    DeleteAccountAndDataDialog(
+        isOpen = showDeleteAccountDialog,
+        onDismiss = {
+            if (!isDeletingAccount) {
+                showDeleteAccountDialog = false
+                isDeleteAccountReauthNeeded = false
+                accountDeleteError = null
+            }
+        },
+        onConfirmDelete = { deleteDriveBackups ->
+            scope.launch {
+                isDeletingAccount = true
+                accountDeleteError = null
+                try {
+                    val uid = session?.uid?.ifBlank { tokenStore.getUserId().orEmpty() }
+                        ?: tokenStore.getUserId().orEmpty()
+                    val allTxs = dao?.getAllTransactionsSnapshot().orEmpty()
+                    val knownLinkIds = allTxs.mapNotNull { tx ->
+                        val token = tx.shareToken.trim()
+                        when {
+                            token.length == 64 && token.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' } ->
+                                token.lowercase(Locale.ROOT)
+                            token.length == 32 && token.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' } ->
+                                GuestWebCloudRepository.sha256Hex(token.lowercase(Locale.ROOT))
+                            else -> null
+                        }
+                    }
+                    authController.deleteAccountAndAllData(
+                        context = context,
+                        uid = uid,
+                        knownLinkIds = knownLinkIds,
+                        deleteDriveBackups = deleteDriveBackups,
+                        onProgress = { step -> accountDeleteProgress = step }
+                    )
+                    tokenStore.clearSession()
+                    session = null
+                    isSignedIn = false
+                    isEmailVerified = false
+                    isCloudSyncEnabled = false
+                    isAccountDeleteCompleted = true
+                    onAccountAndDataDeletedCallback()
+                } catch (e: Exception) {
+                    if (e is com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException ||
+                        e.cause is com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException) {
+                        isDeleteAccountReauthNeeded = true
+                    } else {
+                        accountDeleteError = e.message ?: "Failed to delete account and data"
+                    }
+                } finally {
+                    isDeletingAccount = false
+                }
+            }
+        },
+        isDeleting = isDeletingAccount,
+        progressMessage = accountDeleteProgress,
+        errorMessage = accountDeleteError,
+        isReauthRequired = isDeleteAccountReauthNeeded,
+        onReauthenticate = {
+            isDeleteAccountReauthNeeded = false
+            showReauthPanel = true
+        },
+        isCompleted = isAccountDeleteCompleted,
+        onCompletedDismiss = {
+            isAccountDeleteCompleted = false
+            showDeleteAccountDialog = false
+        }
+    )
 }
