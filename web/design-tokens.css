@@ -852,7 +852,8 @@ details.accordion .accordion-content {
   outline-offset: 2px;
 }
 
-.hidden {
+.hidden,
+[hidden] {
   display: none !important;
 }
 

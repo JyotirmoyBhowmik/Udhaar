@@ -81,6 +81,7 @@
     });
 
     if (emptyState) {
+      emptyState.hidden = visibleCount !== 0;
       emptyState.style.display = visibleCount === 0 ? 'block' : 'none';
     }
   }

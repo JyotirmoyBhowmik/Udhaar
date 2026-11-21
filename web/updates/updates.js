@@ -80,6 +80,8 @@
       document.documentElement.setAttribute("data-theme", savedTheme);
     }
     if (themeBtn) {
+      const initialTheme = document.documentElement.getAttribute("data-theme") || "light";
+      themeBtn.textContent = initialTheme === "dark" ? "☀️" : "🌙";
       themeBtn.addEventListener("click", () => {
         const cur = document.documentElement.getAttribute("data-theme") || "light";
         const next = cur === "dark" ? "light" : "dark";
@@ -96,6 +98,12 @@
     if (langSelect) {
       langSelect.value = getLang();
       langSelect.addEventListener("change", (e) => setLang(e.target.value));
+    }
+
+    // Sync active version pill with SITE_CONFIG
+    const versionPill = document.getElementById("txt-pill-version");
+    if (versionPill && window.SITE_CONFIG && window.SITE_CONFIG.APP_VERSION) {
+      versionPill.textContent = `Version ${window.SITE_CONFIG.APP_VERSION} Active`;
     }
 
     // Play store early access link sync

@@ -7,7 +7,7 @@
     en: {
       badge: "Terms of Service & User Agreement",
       title: "Terms of Service",
-      effective: "Effective date: November 11, 2026 • Version 28.0 (Spark Mode)",
+      effective: "Effective date: November 21, 2026 • Version 30.0 (Spark Mode)",
       short_title: "In short: A personal record-keeping notebook, not a bank",
       short_desc:
         "Udhaar is a free, offline-first personal ledger notebook that helps friends, families, and small shopkeepers keep clear records of money lent and borrowed. Udhaar does not hold, move, lend, or collect money, and records created in Udhaar are for mutual clarity rather than formal legal loan contracts.",
@@ -22,7 +22,7 @@
         "When you share a private web confirmation link (/u/), the recipient can submit up to a fixed number of proposals (confirming the record, reporting a dispute reason, claiming up to 5 payments, or proposing up to 3 return dates). Guest actions are proposals only and never alter your ledger unless you accept them in the app. You agree not to use Udhaar or WhatsApp reminder drafts to harass, threaten, spam, or defame any person. Phone numbers entered in Udhaar are unverified contact labels and are never used for login or account recovery.",
       sec4_title: "4. Service Limits, Availability & Warranty Disclaimer",
       sec4_body:
-        "Udhaar v28.0 runs on the Firebase Spark (free) tier for optional cloud features, which enforces daily read/write quotas and does not include cloud photo storage. Udhaar is provided \"AS IS\" without warranties of uninterrupted cloud availability. Your local offline ledger continues working even if cloud quotas are reached. You may delete your local data or use the \"Delete my cloud data\" button in Settings at any time.",
+        "Udhaar v30.0 runs on the Firebase Spark (free) tier for optional cloud features, which enforces daily read/write quotas and does not include cloud photo storage. Udhaar is provided \"AS IS\" without warranties of uninterrupted cloud availability. Your local offline ledger continues working even if cloud quotas are reached. You may delete your local data or use the \"Delete my cloud data\" button in Settings at any time.",
       sec5_title: "5. Support & Grievance Redressal Contact",
       sec5_body:
         "In accordance with the Information Technology Act, 2000, the Digital Personal Data Protection Act, 2023 (India), and the Privacy Act, 2075 (Nepal), you may contact our Support and Grievance Officer for any questions, abuse reports, or data erasure requests. All grievances are acknowledged within 48 hours and resolved within 30 days:",
@@ -34,7 +34,7 @@
     hi: {
       badge: "सेवा की शर्तें और उपयोगकर्ता समझौता",
       title: "सेवा की शर्तें (Terms of Service)",
-      effective: "प्रभावी तिथि: 11 नवंबर 2026 • संस्करण 28.0 (Spark Mode)",
+      effective: "प्रभावी तिथि: 21 नवंबर 2026 • संस्करण 30.0 (Spark Mode)",
       short_title: "संक्षेप में: यह हिसाब रखने की डायरी है, कोई बैंक नहीं",
       short_desc:
         "उधार (Udhaar) एक निःशुल्क, ऑफलाइन-फर्स्ट व्यक्तिगत हिसाब-किताब ऐप है जो मित्रों, परिवार और दुकानदारों को लेन-देन का स्पष्ट रिकॉर्ड रखने में मदद करता है। उधार पैसे का लेन-देन, ऋण वितरण या वसूली नहीं करता है, और इसके रिकॉर्ड आपसी स्पष्टता के लिए हैं, न कि कानूनी ऋण अनुबंध।",
@@ -49,7 +49,7 @@
         "जब आप वेब लिंक (/u/) साझा करते हैं, तो दूसरा व्यक्ति सीमित संख्या में प्रस्ताव भेज सकता है (पुष्टि, आपत्ति, अधिकतम 5 भुगतान दावे, या 3 तारीख प्रस्ताव)। जब तक आप ऐप में उन्हें स्वीकार नहीं करते, तब तक आपका खाता नहीं बदलता। आप किसी को परेशान करने या धमकाने के लिए इस ऐप का उपयोग नहीं करेंगे। फोन नंबर केवल असत्यापित संपर्क विवरण हैं।",
       sec4_title: "4. सेवा सीमाएँ, उपलब्धता और वारंटी अस्वीकरण",
       sec4_body:
-        "उधार v28.0 मुफ़्त Firebase Spark टियर पर चलता है, जिसमें दैनिक कोटा लागू होता है और क्लाउड फोटो अपलोड शामिल नहीं है। क्लाउड कोटा पूरा होने पर भी आपका ऑफलाइन ऐप पूरी तरह काम करता रहता है। आप कभी भी सेटिंग्स से 'मेरा क्लाउड डेटा हटाएं' (Delete my cloud data) बटन का उपयोग कर सकते हैं।",
+        "उधार v30.0 मुफ़्त Firebase Spark टियर पर चलता है, जिसमें दैनिक कोटा लागू होता है और क्लाउड फोटो अपलोड शामिल नहीं है। क्लाउड कोटा पूरा होने पर भी आपका ऑफलाइन ऐप पूरी तरह काम करता रहता है। आप कभी भी सेटिंग्स से 'मेरा क्लाउड डेटा हटाएं' (Delete my cloud data) बटन का उपयोग कर सकते हैं।",
       sec5_title: "5. सहायता और शिकायत निवारण अधिकारी संपर्क",
       sec5_body:
         "सूचना प्रौद्योगिकी अधिनियम 2000, डीपीडीपी अधिनियम 2023 (भारत) और गोपनीयता अधिनियम 2075 (नेपाल) के तहत किसी भी प्रश्न, शिकायत या डेटा हटाने के लिए नीचे संपर्क करें (48 घंटे में पावती और 30 दिनों के भीतर समाधान):",
@@ -61,7 +61,7 @@
     bn: {
       badge: "ব্যবহারের শর্তাবলী ও চুক্তি",
       title: "ব্যবহারের শর্তাবলী (Terms of Service)",
-      effective: "কার্যকর তারিখ: ১১ নভেম্বর ২০২৬ • সংস্করণ ২৮.০ (Spark Mode)",
+      effective: "কার্যকর তারিখ: ২১ নভেম্বর ২০২৬ • সংস্করণ ৩০.০ (Spark Mode)",
       short_title: "সংক্ষেপে: এটি ব্যক্তিগত হিসেবের খাতা, কোনো ব্যাংক নয়",
       short_desc:
         "উধার (Udhaar) একটি বিনামূল্যে, অফলাইন-ফার্স্ট ব্যক্তিগত লেনদেনের খাতা যা বন্ধু, পরিবার এবং ছোট ব্যবসায়ীদের ধার-দেনার পরিষ্কার হিসেব রাখতে সাহায্য করে। উধার কোনো টাকা লেনদেন বা আদায় করে না, এবং এই রেকর্ডগুলো পারস্পরিক স্বচ্ছতার জন্য, কোনো আইনি ঋণ চুক্তি নয়।",
@@ -76,7 +76,7 @@
         "আপনি যখন প্রাইভেট ওয়েব লিংক (/u/) শেয়ার করেন, তখন অপর পক্ষ নির্দিষ্ট সংখ্যক প্রস্তাব পাঠাতে পারেন (নিশ্চিতকরণ, আপত্তি, সর্বোচ্চ ৫টি পেমেন্ট দাবি, বা ৩টি তারিখ প্রস্তাব)। আপনি অ্যাপে গ্রহণ না করা পর্যন্ত আপনার মূল খাতা পরিবর্তিত হয় না। কাউকে হয়রানি বা স্প্যাম করার জন্য অ্যাপটি ব্যবহার করা যাবে না। ফোন নম্বরগুলো শুধুমাত্র অযাচাইকৃত যোগাযোগ নম্বর।",
       sec4_title: "৪. পরিষেবার সীমা, প্রাপ্যতা ও ওয়ারেন্টি অস্বীকৃতি",
       sec4_body:
-        "উধার v28.0 বিনামূল্যে Firebase Spark টিয়ারে চলে, যেখানে দৈনিক কোটা প্রযোজ্য এবং ক্লাউডে ছবি আপলোড করা হয় না। ক্লাউড কোটা শেষ হলেও আপনার ফোনের অফলাইন খাতা সম্পূর্ণ সচল থাকে। আপনি যেকোনো সময় সেটিংস থেকে 'Delete my cloud data' বোতামে ট্যাপ করে ক্লাউড তথ্য মুছে ফেলতে পারেন।",
+        "উধার v30.0 বিনামূল্যে Firebase Spark টিয়ারে চলে, যেখানে দৈনিক কোটা প্রযোজ্য এবং ক্লাউডে ছবি আপলোড করা হয় না। ক্লাউড কোটা শেষ হলেও আপনার ফোনের অফলাইন খাতা সম্পূর্ণ সচল থাকে। আপনি যেকোনো সময় সেটিংস থেকে 'Delete my cloud data' বোতামে ট্যাপ করে ক্লাউড তথ্য মুছে ফেলতে পারেন।",
       sec5_title: "৫. সহায়তা ও অভিযোগ নিষ্পত্তি আধিকারিকের যোগাযোগ",
       sec5_body:
         "তথ্য প্রযুক্তি আইন ২০০০, ডিপিডিপি আইন ২০২৩ (ভারত) এবং গোপনীয়তা আইন ২০৭৫ (নেপাল) অনুযায়ী যেকোনো প্রশ্ন, অভিযোগ বা তথ্য মোছার অনুরোধের জন্য নিচে যোগাযোগ করুন (৪৮ ঘণ্টায় প্রাপ্তিস্বীকার এবং ৩০ দিনের মধ্যে নিষ্পত্তি):",
@@ -88,7 +88,7 @@
     as: {
       badge: "সেৱাৰ চৰ্তাবলী আৰু ব্যৱহাৰকাৰী চুক্তি",
       title: "সেৱাৰ চৰ্তাবলী (Terms of Service)",
-      effective: "কাৰ্যকৰী তাৰিখ: ১১ নৱেম্বৰ ২০২৬ • সংস্কৰণ ২৮.০ (Spark Mode)",
+      effective: "কাৰ্যকৰী তাৰিখ: ২১ নৱেম্বৰ ২০২৬ • সংস্কৰণ ৩০.০ (Spark Mode)",
       short_title: "চমুকৈ: এয়া ব্যক্তিগত হিচাপৰ বহী, কোনো বেংক নহয়",
       short_desc:
         "উধাৰ (Udhaar) হৈছে এক বিনামূলীয়া, অফলাইন-ফাৰ্ষ্ট ব্যক্তিগত হিচাপ বহী যিয়ে বন্ধু-বান্ধৱ, পৰিয়াল আৰু দোকানীসকলক ধন ধাৰে দিয়া আৰু লোৱাৰ স্পষ্ট হিচাপ ৰখাত সহায় কৰে। উধাৰে কোনো ধন লেনদেন বা সংগ্ৰহ নকৰে, আৰু ইয়াৰ তথ্যসমূহ কেৱল পাৰস্পৰিক স্পষ্টতাৰ বাবেহে, আইনী চুক্তি নহয়।",
@@ -103,7 +103,7 @@
         "যেতিয়া আপুনি প্রাইভেট ৱেব লিংক (/u/) শ্বেয়াৰ কৰে, আনজন ব্যক্তিয়ে সীমিত সংখ্যক প্ৰস্তাৱ পঠিয়াব পাৰে (নিশ্চিতকৰণ, আপত্তি, সৰ্বাধিক ৫টা পেমেণ্ট দাবী, বা ৩টা তাৰিখ প্ৰস্তাৱ)। আপুনি এপত গ্ৰহণ নকৰালৈকে আপোনাৰ মূল হিচাপ সলনি নহয়। কাকো হাৰাশাস্তি কৰিবলৈ এপটো ব্যৱহাৰ নকৰিব। ফোন নম্বৰসমূহ কেৱল অসত্যাপিত যোগাযোগৰ তথ্য।",
       sec4_title: "৪. সেৱাৰ সীমা, উপলব্ধতা আৰু ৱাৰেণ্টী অস্বীকাৰ",
       sec4_body:
-        "উধাৰ v28.0 বিনামূলীয়া Firebase Spark টিয়াৰত চলে, য’ত দৈনিক কোটা থাকে আৰু ক্লাউডত ফটো আপলোড কৰা নহয়। ক্লাউড কোটা শেষ হ’লেও আপোনাৰ অফলাইন হিচাপ বহী চলি থাকিব। আপুনি যিকোনো সময়তে ছেটিংছৰ পৰা 'Delete my cloud data' বুটাম টিপি ক্লাউড তথ্য মচিব পাৰে।",
+        "উধাৰ v30.0 বিনামূলীয়া Firebase Spark টিয়াৰত চলে, য’ত দৈনিক কোটা থাকে আৰু ক্লাউডত ফটো আপলোড কৰা নহয়। ক্লাউড কোটা শেষ হ’লেও আপোনাৰ অফলাইন হিচাপ বহী চলি থাকিব। আপুনি যিকোনো সময়তে ছেটিংছৰ পৰা 'Delete my cloud data' বুটাম টিপি ক্লাউড তথ্য মচিব পাৰে।",
       sec5_title: "৫. সাহায্য আৰু অভিযোগ নিষ্পত্তি বিষয়াৰ যোগাযোগ",
       sec5_body:
         "তথ্য প্ৰযুক্তি আইন ২০০০, ডিপিডিপি আইন ২০২৩ (ভাৰত) আৰু গোপনীয়তা আইন ২০৭৫ (নেপাল) অনুসৰি যিকোনো প্ৰশ্ন, অভিযোগ বা তথ্য মচাৰ অনুৰোধৰ বাবে তলত যোগাযোগ কৰক (৪৮ ঘণ্টাত স্বীকৃতি আৰু ৩০ দিনৰ ভিতৰত সমাধান):",
@@ -115,7 +115,7 @@
     ne: {
       badge: "सेवाका सर्तहरू र प्रयोगकर्ता सम्झौता",
       title: "सेवाका सर्तहरू (Terms of Service)",
-      effective: "लागू मिति: ११ नोभेम्बर २०२६ • संस्करण २८.० (Spark Mode)",
+      effective: "लागू मिति: २१ नोभेम्बर २०२६ • संस्करण ३०.० (Spark Mode)",
       short_title: "संक्षेपमा: यो हिसाब राख्ने व्यक्तिगत डायरी हो, बैंक होइन",
       short_desc:
         "उधार (Udhaar) एक निःशुल्क, अफलाइन-फर्स्ट व्यक्तिगत हिसाब-किताब एप हो जसले साथीभाइ, परिवार र साना व्यवसायीहरूलाई लेनदेनको स्पष्ट रेकर्ड राख्न मद्दत गर्छ। उधारले पैसाको कारोबार वा असुली गर्दैन, र यहाँ राखिएका रेकर्डहरू आपसी स्पष्टताका लागि मात्र हुन्, कानुनी ऋण सम्झौता होइनन्।",
@@ -130,7 +130,7 @@
         "जब तपाईंले निजी वेब लिङ्क (/u/) पठाउनुहुन्छ, अर्को पक्षले निश्चित संख्यामा प्रस्तावहरू पठाउन सक्छ (पुष्टि, विवाद कारण, अधिकतम ५ भुक्तानी दाबी, वा ३ मिति प्रस्ताव)। तपाईंले एपमा स्वीकार नगरेसम्म तपाईंको खाता परिवर्तन हुँदैन। कसैलाई दुःख दिन वा धम्क्याउन यो एप प्रयोग नगर्नुहोस्। फोन नम्बरहरू अप्रमाणित सम्पर्क विवरण मात्र हुन्।",
       sec4_title: "४. सेवा सीमा, उपलब्धता र वारेन्टी अस्वीकरण",
       sec4_body:
-        "उधार v28.0 निःशुल्क Firebase Spark टियरमा चल्छ, जसमा दैनिक कोटा लागू हुन्छ र क्लाउड फोटो अपलोड हुँदैन। क्लाउड कोटा सकिए पनि तपाईंको अफलाइन एप पूर्ण रूपमा चलिरहन्छ। तपाईंले जुनसुकै बेला सेटिङ्समा गई 'Delete my cloud data' बटन थिचेर क्लाउड डाटा मेटाउन सक्नुहुन्छ।",
+        "उधार v30.0 निःशुल्क Firebase Spark टियरमा चल्छ, जसमा दैनिक कोटा लागू हुन्छ र क्लाउड फोटो अपलोड हुँदैन। क्लाउड कोटा सकिए पनि तपाईंको अफलाइन एप पूर्ण रूपमा चलिरहन्छ। तपाईंले जुनसुकै बेला सेटिङ्समा गई 'Delete my cloud data' बटन थिचेर क्लाउड डाटा मेटाउन सक्नुहुन्छ।",
       sec5_title: "५. सहायता र गुनासो सुनुवाइ अधिकारी सम्पर्क",
       sec5_body:
         "सूचना प्रविधि ऐन २०००, डीपीडीपी ऐन २०२३ (भारत) र वैयक्तिक गोपनीयता सम्बन्धी ऐन २०७५ (नेपाल) बमोजिम कुनै पनि प्रश्न, गुनासो वा डाटा मेटाउने अनुरोधका लागि तल सम्पर्क गर्नुहोस् (४८ घण्टाभित्र जानकारी र ३० दिनभित्र समाधान):",
@@ -199,6 +199,8 @@
     document.documentElement.setAttribute("data-theme", savedTheme);
   }
   if (themeBtn) {
+    const initialTheme = document.documentElement.getAttribute("data-theme") || "light";
+    themeBtn.textContent = initialTheme === "dark" ? "☀️" : "🌙";
     themeBtn.addEventListener("click", () => {
       const cur = document.documentElement.getAttribute("data-theme") || "light";
       const next = cur === "dark" ? "light" : "dark";

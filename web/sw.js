@@ -1,20 +1,18 @@
 // =========================================================================
-// Udhaar Web Service Worker — Static Shell, Web Push & Offline Sync (v28.0)
+// Udhaar Web Service Worker — Static Shell, Web Push & Offline Sync (v30.0)
 // Security Rule: NEVER cache record data, secret tokens, or /api/* endpoints
+// Never serve or cache redirected responses for navigation requests
 // =========================================================================
 
-const CACHE_NAME = "udhaar-shell-v28";
+const CACHE_NAME = "udhaar-shell-v30";
 const SHELL_ASSETS = [
-  "/u/",
-  "/u/index.html",
   "/u/guest.css",
   "/u/firebase-init.js",
   "/u/guest.js",
-  "/ledger/",
-  "/ledger/index.html",
   "/ledger/ledger.css",
   "/ledger/ledger.js",
   "/design-tokens.css",
+  "/landing.css",
   "/fonts/inter.woff2",
   "/fonts/space-grotesk.woff2",
   "/fonts/ibm-plex-mono.woff2",
@@ -34,8 +32,19 @@ const SHELL_ASSETS = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(SHELL_ASSETS);
+    caches.open(CACHE_NAME).then(async (cache) => {
+      await Promise.all(
+        SHELL_ASSETS.map(async (assetUrl) => {
+          try {
+            const resp = await fetch(assetUrl, { cache: "no-cache" });
+            if (resp && resp.ok && !resp.redirected && resp.type === "basic") {
+              await cache.put(assetUrl, resp);
+            }
+          } catch (_) {
+            // Best-effort precache so one missing asset never breaks SW install
+          }
+        })
+      );
     })
   );
   self.skipWaiting();
@@ -60,9 +69,9 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
-  // 1. Strict Security Boundary: Only GET requests and never API calls or dynamic records
-  if (req.method !== "GET" || url.pathname.startsWith("/api/")) {
-    return; // Pass through to network directly without caching
+  // 1. Strict Security Boundary: Only GET requests on same-origin and never API calls
+  if (req.method !== "GET" || url.origin !== self.location.origin || url.pathname.startsWith("/api/")) {
+    return;
   }
 
   // 2. Fragment tokens and sensitive query params must never be stored in cache
@@ -70,22 +79,27 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 3. For static shell assets, match from cache, fallback to network
+  // 3. Always let HTML document navigations go straight to network so Firebase cleanUrls/trailingSlash
+  // redirects (e.g. /ledger/ -> /ledger) never trigger Chrome's SW ERR_FAILED error.
+  if (req.mode === "navigate") {
+    return;
+  }
+
+  // 4. Only intercept known static shell assets (CSS, JS, fonts, icons)
+  const isShell = SHELL_ASSETS.includes(url.pathname);
+  if (!isShell) {
+    return;
+  }
+
   event.respondWith(
     caches.match(req).then((cachedResponse) => {
-      if (cachedResponse) {
+      if (cachedResponse && !cachedResponse.redirected) {
         return cachedResponse;
       }
       return fetch(req).then((networkResponse) => {
-        // Cache only exact static shell assets
-        if (networkResponse && networkResponse.status === 200 && networkResponse.type === "basic") {
-          const isShell = SHELL_ASSETS.some(
-            (p) => url.pathname === p || (p === "/u/" && url.pathname === "/u/index.html")
-          );
-          if (isShell) {
-            const respClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, respClone));
-          }
+        if (networkResponse && networkResponse.status === 200 && !networkResponse.redirected && networkResponse.type === "basic") {
+          const respClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, respClone));
         }
         return networkResponse;
       });

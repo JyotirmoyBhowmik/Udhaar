@@ -1290,7 +1290,7 @@
         progressHtml = `
           <div class="record-progress-wrap" aria-label="Repayment progress">
             <div class="record-progress-bar">
-              <div class="record-progress-fill" style="width: ${percent}%;"></div>
+              <div class="record-progress-fill" data-progress-pct="${percent}"></div>
             </div>
             <div class="record-balance-sub">
               <span>Paid: ${formatRupees(totalPaidPaise / 100)} (${percent}%)</span>
@@ -1340,6 +1340,11 @@
           </button>
         </div>
       `;
+
+      const progressFill = card.querySelector(".record-progress-fill[data-progress-pct]");
+      if (progressFill) {
+        progressFill.style.width = `${progressFill.getAttribute("data-progress-pct")}%`;
+      }
 
       grid.appendChild(card);
     });

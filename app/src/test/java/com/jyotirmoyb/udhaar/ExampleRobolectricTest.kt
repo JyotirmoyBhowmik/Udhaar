@@ -38,7 +38,7 @@ class ExampleRobolectricTest {
         assertEquals("Udhaar", appName)
         assertEquals("com.jyotirmoyb.udhaar", BuildConfig.APPLICATION_ID)
         assertTrue(BuildConfig.VERSION_CODE >= 28)
-        assertEquals("29.0", BuildConfig.VERSION_NAME)
+        assertEquals("30.0", BuildConfig.VERSION_NAME)
     }
 
     @get:org.junit.Rule
@@ -1168,7 +1168,7 @@ class ExampleRobolectricTest {
 
         // 1. Version >= 28 (explicit version.properties) and Settings > About string format
         assertTrue(BuildConfig.VERSION_CODE >= 28)
-        assertEquals("29.0", BuildConfig.VERSION_NAME)
+        assertEquals("30.0", BuildConfig.VERSION_NAME)
         val aboutVersionText = context.getString(
             R.string.settings_about_version_format,
             BuildConfig.VERSION_NAME,

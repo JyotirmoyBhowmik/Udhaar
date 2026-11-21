@@ -113,7 +113,7 @@ if (totalGuestBytes <= GUEST_LIMIT) {
 }
 
 console.log("\n▶ [3/4] Verifying Strict Content-Security Policy & Zero Inline Code...");
-const htmlFiles = ["index.html", "privacy.html", "terms.html", "404.html", "guide/index.html", "u/index.html", "trust/index.html", "updates/index.html", "ledger/index.html"];
+const htmlFiles = ["index.html", "privacy.html", "terms.html", "delete-account.html", "404.html", "guide/index.html", "u/index.html", "trust/index.html", "updates/index.html", "ledger/index.html"];
 
 for (const relHtml of htmlFiles) {
   const fullHtmlPath = path.join(WEB_DIR, relHtml);
@@ -143,7 +143,7 @@ for (const relHtml of htmlFiles) {
 console.log("\n▶ [4/4] Writing Build Metadata Manifest (web/dist-manifest.json)...");
 const manifestPath = path.join(WEB_DIR, "dist-manifest.json");
 fs.writeFileSync(manifestPath, JSON.stringify({
-  version: "29.0.0",
+  version: "30.0.0",
   timestamp: new Date().toISOString(),
   budgets: {
     landingKb: parseFloat(landingKb),

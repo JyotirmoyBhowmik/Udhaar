@@ -34,25 +34,24 @@
 
       <nav class="nav-links" aria-label="Primary Navigation">
         <a href="/">Home</a>
-        <a href="/#features">Features</a>
         <a href="/guide/" class="nav-active">App Guide</a>
-        <a href="/#calculator">Calculator</a>
-        <a href="/#interactive-demo">Try Demo</a>
+        <a href="/ledger/">Web Ledger</a>
         <a href="/trust/">Trust Center</a>
         <a href="/updates/">What's New</a>
-        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/privacy">Privacy Policy</a>
       </nav>
 
       <div class="nav-right">
         <button id="theme-btn" class="theme-toggle-btn" type="button" aria-label="Toggle Dark Mode">🌙</button>
         <a
-          href="https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar"
+          href="https://play.google.com/apps/testing/com.jyotirmoyb.udhaar"
           target="_blank"
           rel="noopener noreferrer"
           class="btn-header-play"
+          id="header-play-btn"
           data-store-button="header-guide"
         >
-          Get on Google Play
+          Join early access
         </a>
         <button
           id="mobile-menu-btn"
@@ -113,7 +112,7 @@
 
       <div class="hero-pill">
         <span class="hero-pill-dot" aria-hidden="true"></span>
-        <span>Udhaar v22.0 Documentation • 12 Illustrated Chapters + Technical Reference</span>
+        <span>Udhaar v30.0 Documentation • 12 Illustrated Chapters + Technical Reference</span>
       </div>
 
       <h1 class="page-title">Complete Udhaar App Guide &amp; User Manual</h1>
@@ -714,7 +713,7 @@
       </article>
 
       <!-- Empty state when search has no matches -->
-      <div id="guide-empty-state" class="faq-empty-state" style="display: none;">
+      <div id="guide-empty-state" class="faq-empty-state" hidden>
         <p>No guide chapters match your search term. Try searching for "dashboard", "installment", "QR", "UPI", or "split".</p>
       </div>
     </div>

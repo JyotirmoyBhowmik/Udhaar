@@ -23,6 +23,14 @@
         "destination": "/u/guest.css"
       },
       {
+        "source": "/u/**/config.js",
+        "destination": "/u/config.js"
+      },
+      {
+        "source": "/u/**/actionSchema.js",
+        "destination": "/u/actionSchema.js"
+      },
+      {
         "source": "/u/**/firebase-init.js",
         "destination": "/u/firebase-init.js"
       },
@@ -53,6 +61,10 @@
       {
         "source": "/privacy",
         "destination": "/privacy.html"
+      },
+      {
+        "source": "/terms",
+        "destination": "/terms.html"
       },
       {
         "source": "/trust/**",

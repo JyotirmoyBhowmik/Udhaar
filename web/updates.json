@@ -1,5 +1,91 @@
 [
   {
+    "version": "30.0",
+    "date": "November 2026",
+    "title": {
+      "en": "v30.0 — Spark Mode Free Cloud Sync, Guest Links & Web Polish",
+      "hi": "v30.0 — स्पार्क मोड मुफ़्त क्लाउड सिंक, वेब पुष्टि लिंक और वेबसाइट सुधार",
+      "bn": "v30.0 — স্পার্ক মোড ফ্রি ক্লাউড সিঙ্ক, ওয়েব লিংক এবং ওয়েবসাইট উন্নতি",
+      "as": "v30.0 — স্পাৰ্ক ম’ড বিনামূলীয়া ক্লাউড ছিংক, ৱেব লিংক আৰু ৱেবছাইট উন্নতি",
+      "ne": "v30.0 — स्पार्क मोड निःशुल्क क्लाउड सिङ्क, वेब लिङ्क र वेबसाइट सुधार"
+    },
+    "highlights": {
+      "en": [
+        "Optional Spark Mode Cloud Sync and private guest confirmation links (/u/) enabled on the free Firebase Spark tier ($0/month).",
+        "Opt-in privacy telemetry: Crashlytics and Analytics stay off until explicitly enabled in Settings.",
+        "Strict Content Security Policy (zero inline styles) across Home, App Guide, Trust Center, Web Ledger, Privacy, Terms, and Account Deletion pages.",
+        "Fixed Service Worker navigation caching so Web Ledger (/ledger/) and all clean URLs load reliably."
+      ],
+      "hi": [
+        "मुफ़्त Firebase Spark टियर पर वैकल्पिक क्लाउड सिंक और निजी वेब पुष्टि लिंक (/u/) सक्षम किए गए।",
+        "गोपनीयता-प्रथम डायग्नोस्टिक्स: सेटिंग्स में अनुमति देने तक Crashlytics और Analytics बंद रहते हैं।",
+        "होम, ऐप गाइड, ट्रस्ट सेंटर, वेब बहीखाता, गोपनीयता नीति और खाता हटाने के पेजों के लिए सख्त सुरक्षा नीति और साफ नेविगेशन बार।",
+        "वेब बहीखाता (/ledger/) और सभी पेजों के लिए सर्विस वर्कर नेविगेशन समस्या को ठीक किया गया।"
+      ],
+      "bn": [
+        "বিনামূল্যে Firebase Spark টিয়ারে ঐচ্ছিক ক্লাউড সিঙ্ক এবং ব্যক্তিগত গেস্ট নিশ্চিতকরণ লিংক (/u/) চালু করা হয়েছে।",
+        "গোপনীয়তা-প্রথম নীতি: সেটিংসে অনুমতি না দেওয়া পর্যন্ত Crashlytics ও Analytics বন্ধ থাকে।",
+        "হোম, অ্যাপ গাইড, ট্রাস্ট সেন্টার, ওয়েব খাতা, গোপনীয়তা নীতি ও অ্যাকাউন্ট মোছার পেজে কঠোর CSP নিরাপত্তা ও পরিষ্কার নেভিগেশন বার।",
+        "সার্ভিস ওয়ার্কার ক্যাশিং ঠিক করা হয়েছে যাতে ওয়েব খাতা (/ledger/) এবং সব পেজ নির্বিঘ্নে লোড হয়।"
+      ],
+      "as": [
+        "বিনামূলীয়া Firebase Spark টিয়াৰত বৈকল্পিক ক্লাউড ছিংক আৰু ব্যক্তিগত গেষ্ট নিশ্চিতকৰণ লিংক (/u/) আৰম্ভ কৰা হৈছে।",
+        "গোপনীয়তা-প্ৰথম নীতি: ছেটিংছত অনুমতি নিদিয়ালৈকে Crashlytics আৰু Analytics বন্ধ থাকে।",
+        "হোম, এপ গাইড, ট্ৰাষ্ট চেণ্টাৰ, ৱেব বহীখাতা, গোপনীয়তা নীতি আৰু একাউণ্ট মচা পেজত কঠোৰ CSP সুৰক্ষা আৰু পৰিষ্কাৰ নেভিগেচন বাৰ।",
+        "চাৰ্ভিছ ৱৰ্কাৰ কেশ্বিং ঠিক কৰা হৈছে যাতে ৱেব বহীখাতা (/ledger/) আৰু সকলো পেজ সুকলমে খোলে।"
+      ],
+      "ne": [
+        "निःशुल्क Firebase Spark टियरमा ऐच्छिक क्लाउड सिङ्क र निजी वेब प्रमाणीकरण लिङ्क (/u/) सुचारु गरियो।",
+        "गोपनीयता-प्रथम डायग्नोस्टिक्स: सेटिङ्समा अनुमति नदिँदासम्म Crashlytics र Analytics बन्द रहन्छन्।",
+        "होम, एप गाइड, ट्रस्ट सेन्टर, वेब खाता, गोपनीयता नीति र खाता मेटाउने पेजहरूमा कडा CSP सुरक्षा र सफा नेभिगेसन बार।",
+        "वेब खाता (/ledger/) र सबै पेजहरू सहजै खुल्ने गरी सर्भिस वर्कर क्यासिङ सुधार गरियो।"
+      ]
+    }
+  },
+  {
+    "version": "28.0",
+    "date": "November 2026",
+    "title": {
+      "en": "v28.0 — Account Deletion Portal, Encrypted Drive Backups & Play Integrity",
+      "hi": "v28.0 — खाता हटाने का पोर्टल, एन्क्रिप्टेड गूगल ड्राइव बैकअप और सुरक्षा जांच",
+      "bn": "v28.0 — অ্যাকাউন্ট মোছার পোর্টাল, এনক্রিপ্টেড গুগল ড্রাইভ ব্যাকআপ এবং সুরক্ষা",
+      "as": "v28.0 — একাউণ্ট মচাৰ প’ৰ্টেল, এনক্ৰিপ্টেড গুগল ড্ৰাইভ বেকআপ আৰু সুৰক্ষা",
+      "ne": "v28.0 — खाता मेटाउने पोर्टल, इन्क्रिप्टेड गुगल ड्राइभ ब्याकअप र सुरक्षा"
+    },
+    "highlights": {
+      "en": [
+        "One-tap 'Delete my account and data' in Settings plus dedicated Web Account Deletion portal (/delete-account).",
+        "Client-side AES-256-GCM encrypted Google Drive backups with 'Test my backup' dry-run verification.",
+        "App Check Play Integrity enforcement and zero-trust owner-scoped Firestore rules.",
+        "Plain-language Terms of Service (/terms) and Privacy Policy (/privacy) in 5 languages."
+      ],
+      "hi": [
+        "सेटिंग्स में एक-टैप 'मेरा खाता और डेटा हटाएं' और समर्पित वेब डिलीशन पोर्टल (/delete-account)।",
+        "बैकअप सत्यापन ('Test my backup') के साथ एन्क्रिप्टेड गूगल ड्राइव बैकअप।",
+        "Play Integrity सुरक्षा और ज़ीरो-ट्रस्ट Firestore सुरक्षा नियम।",
+        "5 भाषाओं में सरल सेवा की शर्तें (/terms) और गोपनीयता नीति (/privacy)।"
+      ],
+      "bn": [
+        "সেটিংসে এক-ট্যাপে 'Delete my account and data' এবং আলাদা ওয়েব ডিলিশন পোর্টাল (/delete-account)।",
+        "'Test my backup' যাচাইকরণসহ ক্লায়েন্ট-সাইড AES-256-GCM এনক্রিপ্টেড গুগল ড্রাইভ ব্যাকআপ।",
+        "Play Integrity অ্যাপ চেক এবং জিরো-ট্রাস্ট Firestore সুরক্ষা নিয়ম।",
+        "৫টি ভাষায় সহজ ব্যবহারের শর্তাবলী (/terms) এবং গোপনীয়তা নীতি (/privacy)।"
+      ],
+      "as": [
+        "ছেটিংছত এক-টেপত 'Delete my account and data' আৰু পৃথক ৱেব ডিলিচন প’ৰ্টেল (/delete-account)।",
+        "'Test my backup' পৰীক্ষাৰ সৈতে এনক্ৰিপ্টেড গুগল ড্ৰাইভ বেকআপ।",
+        "Play Integrity সুৰক্ষা আৰু জিৰ’-ট্ৰাষ্ট Firestore সুৰক্ষা নিয়ম।",
+        "৫টা ভাষাত সহজ সেৱাৰ চৰ্তাবলী (/terms) আৰু গোপনীয়তা নীতি (/privacy)।"
+      ],
+      "ne": [
+        "सेटिङ्समा एक-ट्याप 'Delete my account and data' र समर्पित वेब डिलिसन पोर्टल (/delete-account)।",
+        "'Test my backup' जाँचसहित इन्क्रिप्टेड गुगल ड्राइभ ब्याकअप।",
+        "Play Integrity एप चेक र जिरो-ट्रस्ट Firestore सुरक्षा नियमहरू।",
+        "५ भाषामा सरल सेवाका सर्तहरू (/terms) र गोपनीयता नीति (/privacy)।"
+      ]
+    }
+  },
+  {
     "version": "22.0",
     "date": "November 2026",
     "title": {

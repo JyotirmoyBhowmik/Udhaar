@@ -1306,3 +1306,43 @@ footer a {
   color: var(--text-muted, #475569);
   margin: 0;
 }
+
+/* Google Auth, Payment Proof Preview & Footer Helpers (Strict CSP: zero inline styles) */
+.google-auth-error {
+  margin-bottom: 1rem;
+}
+
+.btn-google-signin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.google-auth-note {
+  margin-top: 1.5rem;
+}
+
+.proof-preview-wrap {
+  margin-top: 8px;
+}
+
+.proof-preview-img {
+  max-height: 120px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  display: block;
+}
+
+.btn-remove-proof {
+  color: var(--red-600, #ef4444);
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+
+.footer-disclaimer {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 4px 0;
+}
+

@@ -1432,6 +1432,7 @@
       });
 
       if (rateWrap) {
+        rateWrap.hidden = mode === "none";
         rateWrap.style.display = mode === "none" ? "none" : "block";
       }
       runCalculator();
@@ -1552,10 +1553,12 @@
       });
 
       if (noResults) {
+        noResults.hidden = visibleCount !== 0;
         noResults.style.display = visibleCount === 0 ? "block" : "none";
       }
 
       if (clearBtn) {
+        clearBtn.hidden = !q;
         clearBtn.style.display = q ? "flex" : "none";
       }
     }

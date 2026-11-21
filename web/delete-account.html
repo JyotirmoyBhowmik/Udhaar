@@ -13,8 +13,10 @@
 
   <!-- Stylesheets -->
   <link rel="stylesheet" href="/design-tokens.css" />
+  <link rel="stylesheet" href="/landing.css" />
   <link rel="stylesheet" href="/privacy.css" />
   <script src="/site-config.js" defer></script>
+  <script src="/privacy.js" defer></script>
 </head>
 <body>
 
@@ -32,13 +34,13 @@
         <a href="/" id="nav-home">Home</a>
         <a href="/guide/" id="nav-guide">App Guide</a>
         <a href="/trust/" id="nav-trust">Trust Center</a>
-        <a href="/updates/" id="nav-updates">What's New</a>
         <a href="/privacy" id="nav-privacy">Privacy</a>
         <a href="/delete-account" class="nav-active" id="nav-delete-account">Delete Account</a>
         <a href="/terms.html" id="nav-terms">Terms</a>
       </nav>
 
       <div class="nav-right">
+        <button id="theme-btn" class="theme-toggle-btn" type="button" aria-label="Toggle Dark Mode">🌙</button>
         <a href="https://play.google.com/apps/testing/com.jyotirmoyb.udhaar" class="btn-header-play" id="header-play-btn">
           Get the App
         </a>
@@ -50,14 +52,14 @@
        MAIN CONTENT
        ========================================================= -->
   <main class="container page-content">
-    <div style="margin-bottom: 24px;">
+    <div class="legal-header">
       <span class="section-badge" id="deletion-badge">Google Play User Data Safety</span>
-      <h1 class="section-title" id="deletion-title" style="margin-top: 8px;">Account &amp; Data Deletion Request</h1>
-      <p class="section-subtitle" style="font-size: 0.9rem;">Effective date: November 21, 2026 • Full Data Control</p>
+      <h1 class="section-title legal-title" id="deletion-title">Account &amp; Data Deletion Request</h1>
+      <p class="section-subtitle legal-subtitle">Effective date: November 21, 2026 • Full Data Control</p>
     </div>
 
     <!-- MANDATORY REGULATORY & NON-LENDER NOTICE -->
-    <div class="in-short-box" style="border-left: 4px solid var(--primary); margin-bottom: 20px;">
+    <div class="in-short-box notice-regulatory">
       <div class="in-short-title">
         <span>⚖️</span>
         <strong>Regulatory Notice</strong>
@@ -70,10 +72,10 @@
     <!-- SECTION 1: IN-APP INSTANT ACCOUNT DELETION -->
     <div class="section-card">
       <h2>Option 1: Instant In-App Account &amp; Data Deletion (Recommended)</h2>
-      <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 16px;">
+      <p class="legal-muted">
         You can immediately and completely delete your account and all associated records directly from within the Udhaar Android app without waiting for manual processing:
       </p>
-      <ol style="padding-left: 20px; line-height: 1.8; font-size: 0.95rem;">
+      <ol class="legal-ordered-list">
         <li>Open the <strong>Udhaar</strong> app on your Android device.</li>
         <li>Tap the <strong>Settings</strong> icon (⚙️) in the top-right corner.</li>
         <li>Scroll down to <strong>Section 06: Account and web access</strong>.</li>
@@ -81,9 +83,9 @@
         <li>In the confirmation dialog, review the deletion scope and leave <em>"Also delete encrypted backups from Google Drive"</em> checked.</li>
         <li>Tap <strong>"Permanently Delete Everything"</strong>.</li>
       </ol>
-      <div class="in-short-box" style="margin-top: 16px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3);">
+      <div class="in-short-box notice-danger">
         <strong>What is permanently wiped during in-app deletion:</strong>
-        <ul style="margin-top: 8px; padding-left: 20px; font-size: 0.9rem;">
+        <ul>
           <li>Your local encrypted SQLCipher ledger database (all transactions, contacts, repayment notes).</li>
           <li>Hardware-backed AES-256 encryption keys in the Android Keystore.</li>
           <li>All Cloud Firestore documents under <code>/users/{your-uid}/**</code>.</li>
@@ -97,31 +99,31 @@
     <!-- SECTION 2: WEB / EMAIL DELETION REQUEST -->
     <div class="section-card" id="web-deletion-card">
       <h2>Option 2: Web / Email Deletion Request</h2>
-      <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 16px;">
+      <p class="legal-muted">
         If you have uninstalled the app or accessed a shared capability link on the web as a guest and wish to have all associated cloud proposals deleted, you can submit a manual deletion request below:
       </p>
 
-      <div style="background: var(--surface); padding: 16px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px;">
-        <p style="margin: 0 0 8px 0; font-size: 0.95rem;">
+      <div class="contact-box">
+        <p>
           <strong>Contact Email:</strong> <a href="mailto:admin@jyotirmoyb.com?subject=Udhaar%20Account%20and%20Data%20Deletion%20Request">admin@jyotirmoyb.com</a>
         </p>
-        <p style="margin: 0 0 8px 0; font-size: 0.95rem;">
+        <p>
           <strong>Developer &amp; Data Protection Officer:</strong> Jyotirmoy Bhowmik (<a href="mailto:grievance@jyotirmoyb.com">grievance@jyotirmoyb.com</a>)
         </p>
-        <p style="margin: 0; font-size: 0.95rem;">
+        <p>
           <strong>Turnaround Time:</strong> All verified requests are processed within <strong>48 hours</strong>.
         </p>
       </div>
 
       <h3>Required Information for Verification:</h3>
-      <ul style="padding-left: 20px; font-size: 0.95rem; line-height: 1.6;">
+      <ul class="legal-list">
         <li>The email address used to sign in to Udhaar (if registered).</li>
         <li>The transaction capability URL (e.g. <code>https://udhaar.jyotirmoyb.com/u/r/...</code>) if you participated as a guest.</li>
         <li>Confirmation that you request complete deletion of all cloud records.</li>
       </ul>
 
       <h3>Retention Policy Post-Deletion:</h3>
-      <p style="font-size: 0.95rem; line-height: 1.6;">
+      <p class="legal-body-text">
         Upon confirmation of deletion, <strong>zero data is retained</strong> on our servers. Because Udhaar operates on Google Cloud Firebase with owner-scoped zero-trust security rules and does not sell or monetize information, your data is completely excised from cloud databases.
       </p>
     </div>
@@ -133,9 +135,9 @@
   <footer class="site-footer">
     <div class="container footer-bottom">
       <span>© 2026 Udhaar • Personal Ledger &amp; Record Keeper</span>
-      <div>
-        <a href="/privacy" style="margin-right: 16px;">Privacy Policy</a>
-        <a href="/terms.html" style="margin-right: 16px;">Terms of Service</a>
+      <div class="footer-links-inline">
+        <a href="/privacy">Privacy Policy</a>
+        <a href="/terms.html">Terms of Service</a>
         <a href="/">← Return to Homepage</a>
       </div>
     </div>

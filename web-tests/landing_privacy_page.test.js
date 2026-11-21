@@ -183,4 +183,66 @@ test("Landing Page, Privacy Page, Terms Page & Asset Integrity", async (t) => {
     assert.match(privacyHtml, /href=["']\/terms\.html["']/i, "Privacy page must link to /terms.html");
     assert.match(privacyHtml, /mailto:grievance@jyotirmoyb\.com/i, "Privacy page must include grievance contact");
   });
+
+  await t.test("12. Legal Pages Load landing.css & All Public HTML Pages Have Zero CSP-Blocked Inline Styles", () => {
+    const legalPages = ["privacy.html", "terms.html", "delete-account.html"];
+    for (const relPath of legalPages) {
+      const content = fs.readFileSync(path.resolve(__dirname, "../web", relPath), "utf8");
+      assert.match(
+        content,
+        /<link\s+rel=["']stylesheet["']\s+href=["']\/landing\.css["']/i,
+        `${relPath} must load /landing.css for shared header, navigation, table, and footer styles`
+      );
+    }
+
+    const publicHtmlPages = [
+      "index.html",
+      "privacy.html",
+      "terms.html",
+      "delete-account.html",
+      "404.html",
+      "guide/index.html",
+      "trust/index.html",
+      "updates/index.html",
+      "u/index.html"
+    ];
+    for (const relPath of publicHtmlPages) {
+      const content = fs.readFileSync(path.resolve(__dirname, "../web", relPath), "utf8");
+      assert.doesNotMatch(
+        content,
+        /\sstyle=["'][^"']*["']/i,
+        `${relPath} must not contain inline style='...' attributes (blocked by strict CSP style-src 'self')`
+      );
+    }
+  });
+
+  await t.test("13. Single-Line Navbar, SW Navigation Fix (/ledger/), v30.0 Changelog & Ledger CSP", () => {
+    const swContent = fs.readFileSync(path.resolve(__dirname, "../web/sw.js"), "utf8");
+    const ledgerJs = fs.readFileSync(path.resolve(__dirname, "../web/ledger/ledger.js"), "utf8");
+    const updatesJson = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../web/updates.json"), "utf8"));
+
+    // Navbar nowrap rules
+    assert.match(landingCss, /\.nav-links a\s*\{[^}]*white-space:\s*nowrap/i, "Navbar links must not wrap across multiple lines");
+    assert.match(landingCss, /\.btn-header-play\s*\{[^}]*white-space:\s*nowrap/i, "Header CTA button must not wrap across multiple lines");
+
+    // Service Worker must not cache redirecting trailing-slash routes or intercept document navigations
+    const shellAssetsMatch = swContent.match(/const\s+SHELL_ASSETS\s*=\s*\[[\s\S]*?\];/);
+    assert.ok(shellAssetsMatch, "SW must define SHELL_ASSETS");
+    assert.doesNotMatch(shellAssetsMatch[0], /"\/ledger\/"/, "SW SHELL_ASSETS must not precache redirecting /ledger/ route");
+    assert.doesNotMatch(shellAssetsMatch[0], /"\/u\/"/, "SW SHELL_ASSETS must not precache redirecting /u/ route");
+    assert.match(swContent, /req\.mode\s*===\s*["']navigate["']/, "SW fetch handler must let document navigations bypass cache");
+    assert.match(swContent, /!resp\.redirected|!networkResponse\.redirected/, "SW must never cache redirected responses");
+
+    // Web Ledger JS must not emit CSP-blocked inline style attributes
+    assert.doesNotMatch(ledgerJs, /style=["'][^"']*["']/, "web/ledger/ledger.js must not emit inline style attributes");
+
+    // What's New / Version changelog must include v30.0 in all 5 languages
+    assert.strictEqual(updatesJson[0].version, "30.0", "Latest updates.json entry must be v30.0");
+    for (const lang of ["en", "hi", "bn", "as", "ne"]) {
+      assert.ok(updatesJson[0].title[lang], `v30.0 changelog title missing '${lang}'`);
+      assert.ok(Array.isArray(updatesJson[0].highlights[lang]) && updatesJson[0].highlights[lang].length >= 3, `v30.0 highlights missing '${lang}'`);
+    }
+  });
 });
+
+

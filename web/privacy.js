@@ -105,6 +105,8 @@
     document.documentElement.setAttribute("data-theme", savedTheme);
   }
   if (themeBtn) {
+    const initialTheme = document.documentElement.getAttribute("data-theme") || "light";
+    themeBtn.textContent = initialTheme === "dark" ? "☀️" : "🌙";
     themeBtn.addEventListener("click", () => {
       const cur = document.documentElement.getAttribute("data-theme") || "light";
       const next = cur === "dark" ? "light" : "dark";

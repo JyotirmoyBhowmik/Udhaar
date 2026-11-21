@@ -1,6 +1,6 @@
 {
   "name": "udhaar-web",
-  "version": "29.0.0",
+  "version": "30.0.0",
   "description": "Udhaar — Keep clear records of money you lend and borrow. Web landing, Trust Center, and Guest Confirmation Portal.",
   "private": true,
   "scripts": {

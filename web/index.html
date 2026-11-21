@@ -80,14 +80,10 @@
       <nav class="nav-links" aria-label="Primary Navigation">
         <a href="#features">Features</a>
         <a href="/guide/">App Guide</a>
-        <a href="#how-it-works" data-i18n="nav_how_it_works">How it works</a>
-        <a href="#calculator" data-i18n="nav_calculator">Calculator</a>
-        <a href="#interactive-demo" data-i18n="nav_demo">Try Demo</a>
-        <a href="/trust/" data-i18n="nav_trust">Trust Center</a>
         <a href="/ledger/" data-i18n="nav_ledger">Web Ledger</a>
-        <a href="#faq" data-i18n="nav_faq">FAQ</a>
-        <a href="/privacy.html" data-i18n="nav_privacy">Privacy Policy</a>
-        <a href="/terms.html">Terms</a>
+        <a href="/trust/" data-i18n="nav_trust">Trust Center</a>
+        <a href="/updates/" data-i18n="nav_updates">What's New</a>
+        <a href="/privacy" data-i18n="nav_privacy">Privacy Policy</a>
       </nav>
 
       <div class="nav-right">
@@ -868,7 +864,7 @@
                 </div>
               </div>
 
-              <div class="calc-field" id="calc-rate-wrap" style="display: none;">
+              <div class="calc-field" id="calc-rate-wrap" hidden>
                 <label for="calc-rate" class="calc-label" data-i18n="calc_rate_label">Annual Interest Rate (%)</label>
                 <input type="number" id="calc-rate" class="demo-input" value="12" min="1" max="100" step="0.5" />
               </div>
@@ -1100,7 +1096,7 @@
             placeholder="Search questions (e.g. free, privacy, backup, whatsapp)..."
             aria-label="Search frequently asked questions"
           />
-          <button type="button" id="faq-search-clear" class="faq-search-clear-btn" aria-label="Clear search" style="display: none;">✕</button>
+          <button type="button" id="faq-search-clear" class="faq-search-clear-btn" aria-label="Clear search" hidden>✕</button>
         </div>
 
         <!-- FAQ Category Filter Chips -->
@@ -1195,7 +1191,7 @@
           </div>
         </div>
 
-        <div id="faq-no-results" class="faq-empty-state" style="display: none;">
+        <div id="faq-no-results" class="faq-empty-state" hidden>
           <p data-i18n="faq_no_match">No matching questions found.</p>
           <button type="button" id="faq-reset-filter-btn" class="btn-secondary" data-i18n="faq_reset_search">Reset Search</button>
         </div>
@@ -1283,7 +1279,7 @@
             <li><a href="/trust/" data-i18n="nav_trust">Trust Center</a></li>
             <li><a href="/privacy.html" data-i18n="nav_privacy">Privacy Policy</a></li>
             <li><a href="/terms.html">Terms of Service</a></li>
-            <li><a href="/privacy.html#delete-request-form">Data Deletion Request</a></li>
+            <li><a href="/delete-account">Data Deletion Request</a></li>
             <li><a href="mailto:admin@jyotirmoyb.com">Contact Support (admin@jyotirmoyb.com)</a></li>
             <li><a href="mailto:grievance@jyotirmoyb.com">Grievance Officer (grievance@jyotirmoyb.com)</a></li>
           </ul>

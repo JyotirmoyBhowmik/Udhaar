@@ -183,16 +183,16 @@
         <p id="google-auth-desc" class="step2-desc-style">
           The sender requires Google sign-in to verify that this record is only viewed by the intended borrower.
         </p>
-        <div id="google-auth-error" class="notice-box notice-amber hidden" hidden style="margin-bottom: 1rem;">
+        <div id="google-auth-error" class="notice-box notice-amber google-auth-error hidden" hidden>
           <span id="google-auth-error-text"></span>
         </div>
         <div class="action-bar-safe">
-          <button id="btn-google-signin" class="btn btn-primary" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <button id="btn-google-signin" class="btn btn-primary btn-google-signin">
             <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.3 9 5 12 5z"/><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z"/><path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.8s.2-2.1.4-2.8L1.9 6.3C.7 8.7 0 10.3 0 12s.7 3.3 1.9 5.7l3.7-2.9z"/><path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z"/></svg>
             <span>Sign in with Google</span>
           </button>
         </div>
-        <div class="bottom-app-note" style="margin-top: 1.5rem;">
+        <div class="bottom-app-note google-auth-note">
           <span data-i18n="no_install_needed">You do not need to install anything.</span>
           <a href="https://udhaar.jyotirmoyb.com" target="_blank" data-i18n="get_the_app">Get the app</a>
         </div>
@@ -449,9 +449,9 @@
         <div class="form-group" id="form-group-proof">
           <label class="form-label" for="input-paid-proof" data-i18n="paid_proof_label">Payment screenshot (optional)</label>
           <input type="file" id="input-paid-proof" class="form-input" accept="image/*" />
-          <div id="proof-preview-wrapper" class="hidden" style="margin-top: 8px;" hidden>
-            <img id="img-proof-preview" style="max-height: 120px; border-radius: 8px; border: 1px solid var(--border, #cbd5e1); display: block;" alt="Screenshot preview" />
-            <button type="button" id="btn-remove-proof" class="btn-text" style="color: var(--danger, #ef4444); font-size: 0.8rem; margin-top: 4px;" data-i18n="remove_proof">Remove screenshot</button>
+          <div id="proof-preview-wrapper" class="proof-preview-wrap hidden" hidden>
+            <img id="img-proof-preview" class="proof-preview-img" alt="Screenshot preview" />
+            <button type="button" id="btn-remove-proof" class="btn-text btn-remove-proof" data-i18n="remove_proof">Remove screenshot</button>
           </div>
           <span id="proof-status-text" class="notice-text-xs"></span>
         </div>
@@ -554,7 +554,7 @@
     <!-- Footer -->
     <footer>
       <p>Udhaar • Personal Ledger &amp; Record Keeper</p>
-      <p style="font-size: 0.8rem; color: var(--text-muted); margin: 4px 0;">Udhaar does not lend money or process payments.</p>
+      <p class="footer-disclaimer">Udhaar does not lend money or process payments.</p>
       <p><a href="/privacy" target="_blank">Privacy Policy</a> • <a href="/delete-account" target="_blank">Account &amp; Data Deletion</a></p>
     </footer>
   </div>
