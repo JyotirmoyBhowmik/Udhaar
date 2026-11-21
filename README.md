@@ -7,7 +7,7 @@
 
 **Udhaar** (`com.jyotirmoyb.udhaar`, `versionName = "29.0"`, `versionCode = 29` via `version.properties`, Room Schema `v13`) is an offline-first personal loan and khata platform for Android and the Web. It tracks **Given / Owed** and **Taken / Borrowed** records across **Indian Rupees (`INR ₹`)** and **Nepalese Rupees (`NPR रू`)** in **5 languages** (`English`, `Hindi`, `Bengali`, `Assamese`, and `Nepali`) and **8 visual themes**.
 
-Udhaar runs 100% on the **Firebase Spark (Free) Tier** (`UDHAAR_TIER = "spark"`) with **zero server-side Cloud Functions, zero Secret Manager secrets, zero Cloud KMS keys, and zero Cloud Storage buckets** in production. Furthermore, unfinished cloud screens in the Android production build are gated off by default behind `BuildConfig.CLOUD_FEATURES = false` (enabled only via `-Pudhaar.cloudFeatures=true`).
+Udhaar runs 100% on the **Firebase Spark (Free) Tier** (`UDHAAR_TIER = "spark"`, `BLAZE_FEATURES_ENABLED = false`) with **zero server-side Cloud Functions, zero Secret Manager secrets, zero Cloud KMS keys, and zero Cloud Storage buckets** in production. Spark cloud sync, guest verification links, and cloud data deletion are enabled by default (`BuildConfig.CLOUD_FEATURES = true`, opt-out via `-Pudhaar.cloudFeatures=false`).
 
 ---
 
@@ -29,7 +29,7 @@ Udhaar runs 100% on the **Firebase Spark (Free) Tier** (`UDHAAR_TIER = "spark"`)
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                        ANDROID APP (com.jyotirmoyb.udhaar)                   │
 │                     versionCode = 29 | versionName = "29.0"                  │
-│          UDHAAR_TIER = "spark" | BuildConfig.CLOUD_FEATURES = false          │
+│          UDHAAR_TIER = "spark" | BuildConfig.CLOUD_FEATURES = true           │
 │                                                                              │
 │  ┌──────────────────────────────┐      ┌──────────────────────────────────┐  │
 │  │ Jetpack Compose UI (M3)      │      │ Hardware-Backed Local Security   │  │
@@ -82,7 +82,7 @@ Udhaar runs 100% on the **Firebase Spark (Free) Tier** (`UDHAAR_TIER = "spark"`)
   - `namespace = "com.jyotirmoyb.udhaar"` and `applicationId = "com.jyotirmoyb.udhaar"`.
   - Explicit monotonic versioning from `version.properties` (`versionCode = 29`, `versionName = "29.0"`) plus CI run-number base (`100 + GITHUB_RUN_NUMBER`); `verifyReleaseVersioning` fails release builds if missing, invalid, or `< 28`.
   - `firebase-appcheck-debug` is strictly `debugImplementation` only, guarded by `verifyReleaseNoDebugAppCheck` and release-variant `AppCheckProviderInstaller.kt` (Play Integrity only).
-  - `UDHAAR_TIER = "spark"` and `CLOUD_FEATURES = false` by default (`-Pudhaar.cloudFeatures=true` enables experimental Spark cloud screens in `SettingsScreen.kt` and `TransactionDetailSheet.kt`).
+  - `UDHAAR_TIER = "spark"`, `CLOUD_FEATURES = true` (opt-out via `-Pudhaar.cloudFeatures=false`), and `BLAZE_FEATURES_ENABLED = false` by default.
   - R8 minification (`isMinifyEnabled = true`) and resource shrinking (`isShrinkResources = true`) are **ON by default** on the `release` build type, enforced by the `verifyReleaseR8` Gradle task before `bundleRelease`.
   - Detekt static analysis (`config/detekt/detekt.yml`) runs in CI, `AccountAndWebAccessSection.kt` is modularized into files `< 600` lines, and all custom vector icons live under `com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons` (zero `androidx` package squatting).
 - **Exact Paise Money Engine (`Long` Minor Units Only):**
@@ -106,9 +106,8 @@ Udhaar runs 100% on the **Firebase Spark (Free) Tier** (`UDHAAR_TIER = "spark"`)
 
 Because Udhaar v29.0 runs on the **Firebase Spark (Free) Plan** with zero server-side billing required, the following architectural and quota limits apply:
 
-1. **Cloud Features Default Off on Android (`BuildConfig.CLOUD_FEATURES = false`):**
-   - Production Android APKs/AABs default to local-first mode (`SQLCipher` Room DB + local `.udhaar` / JSON / PDF exports + client-side encrypted Google Drive `appDataFolder` backups).
-   - To enable Firebase Auth / Firestore sync and counterparty web links in an Android build, pass `-Pudhaar.cloudFeatures=true` at build time.
+1. **Spark Cloud Features Enabled by Default (`BuildConfig.CLOUD_FEATURES = true`, `BLAZE_FEATURES_ENABLED = false`):**
+   - Local-first mode (`SQLCipher` Room DB + local `.udhaar` / JSON / PDF exports + encrypted Google Drive `appDataFolder` backups) works with zero sign-in; optional Spark Firebase Auth / Firestore sync and counterparty guest web links are enabled out of the box on the Firebase free tier (pass `-Pudhaar.cloudFeatures=false` for an offline-only build).
 2. **Firebase Spark Daily Firestore Quotas (Shared Across Project):**
    - **50,000 document reads / day**, **20,000 document writes / day**, **20,000 document deletes / day**, and **1 GiB total Firestore storage**.
    - **Mitigation:** Udhaar uses delta-only watermarks (`updatedAtMs > lastSyncMs`) and a single `/users/{uid}/meta/syncSignal` document listener instead of broad collection listeners.
@@ -139,11 +138,11 @@ Because Udhaar v29.0 runs on the **Firebase Spark (Free) Plan** with zero server
 npm install --ignore-scripts
 npm run build
 
-# 2. Compile Debug Android APK (Spark Mode, CLOUD_FEATURES = false default)
+# 2. Compile Debug Android APK (Spark Mode, CLOUD_FEATURES = true default)
 gradle assembleDebug
 
-# 3. Compile Debug Android APK with Spark Cloud Features Enabled
-gradle assembleDebug -Pudhaar.cloudFeatures=true
+# 3. Compile Offline-Only Debug Android APK (CLOUD_FEATURES = false)
+gradle assembleDebug -Pudhaar.cloudFeatures=false
 
 # 4. Build Signed Release App Bundle (AAB) with R8 & Resource Shrinking Verified
 gradle :app:verifyReleaseR8 :app:bundleRelease

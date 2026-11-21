@@ -87,7 +87,7 @@ android {
     buildConfigField("String", "UDHAAR_TIER", "\"$udhaarTier\"")
     val cloudFeatures = providers.gradleProperty("udhaar.cloudFeatures")
       .map { it.equals("true", ignoreCase = true) }
-      .getOrElse(false)
+      .getOrElse(true)
     buildConfigField("boolean", "CLOUD_FEATURES", cloudFeatures.toString())
     val blazeFeaturesEnabled = providers.gradleProperty("udhaar.blaze.enabled")
       .map { it.equals("true", ignoreCase = true) }
