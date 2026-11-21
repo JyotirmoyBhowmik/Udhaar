@@ -180,3 +180,24 @@ Udhaar implements a two-tier Envelope Encryption architecture protecting all per
    - System administrators are strictly prohibited from bypassing cooling periods. Administrative override attempts return 403 `ERR_ADMIN_COOLING_PERIOD_NON_BYPASSABLE`.
    - Implemented in: `functions/src/admin/adminEndpoints.js`, `functions/src/repositories/firestore/adminRepository.js`.
    - Tests: `functions/test/stage_r6_webapp_admin.test.js`.
+
+---
+
+## 8. Android Permission Architecture & Least-Privilege Inventory
+
+Udhaar enforces a strict least-privilege permission model on Android. Sensitive permissions are never requested upon app install or startup; they are requested on-demand only when user action initiates the corresponding feature, preceded by a clear rationale modal. The application is architected to remain 100% operational even when all optional runtime permissions are denied.
+
+### Permission Inventory Table
+
+| Permission | Protection Level | Scope & Code Usage | Rationale & User Trigger | Behavior When Denied | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `android.permission.INTERNET` | Normal (Install-time) | Network sync for Firestore, Google Drive encrypted backups, App Check Play Integrity. | Required for cloud sync and Drive backups. | Local offline-first ledger, SQLCipher encryption, PDF generation, and QR sharing remain 100% functional offline. | Active |
+| `android.permission.ACCESS_NETWORK_STATE` | Normal (Install-time) | Used by WorkManager (`SyncWorker`, `DriveBackupWorker`, `GuestActionPollingWorker`) to constrain network jobs. | Detects metered vs unmetered Wi-Fi connections to avoid unexpected cellular data usage. | Background workers queue mutations until network is available. | Active |
+| `android.permission.USE_BIOMETRIC` | Normal (Install-time) | `androidx.biometric.BiometricPrompt` in `BiometricSecurityScreen.kt`. | Optional app lock requested in Settings -> Security. | Falls back to device lock credential or custom in-app security PIN. | Active |
+| `android.permission.POST_NOTIFICATIONS` | Dangerous (Runtime, Android 13+) | `RecurringReminderScheduler.kt`, `GuestActionNotificationHelper.kt`, `ChatNotificationHelper.kt`. | Requested only when user configures a reminder in transaction edit form. | Notifications are suppressed; reminder statuses still display visually in dashboard and history badges. | Active |
+| `android.permission.READ_CONTACTS` | Dangerous (Runtime) | `DeviceContactHelper.kt`, `ContactModals.kt`. | Requested on-demand only when user taps "Pick from contacts" button in New Udhaar or People tab. Preceded by `ContactsPermissionRationaleDialog`. | System picker dialog is bypassed; user types borrower/lender name and phone number manually. All app functions work identically. | Active |
+| `android.permission.CAMERA` | Dangerous (Runtime) | `AttachmentManager.kt`, `AddEditUdhaarScreen.kt`, `PartialPaymentSection.kt`. | Requested on-demand only when user taps "Take photo" to capture a physical document, bill, or receipt proof. | Camera capture is skipped; user can still attach images and PDF documents via system Photo Picker or Storage Access Framework (SAF) document picker without needing CAMERA permission. | Active |
+| `android.permission.RECEIVE_BOOT_COMPLETED` | Normal (Install-time) | `BootRescheduleReceiver.kt`. | Automatically reschedules exact alarms for due reminders after device reboot or system clock change. | In-app reminders still evaluate whenever app is launched; WorkManager periodic sync handles background checks. | Active |
+| `android.permission.SCHEDULE_EXACT_ALARM` | Normal (Install-time, Android 12+) | `RecurringReminderScheduler.kt`. | Uses `AlarmManager.setExactAndAllowWhileIdle` to deliver punctual payment reminders at exact user-specified times. | Falls back to inexact alarms or WorkManager windowed execution. | Active |
+| `android.permission.VIBRATE` | Normal | Legacy notification vibration control. | Unused in modern Android notification channels and Jetpack Compose. | Commented out with `[LEGACY-DISABLED: Permission Policy]`. Zero effect on app functionality. | Disabled (`[LEGACY-DISABLED]`) |
+

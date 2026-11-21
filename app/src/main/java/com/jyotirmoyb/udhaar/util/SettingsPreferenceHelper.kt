@@ -26,6 +26,7 @@ object SettingsPreferenceHelper {
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val FONT_SCALE = stringPreferencesKey("font_scale")
         val BIOMETRIC_LOCK_ENABLED = booleanPreferencesKey("app_lock_opt_in_enabled")
+        val SCREEN_SECURITY_ENABLED = booleanPreferencesKey("screen_security_flag_secure_enabled")
         val PIN_CONFIGURED_REVISION = stringPreferencesKey("pin_configured_revision")
         val LEGACY_SECURITY_PIN = stringPreferencesKey("security_pin")
         val CLOUD_CONSENT = booleanPreferencesKey("cloud_verification_consent")
@@ -119,6 +120,7 @@ object SettingsPreferenceHelper {
             themeMode = themeMode,
             fontScale = fontScale,
             biometricLockEnabled = lockRequested && hasPin,
+            screenSecurityEnabled = prefs[PrefKeys.SCREEN_SECURITY_ENABLED] ?: false,
             hasPinConfigured = hasPin,
             cloudVerificationConsent = prefs[PrefKeys.CLOUD_CONSENT] ?: false,
             cloudUserId = prefs[PrefKeys.CLOUD_USER_ID] ?: "",

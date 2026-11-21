@@ -475,6 +475,13 @@ open class SettingsRepository(
         return keyId
     }
 
+    suspend fun setScreenSecurityEnabled(enabled: Boolean) {
+        inMemorySettingsFallback.value = inMemorySettingsFallback.value.copy(screenSecurityEnabled = enabled)
+        context?.udhaarDataStore?.edit { prefs ->
+            prefs[PrefKeys.SCREEN_SECURITY_ENABLED] = enabled
+        }
+    }
+
     suspend fun setGroupRecordsByPerson(enabled: Boolean) {
         inMemorySettingsFallback.value = inMemorySettingsFallback.value.copy(groupRecordsByPerson = enabled)
         context?.udhaarDataStore?.edit { prefs ->

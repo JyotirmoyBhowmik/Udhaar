@@ -180,32 +180,54 @@ open class MainActivity : FragmentActivity() {
     }
 
     private fun extractIntentPayloads(intent: Intent?) {
-        val txId = intent?.getLongExtra(ReminderReceiver.EXTRA_TRANSACTION_ID, -1L) ?: -1L
+        if (intent == null) return
+
+        val txId = intent.getLongExtra(ReminderReceiver.EXTRA_TRANSACTION_ID, -1L)
         if (txId > 0L) {
             pendingReminderTransactionId = txId
         }
-        val chatKey = intent?.getStringExtra(ChatNotificationHelper.EXTRA_CHAT_THREAD_KEY)
-        val remoteRecId = intent?.getStringExtra(ChatNotificationHelper.EXTRA_REMOTE_RECORD_ID)
-        val showUpdates = intent?.getBooleanExtra(com.jyotirmoyb.udhaar.notification.GuestActionNotificationHelper.EXTRA_SHOW_UPDATES, false) ?: false
+
+        val rawChatKey = intent.getStringExtra(ChatNotificationHelper.EXTRA_CHAT_THREAD_KEY)?.trim()
+        val rawRemoteRecId = intent.getStringExtra(ChatNotificationHelper.EXTRA_REMOTE_RECORD_ID)?.trim()
+        val showUpdates = intent.getBooleanExtra(com.jyotirmoyb.udhaar.notification.GuestActionNotificationHelper.EXTRA_SHOW_UPDATES, false)
         if (showUpdates) {
             pendingShowUpdates = true
         }
-        if (!chatKey.isNullOrBlank() || !remoteRecId.isNullOrBlank()) {
-            pendingChatThreadKey = chatKey
-            pendingRemoteRecordId = remoteRecId
+
+        // Validate chat thread keys and record IDs against max length and safe character set
+        val safeChatKey = rawChatKey?.takeIf { it.length in 1..128 && it.all { c -> c.isLetterOrDigit() || c == '_' || c == '-' || c == ':' } }
+        val safeRemoteRecId = rawRemoteRecId?.takeIf { it.length in 1..128 && it.all { c -> c.isLetterOrDigit() || c == '_' || c == '-' } }
+
+        if (!safeChatKey.isNullOrBlank() || !safeRemoteRecId.isNullOrBlank()) {
+            pendingChatThreadKey = safeChatKey
+            pendingRemoteRecordId = safeRemoteRecId
             val chatTxId = intent.getLongExtra(ChatNotificationHelper.EXTRA_CHAT_TRANSACTION_ID, -1L)
             pendingChatTransactionId = if (chatTxId > 0L) chatTxId else null
-            pendingChatPartyName = intent.getStringExtra(ChatNotificationHelper.EXTRA_CHAT_PARTY_NAME)
+            val rawPartyName = intent.getStringExtra(ChatNotificationHelper.EXTRA_CHAT_PARTY_NAME)?.trim()
+            pendingChatPartyName = rawPartyName?.takeIf { it.length in 1..100 }
         }
-        val uri = intent?.data
+
+        // Deep link validation: strictly validate scheme, host, and path prefix
+        val uri = intent.data
         if (uri != null) {
-            val fullUrl = if (!uri.fragment.isNullOrBlank() && !uri.toString().contains("#")) {
-                "${uri.toString()}#${uri.fragment}"
-            } else {
-                uri.toString()
-            }
-            if (fullUrl.contains("/u/")) {
+            val scheme = uri.scheme?.lowercase()
+            val host = uri.host?.lowercase()
+            val path = uri.path.orEmpty()
+
+            val isAllowedScheme = scheme == "https" || (BuildConfig.DEBUG && scheme == "http")
+            val isAllowedHost = host == "udhaar.jyotirmoyb.com" ||
+                (BuildConfig.DEBUG && (host == "localhost" || host == "10.0.2.2" || host == "127.0.0.1"))
+            val isAllowedPath = path.startsWith("/u/") || path.startsWith("/v/")
+
+            if (isAllowedScheme && isAllowedHost && isAllowedPath) {
+                val fullUrl = if (!uri.fragment.isNullOrBlank() && !uri.toString().contains("#")) {
+                    "${uri.toString()}#${uri.fragment}"
+                } else {
+                    uri.toString()
+                }
                 pendingDeepLinkUrl = fullUrl
+            } else {
+                com.jyotirmoyb.udhaar.util.AppLogger.w("MainActivity", "Rejected untrusted or malformed deep link: scheme=$scheme, host=$host, pathPrefix=${path.take(8)}")
             }
         }
     }

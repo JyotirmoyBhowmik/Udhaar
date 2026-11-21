@@ -104,6 +104,10 @@ open class LedgerRepository(
         transaction: UdhaarTransaction,
         myProfileName: String = "You"
     ): Long {
+        val validation = com.jyotirmoyb.udhaar.util.InputValidator.validateTransaction(transaction)
+        if (!validation.isValid) {
+            throw IllegalArgumentException(validation.errorMessage ?: "Invalid transaction input")
+        }
         val formattedPhone = InterestCalculator.formatPhoneWithCountryCode(
             transaction.phoneNumber,
             transaction.currency

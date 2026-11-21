@@ -18,6 +18,14 @@ open class PartyRepository(
     }
 
     suspend fun saveParty(party: PartyEntity): Long {
+        val nameRes = com.jyotirmoyb.udhaar.util.InputValidator.validatePartyName(party.name)
+        if (!nameRes.isValid) {
+            throw IllegalArgumentException(nameRes.errorMessage ?: "Invalid party name")
+        }
+        val phoneRes = com.jyotirmoyb.udhaar.util.InputValidator.validatePhoneNumber(party.phoneNumber, party.preferredCurrency, isRequired = false)
+        if (!phoneRes.isValid) {
+            throw IllegalArgumentException(phoneRes.errorMessage ?: "Invalid phone number")
+        }
         val formattedPhone = InterestCalculator.formatPhoneWithCountryCode(
             party.phoneNumber,
             party.preferredCurrency

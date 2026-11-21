@@ -1,7 +1,6 @@
 package com.jyotirmoyb.udhaar.data.cloud
 
 import android.content.Context
-import android.util.Log
 import com.google.firebase.FirebaseApp
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth

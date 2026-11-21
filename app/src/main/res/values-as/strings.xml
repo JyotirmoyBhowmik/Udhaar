@@ -520,6 +520,8 @@
     <string name="sqlcipher_error_reset_confirm_body">ই স্থানীয় ঋণৰ ৰেকৰ্ড, সংলগ্ন নথি আৰু এনক্ৰিপশ্বন কী স্থায়ীভাৱে মচি পেলাব। স্ক্ৰীণ লক সলনি হোৱাৰ বাবে ডিভাইচৰ সুৰক্ষা কী বাতিল হ’লে এইটো ব্যৱহাৰ কৰক। এইটো পূৰ্বৰ অৱস্থালৈ ঘূৰাই আনিব নোৱাৰি।</string>
     <string name="sqlcipher_error_reset_confirm_action">ডেটা ৰিচেট কৰক</string>
     <string name="sqlcipher_error_reset_cancel_action">বাতিল কৰক</string>
+    <string name="settings_screen_security_title">স্ক্ৰীণ সুৰক্ষা (Screen security)</string>
+    <string name="settings_screen_security_subtitle">বেলেন্স, বেকআপ আৰু লিংক স্ক্ৰীণত স্ক্ৰীণশ্বট আৰু ৰেকৰ্ডিং বন্ধ কৰক</string>
     <string name="export_local_udhaar_backup">এনক্ৰিপ্টেড .udhaar এক্সপোৰ্ট কৰক</string>
     <string name="cloud_backup_status_backing_up">বেকআপ হৈ আছে… (Backing up…)</string>
     <string name="cloud_backup_status_just_now">বেকআপ সম্পন্ন • এইমাত্ৰ (Backed up • Just now)</string>

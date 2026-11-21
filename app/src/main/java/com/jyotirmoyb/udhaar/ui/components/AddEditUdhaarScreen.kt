@@ -409,15 +409,7 @@ fun AddEditUdhaarScreen(
                     }
                     Button(
                         onClick = {
-                            val principalPaise = InterestCalculator.rupeesStringToPaise(principalText)
-                            if (partyName.trim().isEmpty()) {
-                                validationError = "Please enter who this udhaar is with (Step 1)."
-                                return@Button
-                            }
-                            if (principalPaise == null || principalPaise <= 0L) {
-                                validationError = "Please enter a valid ${plainAmountLabel.lowercase()} greater than 0 (Step 2)."
-                                return@Button
-                            }
+                            val principalPaise = InterestCalculator.rupeesStringToPaise(principalText) ?: 0L
                             val rate = if (isInterestEnabled) interestRateText.trim().toDoubleOrNull() ?: 0.0 else 0.0
                             val record = (initialTransaction ?: UdhaarTransaction(partyName = "", principalAmountPaise = principalPaise)).copy(
                                 partyId = selectedPartyId,
@@ -437,6 +429,11 @@ fun AddEditUdhaarScreen(
                                 reminderDateMillis = reminderDateMillis,
                                 notes = notes.trim()
                             )
+                            val validation = com.jyotirmoyb.udhaar.util.InputValidator.validateTransaction(record)
+                            if (!validation.isValid) {
+                                validationError = validation.errorMessage
+                                return@Button
+                            }
                             onSave(record)
                         },
                         modifier = Modifier

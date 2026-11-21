@@ -521,6 +521,8 @@
     <string name="sqlcipher_error_reset_confirm_body">This will permanently delete local loan records, attachments, and encryption keys. Use this if your device lock screen was changed and device security keys are permanently invalidated. This cannot be undone.</string>
     <string name="sqlcipher_error_reset_confirm_action">Reset data</string>
     <string name="sqlcipher_error_reset_cancel_action">Cancel</string>
+    <string name="settings_screen_security_title">Screen security</string>
+    <string name="settings_screen_security_subtitle">Block screenshots and recordings on balance, backup, and link screens</string>
     <string name="export_local_udhaar_backup">Export Encrypted .udhaar</string>
     <string name="cloud_backup_status_backing_up">Backing up…</string>
     <string name="cloud_backup_status_just_now">Backed up • Just now</string>

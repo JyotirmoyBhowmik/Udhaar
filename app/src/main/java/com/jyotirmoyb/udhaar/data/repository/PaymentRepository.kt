@@ -60,8 +60,12 @@ open class PaymentRepository(
         actorName: String = "You",
         proofAttachment: Attachment? = null
     ): Long {
-        val cleanPaymentPaise = paymentAmountPaise.coerceAtLeast(0L)
-        if (cleanPaymentPaise <= 0L) return -1L
+        val amtRes = com.jyotirmoyb.udhaar.util.InputValidator.validateAmountPaise(paymentAmountPaise)
+        if (!amtRes.isValid) return -1L
+        val notesRes = com.jyotirmoyb.udhaar.util.InputValidator.validateNotes(note)
+        if (!notesRes.isValid) return -1L
+
+        val cleanPaymentPaise = paymentAmountPaise
 
         val settings = settingsRepository.userSettings.first()
         val effectiveActor = actorName.trim().ifEmpty { settings.payeeName.ifBlank { "You" } }

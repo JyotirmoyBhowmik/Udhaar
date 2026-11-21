@@ -66,6 +66,8 @@ fun SecuritySection(
     onPinValidationErrorChanged: (String?) -> Unit,
     onRetryDatabaseEncryption: () -> Unit,
     onLockAppNow: () -> Unit,
+    screenSecurityEnabled: Boolean = currentSettings.screenSecurityEnabled,
+    onScreenSecurityChanged: (Boolean) -> Unit = {},
     analyticsCrashConsent: Boolean = currentSettings.analyticsCrashConsent,
     onAnalyticsCrashConsentChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
@@ -310,6 +312,53 @@ fun SecuritySection(
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(stringResource(R.string.ui_str_lock_app_now_5b5570), style = MaterialTheme.typography.labelMedium)
             }
+        }
+
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
+
+        // Screen Security (FLAG_SECURE) toggle
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("screen_security_row"),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
+                Column {
+                    Text(
+                        text = stringResource(R.string.settings_screen_security_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_screen_security_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            UdhaarAnimatedSwitch(
+                checked = screenSecurityEnabled,
+                onCheckedChange = onScreenSecurityChanged,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                    checkedTrackColor = MaterialTheme.colorScheme.primary
+                ),
+                modifier = Modifier
+                    .minTouchTarget()
+                    .testTag("screen_security_switch")
+            )
         }
 
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)

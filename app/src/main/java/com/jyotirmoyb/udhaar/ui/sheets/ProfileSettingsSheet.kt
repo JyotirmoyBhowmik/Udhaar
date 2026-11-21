@@ -66,6 +66,7 @@ fun ProfileSettingsSheet(
     onRetryCloudBackup: () -> Unit = {},
     onOpenContactPicker: () -> Unit = {},
     onSaveReminderSettings: ((Boolean, Int, Int, Int, Int, Int) -> Unit)? = null,
+    onSaveScreenSecurity: ((Boolean) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     SettingsScreen(
@@ -107,6 +108,7 @@ fun ProfileSettingsSheet(
         onRetryCloudBackup = onRetryCloudBackup,
         onOpenContactPicker = onOpenContactPicker,
         onSaveReminderSettings = onSaveReminderSettings,
+        onSaveScreenSecurity = onSaveScreenSecurity,
         onDismiss = onDismiss
     )
 }

@@ -248,6 +248,12 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun setScreenSecurityEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setScreenSecurityEnabled(enabled)
+        }
+    }
+
     fun generateAndSaveRecoveryKey(onGenerated: (String) -> Unit = {}) {
         viewModelScope.launch {
             val newKey = com.jyotirmoyb.udhaar.util.TelemetryManager.generateBackupRecoveryKey()

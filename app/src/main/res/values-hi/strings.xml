@@ -520,6 +520,8 @@
     <string name="sqlcipher_error_reset_confirm_body">यह स्थानीय ऋण रिकॉर्ड, अनुलग्नक और एन्क्रिप्शन कुंजियों को हमेशा के लिए हटा देगा। इसका उपयोग तब करें जब स्क्रीन लॉक बदलने से सुरक्षा कुंजियाँ अमान्य हो गई हों। इसे वापस नहीं लाया जा सकता।</string>
     <string name="sqlcipher_error_reset_confirm_action">डेटा रीसेट करें</string>
     <string name="sqlcipher_error_reset_cancel_action">रद्द करें</string>
+    <string name="settings_screen_security_title">स्क्रीन सुरक्षा (Screen security)</string>
+    <string name="settings_screen_security_subtitle">बैलेंस, बैकअप और लिंक स्क्रीन पर स्क्रीनशॉट और रिकॉर्डिंग ब्लॉक करें</string>
     <string name="export_local_udhaar_backup">एन्क्रिप्टेड .udhaar निर्यात करें</string>
     <string name="cloud_backup_status_backing_up">बैकअप हो रहा है… (Backing up…)</string>
     <string name="cloud_backup_status_just_now">बैकअप पूरा • अभी (Backed up • Just now)</string>

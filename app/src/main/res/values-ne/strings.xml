@@ -520,6 +520,8 @@
     <string name="sqlcipher_error_reset_confirm_body">यसले स्थानीय ऋण रेकर्डहरू, संलग्न फाइलहरू र इन्क्रिप्सन कुञ्जीहरू स्थायी रूपमा मेटाउनेछ। स्क्रिन लक परिवर्तनका कारण उपकरणको सुरक्षा कुञ्जीहरू अमान्य भएमा यो प्रयोग गर्नुहोस्। यसलाई पूर्ववत गर्न सकिँदैन।</string>
     <string name="sqlcipher_error_reset_confirm_action">डाटा रिसेट गर्नुहोस्</string>
     <string name="sqlcipher_error_reset_cancel_action">रद्द गर्नुहोस्</string>
+    <string name="settings_screen_security_title">स्क्रिन सुरक्षा (Screen security)</string>
+    <string name="settings_screen_security_subtitle">ब्यालेन्स, ब्याकअप र लिंक स्क्रिनमा स्क्रिनसट र रेकर्डिङ ब्लक गर्नुहोस्</string>
     <string name="export_local_udhaar_backup">इन्क्रिप्टेड .udhaar एक्सपोर्ट गर्नुहोस्</string>
     <string name="cloud_backup_status_backing_up">ब्याकअप हुँदैछ… (Backing up…)</string>
     <string name="cloud_backup_status_just_now">ब्याकअप सम्पन्न • भर्खरै (Backed up • Just now)</string>

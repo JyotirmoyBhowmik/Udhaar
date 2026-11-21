@@ -48,6 +48,17 @@ internal fun UdhaarOverlaysHost(
 ) {
     val context = LocalContext.current
 
+    val isSensitiveOverlay = uiState.showRestorePreviewDialog ||
+        uiState.showBackupPassphraseDialog ||
+        uiState.showRestorePassphraseDialog ||
+        uiState.qrModalState != null ||
+        uiState.webShareTransactionId != null ||
+        uiState.verificationShareTransactionId != null
+
+    com.jyotirmoyb.udhaar.security.SecureScreenEffect(
+        enabled = uiState.userSettings.screenSecurityEnabled && isSensitiveOverlay
+    )
+
     val restoreBackup = uiState.pendingRestoreBackup
     val restoreParsed = uiState.pendingRestoreParsed
     if (uiState.showRestorePreviewDialog && restoreParsed != null && restoreBackup != null) {

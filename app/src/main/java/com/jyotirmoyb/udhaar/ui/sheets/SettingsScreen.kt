@@ -129,6 +129,7 @@ fun SettingsScreen(
     onSaveWebLinkDefaults: ((defaultExpiryDays: Int, defaultTrustLevel: String, defaultShowUpi: Boolean) -> Unit)? = null,
     onRevokeAllWebLinks: (() -> Unit)? = null,
     onAnalyticsCrashConsentChanged: (Boolean) -> Unit = {},
+    onSaveScreenSecurity: ((Boolean) -> Unit)? = null,
     onGroupRecordsByPersonChange: (Boolean) -> Unit = {},
     onGenerateRecoveryKey: ((onKeyReady: (String) -> Unit) -> Unit)? = null,
     onTestMyBackup: (() -> Unit)? = null,
@@ -159,6 +160,9 @@ fun SettingsScreen(
     }
     var analyticsCrashConsent by rememberSaveable(currentSettings.analyticsCrashConsent) {
         mutableStateOf(currentSettings.analyticsCrashConsent)
+    }
+    var screenSecurityEnabled by rememberSaveable(currentSettings.screenSecurityEnabled) {
+        mutableStateOf(currentSettings.screenSecurityEnabled)
     }
     var groupRecordsByPerson by rememberSaveable(currentSettings.groupRecordsByPerson) {
         mutableStateOf(currentSettings.groupRecordsByPerson)
@@ -453,6 +457,11 @@ fun SettingsScreen(
                             onAnalyticsCrashConsentChanged = { enabled ->
                                 analyticsCrashConsent = enabled
                                 onAnalyticsCrashConsentChanged(enabled)
+                            },
+                            screenSecurityEnabled = screenSecurityEnabled,
+                            onScreenSecurityChanged = { enabled ->
+                                screenSecurityEnabled = enabled
+                                onSaveScreenSecurity?.invoke(enabled)
                             }
                         )
                     }

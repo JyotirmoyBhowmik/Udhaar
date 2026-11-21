@@ -16,4 +16,9 @@ class UdhaarApplication : Application(), Configuration.Provider {
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
             .build()
+
+    override fun onCreate() {
+        super.onCreate()
+        com.jyotirmoyb.udhaar.util.AppLogger.initCrashlyticsUser(this)
+    }
 }

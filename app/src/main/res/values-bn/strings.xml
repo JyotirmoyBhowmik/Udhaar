@@ -520,6 +520,8 @@
     <string name="sqlcipher_error_reset_confirm_body">এটি স্থানীয় ঋণের রেকর্ড, সংযুক্তি এবং এনক্রিপশন কী স্থায়ীভাবে মুছে ফেলবে। স্ক্রিন লক পরিবর্তন হওয়ার কারণে ডিভাইসের নিরাপত্তা কী বাতিল হয়ে থাকলে এটি ব্যবহার করুন। এটি পূর্বাবস্থায় ফিরিয়ে আনা যাবে না।</string>
     <string name="sqlcipher_error_reset_confirm_action">ডেটা রিসেট করুন</string>
     <string name="sqlcipher_error_reset_cancel_action">বাতিল করুন</string>
+    <string name="settings_screen_security_title">স্ক্রিন সুরক্ষা (Screen security)</string>
+    <string name="settings_screen_security_subtitle">ব্যালেন্স, ব্যাকআপ এবং লিংক স্ক্রিনে স্ক্রিনশট এবং রেকর্ডিং ব্লক করুন</string>
     <string name="export_local_udhaar_backup">এনক্রিপ্টেড .udhaar এক্সপোর্ট করুন</string>
     <string name="cloud_backup_status_backing_up">ব্যাকআপ হচ্ছে… (Backing up…)</string>
     <string name="cloud_backup_status_just_now">ব্যাকআপ সম্পন্ন • এইমাত্র (Backed up • Just now)</string>

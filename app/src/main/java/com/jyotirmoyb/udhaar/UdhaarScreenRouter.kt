@@ -151,6 +151,15 @@ internal fun UdhaarScreenRouter(
         }
     }
 
+    val isSensitiveScreen = currentNavDestination is UdhaarNavDestination.Home ||
+        currentNavDestination is UdhaarNavDestination.PartyDetail ||
+        currentNavDestination is UdhaarNavDestination.RecordDetail ||
+        currentNavDestination is UdhaarNavDestination.Settings
+
+    com.jyotirmoyb.udhaar.security.SecureScreenEffect(
+        enabled = uiState.userSettings.screenSecurityEnabled && isSensitiveScreen
+    )
+
     Box(modifier = Modifier.fillMaxSize()) {
         @OptIn(ExperimentalSharedTransitionApi::class)
         SharedTransitionLayout(
@@ -520,6 +529,7 @@ internal fun UdhaarScreenRouter(
                                     onOpenContactPicker = requestContactsFlow,
                                     onSaveReminderSettings = viewModel::updateReminderSettings,
                                     onAnalyticsCrashConsentChanged = viewModel::setAnalyticsCrashConsent,
+                                    onSaveScreenSecurity = viewModel::setScreenSecurityEnabled,
                                     onGroupRecordsByPersonChange = viewModel::setGroupRecordsByPerson,
                                     onGenerateRecoveryKey = viewModel::generateAndSaveBackupRecoveryKey,
                                     onSaveRecoveryKey = viewModel::saveBackupRecoveryKey,

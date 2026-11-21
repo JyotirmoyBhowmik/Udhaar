@@ -739,6 +739,7 @@ data class UserSettings(
     val themeMode: AppThemeMode = AppThemeMode.EMERALD_FINANCE,
     val fontScale: AppFontScale = AppFontScale.STANDARD,
     val biometricLockEnabled: Boolean = false,
+    val screenSecurityEnabled: Boolean = false,
     val hasPinConfigured: Boolean = false,
     val cloudVerificationConsent: Boolean = false,
     val cloudUserId: String = "",

@@ -770,6 +770,9 @@ class UdhaarViewModel(
     fun setAnalyticsCrashConsent(consent: Boolean) =
         settingsViewModel.setAnalyticsCrashConsent(consent)
 
+    fun setScreenSecurityEnabled(enabled: Boolean) =
+        settingsViewModel.setScreenSecurityEnabled(enabled)
+
     fun saveBackupRecoveryKey(recoveryKey: String) =
         settingsViewModel.saveBackupRecoveryKey(recoveryKey)
 
