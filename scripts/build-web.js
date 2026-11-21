@@ -143,7 +143,7 @@ for (const relHtml of htmlFiles) {
 console.log("\n▶ [4/4] Writing Build Metadata Manifest (web/dist-manifest.json)...");
 const manifestPath = path.join(WEB_DIR, "dist-manifest.json");
 fs.writeFileSync(manifestPath, JSON.stringify({
-  version: "28.0.0",
+  version: "29.0.0",
   timestamp: new Date().toISOString(),
   budgets: {
     landingKb: parseFloat(landingKb),

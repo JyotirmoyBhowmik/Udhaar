@@ -16,11 +16,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.QrCode2
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -468,7 +467,7 @@ internal fun ExpandedTransactionCardContent(
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Icon(
-                imageVector = Icons.Default.ChatBubbleOutline,
+                imageVector = UdhaarIcons.ChatBubbleOutline,
                 contentDescription = stringResource(R.string.cd_open_chat_for_fmt, tx.partyName),
                 tint = SecondaryInkGrey,
                 modifier = Modifier.size(16.dp)
@@ -584,7 +583,7 @@ internal fun ExpandedTransactionCardContent(
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
         ) {
             Icon(
-                imageVector = Icons.Default.QrCode2,
+                imageVector = UdhaarIcons.QrCode2,
                 contentDescription = stringResource(R.string.cd_get_qr_or_receipt_for_fmt, tx.partyName),
                 modifier = Modifier.size(17.dp)
             )

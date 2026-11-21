@@ -18,8 +18,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Close
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -222,7 +222,7 @@ fun InstallmentPlanBuilderSheet(
                                 .height(56.dp),
                             shape = RoundedCornerShape(4.dp)
                         ) {
-                            Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(UdhaarIcons.CalendarToday, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(sdf.format(Date(startDateMillis)), style = MaterialTheme.typography.bodySmall)
                         }

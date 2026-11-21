@@ -14,10 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.QrCode2
-import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -37,6 +34,7 @@ import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.TransactionType
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
 import com.jyotirmoyb.udhaar.ui.components.pressScaleFeedback
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import com.jyotirmoyb.udhaar.util.CalculatedUdhaarSummary
 
 @Composable
@@ -97,7 +95,7 @@ fun TransactionActionsSection(
                 contentPadding = PaddingValues(horizontal = 8.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
             ) {
-                Icon(Icons.Default.ReceiptLong, contentDescription = null, modifier = Modifier.size(14.dp))
+                Icon(UdhaarIcons.ReceiptLong, contentDescription = null, modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     stringResource(R.string.ui_str_receipt_slip_1ccbe9),
@@ -120,7 +118,7 @@ fun TransactionActionsSection(
                         contentPadding = PaddingValues(horizontal = 8.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                     ) {
-                        Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Icon(UdhaarIcons.QrCode2, contentDescription = null, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             stringResource(R.string.ui_str_collect_via_my_upi_qr_c6b866),
@@ -148,7 +146,7 @@ fun TransactionActionsSection(
                         contentPadding = PaddingValues(horizontal = 8.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                     ) {
-                        Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Icon(UdhaarIcons.QrCode2, contentDescription = null, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = if (partyUpi.isNotBlank()) {
@@ -262,7 +260,7 @@ fun TransactionActionsSection(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
             ) {
                 Icon(
-                    Icons.Default.DeleteOutline,
+                    UdhaarIcons.DeleteOutline,
                     contentDescription = null,
                     modifier = Modifier.size(14.dp),
                     tint = MaterialTheme.colorScheme.error

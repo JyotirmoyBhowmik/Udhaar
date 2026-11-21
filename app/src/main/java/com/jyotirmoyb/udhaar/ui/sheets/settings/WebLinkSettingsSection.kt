@@ -13,9 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
@@ -42,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.jyotirmoyb.udhaar.data.UserSettings
 import com.jyotirmoyb.udhaar.ui.common.SettingsSectionCard
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 
 @Composable
 fun WebLinkSettingsSection(
@@ -136,7 +135,7 @@ fun WebLinkSettingsSection(
                         )
                     },
                     leadingIcon = {
-                        Icon(Icons.Default.VerifiedUser, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(UdhaarIcons.VerifiedUser, contentDescription = null, modifier = Modifier.size(16.dp))
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -185,7 +184,7 @@ fun WebLinkSettingsSection(
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
             ) {
-                Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(UdhaarIcons.DeleteOutline, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(stringResource(R.string.btn_revoke_all_web_links))
             }

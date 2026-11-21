@@ -15,10 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +37,7 @@ import com.jyotirmoyb.udhaar.R
 import com.jyotirmoyb.udhaar.ui.common.PhoneMaskVisualTransformation
 import com.jyotirmoyb.udhaar.ui.common.SettingsSectionCard
 import com.jyotirmoyb.udhaar.ui.common.UpiMaskVisualTransformation
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 
 @Composable
@@ -105,7 +103,7 @@ fun ProfileUpiSection(
                         modifier = Modifier.testTag("toggle_settings_upi_visibility")
                     ) {
                         Icon(
-                            imageVector = if (showFullUpiId) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            imageVector = if (showFullUpiId) UdhaarIcons.VisibilityOff else UdhaarIcons.Visibility,
                             contentDescription = if (showFullUpiId) "Hide UPI ID" else "Show UPI ID"
                         )
                     }
@@ -147,7 +145,7 @@ fun ProfileUpiSection(
                         modifier = Modifier.testTag("toggle_settings_phone_visibility")
                     ) {
                         Icon(
-                            imageVector = if (showFullPhoneNumber) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            imageVector = if (showFullPhoneNumber) UdhaarIcons.VisibilityOff else UdhaarIcons.Visibility,
                             contentDescription = if (showFullPhoneNumber) "Hide Phone Number" else "Show Phone Number"
                         )
                     }
@@ -218,7 +216,7 @@ fun ProfileUpiSection(
             shape = RoundedCornerShape(10.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
         ) {
-            Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(18.dp))
+            Icon(UdhaarIcons.QrCode2, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text(stringResource(R.string.ui_str_open_my_upi_qr_code_0821c9), style = MaterialTheme.typography.labelLarge)
         }

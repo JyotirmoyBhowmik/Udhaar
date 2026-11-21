@@ -127,4 +127,93 @@ class SparkQuotaAndAppCheckTest {
         assertFalse(result.success)
         assertTrue(result.errorMessage.contains("Daily free cloud limit reached"))
     }
+
+    @Test
+    fun releaseClasspath_hasNoDebugAppCheckProvider_andReleaseUsesPlayIntegrity() {
+        val projectRoot = listOf(
+            java.io.File("."),
+            java.io.File("..")
+        ).first { java.io.File(it, "app/build.gradle.kts").exists() }
+
+        val gradleScript = java.io.File(projectRoot, "app/build.gradle.kts").readText()
+        assertTrue(
+            "firebase-appcheck-debug must be declared with debugImplementation only",
+            gradleScript.contains("debugImplementation(libs.firebase.appcheck.debug)")
+        )
+        assertFalse(
+            "firebase-appcheck-debug must never use implementation()",
+            gradleScript.contains("implementation(libs.firebase.appcheck.debug)")
+        )
+        assertFalse(
+            "firebase-appcheck-debug must never use releaseImplementation()",
+            gradleScript.contains("releaseImplementation(libs.firebase.appcheck.debug)")
+        )
+        assertTrue(
+            "verifyReleaseNoDebugAppCheck task must guard release classpaths",
+            gradleScript.contains("verifyReleaseNoDebugAppCheck")
+        )
+
+        val releaseInstaller = java.io.File(
+            projectRoot,
+            "app/src/release/java/com/jyotirmoyb/udhaar/di/AppCheckProviderInstaller.kt"
+        )
+        assertTrue("Release AppCheckProviderInstaller must exist", releaseInstaller.exists())
+        val releaseInstallerSrc = releaseInstaller.readText()
+        assertTrue(releaseInstallerSrc.contains("PlayIntegrityAppCheckProviderFactory"))
+        assertFalse(releaseInstallerSrc.contains("DebugAppCheckProviderFactory"))
+        assertFalse(releaseInstallerSrc.contains("firebase.appcheck.debug"))
+
+        val mainAndReleaseSources = listOf(
+            java.io.File(projectRoot, "app/src/main/java"),
+            java.io.File(projectRoot, "app/src/release/java")
+        ).flatMap { dir ->
+            if (dir.exists()) dir.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
+            else emptyList()
+        }
+        val offending = mainAndReleaseSources.filter { file ->
+            val txt = file.readText()
+            txt.contains("DebugAppCheckProviderFactory") || txt.contains("com.google.firebase.appcheck.debug")
+        }.map { it.relativeTo(projectRoot).path }
+
+        assertTrue(
+            "Main and release source sets must not reference DebugAppCheckProviderFactory: $offending",
+            offending.isEmpty()
+        )
+    }
+
+    @Test
+    fun versioningScheme_usesVersionProperties_neverBelow28_andMatchesBuildConfig() {
+        val projectRoot = listOf(
+            java.io.File("."),
+            java.io.File("..")
+        ).first { java.io.File(it, "version.properties").exists() }
+
+        val props = java.util.Properties().apply {
+            java.io.File(projectRoot, "version.properties").inputStream().use { load(it) }
+        }
+        val code = props.getProperty("versionCode")?.toIntOrNull()
+        val name = props.getProperty("versionName")
+        val ciBase = props.getProperty("ciVersionCodeBase")?.toIntOrNull()
+
+        assertNotNull("versionCode must be present in version.properties", code)
+        assertTrue("versionCode must never be below 28", (code ?: 0) >= 28)
+        assertEquals("29.0", name)
+        assertEquals(29, code)
+        assertEquals(100, ciBase)
+        assertTrue("BuildConfig.VERSION_CODE must be >= 28", BuildConfig.VERSION_CODE >= 28)
+        assertEquals("29.0", BuildConfig.VERSION_NAME)
+    }
+
+    @Test
+    fun iconsWorkaround_noAndroidxPackageSquattingInMainSources() {
+        val projectRoot = listOf(
+            java.io.File("."),
+            java.io.File("..")
+        ).first { java.io.File(it, "app/build.gradle.kts").exists() }
+        val androidxDir = java.io.File(projectRoot, "app/src/main/java/androidx")
+        assertFalse(
+            "app/src/main/java/androidx workaround directory must be removed",
+            androidxDir.exists() && androidxDir.walkTopDown().any { it.isFile }
+        )
+    }
 }

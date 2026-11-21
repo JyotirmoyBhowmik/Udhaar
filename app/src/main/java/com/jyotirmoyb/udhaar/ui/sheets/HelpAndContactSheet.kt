@@ -21,12 +21,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.SupportAgent
-import androidx.compose.material.icons.filled.VerifiedUser
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -136,7 +134,7 @@ fun HelpAndContactSheet(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.SupportAgent,
+                            imageVector = UdhaarIcons.SupportAgent,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
@@ -200,7 +198,7 @@ fun HelpAndContactSheet(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.VerifiedUser,
+                            imageVector = UdhaarIcons.VerifiedUser,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
@@ -339,7 +337,7 @@ fun HelpAndContactSheet(
                             .testTag("help_terms_of_service_button"),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(UdhaarIcons.Description, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(stringResource(R.string.about_terms_of_service_btn))
                     }

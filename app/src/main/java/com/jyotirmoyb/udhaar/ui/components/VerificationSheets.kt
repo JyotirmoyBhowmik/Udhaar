@@ -40,11 +40,8 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.VerifiedUser
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -176,7 +173,7 @@ fun VerificationShareSheet(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Default.VerifiedUser,
+                            imageVector = UdhaarIcons.VerifiedUser,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
@@ -402,7 +399,7 @@ fun VerificationShareSheet(
                         shape = RoundedCornerShape(8.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                     ) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(UdhaarIcons.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(stringResource(R.string.ui_str_copy_link_1ccac4), style = MaterialTheme.typography.labelMedium)
                     }
@@ -461,7 +458,7 @@ fun VerificationShareSheet(
                     onClick = { showPasteInput = !showPasteInput },
                     modifier = Modifier.testTag("toggle_open_received_link_btn")
                 ) {
-                    Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(UdhaarIcons.Link, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = if (showPasteInput) stringResource(R.string.ui_str_hide_received_link_box_ebe20c) else stringResource(R.string.ui_str_have_a_verification_link_from_3fe096),
@@ -726,7 +723,7 @@ fun IncomingVerificationReviewSheet(
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                     ) {
-                        Icon(Icons.Default.ReportProblem, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(UdhaarIcons.ReportProblem, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(stringResource(R.string.ui_str_dispute_terms_57b8e1), fontWeight = FontWeight.Bold)
                     }
@@ -977,7 +974,7 @@ fun ShareMyPaymentDetailsSheet(
                         shape = RoundedCornerShape(8.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                     ) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(UdhaarIcons.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(stringResource(R.string.ui_str_copy_link_1ccac4), style = MaterialTheme.typography.labelMedium)
                     }

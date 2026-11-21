@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -43,6 +41,7 @@ import com.jyotirmoyb.udhaar.R
 import com.jyotirmoyb.udhaar.data.CloudBackupState
 import com.jyotirmoyb.udhaar.data.UserSettings
 import com.jyotirmoyb.udhaar.ui.components.UdhaarAnimatedSwitch
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -185,7 +184,7 @@ fun CloudVerificationCard(
                     Icon(
                         imageVector = when (backupState) {
                             CloudBackupState.FAILED -> Icons.Default.Warning
-                            CloudBackupState.BACKING_UP -> Icons.Default.Sync
+                            CloudBackupState.BACKING_UP -> UdhaarIcons.Sync
                             else -> Icons.Default.Check
                         },
                         contentDescription = null,
@@ -263,7 +262,7 @@ fun CloudVerificationCard(
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
         ) {
             Icon(
-                Icons.Default.DeleteOutline,
+                UdhaarIcons.DeleteOutline,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.error

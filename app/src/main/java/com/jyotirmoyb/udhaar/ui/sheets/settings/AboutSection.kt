@@ -17,14 +17,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.SupportAgent
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import com.jyotirmoyb.udhaar.BuildConfig
 import com.jyotirmoyb.udhaar.R
 import com.jyotirmoyb.udhaar.ui.common.SettingsSectionCard
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily
 
 @Composable
@@ -137,7 +135,7 @@ fun AboutSection(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.SupportAgent,
+                    imageVector = UdhaarIcons.SupportAgent,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp)
@@ -252,7 +250,7 @@ fun AboutSection(
                     shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                 ) {
-                    Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Icon(UdhaarIcons.Description, contentDescription = null, modifier = Modifier.size(15.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(text = stringResource(R.string.about_terms_of_service_btn), style = MaterialTheme.typography.labelSmall)
                 }
@@ -272,7 +270,7 @@ fun AboutSection(
                 shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
             ) {
-                Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(15.dp))
+                Icon(UdhaarIcons.DeleteOutline, contentDescription = null, modifier = Modifier.size(15.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(text = stringResource(R.string.about_delete_account_web_btn), style = MaterialTheme.typography.labelSmall)
             }

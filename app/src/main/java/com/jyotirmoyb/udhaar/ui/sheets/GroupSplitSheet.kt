@@ -29,8 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.PersonAdd
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -157,7 +156,7 @@ fun GroupSplitSheet(
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.PersonAdd,
+                                imageVector = UdhaarIcons.PersonAdd,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(22.dp)
@@ -599,7 +598,7 @@ fun GroupSplitSheet(
                                     modifier = Modifier.size(48.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.DeleteOutline,
+                                        imageVector = UdhaarIcons.DeleteOutline,
                                         contentDescription = stringResource(R.string.ui_str_delete_d6f563),
                                         tint = MaterialTheme.colorScheme.error,
                                         modifier = Modifier.size(18.dp)

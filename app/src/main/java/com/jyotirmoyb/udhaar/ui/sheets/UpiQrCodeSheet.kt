@@ -34,11 +34,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -214,7 +211,7 @@ fun UpiQrCodeModal(
                             if (upiIdInput.isNotBlank()) {
                                 IconButton(onClick = { showQrUpiId = !showQrUpiId }) {
                                     Icon(
-                                        imageVector = if (showQrUpiId) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                        imageVector = if (showQrUpiId) UdhaarIcons.VisibilityOff else UdhaarIcons.Visibility,
                                         contentDescription = if (showQrUpiId) "Hide UPI ID" else "Show UPI ID"
                                     )
                                 }
@@ -319,7 +316,7 @@ fun UpiQrCodeModal(
                                 shape = RoundedCornerShape(12.dp),
                                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
                             ) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Icon(UdhaarIcons.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(stringResource(R.string.ui_str_copy_link_1ccac4), style = MaterialTheme.typography.labelMedium)
                             }
@@ -344,7 +341,7 @@ fun UpiQrCodeModal(
                                     contentColor = MaterialTheme.colorScheme.onPrimary
                                 )
                             ) {
-                                Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Icon(UdhaarIcons.AccountBalanceWallet, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(stringResource(R.string.ui_str_open_upi_app_2ab19b), style = MaterialTheme.typography.labelMedium)
                             }

@@ -36,10 +36,21 @@ jobs:
           java-version: "17"
           cache: "gradle"
 
-      # [LEGACY-DISABLED START] reason: Detekt plugin is not applied in build.gradle.kts; ktlint and Android Lint are enforced | restore: uncomment when applying detekt plugin
-      # - name: Run Detekt Static Analysis
-      #   run: ./gradlew detekt --stacktrace
-      # [LEGACY-DISABLED END]
+      - name: Run Detekt Static Analysis
+        run: |
+          if [ -x "./gradlew" ]; then
+            ./gradlew :app:detekt --stacktrace
+          else
+            gradle :app:detekt --stacktrace
+          fi
+
+      - name: Verify Release Versioning & Zero Debug App Check on Release Classpath
+        run: |
+          if [ -x "./gradlew" ]; then
+            ./gradlew :app:verifyReleaseVersioning :app:verifyReleaseNoDebugAppCheck --stacktrace
+          else
+            gradle :app:verifyReleaseVersioning :app:verifyReleaseNoDebugAppCheck --stacktrace
+          fi
 
       - name: Install and run ktlint
         run: |
@@ -64,12 +75,12 @@ jobs:
             gradle :app:testDebugUnitTest --stacktrace
           fi
 
-      - name: Assemble Debug APK
+      - name: Compile Debug APK & Instrumented Smoke Tests
         run: |
           if [ -x "./gradlew" ]; then
-            ./gradlew :app:assembleDebug --stacktrace
+            ./gradlew :app:assembleDebug :app:compileDebugAndroidTestKotlin --stacktrace
           else
-            gradle :app:assembleDebug --stacktrace
+            gradle :app:assembleDebug :app:compileDebugAndroidTestKotlin --stacktrace
           fi
 
       - name: Upload Android CI Artifacts
@@ -78,6 +89,7 @@ jobs:
         with:
           name: udhaar-android-ci-artifacts
           path: |
+            app/build/reports/detekt/
             app/build/reports/lint-results-debug.*
             app/build/reports/tests/testDebugUnitTest/
             app/build/outputs/apk/debug/*.apk
@@ -143,8 +155,17 @@ jobs:
           node-version: "20"
           cache: "npm"
 
+      - name: Set up Java 17 for Firebase Emulators
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
       - name: Install Dependencies
         run: npm ci --ignore-scripts || npm install --ignore-scripts
+
+      - name: Build Web & PWA Production Assets
+        run: npm run build
 
       - name: Verify Launch Checklist & Documentation Truth
         run: node scripts/verify-launch-checklist.js
@@ -155,18 +176,19 @@ jobs:
       - name: Run Action Schema, Amount Conversion & UPI Validation Suite
         run: node scripts/test-action-schema.js
 
+      - name: Run Re-Enabled Spark Web Unit & Contract Test Suite
+        run: node --test web-tests/calculator_math.test.js web-tests/landing_privacy_page.test.js web-tests/web_client.test.js web-tests/webapp_s2.test.js web-tests/enterprise_tech.test.js web-tests/stage_s10_release.test.js web-tests/openapi_contract.test.js
+
       - name: Run 7/7 Offline Sync Conformance Fixtures
         run: node sync-conformance/ts-runner.js
 
-      - name: Verify Web Production Build & Asset Integrity
-        run: npm run build
+      - name: Install Playwright & Firebase CLI for Spark E2E
+        run: |
+          npm install --no-save playwright axe-core firebase-tools
+          npx playwright install --with-deps chromium firefox webkit
 
-      # [BLAZE-DISABLED START] reason: Cloud Functions Playwright tests disabled on Spark plan | restore: uncomment when upgrading to Blaze
-      # - name: Install Playwright System Browsers
-      #   run: npx playwright install --with-deps chromium firefox webkit
-      # - name: Run Comprehensive Multi-Browser E2E on Auth & Firestore Emulators
-      #   run: npx firebase emulators:exec --project demo-udhaar --only auth,firestore "node functions/test/playwright_e2e.test.js"
-      # [BLAZE-DISABLED END]
+      - name: Run Multi-Browser Spark E2E & Accessibility Suite on Auth + Firestore Emulators
+        run: npx firebase emulators:exec --project demo-udhaar-spark --only auth,firestore "node --test web-tests/playwright_e2e.test.js"
 
   # =========================================================================
   # 4. secret-scan: gitleaks (or similar) to block committed secrets

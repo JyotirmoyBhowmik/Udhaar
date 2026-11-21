@@ -2,6 +2,9 @@
 
 This guide describes how to deploy and operate Udhaar in **Spark Mode** (100% free, zero billing account required, zero-cost Google infrastructure).
 
+> [!IMPORTANT]
+> **API Key Restrictions & Dedicated Production Project**: Before shipping to Google Play, follow [`docs/PRODUCTION_FIREBASE_PROJECT.md`](./PRODUCTION_FIREBASE_PROJECT.md) to restrict the Android/Web API keys in Google Cloud Console and migrate from `gen-lang-client-0216629575` to a dedicated production Firebase project.
+
 ---
 
 ## 1. Overview & Golden Rules

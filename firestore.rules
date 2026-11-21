@@ -3,6 +3,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // -------------------------------------------------------------------------
+    // Authentication & Ownership Helpers
+    // -------------------------------------------------------------------------
     function isSignedIn() {
       return request.auth != null;
     }
@@ -13,70 +16,450 @@ service cloud.firestore {
         && request.auth.token.email_verified == true;
     }
 
-    function withinSize(maxBytes) {
-      return request.resource.data.size() < 60
-        && request.resource.data.keys().size() < 60;
+    // -------------------------------------------------------------------------
+    // Strict Size, Type, Length & Monotonic Revision Helpers
+    // -------------------------------------------------------------------------
+    function strBytes(d, k) {
+      return (k in d && d[k] is string) ? d[k].toUtf8().size() : 0;
     }
 
-    function validRecord() {
+    // Enforces real UTF-8 byte budget (estimatedBytes <= maxBytes) + strict key cap.
+    // Every collection allow-lists keys via keys().hasOnly(...) and sums strBytes(...)
+    // for all allowed string fields plus 16 bytes per key/scalar overhead.
+    function withinSize(estimatedBytes, maxBytes) {
+      return maxBytes > 0
+        && estimatedBytes >= 0
+        && estimatedBytes <= maxBytes
+        && request.resource.data.keys().size() <= 40;
+    }
+
+    function reqStr(d, k, minBytes, maxBytes) {
+      return (k in d)
+        && d[k] is string
+        && d[k].toUtf8().size() >= minBytes
+        && d[k].toUtf8().size() <= maxBytes;
+    }
+
+    function optStr(d, k, maxBytes) {
+      return !(k in d)
+        || (d[k] is string && d[k].toUtf8().size() <= maxBytes);
+    }
+
+    function optInt(d, k, minVal, maxVal) {
+      return !(k in d)
+        || (d[k] is int && d[k] >= minVal && d[k] <= maxVal);
+    }
+
+    function optNullableInt(d, k, minVal, maxVal) {
+      return !(k in d)
+        || d[k] == null
+        || (d[k] is int && d[k] >= minVal && d[k] <= maxVal);
+    }
+
+    function optBool(d, k) {
+      return !(k in d) || d[k] is bool;
+    }
+
+    function validRevOnCreate(d) {
+      return ('rev' in d) && d.rev is int && d.rev == 1;
+    }
+
+    function validRevOnUpdate(d) {
+      return ('rev' in d)
+        && d.rev is int
+        && ('rev' in resource.data)
+        && resource.data.rev is int
+        && d.rev == resource.data.rev + 1;
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection Schema Validators (Allow-List + Types + Lengths + Byte Budget)
+    // -------------------------------------------------------------------------
+    function validUser(uid) {
       let d = request.resource.data;
-      return d.ownerUid == request.auth.uid
-        && (!('amountPaise' in d) || (d.amountPaise is int && d.amountPaise >= 0 && d.amountPaise <= 100000000000))
-        && (!('principalAmountPaise' in d) || (d.principalAmountPaise is int && d.principalAmountPaise >= 0 && d.principalAmountPaise <= 100000000000))
+      let estBytes = d.keys().size() * 16
+        + strBytes(d, 'uid')
+        + strBytes(d, 'ownerUid')
+        + strBytes(d, 'email')
+        + strBytes(d, 'displayName')
+        + strBytes(d, 'photoUrl')
+        + strBytes(d, 'phoneNumber')
+        + strBytes(d, 'contactPhone')
+        + strBytes(d, 'preferredLocale')
+        + strBytes(d, 'currency')
+        + strBytes(d, 'defaultCurrency')
+        + strBytes(d, 'deviceId');
+      return d.keys().hasOnly([
+          'uid', 'ownerUid', 'email', 'displayName', 'photoUrl',
+          'phoneNumber', 'contactPhone', 'phoneVerified', 'preferredLocale',
+          'currency', 'defaultCurrency', 'deviceId', 'rev',
+          'createdAtMs', 'updatedAtMs', 'cloudSyncEnabled', 'schemaVersion'
+        ])
+        && d.ownerUid == uid
+        && (!('uid' in d) || d.uid == uid)
+        && optStr(d, 'email', 254)
+        && optStr(d, 'displayName', 512)
+        && optStr(d, 'photoUrl', 1024)
+        && optStr(d, 'phoneNumber', 32)
+        && optStr(d, 'contactPhone', 32)
+        && (!('phoneVerified' in d) || d.phoneVerified == false)
+        && optStr(d, 'preferredLocale', 16)
+        && (!('currency' in d) || d.currency in ['INR', 'NPR'])
+        && (!('defaultCurrency' in d) || d.defaultCurrency in ['INR', 'NPR'])
+        && optStr(d, 'deviceId', 128)
+        && optBool(d, 'cloudSyncEnabled')
+        && optInt(d, 'schemaVersion', 1, 10)
+        && optInt(d, 'createdAtMs', 1, 4102444800000)
+        && ('updatedAtMs' in d) && d.updatedAtMs is int && d.updatedAtMs > 0 && d.updatedAtMs <= 4102444800000
+        && withinSize(estBytes, 1536);
+    }
+
+    function validRecord(uid) {
+      let d = request.resource.data;
+      let estBytes = d.keys().size() * 16
+        + strBytes(d, 'id')
+        + strBytes(d, 'recordId')
+        + strBytes(d, 'syncId')
+        + strBytes(d, 'ownerUid')
+        + strBytes(d, 'uid')
+        + strBytes(d, 'partyId')
+        + strBytes(d, 'partyName')
+        + strBytes(d, 'phoneNumber')
+        + strBytes(d, 'currency')
+        + strBytes(d, 'direction')
+        + strBytes(d, 'transactionType')
+        + strBytes(d, 'status')
+        + strBytes(d, 'note')
+        + strBytes(d, 'notes')
+        + strBytes(d, 'hlc')
+        + strBytes(d, 'deviceId');
+      return d.keys().hasOnly([
+          'id', 'recordId', 'syncId', 'ownerUid', 'uid', 'partyId', 'partyName',
+          'phoneNumber', 'principalAmountPaise', 'amountPaise', 'amountPaidPaise',
+          'remainingAmountPaise', 'interestAmountPaise', 'currency', 'direction',
+          'transactionType', 'status', 'note', 'notes', 'dueDateMs', 'startDateMs',
+          'settledAtMs', 'deletedAtMs', 'isSettled', 'isDeleted', 'deleted',
+          'hlc', 'deviceId', 'rev', 'clientRev', 'createdAtMs', 'updatedAtMs',
+          'schemaVersion'
+        ])
+        && d.ownerUid == uid
+        && (!('uid' in d) || d.uid == uid)
+        && optStr(d, 'id', 128)
+        && optStr(d, 'recordId', 128)
+        && optStr(d, 'syncId', 128)
+        && optStr(d, 'partyId', 128)
+        && optStr(d, 'partyName', 200)
+        && optStr(d, 'phoneNumber', 32)
+        && optInt(d, 'principalAmountPaise', 0, 100000000000)
+        && optInt(d, 'amountPaise', 0, 100000000000)
+        && optInt(d, 'amountPaidPaise', 0, 100000000000)
+        && optInt(d, 'remainingAmountPaise', 0, 100000000000)
+        && optInt(d, 'interestAmountPaise', 0, 100000000000)
         && (!('currency' in d) || d.currency in ['INR', 'NPR'])
         && (!('direction' in d) || d.direction in ['GIVEN', 'TAKEN'])
         && (!('transactionType' in d) || d.transactionType in ['GIVEN', 'TAKEN'])
-        && d.updatedAtMs is int
-        && (!('note' in d) || (d.note is string && d.note.size() <= 1000))
-        && (!('notes' in d) || (d.notes is string && d.notes.size() <= 1000))
-        && withinSize(16384);
+        && (!('status' in d) || d.status in ['PENDING', 'ACTIVE', 'PARTIALLY_PAID', 'SETTLED', 'DISPUTED', 'OVERDUE', 'DELETED'])
+        && optStr(d, 'note', 1000)
+        && optStr(d, 'notes', 1000)
+        && optNullableInt(d, 'dueDateMs', 0, 4102444800000)
+        && optNullableInt(d, 'startDateMs', 0, 4102444800000)
+        && optNullableInt(d, 'settledAtMs', 0, 4102444800000)
+        && optNullableInt(d, 'deletedAtMs', 0, 4102444800000)
+        && optBool(d, 'isSettled')
+        && optBool(d, 'isDeleted')
+        && optBool(d, 'deleted')
+        && optStr(d, 'hlc', 128)
+        && optStr(d, 'deviceId', 128)
+        && optInt(d, 'clientRev', 0, 1000000000)
+        && optInt(d, 'schemaVersion', 1, 10)
+        && optInt(d, 'createdAtMs', 1, 4102444800000)
+        && ('updatedAtMs' in d) && d.updatedAtMs is int && d.updatedAtMs > 0 && d.updatedAtMs <= 4102444800000
+        && withinSize(estBytes, 2048);
     }
 
+    function validPerson(uid) {
+      let d = request.resource.data;
+      let estBytes = d.keys().size() * 16
+        + strBytes(d, 'id')
+        + strBytes(d, 'personId')
+        + strBytes(d, 'syncId')
+        + strBytes(d, 'ownerUid')
+        + strBytes(d, 'uid')
+        + strBytes(d, 'name')
+        + strBytes(d, 'displayName')
+        + strBytes(d, 'phoneNumber')
+        + strBytes(d, 'contactPhone')
+        + strBytes(d, 'email')
+        + strBytes(d, 'upiId')
+        + strBytes(d, 'note')
+        + strBytes(d, 'notes')
+        + strBytes(d, 'hlc')
+        + strBytes(d, 'deviceId');
+      return d.keys().hasOnly([
+          'id', 'personId', 'syncId', 'ownerUid', 'uid', 'name', 'displayName',
+          'phoneNumber', 'contactPhone', 'email', 'upiId', 'note', 'notes',
+          'isArchived', 'isDeleted', 'deletedAtMs', 'hlc', 'deviceId',
+          'rev', 'clientRev', 'createdAtMs', 'updatedAtMs', 'schemaVersion'
+        ])
+        && d.ownerUid == uid
+        && (!('uid' in d) || d.uid == uid)
+        && optStr(d, 'id', 128)
+        && optStr(d, 'personId', 128)
+        && optStr(d, 'syncId', 128)
+        && reqStr(d, 'name', 1, 120)
+        && optStr(d, 'displayName', 120)
+        && optStr(d, 'phoneNumber', 32)
+        && optStr(d, 'contactPhone', 32)
+        && optStr(d, 'email', 254)
+        && optStr(d, 'upiId', 128)
+        && optStr(d, 'note', 500)
+        && optStr(d, 'notes', 500)
+        && optBool(d, 'isArchived')
+        && optBool(d, 'isDeleted')
+        && optNullableInt(d, 'deletedAtMs', 0, 4102444800000)
+        && optStr(d, 'hlc', 128)
+        && optStr(d, 'deviceId', 128)
+        && optInt(d, 'clientRev', 0, 1000000000)
+        && optInt(d, 'schemaVersion', 1, 10)
+        && optInt(d, 'createdAtMs', 1, 4102444800000)
+        && ('updatedAtMs' in d) && d.updatedAtMs is int && d.updatedAtMs > 0 && d.updatedAtMs <= 4102444800000
+        && withinSize(estBytes, 1536);
+    }
+
+    function validEvent(uid) {
+      let d = request.resource.data;
+      let estBytes = d.keys().size() * 16
+        + strBytes(d, 'id')
+        + strBytes(d, 'eventId')
+        + strBytes(d, 'paymentId')
+        + strBytes(d, 'syncId')
+        + strBytes(d, 'ownerUid')
+        + strBytes(d, 'uid')
+        + strBytes(d, 'recordId')
+        + strBytes(d, 'recordSyncId')
+        + strBytes(d, 'eventType')
+        + strBytes(d, 'paymentMode')
+        + strBytes(d, 'referenceNumber')
+        + strBytes(d, 'note')
+        + strBytes(d, 'notes')
+        + strBytes(d, 'hlc')
+        + strBytes(d, 'deviceId');
+      return d.keys().hasOnly([
+          'id', 'eventId', 'paymentId', 'syncId', 'ownerUid', 'uid',
+          'recordId', 'recordSyncId', 'eventType', 'amountPaise', 'paymentMode',
+          'referenceNumber', 'note', 'notes', 'timestampMs', 'createdAtMs',
+          'hlc', 'deviceId', 'rev', 'schemaVersion'
+        ])
+        && d.ownerUid == uid
+        && (!('uid' in d) || d.uid == uid)
+        && optStr(d, 'id', 128)
+        && optStr(d, 'eventId', 128)
+        && optStr(d, 'paymentId', 128)
+        && optStr(d, 'syncId', 128)
+        && optStr(d, 'recordId', 128)
+        && optStr(d, 'recordSyncId', 128)
+        && ('eventType' in d) && d.eventType in [
+          'PAYMENT', 'CONFIRM', 'DISPUTE', 'PROPOSE_DATE',
+          'NOTE', 'SETTLEMENT', 'ADJUSTMENT', 'LINK_CREATED', 'LINK_REVOKED'
+        ]
+        && optInt(d, 'amountPaise', 0, 100000000000)
+        && (!('paymentMode' in d) || d.paymentMode in ['UPI', 'CASH', 'BANK_TRANSFER', 'CHEQUE', 'OTHER'])
+        && optStr(d, 'referenceNumber', 64)
+        && optStr(d, 'note', 500)
+        && optStr(d, 'notes', 500)
+        && optInt(d, 'timestampMs', 1, 4102444800000)
+        && ('createdAtMs' in d) && d.createdAtMs is int && d.createdAtMs > 0 && d.createdAtMs <= 4102444800000
+        && optStr(d, 'hlc', 128)
+        && optStr(d, 'deviceId', 128)
+        && (!('rev' in d) || (d.rev is int && d.rev == 1))
+        && optInt(d, 'schemaVersion', 1, 10)
+        && withinSize(estBytes, 1536);
+    }
+
+    function validPlan(uid) {
+      let d = request.resource.data;
+      let estBytes = d.keys().size() * 16
+        + strBytes(d, 'id')
+        + strBytes(d, 'planId')
+        + strBytes(d, 'syncId')
+        + strBytes(d, 'ownerUid')
+        + strBytes(d, 'uid')
+        + strBytes(d, 'recordId')
+        + strBytes(d, 'recordSyncId')
+        + strBytes(d, 'frequency')
+        + strBytes(d, 'status')
+        + strBytes(d, 'note')
+        + strBytes(d, 'notes')
+        + strBytes(d, 'hlc')
+        + strBytes(d, 'deviceId');
+      return d.keys().hasOnly([
+          'id', 'planId', 'syncId', 'ownerUid', 'uid', 'recordId', 'recordSyncId',
+          'frequency', 'installmentCount', 'installmentAmountPaise', 'totalAmountPaise',
+          'startDateMs', 'nextDueDateMs', 'status', 'note', 'notes',
+          'isDeleted', 'deletedAtMs', 'hlc', 'deviceId', 'rev',
+          'createdAtMs', 'updatedAtMs', 'schemaVersion'
+        ])
+        && d.ownerUid == uid
+        && (!('uid' in d) || d.uid == uid)
+        && optStr(d, 'id', 128)
+        && optStr(d, 'planId', 128)
+        && optStr(d, 'syncId', 128)
+        && optStr(d, 'recordId', 128)
+        && optStr(d, 'recordSyncId', 128)
+        && ('frequency' in d) && d.frequency in ['DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'QUARTERLY', 'CUSTOM']
+        && optInt(d, 'installmentCount', 1, 360)
+        && optInt(d, 'installmentAmountPaise', 0, 100000000000)
+        && optInt(d, 'totalAmountPaise', 0, 100000000000)
+        && optNullableInt(d, 'startDateMs', 0, 4102444800000)
+        && optNullableInt(d, 'nextDueDateMs', 0, 4102444800000)
+        && (!('status' in d) || d.status in ['ACTIVE', 'PAUSED', 'COMPLETED', 'CANCELLED'])
+        && optStr(d, 'note', 500)
+        && optStr(d, 'notes', 500)
+        && optBool(d, 'isDeleted')
+        && optNullableInt(d, 'deletedAtMs', 0, 4102444800000)
+        && optStr(d, 'hlc', 128)
+        && optStr(d, 'deviceId', 128)
+        && optInt(d, 'schemaVersion', 1, 10)
+        && optInt(d, 'createdAtMs', 1, 4102444800000)
+        && ('updatedAtMs' in d) && d.updatedAtMs is int && d.updatedAtMs > 0 && d.updatedAtMs <= 4102444800000
+        && withinSize(estBytes, 1536);
+    }
+
+    function validAttachment(uid) {
+      let d = request.resource.data;
+      let estBytes = d.keys().size() * 16
+        + strBytes(d, 'id')
+        + strBytes(d, 'attachmentId')
+        + strBytes(d, 'syncId')
+        + strBytes(d, 'ownerUid')
+        + strBytes(d, 'uid')
+        + strBytes(d, 'recordId')
+        + strBytes(d, 'recordSyncId')
+        + strBytes(d, 'filename')
+        + strBytes(d, 'mimeType')
+        + strBytes(d, 'sha256')
+        + strBytes(d, 'storageRef')
+        + strBytes(d, 'localPath')
+        + strBytes(d, 'note');
+      return d.keys().hasOnly([
+          'id', 'attachmentId', 'syncId', 'ownerUid', 'uid', 'recordId', 'recordSyncId',
+          'filename', 'mimeType', 'sizeBytes', 'sha256', 'storageRef', 'localPath',
+          'note', 'isDeleted', 'deletedAtMs', 'rev', 'createdAtMs', 'updatedAtMs',
+          'schemaVersion'
+        ])
+        && d.ownerUid == uid
+        && (!('uid' in d) || d.uid == uid)
+        && optStr(d, 'id', 128)
+        && optStr(d, 'attachmentId', 128)
+        && optStr(d, 'syncId', 128)
+        && optStr(d, 'recordId', 128)
+        && optStr(d, 'recordSyncId', 128)
+        && reqStr(d, 'filename', 1, 255)
+        && ('mimeType' in d) && d.mimeType in ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+        && ('sizeBytes' in d) && d.sizeBytes is int && d.sizeBytes >= 0 && d.sizeBytes <= 10485760
+        && optStr(d, 'sha256', 64)
+        && optStr(d, 'storageRef', 256)
+        && optStr(d, 'localPath', 256)
+        && optStr(d, 'note', 500)
+        && optBool(d, 'isDeleted')
+        && optNullableInt(d, 'deletedAtMs', 0, 4102444800000)
+        && optInt(d, 'schemaVersion', 1, 10)
+        && optInt(d, 'createdAtMs', 1, 4102444800000)
+        && ('updatedAtMs' in d) && d.updatedAtMs is int && d.updatedAtMs > 0 && d.updatedAtMs <= 4102444800000
+        && withinSize(estBytes, 1536);
+    }
+
+    function validSyncSignal(uid) {
+      let d = request.resource.data;
+      let estBytes = d.keys().size() * 16
+        + strBytes(d, 'ownerUid')
+        + strBytes(d, 'deviceId');
+      return d.keys().hasOnly(['ownerUid', 'updatedAtMs', 'lastSyncAtMs', 'deviceId', 'rev'])
+        && d.ownerUid == uid
+        && ('updatedAtMs' in d) && d.updatedAtMs is int && d.updatedAtMs > 0 && d.updatedAtMs <= 4102444800000
+        && optInt(d, 'lastSyncAtMs', 1, 4102444800000)
+        && optStr(d, 'deviceId', 128)
+        && withinSize(estBytes, 512);
+    }
+
+    // -------------------------------------------------------------------------
+    // Per-User Spark Collections
+    // -------------------------------------------------------------------------
     match /users/{uid} {
       allow read, delete: if isVerifiedOwner(uid);
-      allow create, update: if isVerifiedOwner(uid) && withinSize(4096);
+      allow create: if isVerifiedOwner(uid)
+        && validUser(uid)
+        && validRevOnCreate(request.resource.data);
+      allow update: if isVerifiedOwner(uid)
+        && validUser(uid)
+        && validRevOnUpdate(request.resource.data)
+        && request.resource.data.ownerUid == resource.data.ownerUid;
 
       match /records/{recordId} {
-        allow read: if isVerifiedOwner(uid);
-        allow create, update: if isVerifiedOwner(uid) && validRecord();
-        allow delete: if isVerifiedOwner(uid);
+        allow read, delete: if isVerifiedOwner(uid);
+        allow create: if isVerifiedOwner(uid)
+          && validRecord(uid)
+          && validRevOnCreate(request.resource.data);
+        allow update: if isVerifiedOwner(uid)
+          && validRecord(uid)
+          && validRevOnUpdate(request.resource.data)
+          && request.resource.data.ownerUid == resource.data.ownerUid;
       }
 
       match /people/{personId} {
         allow read, delete: if isVerifiedOwner(uid);
-        allow create, update: if isVerifiedOwner(uid)
-          && request.resource.data.ownerUid == uid
-          && withinSize(4096);
+        allow create: if isVerifiedOwner(uid)
+          && validPerson(uid)
+          && validRevOnCreate(request.resource.data);
+        allow update: if isVerifiedOwner(uid)
+          && validPerson(uid)
+          && validRevOnUpdate(request.resource.data)
+          && request.resource.data.ownerUid == resource.data.ownerUid;
       }
 
       match /events/{eventId} {
         allow read: if isVerifiedOwner(uid);
-        allow create: if isVerifiedOwner(uid)
-          && request.resource.data.ownerUid == uid
-          && withinSize(4096);
-        allow update, delete: if false; // append-only audit log
+        allow create: if isVerifiedOwner(uid) && validEvent(uid);
+        allow update, delete: if false; // strictly append-only audit log
       }
 
       match /plans/{planId} {
         allow read, delete: if isVerifiedOwner(uid);
-        allow create, update: if isVerifiedOwner(uid)
-          && request.resource.data.ownerUid == uid
-          && withinSize(8192);
+        allow create: if isVerifiedOwner(uid)
+          && validPlan(uid)
+          && validRevOnCreate(request.resource.data);
+        allow update: if isVerifiedOwner(uid)
+          && validPlan(uid)
+          && validRevOnUpdate(request.resource.data)
+          && request.resource.data.ownerUid == resource.data.ownerUid;
       }
 
       match /attachments/{attachmentId} {
         allow read, delete: if isVerifiedOwner(uid);
-        allow create, update: if isVerifiedOwner(uid)
-          && request.resource.data.ownerUid == uid
-          && withinSize(4096);
+        allow create: if isVerifiedOwner(uid)
+          && validAttachment(uid)
+          && validRevOnCreate(request.resource.data);
+        allow update: if isVerifiedOwner(uid)
+          && validAttachment(uid)
+          && validRevOnUpdate(request.resource.data)
+          && request.resource.data.ownerUid == resource.data.ownerUid;
       }
 
       match /meta/syncSignal {
         allow read, delete: if isVerifiedOwner(uid);
-        allow create, update: if isVerifiedOwner(uid) && withinSize(512);
+        allow create: if isVerifiedOwner(uid)
+          && validSyncSignal(uid)
+          && validRevOnCreate(request.resource.data);
+        allow update: if isVerifiedOwner(uid)
+          && validSyncSignal(uid)
+          && validRevOnUpdate(request.resource.data)
+          && request.resource.data.ownerUid == resource.data.ownerUid;
       }
     }
 
+    // -------------------------------------------------------------------------
+    // Guest Capability Links, Actions & Payment Proof (Spark Mode)
+    // -------------------------------------------------------------------------
     match /guestLinks/{linkId} {
       function isOwner() {
         return request.auth != null && resource.data.ownerUid == request.auth.uid;
@@ -95,7 +478,7 @@ service cloud.firestore {
                         && googleOk(resource.data)));
 
       allow list: if request.auth != null && request.query.limit <= 50
-                  && resource.data.ownerUid == request.auth.uid;   // lender's own links only
+                  && resource.data.ownerUid == request.auth.uid; // lender's own links only
 
       allow create: if isVerifiedOwner(request.auth.uid)
         && request.resource.data.ownerUid == request.auth.uid

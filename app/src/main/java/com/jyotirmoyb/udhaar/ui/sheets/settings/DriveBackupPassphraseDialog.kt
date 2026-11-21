@@ -8,9 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -84,7 +82,7 @@ fun DriveBackupPassphraseDialog(
                     trailingIcon = {
                         IconButton(onClick = { backupPassphraseVisible = !backupPassphraseVisible }) {
                             Icon(
-                                imageVector = if (backupPassphraseVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                imageVector = if (backupPassphraseVisible) UdhaarIcons.VisibilityOff else UdhaarIcons.Visibility,
                                 contentDescription = null
                             )
                         }

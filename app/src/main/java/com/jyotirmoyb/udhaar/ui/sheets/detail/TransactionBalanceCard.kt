@@ -11,9 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -116,7 +114,7 @@ fun TransactionBalanceCard(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Icon(
-                    imageVector = if (showFullBreakdown) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    imageVector = if (showFullBreakdown) UdhaarIcons.ExpandLess else UdhaarIcons.ExpandMore,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(16.dp)

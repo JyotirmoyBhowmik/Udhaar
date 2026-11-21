@@ -29,11 +29,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Contacts
-import androidx.compose.material.icons.filled.Merge
-import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -156,7 +154,7 @@ fun PeopleDirectoryContent(
                                     .testTag("import_contacts_directory_button")
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Contacts,
+                                    imageVector = UdhaarIcons.Contacts,
                                     contentDescription = null,
                                     modifier = Modifier.size(14.dp)
                                 )
@@ -179,7 +177,7 @@ fun PeopleDirectoryContent(
                                     .testTag("add_party_directory_button")
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.PersonAdd,
+                                    imageVector = UdhaarIcons.PersonAdd,
                                     contentDescription = null,
                                     modifier = Modifier.size(14.dp)
                                 )
@@ -231,7 +229,7 @@ fun PeopleDirectoryContent(
                                     .pressScaleFeedback()
                                     .testTag("open_merge_duplicates_button")
                             ) {
-                                Icon(Icons.Default.Merge, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Icon(UdhaarIcons.Merge, contentDescription = null, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(stringResource(R.string.ui_str_merge_1e0d71), style = MaterialTheme.typography.labelSmall)
                             }

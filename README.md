@@ -1,11 +1,11 @@
-# Udhaar v28.0 (Spark Mode) — Offline-First Personal Loan & Khata Platform
+# Udhaar v29.0 (Spark Mode) — Offline-First Personal Loan & Khata Platform
 
 [![Udhaar CI/CD](https://github.com/JyotirmoyBhowmik/Udhaar/actions/workflows/ci.yml/badge.svg)](https://github.com/JyotirmoyBhowmik/Udhaar/actions/workflows/ci.yml)
 [![Firebase Spark](https://img.shields.io/badge/Firebase_Plan-Spark_(Free)-039be5?logo=firebase)](docs/OPERATIONS.md)
 [![Security: SQLCipher](https://img.shields.io/badge/Security-Fail--Closed_SQLCipher-2e7d32)](docs/SECURITY.md)
 [![Google Play](https://img.shields.io/badge/Google_Play-Review_Ready-34a853?logo=googleplay)](docs/PLAY_DATA_SAFETY.md)
 
-**Udhaar** (`com.jyotirmoyb.udhaar`, `versionName = "28.0"`, `versionCode = 28`, Room Schema `v12`) is an offline-first personal loan and khata platform for Android and the Web. It tracks **Given / Owed** and **Taken / Borrowed** records across **Indian Rupees (`INR ₹`)** and **Nepalese Rupees (`NPR रू`)** in **5 languages** (`English`, `Hindi`, `Bengali`, `Assamese`, and `Nepali`) and **8 visual themes**.
+**Udhaar** (`com.jyotirmoyb.udhaar`, `versionName = "29.0"`, `versionCode = 29` via `version.properties`, Room Schema `v13`) is an offline-first personal loan and khata platform for Android and the Web. It tracks **Given / Owed** and **Taken / Borrowed** records across **Indian Rupees (`INR ₹`)** and **Nepalese Rupees (`NPR रू`)** in **5 languages** (`English`, `Hindi`, `Bengali`, `Assamese`, and `Nepali`) and **8 visual themes**.
 
 Udhaar runs 100% on the **Firebase Spark (Free) Tier** (`UDHAAR_TIER = "spark"`) with **zero server-side Cloud Functions, zero Secret Manager secrets, zero Cloud KMS keys, and zero Cloud Storage buckets** in production. Furthermore, unfinished cloud screens in the Android production build are gated off by default behind `BuildConfig.CLOUD_FEATURES = false` (enabled only via `-Pudhaar.cloudFeatures=true`).
 
@@ -28,13 +28,13 @@ Udhaar runs 100% on the **Firebase Spark (Free) Tier** (`UDHAAR_TIER = "spark"`)
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                        ANDROID APP (com.jyotirmoyb.udhaar)                   │
-│                     versionCode = 28 | versionName = "28.0"                  │
+│                     versionCode = 29 | versionName = "29.0"                  │
 │          UDHAAR_TIER = "spark" | BuildConfig.CLOUD_FEATURES = false          │
 │                                                                              │
 │  ┌──────────────────────────────┐      ┌──────────────────────────────────┐  │
 │  │ Jetpack Compose UI (M3)      │      │ Hardware-Backed Local Security   │  │
 │  │ • >= 600 dp Two-Pane Layout  │      │ • BiometricPrompt + PBKDF2 PIN   │  │
-│  │ • <= 560 dp Form Width Cap   │      │ • SQLCipher 256-bit Room DB v12  │  │
+│  │ • <= 560 dp Form Width Cap   │      │ • SQLCipher 256-bit Room DB v13  │  │
 │  │ • >= 48 dp Touch Targets     │      │ • EncryptedSharedPreferences     │  │
 │  └──────────────┬───────────────┘      └─────────────────┬────────────────┘  │
 │                 │                                        │                   │
@@ -76,13 +76,15 @@ Udhaar runs 100% on the **Firebase Spark (Free) Tier** (`UDHAAR_TIER = "spark"`)
 
 ---
 
-## 3. What Matches the Code in v28.0 (Truth & Architecture Summary)
+## 3. What Matches the Code in v29.0 (Truth & Architecture Summary)
 
-- **Version & Build Flags (`app/build.gradle.kts`):**
+- **Version & Build Flags (`version.properties` & `app/build.gradle.kts`):**
   - `namespace = "com.jyotirmoyb.udhaar"` and `applicationId = "com.jyotirmoyb.udhaar"`.
-  - `versionCode = 28` and `versionName = "28.0"`.
+  - Explicit monotonic versioning from `version.properties` (`versionCode = 29`, `versionName = "29.0"`) plus CI run-number base (`100 + GITHUB_RUN_NUMBER`); `verifyReleaseVersioning` fails release builds if missing, invalid, or `< 28`.
+  - `firebase-appcheck-debug` is strictly `debugImplementation` only, guarded by `verifyReleaseNoDebugAppCheck` and release-variant `AppCheckProviderInstaller.kt` (Play Integrity only).
   - `UDHAAR_TIER = "spark"` and `CLOUD_FEATURES = false` by default (`-Pudhaar.cloudFeatures=true` enables experimental Spark cloud screens in `SettingsScreen.kt` and `TransactionDetailSheet.kt`).
   - R8 minification (`isMinifyEnabled = true`) and resource shrinking (`isShrinkResources = true`) are **ON by default** on the `release` build type, enforced by the `verifyReleaseR8` Gradle task before `bundleRelease`.
+  - Detekt static analysis (`config/detekt/detekt.yml`) runs in CI, `AccountAndWebAccessSection.kt` is modularized into files `< 600` lines, and all custom vector icons live under `com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons` (zero `androidx` package squatting).
 - **Exact Paise Money Engine (`Long` Minor Units Only):**
   - Every financial entity (`UdhaarTransaction`, `PartialPayment`, `InstallmentPlan`, `Installment`), DAO query, interest calculation (`InterestCalculator`), installment schedule (`InstallmentCalculator`), and group split (`GroupSplitCalculator`) uses integer `Long` paise (`100 paise = ₹1.00 / रू1.00`) with `BigDecimal` + `RoundingMode.HALF_UP`.
 - **Real Adaptive Tablet & Landscape Layouts + `>= 48 dp` Touch Targets:**
@@ -102,7 +104,7 @@ Udhaar runs 100% on the **Firebase Spark (Free) Tier** (`UDHAAR_TIER = "spark"`)
 
 ## 4. Spark Mode Limits & Quota Boundaries
 
-Because Udhaar v28.0 runs on the **Firebase Spark (Free) Plan** with zero server-side billing required, the following architectural and quota limits apply:
+Because Udhaar v29.0 runs on the **Firebase Spark (Free) Plan** with zero server-side billing required, the following architectural and quota limits apply:
 
 1. **Cloud Features Default Off on Android (`BuildConfig.CLOUD_FEATURES = false`):**
    - Production Android APKs/AABs default to local-first mode (`SQLCipher` Room DB + local `.udhaar` / JSON / PDF exports + client-side encrypted Google Drive `appDataFolder` backups).

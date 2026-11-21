@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -50,6 +48,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.jyotirmoyb.udhaar.R
 import com.jyotirmoyb.udhaar.ui.components.pressScaleFeedback
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 
@@ -91,7 +90,7 @@ fun SigningCredentialRow(
                     .testTag(copyTag)
             ) {
                 Icon(
-                    imageVector = Icons.Default.ContentCopy,
+                    imageVector = UdhaarIcons.ContentCopy,
                     contentDescription = stringResource(R.string.drive_copy_button_content_desc, label),
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(18.dp)
@@ -392,7 +391,7 @@ fun SqlCipherBlockingErrorScreen(
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                     ) {
-                        Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(UdhaarIcons.Download, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = stringResource(R.string.sqlcipher_error_export_backup),

@@ -16,11 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -49,6 +45,7 @@ import com.jyotirmoyb.udhaar.data.getParsedDateProposal
 import com.jyotirmoyb.udhaar.data.getParsedPaymentClaim
 import com.jyotirmoyb.udhaar.ui.components.StatusAtAGlanceBadge
 import com.jyotirmoyb.udhaar.ui.components.pressScaleFeedback
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import com.jyotirmoyb.udhaar.util.CalculatedUdhaarSummary
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 
@@ -136,7 +133,7 @@ fun TransactionVerificationCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(15.dp), tint = MaterialTheme.colorScheme.primary)
+                            Icon(UdhaarIcons.Link, contentDescription = null, modifier = Modifier.size(15.dp), tint = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = when (tx.webLinkStatus) {
@@ -203,7 +200,7 @@ fun TransactionVerificationCard(
             ) {
                 Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Payments, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                        Icon(UdhaarIcons.Payments, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         val claimSummary = "${tx.partyName} claimed payment of ${InterestCalculator.formatPaise(claim.amountPaise, tx.currency)}"
                         Text(
@@ -229,7 +226,7 @@ fun TransactionVerificationCard(
                                 .testTag("btn_view_payment_proof"),
                             shape = RoundedCornerShape(8.dp)
                         ) {
-                            Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(UdhaarIcons.Payments, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(stringResource(R.string.btn_view_payment_proof), style = MaterialTheme.typography.labelSmall)
                         }
@@ -345,7 +342,7 @@ fun TransactionVerificationCard(
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
-                Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(14.dp))
+                Icon(UdhaarIcons.Link, contentDescription = null, modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = stringResource(R.string.web_share_sheet_title),
@@ -364,7 +361,7 @@ fun TransactionVerificationCard(
                 shape = RoundedCornerShape(10.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
             ) {
-                Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(14.dp))
+                Icon(UdhaarIcons.QrCode2, contentDescription = null, modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = stringResource(R.string.btn_qr_app_link),

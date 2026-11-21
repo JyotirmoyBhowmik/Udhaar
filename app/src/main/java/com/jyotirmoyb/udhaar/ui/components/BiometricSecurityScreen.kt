@@ -33,10 +33,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.material.icons.filled.Pin
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -276,7 +274,7 @@ fun BiometricSecurityScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Fingerprint,
+                        imageVector = UdhaarIcons.Fingerprint,
                         contentDescription = "Biometric Security Lock",
                         tint = PureWhite,
                         modifier = Modifier.size(36.dp)
@@ -362,7 +360,7 @@ fun BiometricSecurityScreen(
                     )
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Fingerprint,
+                        imageVector = UdhaarIcons.Fingerprint,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp)
                     )
@@ -385,7 +383,7 @@ fun BiometricSecurityScreen(
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Pin,
+                        imageVector = UdhaarIcons.Pin,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
@@ -457,7 +455,7 @@ fun BiometricSecurityScreen(
                                     colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.LockOpen,
+                                        imageVector = UdhaarIcons.LockOpen,
                                         contentDescription = "Unlock",
                                         modifier = Modifier.size(18.dp)
                                     )

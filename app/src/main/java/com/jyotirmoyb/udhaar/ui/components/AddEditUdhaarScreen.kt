@@ -34,7 +34,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DeleteOutline
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -340,7 +340,7 @@ fun AddEditUdhaarScreen(
                             modifier = Modifier.pressScaleFeedback()
                         ) {
                             Icon(
-                                imageVector = Icons.Default.DeleteOutline,
+                                imageVector = UdhaarIcons.DeleteOutline,
                                 contentDescription = stringResource(R.string.ui_str_delete_d6f563),
                                 tint = MaterialTheme.colorScheme.error
                             )
@@ -381,7 +381,7 @@ fun AddEditUdhaarScreen(
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.DeleteOutline,
+                                imageVector = UdhaarIcons.DeleteOutline,
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp),
                                 tint = MaterialTheme.colorScheme.error

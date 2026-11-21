@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +27,7 @@ import com.jyotirmoyb.udhaar.ui.components.PersonAvatar
 import com.jyotirmoyb.udhaar.ui.components.pressScaleFeedback
 import com.jyotirmoyb.udhaar.ui.components.udhaarSharedBounds
 import com.jyotirmoyb.udhaar.ui.components.udhaarSharedElement
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 
 @Composable
 fun TransactionDetailHeader(
@@ -106,7 +106,7 @@ fun TransactionDetailHeader(
                         .testTag("header_receipt_transaction_button")
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ReceiptLong,
+                        imageVector = UdhaarIcons.ReceiptLong,
                         contentDescription = stringResource(R.string.ui_str_receipt_slip_1ccbe9),
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(19.dp)

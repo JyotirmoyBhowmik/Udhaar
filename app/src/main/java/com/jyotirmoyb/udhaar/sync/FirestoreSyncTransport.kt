@@ -68,6 +68,7 @@ class FirestoreSyncTransport(
                             val fields = change.fields.toMutableMap()
                             fields["id"] = change.syncId
                             fields["recordId"] = change.syncId
+                            fields["ownerUid"] = uid
                             fields["uid"] = uid
                             fields["rev"] = nextRev
                             fields["updatedAtMs"] = System.currentTimeMillis()
@@ -98,6 +99,7 @@ class FirestoreSyncTransport(
                             val fields = change.fields.toMutableMap()
                             fields["id"] = change.syncId
                             fields["personId"] = change.syncId
+                            fields["ownerUid"] = uid
                             fields["uid"] = uid
                             fields["rev"] = nextRev
                             fields["updatedAtMs"] = System.currentTimeMillis()
@@ -125,7 +127,10 @@ class FirestoreSyncTransport(
                             val fields = change.fields.toMutableMap()
                             fields["id"] = change.syncId
                             fields["eventId"] = change.syncId
+                            fields["ownerUid"] = uid
                             fields["uid"] = uid
+                            fields.putIfAbsent("eventType", "PAYMENT")
+                            fields["rev"] = 1L
                             fields["createdAtMs"] = System.currentTimeMillis()
 
                             docRef.set(fields).await()

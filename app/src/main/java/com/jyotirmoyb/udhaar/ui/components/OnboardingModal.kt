@@ -31,10 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CloudDone
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.VerifiedUser
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -140,7 +137,7 @@ fun OnboardingModal(
 
             when (step) {
                 1 -> OnboardingPageContent(
-                    icon = Icons.Default.Payments,
+                    icon = UdhaarIcons.Payments,
                     title = stringResource(R.string.onboarding_title_1),
                     description = stringResource(R.string.onboarding_desc_1),
                     features = listOf(
@@ -150,7 +147,7 @@ fun OnboardingModal(
                     )
                 )
                 2 -> OnboardingPageContent(
-                    icon = Icons.Default.VerifiedUser,
+                    icon = UdhaarIcons.VerifiedUser,
                     title = stringResource(R.string.onboarding_title_2),
                     description = stringResource(R.string.onboarding_desc_2),
                     features = listOf(
@@ -160,7 +157,7 @@ fun OnboardingModal(
                     )
                 )
                 3 -> OnboardingPageContent(
-                    icon = Icons.Default.CloudDone,
+                    icon = UdhaarIcons.CloudDone,
                     title = stringResource(R.string.onboarding_title_3),
                     description = stringResource(R.string.onboarding_desc_3),
                     features = listOf(

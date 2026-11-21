@@ -34,10 +34,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Message
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -509,7 +507,7 @@ fun WhatsAppReminderModal(
                                 .testTag("send_sms_button"),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Icon(Icons.Default.Message, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(UdhaarIcons.Message, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(stringResource(R.string.reminder_channel_sms), style = MaterialTheme.typography.labelMedium)
                         }
@@ -528,7 +526,7 @@ fun WhatsAppReminderModal(
                                 .testTag("copy_reminder_button"),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(UdhaarIcons.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(stringResource(R.string.reminder_channel_copy), style = MaterialTheme.typography.labelMedium)
                         }
@@ -554,7 +552,7 @@ fun WhatsAppReminderModal(
                                 contentColor = MaterialTheme.colorScheme.onTertiary
                             )
                         ) {
-                            Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(UdhaarIcons.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(stringResource(R.string.reminder_channel_chat), style = MaterialTheme.typography.labelLarge)
                         }

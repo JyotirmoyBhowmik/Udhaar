@@ -17,11 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CloudUpload
-import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -48,6 +44,7 @@ import com.jyotirmoyb.udhaar.backup.DriveRemoteBackup
 import com.jyotirmoyb.udhaar.data.AutoBackupFrequency
 import com.jyotirmoyb.udhaar.data.UserSettings
 import com.jyotirmoyb.udhaar.ui.components.UdhaarAnimatedSwitch
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 
 @Composable
@@ -89,7 +86,7 @@ fun DriveBackupCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Sync,
+                        imageVector = UdhaarIcons.Sync,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
@@ -264,7 +261,7 @@ fun DriveBackupCard(
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
-                Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(UdhaarIcons.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(stringResource(R.string.ui_str_sign_in_with_google_drive_f8dca0), style = MaterialTheme.typography.labelLarge)
             }
@@ -345,7 +342,7 @@ fun DriveBackupCard(
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(stringResource(R.string.drive_backing_up_progress), style = MaterialTheme.typography.labelMedium)
                         } else {
-                            Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(UdhaarIcons.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(stringResource(R.string.ui_str_back_up_now_e11395), style = MaterialTheme.typography.labelMedium)
                         }
@@ -565,7 +562,7 @@ fun DriveBackupCard(
                                         contentColor = MaterialTheme.colorScheme.onPrimary
                                     )
                                 ) {
-                                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Icon(UdhaarIcons.Download, contentDescription = null, modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(stringResource(R.string.ui_str_restore_6a8135), style = MaterialTheme.typography.labelSmall)
                                 }
@@ -580,7 +577,7 @@ fun DriveBackupCard(
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
                                 ) {
                                     Icon(
-                                        Icons.Default.DeleteOutline,
+                                        UdhaarIcons.DeleteOutline,
                                         contentDescription = null,
                                         modifier = Modifier.size(14.dp),
                                         tint = MaterialTheme.colorScheme.error

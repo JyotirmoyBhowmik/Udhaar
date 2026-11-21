@@ -24,11 +24,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material.icons.filled.QrCode2
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -404,7 +401,7 @@ internal fun DashboardAdaptiveDetailPane(
                         )
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Payments,
+                            imageVector = UdhaarIcons.Payments,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp)
                         )
@@ -456,7 +453,7 @@ internal fun DashboardAdaptiveDetailPane(
                         )
                     ) {
                         Icon(
-                            imageVector = Icons.Default.QrCode2,
+                            imageVector = UdhaarIcons.QrCode2,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp)
                         )
@@ -477,7 +474,7 @@ internal fun DashboardAdaptiveDetailPane(
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ChatBubbleOutline,
+                            imageVector = UdhaarIcons.ChatBubbleOutline,
                             contentDescription = null,
                             modifier = Modifier.size(16.dp)
                         )
@@ -546,7 +543,7 @@ internal fun DashboardPrimaryFab(
         expanded = isFabExpanded,
         icon = {
             Icon(
-                imageVector = if (isPeopleTab) Icons.Default.PersonAdd else Icons.Default.Add,
+                imageVector = if (isPeopleTab) UdhaarIcons.PersonAdd else Icons.Default.Add,
                 contentDescription = stringResource(R.string.add_udhaar_button),
                 tint = com.jyotirmoyb.udhaar.ui.theme.AccentFabInk,
                 modifier = Modifier.size(22.dp)

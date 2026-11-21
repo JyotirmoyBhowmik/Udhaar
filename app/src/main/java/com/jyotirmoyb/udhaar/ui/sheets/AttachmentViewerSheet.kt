@@ -14,9 +14,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Share
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -150,7 +149,7 @@ fun AttachmentViewerModal(
                         modifier = Modifier.testTag("delete_attachment_viewer_button")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.DeleteOutline,
+                            imageVector = UdhaarIcons.DeleteOutline,
                             contentDescription = "Delete",
                             tint = Color(0xFFFF5252)
                         )
@@ -211,7 +210,7 @@ fun AttachmentViewerModal(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Description,
+                        imageVector = UdhaarIcons.Description,
                         contentDescription = null,
                         modifier = Modifier.size(64.dp),
                         tint = PureBlack

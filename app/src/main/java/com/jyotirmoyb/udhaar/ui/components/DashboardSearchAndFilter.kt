@@ -23,9 +23,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Sort
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -375,7 +374,7 @@ internal fun LedgerSectionHeaderRow(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.PersonAdd,
+                        imageVector = UdhaarIcons.PersonAdd,
                         contentDescription = stringResource(R.string.group_split_button),
                         tint = PureBlack,
                         modifier = Modifier.size(14.dp)
@@ -412,7 +411,7 @@ internal fun LedgerSectionHeaderRow(
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Sort,
+                            imageVector = UdhaarIcons.Sort,
                             contentDescription = stringResource(R.string.cd_sort_and_filter_date_range),
                             tint = PureBlack,
                             modifier = Modifier.size(14.dp)

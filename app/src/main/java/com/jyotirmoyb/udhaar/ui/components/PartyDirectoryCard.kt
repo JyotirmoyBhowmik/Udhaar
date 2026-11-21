@@ -19,7 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -162,7 +162,7 @@ internal fun PartyDirectoryCard(
                     modifier = Modifier.pressScaleFeedback()
                 ) {
                     Icon(
-                        imageVector = if (party.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
+                        imageVector = if (party.isFavorite) Icons.Default.Star else UdhaarIcons.StarBorder,
                         contentDescription = stringResource(R.string.cd_favorite_party),
                         tint = PureBlack,
                         modifier = Modifier.size(20.dp)

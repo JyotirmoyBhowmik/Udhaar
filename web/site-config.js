@@ -17,7 +17,7 @@ const SITE_CONFIG = {
   EARLY_ACCESS_URL: "https://play.google.com/apps/testing/com.jyotirmoyb.udhaar",
 
   // Current production app version
-  APP_VERSION: "21.0",
+  APP_VERSION: "29.0",
 
   // Support & Data Deletion Contact
   SUPPORT_EMAIL: "admin@jyotirmoyb.com",

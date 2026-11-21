@@ -40,10 +40,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Contacts
-import androidx.compose.material.icons.filled.Merge
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -790,7 +789,7 @@ private fun DuplicatePairCard(
                     .heightIn(min = 48.dp)
                     .testTag("merge_pair_${pair.primaryParty.partyId}_${pair.duplicateParty.partyId}")
             ) {
-                Icon(Icons.Default.Merge, contentDescription = null, modifier = Modifier.size(14.dp))
+                Icon(UdhaarIcons.Merge, contentDescription = null, modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(stringResource(R.string.ui_str_merge_into_primary_5752c9), style = MaterialTheme.typography.labelSmall)
             }

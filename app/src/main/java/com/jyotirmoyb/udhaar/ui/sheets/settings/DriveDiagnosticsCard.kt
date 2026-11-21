@@ -17,9 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.Fingerprint
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -49,6 +46,7 @@ import com.jyotirmoyb.udhaar.BuildConfig
 import com.jyotirmoyb.udhaar.R
 import com.jyotirmoyb.udhaar.backup.DriveConnectionTestReport
 import com.jyotirmoyb.udhaar.ui.common.SigningCredentialRow
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import com.jyotirmoyb.udhaar.util.AppSigningInfo
 
 @Composable
@@ -92,7 +90,7 @@ fun DriveDiagnosticsCard(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Fingerprint,
+                    imageVector = UdhaarIcons.Fingerprint,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(18.dp)
@@ -171,7 +169,7 @@ fun DriveDiagnosticsCard(
             shape = RoundedCornerShape(12.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
         ) {
-            Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
+            Icon(UdhaarIcons.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text(stringResource(R.string.drive_run_connection_test_button), style = MaterialTheme.typography.labelMedium)
         }
@@ -376,7 +374,7 @@ fun DriveDiagnosticsCard(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
             ) {
                 Icon(
-                    Icons.Default.DeleteOutline,
+                    UdhaarIcons.DeleteOutline,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.error

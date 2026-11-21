@@ -27,11 +27,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AttachFile
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Image
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -167,7 +163,7 @@ fun TransactionAttachmentsSection(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.Default.AttachFile,
+                    imageVector = UdhaarIcons.AttachFile,
                     contentDescription = null,
                     modifier = Modifier.size(15.dp),
                     tint = MaterialTheme.colorScheme.onSurface
@@ -195,7 +191,7 @@ fun TransactionAttachmentsSection(
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 4.dp)
             ) {
-                Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(13.dp))
+                Icon(UdhaarIcons.CameraAlt, contentDescription = null, modifier = Modifier.size(13.dp))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(stringResource(R.string.ui_str_camera_7d2039), style = MaterialTheme.typography.labelSmall)
             }
@@ -213,7 +209,7 @@ fun TransactionAttachmentsSection(
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 4.dp)
             ) {
-                Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(13.dp))
+                Icon(UdhaarIcons.Image, contentDescription = null, modifier = Modifier.size(13.dp))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(stringResource(R.string.ui_str_gallery_73dcec), style = MaterialTheme.typography.labelSmall)
             }
@@ -229,7 +225,7 @@ fun TransactionAttachmentsSection(
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 4.dp)
             ) {
-                Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(13.dp))
+                Icon(UdhaarIcons.Description, contentDescription = null, modifier = Modifier.size(13.dp))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(stringResource(R.string.ui_str_doc_pdf_c5e19f), style = MaterialTheme.typography.labelSmall)
             }
@@ -272,7 +268,7 @@ fun TransactionAttachmentsSection(
                                     verticalArrangement = Arrangement.Center
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Description,
+                                        imageVector = UdhaarIcons.Description,
                                         contentDescription = null,
                                         modifier = Modifier.size(32.dp),
                                         tint = MaterialTheme.colorScheme.primary

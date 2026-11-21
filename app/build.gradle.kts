@@ -22,17 +22,47 @@ android {
     minSdk = 24
     targetSdk = 36
 
-    val ciBuildNumber = providers.environmentVariable("BUILD_NUMBER")
-      .orElse(providers.environmentVariable("GITHUB_RUN_NUMBER"))
-      .orElse(providers.gradleProperty("versionCode"))
-      .map { it.toInt() }
-      .getOrElse(30)
-    versionCode = ciBuildNumber
+    val versionPropsFile = rootProject.file("version.properties")
+    val versionProps = Properties().apply {
+      if (versionPropsFile.exists()) {
+        versionPropsFile.inputStream().use { load(it) }
+      }
+    }
 
-    val ciVersionName = providers.environmentVariable("VERSION_NAME")
+    val minVersionCode = versionProps.getProperty("minVersionCode")?.trim()?.toIntOrNull() ?: 28
+    val ciVersionCodeBase = versionProps.getProperty("ciVersionCodeBase")?.trim()?.toIntOrNull() ?: 100
+    val propVersionCode = providers.gradleProperty("versionCode").orNull?.trim()?.toIntOrNull()
+      ?: versionProps.getProperty("versionCode")?.trim()?.toIntOrNull()
+    val rawCiRunNumber = providers.environmentVariable("BUILD_NUMBER")
+      .orElse(providers.environmentVariable("GITHUB_RUN_NUMBER"))
+      .orNull
+      ?.trim()
+      ?.toIntOrNull()
+
+    val resolvedVersionCode = when {
+      propVersionCode == null -> throw GradleException(
+        "Missing versionCode: define versionCode in root version.properties (must be >= $minVersionCode)."
+      )
+      rawCiRunNumber != null && rawCiRunNumber > 0 -> maxOf(propVersionCode, ciVersionCodeBase + rawCiRunNumber)
+      else -> propVersionCode
+    }
+    if (resolvedVersionCode < minVersionCode) {
+      throw GradleException(
+        "Invalid versionCode=$resolvedVersionCode: versionCode can never go below $minVersionCode."
+      )
+    }
+    versionCode = resolvedVersionCode
+
+    val resolvedVersionName = providers.environmentVariable("VERSION_NAME")
       .orElse(providers.gradleProperty("versionName"))
-      .getOrElse("1.0.0")
-    versionName = ciVersionName
+      .orNull
+      ?.trim()
+      ?.takeIf { it.isNotBlank() }
+      ?: versionProps.getProperty("versionName")?.trim()?.takeIf { it.isNotBlank() }
+      ?: throw GradleException(
+        "Missing versionName: define versionName in root version.properties."
+      )
+    versionName = resolvedVersionName
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     val udhaarTier = providers.gradleProperty("udhaar.tier").getOrElse("spark")
@@ -181,8 +211,109 @@ val verifyReleaseR8 = tasks.register("verifyReleaseR8") {
   }
 }
 
+val verifyReleaseVersioning = tasks.register("verifyReleaseVersioning") {
+  group = "verification"
+  description = "Fails release builds if version.properties, versionCode (>= 28), or versionName is missing or invalid."
+  val propsFile = rootProject.file("version.properties")
+  val configuredVersionCode = android.defaultConfig.versionCode
+  val configuredVersionName = android.defaultConfig.versionName
+  doLast {
+    if (!propsFile.exists()) {
+      throw GradleException("verifyReleaseVersioning failed: version.properties is missing at ${propsFile.absolutePath}.")
+    }
+    val props = Properties().apply { propsFile.inputStream().use { load(it) } }
+    val propCode = props.getProperty("versionCode")?.trim()?.toIntOrNull()
+    val propName = props.getProperty("versionName")?.trim()
+    val minCode = props.getProperty("minVersionCode")?.trim()?.toIntOrNull() ?: 28
+    if (propCode == null || propCode < minCode) {
+      throw GradleException("verifyReleaseVersioning failed: version.properties versionCode=$propCode must be >= $minCode.")
+    }
+    if (propName.isNullOrBlank()) {
+      throw GradleException("verifyReleaseVersioning failed: version.properties versionName is missing or blank.")
+    }
+    if (configuredVersionCode == null || configuredVersionCode < minCode) {
+      throw GradleException("verifyReleaseVersioning failed: resolved versionCode=$configuredVersionCode must be >= $minCode.")
+    }
+    if (configuredVersionName.isNullOrBlank() || configuredVersionName == "1.0.0") {
+      throw GradleException("verifyReleaseVersioning failed: invalid resolved versionName='$configuredVersionName'.")
+    }
+    logger.lifecycle("verifyReleaseVersioning passed: versionCode=$configuredVersionCode, versionName=$configuredVersionName (min=$minCode).")
+  }
+}
+
+val verifyReleaseNoDebugAppCheck = tasks.register("verifyReleaseNoDebugAppCheck") {
+  group = "verification"
+  description = "Verifies that firebase-appcheck-debug is completely absent from release compile and runtime classpaths."
+  doLast {
+    val forbidden = listOf("firebase-appcheck-debug", "appcheck-debug")
+    val releaseConfigs = listOf("releaseCompileClasspath", "releaseRuntimeClasspath")
+    for (configName in releaseConfigs) {
+      val cfg = configurations.findByName(configName)
+        ?: throw GradleException("verifyReleaseNoDebugAppCheck failed: configuration '$configName' not found.")
+      val offending = cfg.resolvedConfiguration.resolvedArtifacts
+        .map { "${it.moduleVersion.id.group}:${it.moduleVersion.id.name}:${it.moduleVersion.id.version}" }
+        .filter { coords -> forbidden.any { token -> coords.contains(token, ignoreCase = true) } }
+      if (offending.isNotEmpty()) {
+        throw GradleException(
+          "verifyReleaseNoDebugAppCheck failed: forbidden debug App Check dependency found in $configName: $offending"
+        )
+      }
+    }
+    logger.lifecycle("verifyReleaseNoDebugAppCheck passed: zero debug App Check providers on release classpaths.")
+  }
+}
+
+val detektConfig = configurations.create("detekt")
+
+tasks.register<JavaExec>("detekt") {
+  group = "verification"
+  description = "Runs Detekt static analysis on Android Kotlin sources using config/detekt/detekt.yml."
+  classpath = detektConfig
+  mainClass.set("io.gitlab.arturbosch.detekt.cli.Main")
+  val inputDir = file("src/main/java")
+  val configFile = rootProject.file("config/detekt/detekt.yml")
+  val baselineFile = rootProject.file("config/detekt/baseline.xml")
+  val reportDir = layout.buildDirectory.dir("reports/detekt").get().asFile
+  doFirst {
+    reportDir.mkdirs()
+  }
+  val cliArgs = mutableListOf(
+    "--input", inputDir.absolutePath,
+    "--config", configFile.absolutePath,
+    "--build-upon-default-config",
+    "--report", "xml:${File(reportDir, "detekt.xml").absolutePath}",
+    "--report", "html:${File(reportDir, "detekt.html").absolutePath}"
+  )
+  if (baselineFile.exists()) {
+    cliArgs.add("--baseline")
+    cliArgs.add(baselineFile.absolutePath)
+  }
+  args(cliArgs)
+}
+
+tasks.register<JavaExec>("detektBaseline") {
+  group = "verification"
+  description = "Regenerates config/detekt/baseline.xml for pre-existing legacy Detekt findings."
+  classpath = detektConfig
+  mainClass.set("io.gitlab.arturbosch.detekt.cli.Main")
+  val inputDir = file("src/main/java")
+  val configFile = rootProject.file("config/detekt/detekt.yml")
+  val baselineFile = rootProject.file("config/detekt/baseline.xml")
+  args(
+    "--input", inputDir.absolutePath,
+    "--config", configFile.absolutePath,
+    "--build-upon-default-config",
+    "--create-baseline",
+    "--baseline", baselineFile.absolutePath
+  )
+}
+
 tasks.matching { it.name == "bundleRelease" || it.name == "packageReleaseBundle" }.configureEach {
-  dependsOn(verifyReleaseR8)
+  dependsOn(verifyReleaseR8, verifyReleaseVersioning, verifyReleaseNoDebugAppCheck)
+}
+
+tasks.matching { it.name == "assembleRelease" }.configureEach {
+  dependsOn(verifyReleaseVersioning, verifyReleaseNoDebugAppCheck)
 }
 
 tasks.matching {
@@ -264,9 +395,10 @@ dependencies {
   implementation(libs.androidx.credentials)
   implementation(libs.androidx.credentials.play.services)
   implementation(libs.googleid)
-  // App Check (Free tier: Play Integrity for release, Debug provider for debug builds)
+  // App Check (Free tier: Play Integrity for release, Debug provider for debug builds ONLY)
   implementation(libs.firebase.appcheck.playintegrity)
-  implementation(libs.firebase.appcheck.debug)
+  debugImplementation(libs.firebase.appcheck.debug)
+  detektConfig(libs.detekt.cli)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   // implementation(libs.logging.interceptor)

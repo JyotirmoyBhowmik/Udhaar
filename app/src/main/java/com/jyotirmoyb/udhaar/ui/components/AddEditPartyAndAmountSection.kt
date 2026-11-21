@@ -27,11 +27,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Contacts
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -231,7 +228,7 @@ fun AddEditPartyAndAmountSection(
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Contacts,
+                    imageVector = UdhaarIcons.Contacts,
                     contentDescription = stringResource(R.string.ui_str_contacts_b0dd61),
                     modifier = Modifier.size(20.dp)
                 )
@@ -255,7 +252,7 @@ fun AddEditPartyAndAmountSection(
                 {
                     AppIconButton(onClick = { showPhoneText = !showPhoneText }) {
                         Icon(
-                            imageVector = if (showPhoneText) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            imageVector = if (showPhoneText) UdhaarIcons.VisibilityOff else UdhaarIcons.Visibility,
                             contentDescription = if (showPhoneText) stringResource(R.string.cd_hide_amounts) else stringResource(R.string.cd_show_amounts),
                             tint = PureBlack
                         )
@@ -438,7 +435,7 @@ fun MonochromeTogglePill(
 fun DateSelectorRow(
     label: String,
     valueText: String,
-    icon: ImageVector = Icons.Default.CalendarToday,
+    icon: ImageVector = UdhaarIcons.CalendarToday,
     onSelectClick: () -> Unit,
     onClearClick: (() -> Unit)?,
     testTag: String

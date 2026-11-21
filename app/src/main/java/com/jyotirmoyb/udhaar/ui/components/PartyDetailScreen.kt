@@ -26,13 +26,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.StarBorder
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -168,7 +166,7 @@ fun PartyDetailScreen(
                                 .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
                         ) {
                             Icon(
-                                imageVector = if (party.isFavorite) Icons.Default.Star else Icons.Default.StarBorder,
+                                imageVector = if (party.isFavorite) Icons.Default.Star else UdhaarIcons.StarBorder,
                                 contentDescription = stringResource(R.string.cd_favorite_party),
                                 tint = PureBlack,
                                 modifier = Modifier.size(18.dp)
@@ -182,7 +180,7 @@ fun PartyDetailScreen(
                                 .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
+                                imageVector = UdhaarIcons.ReceiptLong,
                                 contentDescription = stringResource(R.string.ui_str_share_receipt_statement_image_pdf_f07d4e),
                                 tint = PureBlack,
                                 modifier = Modifier.size(16.dp)
@@ -211,7 +209,7 @@ fun PartyDetailScreen(
                                     .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.DeleteOutline,
+                                    imageVector = UdhaarIcons.DeleteOutline,
                                     contentDescription = stringResource(R.string.ui_str_delete_d6f563),
                                     tint = PureBlack,
                                     modifier = Modifier.size(16.dp)

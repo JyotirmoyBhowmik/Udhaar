@@ -25,10 +25,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.outlined.Settings
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -136,7 +134,7 @@ internal fun DashboardTopHeaderBar(
                         .testTag("header_group_split_button")
                 ) {
                     Icon(
-                        imageVector = Icons.Default.PersonAdd,
+                        imageVector = UdhaarIcons.PersonAdd,
                         contentDescription = stringResource(R.string.group_split_sheet_title),
                         tint = PureBlack,
                         modifier = Modifier.size(22.dp)
@@ -430,7 +428,7 @@ internal fun TopLedgerSummaryCard(
                     contentAlignment = Alignment.TopEnd
                 ) {
                     Icon(
-                        imageVector = if (isAmountsHidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        imageVector = if (isAmountsHidden) UdhaarIcons.VisibilityOff else UdhaarIcons.Visibility,
                         contentDescription = if (isAmountsHidden) {
                             stringResource(R.string.cd_show_amounts)
                         } else {
@@ -513,7 +511,7 @@ internal fun TopLedgerSummaryCard(
                     contentAlignment = Alignment.TopEnd
                 ) {
                     Icon(
-                        imageVector = if (isAmountsHidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        imageVector = if (isAmountsHidden) UdhaarIcons.VisibilityOff else UdhaarIcons.Visibility,
                         contentDescription = if (isAmountsHidden) {
                             stringResource(R.string.cd_show_amounts)
                         } else {

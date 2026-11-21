@@ -20,7 +20,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -52,6 +51,7 @@ import com.jyotirmoyb.udhaar.data.InstallmentPlan
 import com.jyotirmoyb.udhaar.data.InstallmentStatus
 import com.jyotirmoyb.udhaar.data.TransactionType
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import com.jyotirmoyb.udhaar.util.InstallmentCalculator
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 import com.jyotirmoyb.udhaar.util.UpiQrGenerator
@@ -178,7 +178,7 @@ fun InstallmentTimelineCard(
                             .heightIn(min = 48.dp)
                             .testTag("pay_installment_now_button")
                     ) {
-                        Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Icon(UdhaarIcons.Payments, contentDescription = null, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(stringResource(R.string.pay_installment_now), style = MaterialTheme.typography.labelSmall)
                     }

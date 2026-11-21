@@ -18,12 +18,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Upload
-import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -44,6 +40,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.jyotirmoyb.udhaar.R
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import com.jyotirmoyb.udhaar.util.TelemetryManager
 
 @Composable
@@ -174,7 +171,7 @@ fun LocalBackupSection(
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                     ) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(UdhaarIcons.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = stringResource(R.string.settings_copy_recovery_key_button),
@@ -198,7 +195,7 @@ fun LocalBackupSection(
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
-                Icon(Icons.Default.VerifiedUser, contentDescription = null, modifier = Modifier.size(16.dp))
+                Icon(UdhaarIcons.VerifiedUser, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = stringResource(R.string.settings_test_my_backup_button),
@@ -221,7 +218,7 @@ fun LocalBackupSection(
                 shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
             ) {
-                Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                Icon(UdhaarIcons.Download, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(stringResource(R.string.ui_str_save_backup_9dd257), style = MaterialTheme.typography.labelMedium)
             }
@@ -264,7 +261,7 @@ fun LocalBackupSection(
             shape = RoundedCornerShape(12.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
         ) {
-            Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
+            Icon(UdhaarIcons.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text(stringResource(R.string.ui_str_import_restore_json_backup_61b7ef), style = MaterialTheme.typography.labelMedium)
         }
@@ -278,7 +275,7 @@ fun LocalBackupSection(
             shape = RoundedCornerShape(12.dp),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
         ) {
-            Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
+            Icon(UdhaarIcons.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text(stringResource(R.string.ui_str_import_from_contacts_8cdd06), style = MaterialTheme.typography.labelMedium)
         }

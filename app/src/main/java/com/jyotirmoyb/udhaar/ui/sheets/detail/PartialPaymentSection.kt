@@ -27,10 +27,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -60,6 +58,7 @@ import com.jyotirmoyb.udhaar.data.PaymentMode
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
 import com.jyotirmoyb.udhaar.ui.components.UdhaarAnimatedSwitch
 import com.jyotirmoyb.udhaar.ui.components.pressScaleFeedback
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import com.jyotirmoyb.udhaar.util.AttachmentManager
 import com.jyotirmoyb.udhaar.util.CalculatedUdhaarSummary
 import java.util.Locale
@@ -280,7 +279,7 @@ fun PartialPaymentSection(
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
-                    Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(13.dp))
+                    Icon(UdhaarIcons.CameraAlt, contentDescription = null, modifier = Modifier.size(13.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(stringResource(R.string.ui_str_proof_cam_cc115b), style = MaterialTheme.typography.labelSmall)
                 }
@@ -298,7 +297,7 @@ fun PartialPaymentSection(
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
-                    Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(13.dp))
+                    Icon(UdhaarIcons.Image, contentDescription = null, modifier = Modifier.size(13.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(stringResource(R.string.ui_str_proof_pic_ec0060), style = MaterialTheme.typography.labelSmall)
                 }

@@ -1,14 +1,14 @@
-# Udhaar — Reality Check & Architectural Audit (v27 / v28.0 Spark Mode)
+# Udhaar — Reality Check & Architectural Audit (v29.0 Spark Mode)
 
-**Document Version**: 28.0.0-AUDIT  
-**Audit Date**: 2026-11-11  
-**Scope**: Full-stack verification of `app/`, `web/`, `webapp/`, `firestore.rules`, `firestore.indexes.json`, `.github/workflows/`, `README.md`, and `docs/launch-checklist.md`.
+**Document Version**: 29.0.0-AUDIT  
+**Audit Date**: 2026-11-21  
+**Scope**: Full-stack verification of `app/`, `web/`, `webapp/`, `firestore.rules`, `firestore.indexes.json`, `rules-tests/`, `web-tests/`, `version.properties`, `.github/workflows/`, `README.md`, and `docs/launch-checklist.md`.
 
 ---
 
 ## 1. Executive Summary
 
-Udhaar v28.0 operates in **Spark Mode (`UDHAAR_TIER = "spark"`)** by default, running 100% on the free Firebase Spark tier without requiring a Google Cloud billing account, Cloud Functions (`functions:api`), Cloud Storage buckets, Cloud KMS, or Secret Manager at runtime.
+Udhaar v29.0 operates in **Spark Mode (`UDHAAR_TIER = "spark"`)** by default, running 100% on the free Firebase Spark tier without requiring a Google Cloud billing account, Cloud Functions (`functions:api`), Cloud Storage buckets, Cloud KMS, or Secret Manager at runtime.
 
 Key architectural truths verified in code and automated tests:
 - **Android Local-First Core**: Records, parties, partial payments, installment schedules, and audit trails are stored locally on the device in a 256-bit **SQLCipher (`net.zetetic:android-database-sqlcipher`)** Room database (`UdhaarDatabase.kt`, schema v13).
@@ -24,18 +24,18 @@ Key architectural truths verified in code and automated tests:
 
 | Category | Feature / Claim | Proving File | Proving Test | Status | Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1. Infra** | Spark-Safe CI/CD Deployments (`hosting`, `firestore:rules`, `firestore:indexes` only) | `.github/workflows/deploy-prod.yml`, `.github/workflows/deploy-staging.yml` | `functions/test/web_client.test.js` | **Proven** | `functions:api` and `storage` rules removed from Spark deploy workflows. |
-| **1. Infra** | Dual Origin Isolation & Strict CSP | `infra/firebase.prod.json`, `firebase.json` | `functions/test/web_client.test.js` | **Proven** | `connect-src` restricted to Firebase Auth, Firestore, and App Check endpoints; zero inline code. |
-| **1. Infra** | Optional Blaze Enterprise Modules (`functions/`) | `functions/src/crypto/envelopeCrypto.js`, `functions/src/config/secrets.js` | `functions/test/stage_r2_cryptography.test.js` | **Optional (Blaze Only)** | Retained in repository for optional Blaze deployments; not deployed or required in Spark Mode. |
-| **2. Auth** | Firebase Auth (Google Credential Manager + Email/Password + Reset + Re-auth) | `app/src/main/java/com/jyotirmoyb/udhaar/ui/sheets/settings/AccountAndWebAccessSection.kt` | `app/src/test/java/com/jyotirmoyb/udhaar/ui/sheets/AccountAndWebAccessSectionTest.kt` | **Proven** | Zero `/api/v1` calls in Spark Mode; Cloud Sync switch disabled until email is verified. |
-| **2. Auth** | Unverified Contact Phone Numbers | `firestore.rules`, `AccountAndWebAccessSection.kt` | `functions/test/firestore_rules.test.js` | **Proven** | Phone numbers are optional contact metadata (`phoneStatus: "unverified"`), never used for login or recovery. |
-| **3. Data** | Spark Collection Security Rules (`users/{uid}`, `records`, `people`, `events`, `plans`, `attachments`, `meta/syncSignal`) | `firestore.rules` | `functions/test/firestore_rules.test.js` | **Proven** | Tested for stranger, other user, unverified email, owner verified, and no updates on `events`. |
-| **3. Data** | Guest Links & Fixed 10-Slot Action Rules (`guestLinks/{linkId}/actions/{actionId}`) | `firestore.rules`, `web/u/guest.js` | `functions/test/firestore_rules.test.js` | **Proven** | Tested for expired link, revoked link, action ID caps (`confirm`, `dispute`, `claim_1..5`, `date_1..3`), and no updates/deletes. |
-| **3. Data** | Collection-Group Polling on `ownerUid` | `app/src/main/java/com/jyotirmoyb/udhaar/sync/GuestActionPollingWorker.kt` | `functions/test/firestore_rules.test.js` | **Proven** | Composite index in `firestore.indexes.json` + collection-group rule verified. |
-| **4. Web** | Locally Bundled Firebase JS SDK (No CDN, No `window.__udhaarFirebaseAuth`) | `webapp/src/api/firebaseSdk.js`, `scripts/build-webapp.js` | `functions/test/web_client.test.js` | **Proven** | Official `firebase` npm package bundled into `webapp/dist/vendor/` and `web/u/vendor/`. |
-| **4. Web** | 5-Language Terms of Service & Privacy Policy (`en`, `hi`, `bn`, `as`, `ne`) | `web/terms.html`, `web/privacy.html` | `functions/test/landing_privacy_page.test.js` | **Proven** | Linked from landing page, privacy page, and Android app with zero inline styles/scripts. |
-| **5. Android** | Real Adaptive Layouts (`>= 600.dp` List-Detail, `560.dp` Form Width Cap, Landscape) | `DashboardScreen.kt`, `PeopleDirectoryScreen.kt`, `AddEditUdhaarScreen.kt` | `app/src/test/java/com/jyotirmoyb/udhaar/ExampleRobolectricTest.kt` | **Proven** | Verified with Robolectric Compose tests on `w800dp` tablet and `w640dp-h360dp` landscape qualifiers. |
-| **5. Android** | 48 dp Minimum Touch Targets at `fontScale = 2.0` | `app/src/main/java/com/jyotirmoyb/udhaar/ui/**` | `app/src/test/java/com/jyotirmoyb/udhaar/ExampleRobolectricTest.kt` | **Proven** | All 43 sub-48dp controls updated to `heightIn(min = 48.dp)` / `size(48.dp)` and tested at `fontScale = 2.0f`. |
+| **1. Infra** | Spark-Safe CI/CD Deployments (`hosting`, `firestore:rules`, `firestore:indexes` only) | `.github/workflows/deploy-prod.yml`, `.github/workflows/deploy-staging.yml` | `web-tests/web_client.test.js` | **Proven** | `functions:api` and `storage` rules removed from Spark deploy workflows; production project cutover documented in `docs/PRODUCTION_FIREBASE_PROJECT.md`. |
+| **1. Infra** | Dual Origin Isolation & Strict CSP | `infra/firebase.prod.json`, `firebase.json` | `web-tests/web_client.test.js` | **Proven** | `connect-src` restricted to Firebase Auth, Firestore, and App Check endpoints; zero inline code. |
+| **1. Infra** | Optional Blaze Enterprise Modules (`blaze_disabled/functions/`) | `blaze_disabled/functions/src/crypto/envelopeCrypto.js` | `blaze_disabled/functions/test/stage_r2_cryptography.test.js` | **Optional (Blaze Only)** | Archived under `blaze_disabled/`; never deployed or required in Spark Mode. |
+| **2. Auth** | Firebase Auth (Google Credential Manager + Email/Password + Reset + Re-auth) | `app/src/main/java/com/jyotirmoyb/udhaar/ui/sheets/settings/AccountAndWebAccessSection.kt` | `app/src/test/java/com/jyotirmoyb/udhaar/ui/sheets/AccountAndWebAccessSectionTest.kt` | **Proven** | Split into 4 modular files `< 600` lines; zero `/api/v1` calls in Spark Mode; Cloud Sync switch disabled until email is verified. |
+| **2. Auth** | App Check Debug Provider Isolation | `app/build.gradle.kts`, `app/src/release/java/com/jyotirmoyb/udhaar/di/AppCheckProviderInstaller.kt` | `app/src/test/java/com/jyotirmoyb/udhaar/sync/SparkQuotaAndAppCheckTest.kt` | **Proven** | `firebase-appcheck-debug` is `debugImplementation` only; guarded by `:app:verifyReleaseNoDebugAppCheck`. |
+| **3. Data** | Strict Spark Firestore Rules (`users`, `records`, `people`, `events`, `plans`, `attachments`, `meta/syncSignal`) | `firestore.rules` | `rules-tests/firestore-rules.test.js` | **Proven** | Real `withinSize`, field allow-lists/types/lengths, monotonic `rev == resource.data.rev + 1`, create-only schema-checked `events` — 13/13 emulator suites pass. |
+| **3. Data** | Guest Links & Fixed 10-Slot Action Rules (`guestLinks/{linkId}/actions/{actionId}`) | `firestore.rules`, `web/u/guest.js` | `rules-tests/firestore-rules.test.js` | **Proven** | Tested for expired link, revoked link, action ID caps (`confirm`, `dispute`, `claim_1..5`, `date_1..3`), and no updates/deletes. |
+| **3. Data** | Collection-Group Polling on `ownerUid` | `app/src/main/java/com/jyotirmoyb/udhaar/sync/GuestActionPollingWorker.kt` | `rules-tests/firestore-rules.test.js` | **Proven** | Composite index in `firestore.indexes.json` + collection-group rule verified. |
+| **4. Web** | Locally Bundled Firebase JS SDK + Re-enabled Web Test Suites | `webapp/src/api/firebaseSdk.js`, `scripts/build-webapp.js` | `web-tests/*.test.js` | **Proven** | Official `firebase` npm package bundled locally; 76/76 web tests pass in CI. |
+| **4. Web** | 5-Language Terms of Service & Privacy Policy (`en`, `hi`, `bn`, `as`, `ne`) | `web/terms.html`, `web/privacy.html` | `web-tests/landing_privacy_page.test.js` | **Proven** | Linked from landing page, privacy page, and Android app with zero inline styles/scripts or unresolved placeholders. |
+| **5. Android** | Explicit Versioning, Detekt, Clean `UdhaarIcons` & Smoke Suite | `version.properties`, `config/detekt/detekt.yml`, `ReleaseSmokeInstrumentedTest.kt` | `app/src/test/java/com/jyotirmoyb/udhaar/ReleaseSmokeTest.kt` | **Proven** | Monotonic `versionCode >= 28`, Detekt enabled in CI, `androidx` icon package removed, 6-journey instrumented smoke test + `docs/RELEASE_SMOKE_TEST_RESULTS.md`. |
+| **5. Android** | Real Adaptive Layouts (`>= 600.dp` List-Detail, `560.dp` Form Width Cap, Landscape) & `>= 48 dp` Touch Targets | `DashboardScreen.kt`, `PeopleDirectoryScreen.kt`, `AddEditUdhaarScreen.kt` | `app/src/test/java/com/jyotirmoyb/udhaar/ExampleRobolectricTest.kt` | **Proven** | Verified with Robolectric Compose tests on `w800dp` tablet, `w640dp-h360dp` landscape, and `fontScale = 2.0f`. |
 | **6. Privacy** | In-App Help & Contact + Spark Mode "Delete My Cloud Data" | `HelpAndContactSheet.kt`, `AccountAndWebAccessSection.kt` | `app/src/test/java/com/jyotirmoyb/udhaar/ui/sheets/AccountAndWebAccessSectionTest.kt` | **Proven** | Deletes user's Firestore documents across all Spark collections and resets local records to `LOCAL_ONLY`. |
 
 ---

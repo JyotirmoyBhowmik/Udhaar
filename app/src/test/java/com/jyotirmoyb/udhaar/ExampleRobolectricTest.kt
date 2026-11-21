@@ -37,8 +37,8 @@ class ExampleRobolectricTest {
         val appName = context.getString(R.string.app_name)
         assertEquals("Udhaar", appName)
         assertEquals("com.jyotirmoyb.udhaar", BuildConfig.APPLICATION_ID)
-        assertTrue(BuildConfig.VERSION_CODE >= 9)
-        assertEquals("1.0.0", BuildConfig.VERSION_NAME)
+        assertTrue(BuildConfig.VERSION_CODE >= 28)
+        assertEquals("29.0", BuildConfig.VERSION_NAME)
     }
 
     @get:org.junit.Rule
@@ -1166,9 +1166,9 @@ class ExampleRobolectricTest {
     fun `version 9_0 Settings About format Room schema export and R8 keep rules are configured`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
 
-        // 1. Version >= 9 and Settings > About string format
-        assertTrue(BuildConfig.VERSION_CODE >= 9)
-        assertEquals("1.0.0", BuildConfig.VERSION_NAME)
+        // 1. Version >= 28 (explicit version.properties) and Settings > About string format
+        assertTrue(BuildConfig.VERSION_CODE >= 28)
+        assertEquals("29.0", BuildConfig.VERSION_NAME)
         val aboutVersionText = context.getString(
             R.string.settings_about_version_format,
             BuildConfig.VERSION_NAME,

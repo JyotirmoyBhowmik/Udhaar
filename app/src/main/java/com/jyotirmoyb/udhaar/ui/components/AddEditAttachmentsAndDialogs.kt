@@ -25,10 +25,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Image
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -145,7 +143,7 @@ internal fun AddEditAttachmentsSection(
             shape = RoundedCornerShape(12.dp),
             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
         ) {
-            Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+            Icon(UdhaarIcons.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(4.dp))
             Text(stringResource(R.string.ui_str_camera_4da9c9), style = MaterialTheme.typography.labelSmall)
         }
@@ -160,7 +158,7 @@ internal fun AddEditAttachmentsSection(
             shape = RoundedCornerShape(12.dp),
             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
         ) {
-            Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(16.dp))
+            Icon(UdhaarIcons.Image, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(4.dp))
             Text(stringResource(R.string.ui_str_gallery_9c30a3), style = MaterialTheme.typography.labelSmall)
         }
@@ -175,7 +173,7 @@ internal fun AddEditAttachmentsSection(
             shape = RoundedCornerShape(12.dp),
             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
         ) {
-            Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(16.dp))
+            Icon(UdhaarIcons.Description, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(4.dp))
             Text(stringResource(R.string.ui_str_doc_pdf_7135c0), style = MaterialTheme.typography.labelSmall)
         }
@@ -216,7 +214,7 @@ internal fun AddEditAttachmentsSection(
                                 verticalArrangement = Arrangement.Center
                             ) {
                                 Icon(
-                                    Icons.Default.Description,
+                                    UdhaarIcons.Description,
                                     contentDescription = att.fileName,
                                     modifier = Modifier.size(24.dp),
                                     tint = PureBlack

@@ -38,19 +38,13 @@ object FirebaseModule {
     }
 
     /**
-     * Initializes Firebase App Check with free-tier providers:
-     * - DebugAppCheckProviderFactory for debug builds
-     * - PlayIntegrityAppCheckProviderFactory for release builds
+     * Initializes Firebase App Check using the build-type-specific [AppCheckProviderInstaller]:
+     * - `debug` source set installs the debug App Check provider (`debugImplementation` only)
+     * - `release` source set installs PlayIntegrityAppCheckProviderFactory
      */
     fun initAppCheck(app: FirebaseApp) {
         runCatching {
-            val appCheck = com.google.firebase.appcheck.FirebaseAppCheck.getInstance(app)
-            val factory = if (com.jyotirmoyb.udhaar.BuildConfig.DEBUG) {
-                com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory.getInstance()
-            } else {
-                com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory.getInstance()
-            }
-            appCheck.installAppCheckProviderFactory(factory)
+            AppCheckProviderInstaller.install(app)
         }
     }
 

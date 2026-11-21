@@ -20,7 +20,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Payments
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -129,7 +129,7 @@ internal fun SwipeableTransactionCardItem(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Payments,
+                                imageVector = UdhaarIcons.Payments,
                                 contentDescription = stringResource(R.string.cd_record_payment),
                                 tint = ReceivableCardInk
                             )

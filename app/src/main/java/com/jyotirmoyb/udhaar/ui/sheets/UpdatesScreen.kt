@@ -30,11 +30,9 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Warning
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -221,7 +219,7 @@ fun UpdatesScreen(
                                             Column(modifier = Modifier.padding(10.dp)) {
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                                     Icon(
-                                                        Icons.Default.Payments,
+                                                        UdhaarIcons.Payments,
                                                         contentDescription = null,
                                                         tint = MaterialTheme.colorScheme.primary,
                                                         modifier = Modifier.size(18.dp)
@@ -254,7 +252,7 @@ fun UpdatesScreen(
                                                             .testTag("btn_updates_view_proof_${tx.id}"),
                                                         shape = RoundedCornerShape(8.dp)
                                                     ) {
-                                                        Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                        Icon(UdhaarIcons.Image, contentDescription = null, modifier = Modifier.size(16.dp))
                                                         Spacer(modifier = Modifier.width(6.dp))
                                                         Text(stringResource(R.string.btn_view_payment_proof), style = MaterialTheme.typography.labelSmall)
                                                     }

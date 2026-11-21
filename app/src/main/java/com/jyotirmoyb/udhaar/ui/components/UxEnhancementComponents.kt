@@ -33,12 +33,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Warning
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -214,14 +211,14 @@ fun StatusAtAGlanceBadge(
             } else {
                 stringResource(R.string.status_badge_overdue_many_fmt, overdueDays.toInt())
             },
-            icon = Icons.Default.ErrorOutline,
+            icon = UdhaarIcons.ErrorOutline,
             containerColor = Color(0xFFFEE2E2),
             contentColor = Color(0xFF7F1D1D),
             tag = "status_badge_overdue"
         )
         tx.verificationStatus == VerificationStatus.CONFIRMED -> StatusVisual(
             label = stringResource(R.string.status_badge_verified),
-            icon = Icons.Default.Verified,
+            icon = UdhaarIcons.Verified,
             containerColor = Color(0xFFDCFCE7),
             contentColor = Color(0xFF14532D),
             tag = "status_badge_verified"
@@ -230,7 +227,7 @@ fun StatusAtAGlanceBadge(
             tx.verificationStatus == VerificationStatus.PENDING ||
             tx.verificationStatus == VerificationStatus.EDITED_AFTER_CONFIRM -> StatusVisual(
             label = stringResource(R.string.status_badge_waiting),
-            icon = Icons.Default.Schedule,
+            icon = UdhaarIcons.Schedule,
             containerColor = Color(0xFFFEF3C7),
             contentColor = Color(0xFF78350F),
             tag = "status_badge_waiting"
@@ -348,9 +345,9 @@ fun NeedsAttentionStrip(
             ) {
                 Icon(
                     imageVector = if (overdueCount > 0 || dueTodayCount > 0) {
-                        Icons.Default.NotificationsActive
+                        UdhaarIcons.NotificationsActive
                     } else {
-                        Icons.Default.Schedule
+                        UdhaarIcons.Schedule
                     },
                     contentDescription = stringResource(R.string.cd_needs_attention),
                     tint = accentColor,
@@ -416,12 +413,12 @@ fun FirstRunCoachMarksCard(
         Triple(
             stringResource(R.string.coach_tip_2_title),
             stringResource(R.string.coach_tip_2_body),
-            Icons.Default.NotificationsActive
+            UdhaarIcons.NotificationsActive
         ),
         Triple(
             stringResource(R.string.coach_tip_3_title),
             stringResource(R.string.coach_tip_3_body),
-            Icons.Default.Verified
+            UdhaarIcons.Verified
         )
     )
     val (title, body, icon) = tips[step]

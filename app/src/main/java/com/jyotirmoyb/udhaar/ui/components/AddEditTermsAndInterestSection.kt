@@ -21,10 +21,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.NotificationsActive
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -181,7 +178,7 @@ fun AddEditTermsAndInterestSection(
                 )
             }
             Icon(
-                imageVector = if (showMoreDetails) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                imageVector = if (showMoreDetails) UdhaarIcons.ExpandLess else UdhaarIcons.ExpandMore,
                 contentDescription = if (showMoreDetails) stringResource(R.string.cd_collapse_details) else stringResource(R.string.cd_expand_details),
                 tint = PureBlack
             )
@@ -396,7 +393,7 @@ fun AddEditTermsAndInterestSection(
                 DateSelectorRow(
                     label = "Scheduled reminder (Optional)",
                     valueText = reminderDateMillis?.let { InterestCalculator.formatDateTime(it) } ?: "No reminder scheduled",
-                    icon = Icons.Default.NotificationsActive,
+                    icon = UdhaarIcons.NotificationsActive,
                     onSelectClick = {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                             ContextCompat.checkSelfPermission(

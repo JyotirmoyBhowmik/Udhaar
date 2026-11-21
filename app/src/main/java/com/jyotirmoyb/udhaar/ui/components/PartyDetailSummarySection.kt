@@ -20,14 +20,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Message
-import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.VerifiedUser
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -326,7 +323,7 @@ fun PartyDetailSummaryCard(
                         .heightIn(min = 48.dp)
                         .testTag("party_sms_quick_action_button")
                 ) {
-                    Icon(Icons.Default.Message, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(UdhaarIcons.Message, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(stringResource(R.string.ui_str_sms_9e10d4), style = MaterialTheme.typography.labelMedium)
                 }
@@ -365,7 +362,7 @@ fun PartyDetailSummaryCard(
             border = BorderStroke(1.5.dp, PureBlack),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
         ) {
-            Icon(Icons.Default.VerifiedUser, contentDescription = null, modifier = Modifier.size(18.dp))
+            Icon(UdhaarIcons.VerifiedUser, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = if (party.linkedUserId.isNotBlank()) stringResource(R.string.ui_fmt_verified_contact_833521, party.linkedUserId) else stringResource(R.string.ui_str_request_verification_link_id_40daa2),
@@ -387,7 +384,7 @@ fun PartyDetailSummaryCard(
             )
         ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
+                imageVector = UdhaarIcons.ReceiptLong,
                 contentDescription = null,
                 modifier = Modifier.size(18.dp)
             )
@@ -409,7 +406,7 @@ fun PartyDetailSummaryCard(
             colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
         ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
+                imageVector = UdhaarIcons.ReceiptLong,
                 contentDescription = null,
                 modifier = Modifier.size(18.dp)
             )
@@ -444,7 +441,7 @@ fun PartyDetailSummaryCard(
                 border = BorderStroke(1.5.dp, PureBlack),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
             ) {
-                Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(18.dp))
+                Icon(UdhaarIcons.QrCode2, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = if (party.upiId.isNotBlank()) {
@@ -472,7 +469,7 @@ fun PartyDetailSummaryCard(
                 border = BorderStroke(1.5.dp, PureBlack),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
             ) {
-                Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(15.dp))
+                Icon(UdhaarIcons.QrCode2, contentDescription = null, modifier = Modifier.size(15.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = stringResource(R.string.ui_str_share_my_payment_details_c9cc51),

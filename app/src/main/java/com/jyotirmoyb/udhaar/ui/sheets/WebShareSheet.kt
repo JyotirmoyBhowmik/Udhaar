@@ -37,14 +37,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.DeleteOutline
-import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Warning
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -213,7 +209,7 @@ fun WebShareSheet(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Link,
+                                imageVector = UdhaarIcons.Link,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(24.dp)
@@ -373,7 +369,7 @@ fun WebShareSheet(
                                     )
                                 },
                                 leadingIcon = {
-                                    Icon(Icons.Default.VerifiedUser, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Icon(UdhaarIcons.VerifiedUser, contentDescription = null, modifier = Modifier.size(16.dp))
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -480,7 +476,7 @@ fun WebShareSheet(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(stringResource(R.string.web_share_generating))
                             } else {
-                                Icon(Icons.Default.VerifiedUser, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Icon(UdhaarIcons.VerifiedUser, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(stringResource(R.string.web_share_create_btn))
                             }
@@ -633,7 +629,7 @@ fun WebShareSheet(
                                 .testTag("btn_copy_web_link"),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(UdhaarIcons.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(stringResource(R.string.web_share_copy_btn))
                         }
@@ -651,7 +647,7 @@ fun WebShareSheet(
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                         ) {
-                            Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(UdhaarIcons.DeleteOutline, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(stringResource(R.string.web_share_revoke_btn))
                         }

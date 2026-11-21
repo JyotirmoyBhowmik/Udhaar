@@ -38,21 +38,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.AttachFile
-import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.DoneAll
-import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Verified
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -344,7 +334,7 @@ fun ChatThreadBottomSheet(
                             .testTag("chat_mute_toggle_button")
                     ) {
                         Icon(
-                            imageVector = if (isMuted) Icons.Default.NotificationsOff else Icons.Default.NotificationsActive,
+                            imageVector = if (isMuted) UdhaarIcons.NotificationsOff else UdhaarIcons.NotificationsActive,
                             contentDescription = if (isMuted) "Unmute thread" else "Mute thread",
                             tint = if (isMuted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
                         )
@@ -373,7 +363,7 @@ fun ChatThreadBottomSheet(
                                 },
                                 leadingIcon = {
                                     Icon(
-                                        imageVector = if (isMuted) Icons.Default.NotificationsActive else Icons.Default.NotificationsOff,
+                                        imageVector = if (isMuted) UdhaarIcons.NotificationsActive else UdhaarIcons.NotificationsOff,
                                         contentDescription = null
                                     )
                                 },
@@ -390,7 +380,7 @@ fun ChatThreadBottomSheet(
                                     )
                                 },
                                 leadingIcon = {
-                                    Icon(Icons.Default.History, contentDescription = null)
+                                    Icon(UdhaarIcons.History, contentDescription = null)
                                 },
                                 onClick = {
                                     showOverflowMenu = false
@@ -406,7 +396,7 @@ fun ChatThreadBottomSheet(
                                 },
                                 leadingIcon = {
                                     Icon(
-                                        imageVector = Icons.Default.Block,
+                                        imageVector = UdhaarIcons.Block,
                                         contentDescription = null,
                                         tint = if (isBlocked) MaterialTheme.colorScheme.onSurface else financeColors.payAccent
                                     )
@@ -426,7 +416,7 @@ fun ChatThreadBottomSheet(
                                 },
                                 leadingIcon = {
                                     Icon(
-                                        imageVector = Icons.Default.Flag,
+                                        imageVector = UdhaarIcons.Flag,
                                         contentDescription = null,
                                         tint = financeColors.payAccent
                                     )
@@ -470,7 +460,7 @@ fun ChatThreadBottomSheet(
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.CalendarMonth,
+                            imageVector = UdhaarIcons.CalendarMonth,
                             contentDescription = null,
                             modifier = Modifier.size(15.dp)
                         )
@@ -625,7 +615,7 @@ fun ChatThreadBottomSheet(
                                 contentPadding = PaddingValues(horizontal = 8.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.CalendarMonth,
+                                    imageVector = UdhaarIcons.CalendarMonth,
                                     contentDescription = "Pick custom extension date",
                                     modifier = Modifier.size(16.dp)
                                 )
@@ -913,7 +903,7 @@ fun ChatThreadBottomSheet(
                         .testTag("attach_payment_proof_image_button")
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Image,
+                        imageVector = UdhaarIcons.Image,
                         contentDescription = "Attach payment proof image",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -929,7 +919,7 @@ fun ChatThreadBottomSheet(
                         .testTag("attach_payment_proof_pdf_button")
                 ) {
                     Icon(
-                        imageVector = Icons.Default.AttachFile,
+                        imageVector = UdhaarIcons.AttachFile,
                         contentDescription = "Attach payment proof PDF",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1013,7 +1003,7 @@ private fun SystemAuditPillItem(entry: AuditTrailEntry) {
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Verified,
+                    imageVector = UdhaarIcons.Verified,
                     contentDescription = null,
                     modifier = Modifier.size(12.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1116,9 +1106,9 @@ private fun ChatMessageBubbleItem(
                         ) {
                             Icon(
                                 imageVector = if (message.attachmentMimeType.contains("pdf", ignoreCase = true)) {
-                                    Icons.Default.Description
+                                    UdhaarIcons.Description
                                 } else {
-                                    Icons.Default.Image
+                                    UdhaarIcons.Image
                                 },
                                 contentDescription = "Payment Proof Attachment",
                                 tint = financeColors.receiveAccent,
@@ -1272,7 +1262,7 @@ private fun ChatMessageBubbleItem(
                             imageVector = if (message.deliveryStatus == MessageDeliveryStatus.SENT) {
                                 Icons.Default.Check
                             } else {
-                                Icons.Default.DoneAll
+                                UdhaarIcons.DoneAll
                             },
                             contentDescription = tickLabel,
                             modifier = Modifier.size(13.dp),

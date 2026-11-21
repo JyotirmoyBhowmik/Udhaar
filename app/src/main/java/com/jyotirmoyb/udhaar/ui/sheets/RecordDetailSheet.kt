@@ -14,8 +14,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Schedule
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -270,7 +269,7 @@ fun RecordDetailSheet(
                             modifier = Modifier.fillMaxWidth().testTag("split_into_installments_button")
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Schedule,
+                                imageVector = UdhaarIcons.Schedule,
                                 contentDescription = null,
                                 modifier = Modifier.padding(end = 6.dp)
                             )

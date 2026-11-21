@@ -19,9 +19,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +38,7 @@ import com.jyotirmoyb.udhaar.R
 import com.jyotirmoyb.udhaar.data.Attachment
 import com.jyotirmoyb.udhaar.data.PartialPayment
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 
 @Composable
@@ -151,7 +150,7 @@ fun InstallmentHistorySection(
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Default.AttachFile,
+                                                imageVector = UdhaarIcons.AttachFile,
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.primary,
                                                 modifier = Modifier.size(13.dp)
@@ -175,7 +174,7 @@ fun InstallmentHistorySection(
                         modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.DeleteOutline,
+                            imageVector = UdhaarIcons.DeleteOutline,
                             contentDescription = "Delete installment",
                             tint = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(18.dp)

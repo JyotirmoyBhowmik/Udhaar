@@ -17,12 +17,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -53,6 +50,7 @@ import com.jyotirmoyb.udhaar.ui.common.SettingsSectionCard
 import com.jyotirmoyb.udhaar.ui.components.AppIconButton
 import com.jyotirmoyb.udhaar.ui.components.UdhaarAnimatedSwitch
 import com.jyotirmoyb.udhaar.ui.components.minTouchTarget
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 
 @Composable
 fun SecuritySection(
@@ -177,7 +175,7 @@ fun SecuritySection(
                 modifier = Modifier.weight(1f)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Fingerprint,
+                    imageVector = UdhaarIcons.Fingerprint,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(22.dp)
@@ -265,7 +263,7 @@ fun SecuritySection(
                     modifier = Modifier.testTag("toggle_settings_pin_visibility")
                 ) {
                     Icon(
-                        imageVector = if (showSecurityPin) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        imageVector = if (showSecurityPin) UdhaarIcons.VisibilityOff else UdhaarIcons.Visibility,
                         contentDescription = if (showSecurityPin) "Hide PIN" else "Show PIN",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )

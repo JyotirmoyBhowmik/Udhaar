@@ -33,9 +33,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Contacts
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -319,7 +317,7 @@ fun AddEditPartyModal(
                         border = BorderStroke(1.dp, PureBlack),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = PureBlack)
                     ) {
-                        Icon(Icons.Default.Contacts, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(UdhaarIcons.Contacts, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(stringResource(R.string.ui_str_import_b034fe), style = MaterialTheme.typography.labelSmall)
                     }
@@ -343,7 +341,7 @@ fun AddEditPartyModal(
                         {
                             AppIconButton(onClick = { showPrimaryPhone = !showPrimaryPhone }) {
                                 Icon(
-                                    imageVector = if (showPrimaryPhone) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    imageVector = if (showPrimaryPhone) UdhaarIcons.VisibilityOff else UdhaarIcons.Visibility,
                                     contentDescription = if (showPrimaryPhone) stringResource(R.string.cd_hide_amounts) else stringResource(R.string.cd_show_amounts),
                                     tint = PureBlack
                                 )
@@ -371,7 +369,7 @@ fun AddEditPartyModal(
                         {
                             AppIconButton(onClick = { showAlternatePhone = !showAlternatePhone }) {
                                 Icon(
-                                    imageVector = if (showAlternatePhone) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    imageVector = if (showAlternatePhone) UdhaarIcons.VisibilityOff else UdhaarIcons.Visibility,
                                     contentDescription = if (showAlternatePhone) stringResource(R.string.cd_hide_amounts) else stringResource(R.string.cd_show_amounts),
                                     tint = PureBlack
                                 )
@@ -399,7 +397,7 @@ fun AddEditPartyModal(
                         {
                             AppIconButton(onClick = { showPartyUpi = !showPartyUpi }) {
                                 Icon(
-                                    imageVector = if (showPartyUpi) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    imageVector = if (showPartyUpi) UdhaarIcons.VisibilityOff else UdhaarIcons.Visibility,
                                     contentDescription = if (showPartyUpi) stringResource(R.string.cd_hide_amounts) else stringResource(R.string.cd_show_amounts),
                                     tint = PureBlack
                                 )
