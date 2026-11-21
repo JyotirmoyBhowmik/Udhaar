@@ -146,17 +146,15 @@ abstract class FirestoreEmulatorTestBase {
     }
 
     private fun clearFirestoreEmulatorData() {
-        for (dbName in setOf(databaseId, "(default)")) {
-            val url = URL(
-                "http://$firestoreHost:$firestorePort/emulator/v1/projects/$projectId/databases/$dbName/documents"
-            )
-            with(url.openConnection() as HttpURLConnection) {
-                requestMethod = "DELETE"
-                connectTimeout = 5000
-                readTimeout = 5000
-                responseCode
-                disconnect()
-            }
+        val url = URL(
+            "http://$firestoreHost:$firestorePort/emulator/v1/projects/$projectId/databases/(default)/documents"
+        )
+        with(url.openConnection() as HttpURLConnection) {
+            requestMethod = "DELETE"
+            connectTimeout = 5000
+            readTimeout = 5000
+            responseCode
+            disconnect()
         }
     }
 

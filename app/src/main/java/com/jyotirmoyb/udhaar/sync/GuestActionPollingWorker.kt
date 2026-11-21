@@ -11,6 +11,8 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.jyotirmoyb.udhaar.data.GuestActionV1
 import com.jyotirmoyb.udhaar.data.PaymentMode
 import com.jyotirmoyb.udhaar.data.UdhaarDatabase
@@ -19,6 +21,7 @@ import com.jyotirmoyb.udhaar.di.FirebaseModule
 import com.jyotirmoyb.udhaar.notification.GuestActionNotificationHelper
 import com.jyotirmoyb.udhaar.util.SafeLogger
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
@@ -35,14 +38,16 @@ import java.util.concurrent.TimeUnit
  * Staged proposals are deduplicated and recorded in Room without modifying core ledger state
  * until explicitly accepted by the lender.
  */
-class GuestActionPollingWorker(
+open class GuestActionPollingWorker @JvmOverloads constructor(
     appContext: Context,
-    workerParams: WorkerParameters
+    workerParams: WorkerParameters,
+    protected val authOverride: FirebaseAuth? = null,
+    protected val firestoreOverride: FirebaseFirestore? = null
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
         val currentUser = try {
-            FirebaseAuth.getInstance().currentUser
+            authOverride?.currentUser ?: FirebaseAuth.getInstance().currentUser
         } catch (_: Exception) {
             null
         } ?: return Result.success()
@@ -55,19 +60,22 @@ class GuestActionPollingWorker(
         if (ownerUid.isBlank()) return Result.success()
 
         return try {
-            // 1. Process any pending cloud sync retries from local outbox
-            processPendingCloudSyncOutbox(applicationContext)
+            val firestore = firestoreOverride ?: FirebaseModule.getFirestore(applicationContext)
 
-            val firestore = FirebaseModule.getFirestore(applicationContext)
-                ?: return Result.success()
+            // 1. Process any pending cloud sync retries from local outbox
+            processPendingCloudSyncOutbox(applicationContext, firestore)
+
+            if (firestore == null) return Result.success()
 
             // 2. Query the lender's ACTIVE links (limit 50 as permitted by rules)
-            val linksSnapshot = firestore.collection("guestLinks")
-                .whereEqualTo("ownerUid", ownerUid)
-                .whereEqualTo("status", "ACTIVE")
-                .limit(50)
-                .get()
-                .await()
+            val linksSnapshot = withTimeoutOrNull(10000L) {
+                firestore.collection("guestLinks")
+                    .whereEqualTo("ownerUid", ownerUid)
+                    .whereEqualTo("status", "ACTIVE")
+                    .limit(50)
+                    .get()
+                    .await()
+            } ?: return Result.success()
 
             val now = System.currentTimeMillis()
             val activeLinks = linksSnapshot.documents.filter { doc ->
@@ -78,23 +86,27 @@ class GuestActionPollingWorker(
 
             // 3. For each active link, query actions where status == "PENDING"
             for (linkDoc in activeLinks) {
-                val actionsSnap = linkDoc.reference.collection("actions")
-                    .whereEqualTo("status", "PENDING")
-                    .get()
-                    .await()
+                val actionsSnap = withTimeoutOrNull(5000L) {
+                    linkDoc.reference.collection("actions")
+                        .whereEqualTo("status", "PENDING")
+                        .get()
+                        .await()
+                } ?: continue
 
                 for (doc in actionsSnap.documents) {
                     val action = GuestActionV1.fromDocument(doc)
                     if (action == null) {
                         // Invalid document: mark REJECTED with rejectReason "invalid_payload"
                         runCatching {
-                            doc.reference.update(
-                                mapOf(
-                                    "status" to "REJECTED",
-                                    "rejectReason" to "invalid_payload",
-                                    "reviewedAtMs" to System.currentTimeMillis()
-                                )
-                            ).await()
+                            withTimeoutOrNull(5000L) {
+                                doc.reference.update(
+                                    mapOf(
+                                        "status" to "REJECTED",
+                                        "rejectReason" to "invalid_payload",
+                                        "reviewedAtMs" to System.currentTimeMillis()
+                                    )
+                                ).await()
+                            }
                         }
                         continue
                     }
@@ -102,7 +114,8 @@ class GuestActionPollingWorker(
                     processSingleAction(
                         context = applicationContext,
                         action = action,
-                        ownerUid = ownerUid
+                        ownerUid = ownerUid,
+                        firestoreOverride = firestore
                     )
                 }
             }
@@ -112,6 +125,10 @@ class GuestActionPollingWorker(
 
             Result.success()
         } catch (e: Exception) {
+            if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.RESOURCE_EXHAUSTED) {
+                SafeLogger.w("GuestActionPollingWorker", "Spark quota exhausted during guest action poll. Backing off.")
+                return Result.success()
+            }
             SafeLogger.w("GuestActionPollingWorker", "Poll failed: ${e.message}")
             if (runAttemptCount < 3) Result.retry() else Result.failure()
         }
@@ -128,7 +145,8 @@ class GuestActionPollingWorker(
         suspend fun processSingleAction(
             context: Context,
             action: GuestActionV1,
-            ownerUid: String
+            ownerUid: String,
+            firestoreOverride: FirebaseFirestore? = null
         ): Boolean {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val processedIds = prefs.getStringSet(KEY_PROCESSED_ACTION_IDS, emptySet())
@@ -147,7 +165,7 @@ class GuestActionPollingWorker(
             val matchedTx = allTransactions.firstOrNull { tx ->
                 (tx.shareToken.isNotBlank() && GuestWebCloudRepository.sha256Hex(tx.shareToken) == linkId)
             } ?: run {
-                val firestore = FirebaseModule.getFirestore(context)
+                val firestore = firestoreOverride ?: FirebaseModule.getFirestore(context)
                 val linkDoc = runCatching {
                     firestore?.collection("guestLinks")?.document(linkId)?.get()?.await()
                 }.getOrNull()
@@ -221,10 +239,13 @@ class GuestActionPollingWorker(
             return true
         }
 
-        suspend fun processPendingCloudSyncOutbox(context: Context) {
+        suspend fun processPendingCloudSyncOutbox(
+            context: Context,
+            firestore: FirebaseFirestore? = FirebaseModule.getFirestore(context)
+        ) {
+            if (firestore == null) return
             val db = runCatching { UdhaarDatabase.getInstance(context) }.getOrNull() ?: return
             val outboxDao = db.syncOutboxDao()
-            val firestore = FirebaseModule.getFirestore(context) ?: return
 
             val pendingSyncs = runCatching {
                 outboxDao.getPendingMutations().filter { it.entity == "guest_action_sync" }
@@ -240,37 +261,45 @@ class GuestActionPollingWorker(
 
                     // Update action status=ACCEPTED
                     runCatching {
+                        withTimeoutOrNull(5000L) {
+                            firestore.collection("guestLinks").document(linkId)
+                                .collection("actions").document(actionId)
+                                .update(
+                                    mapOf(
+                                        "status" to "ACCEPTED",
+                                        "reviewedAtMs" to System.currentTimeMillis()
+                                    )
+                                ).await()
+                        }
+                    }
+
+                    // Update link balances
+                    withTimeoutOrNull(5000L) {
                         firestore.collection("guestLinks").document(linkId)
-                            .collection("actions").document(actionId)
                             .update(
                                 mapOf(
-                                    "status" to "ACCEPTED",
-                                    "reviewedAtMs" to System.currentTimeMillis()
+                                    "paidPaise" to paidPaise,
+                                    "payableAmountPaise" to payableAmountPaise,
+                                    "updatedAtMs" to System.currentTimeMillis()
                                 )
                             ).await()
                     }
 
-                    // Update link balances
-                    firestore.collection("guestLinks").document(linkId)
-                        .update(
-                            mapOf(
-                                "paidPaise" to paidPaise,
-                                "payableAmountPaise" to payableAmountPaise,
-                                "updatedAtMs" to System.currentTimeMillis()
-                            )
-                        ).await()
-
                     // Cleanup: delete action doc and proof doc to free quota
                     runCatching {
-                        firestore.collection("guestLinks").document(linkId)
-                            .collection("actions").document(actionId)
-                            .collection("proof").document("image")
-                            .delete().await()
+                        withTimeoutOrNull(5000L) {
+                            firestore.collection("guestLinks").document(linkId)
+                                .collection("actions").document(actionId)
+                                .collection("proof").document("image")
+                                .delete().await()
+                        }
                     }
                     runCatching {
-                        firestore.collection("guestLinks").document(linkId)
-                            .collection("actions").document(actionId)
-                            .delete().await()
+                        withTimeoutOrNull(5000L) {
+                            firestore.collection("guestLinks").document(linkId)
+                                .collection("actions").document(actionId)
+                                .delete().await()
+                        }
                     }
 
                     outboxDao.deleteById(entry.id)

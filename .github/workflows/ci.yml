@@ -98,8 +98,50 @@ jobs:
       #     FIREBASE_AUTH_EMULATOR_HOST: "127.0.0.1:9099"
       # [BLAZE-DISABLED END]
 
+      - name: Run Spark Firestore Security Rules & Web Tests on Emulator
+        run: npx firebase emulators:exec --project demo-udhaar --only auth,firestore "npm run test:rules && npm test"
+        env:
+          NODE_ENV: "test"
+          FIRESTORE_EMULATOR_HOST: "127.0.0.1:8080"
+          FIREBASE_AUTH_EMULATOR_HOST: "127.0.0.1:9099"
+
       - name: Run 7/7 Sync Conformance Fixture Runner
         run: node sync-conformance/ts-runner.js
+
+  spark-emulator-tests:
+    name: Spark Firestore Rules & Web Tests (Auth & Firestore Emulators)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Set up Java for Firebase Emulators
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Install Dependencies
+        run: npm ci --ignore-scripts || npm install --ignore-scripts
+
+      # [BLAZE-DISABLED START] reason: Cloud Functions tests disabled on Spark plan | restore: uncomment when upgrading to Blaze
+      # - name: Run Cloud Functions Tests
+      #   run: npm --prefix functions test
+      # [BLAZE-DISABLED END]
+
+      - name: Run Firestore Rules & Web Tests in Emulator
+        run: npx firebase emulators:exec --project demo-udhaar --only auth,firestore "npm run test:rules && npm test"
+        env:
+          NODE_ENV: "test"
+          FIRESTORE_EMULATOR_HOST: "127.0.0.1:8080"
+          FIREBASE_AUTH_EMULATOR_HOST: "127.0.0.1:9099"
 
   playwright-e2e-and-accessibility:
     name: Playwright Multi-Engine E2E & axe-core Audits (Auth + Firestore Emulators)

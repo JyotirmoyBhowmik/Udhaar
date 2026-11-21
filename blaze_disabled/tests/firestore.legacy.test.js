@@ -1,3 +1,15 @@
+/**
+ * [BLAZE-DISABLED] Legacy Firestore Security Rules Test Suite
+ *
+ * Preserved from the previous Blaze-tier two-party direct-access architecture.
+ * This suite tested legacy client-writable collections (`shared_records`, `partial_payments`,
+ * `audit_trail`, `chats`, `user_profiles`) that are denied under the Spark free-tier
+ * proposal-only model (`guestLinks/{linkId}/actions/{actionType}` + owner-only `/users/{uid}`).
+ *
+ * Restore note: When upgrading to Blaze and restoring legacy server/client collections,
+ * review and reactivate this test file alongside `blaze_disabled/firestore.rules.previous`.
+ */
+
 const {
   initializeTestEnvironment,
   assertFails,

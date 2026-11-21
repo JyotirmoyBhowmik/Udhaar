@@ -31,6 +31,7 @@ Under Udhaar's **Code Preservation Rules**, code requiring billing or paid servi
 | **Android Firebase Storage Provider** | `app/src/main/java/com/jyotirmoyb/udhaar/di/FirebaseModule.kt` | Lines 105–118 | Cloud Storage unavailable on Spark plan (returns 402/403). | Uncomment `provideFirebaseStorage` inside `[BLAZE-DISABLED]` markers. |
 | **Android Attachment Cloud Storage Upload/Download** | `app/src/main/java/com/jyotirmoyb/udhaar/util/AttachmentManager.kt` | Lines 152–160 | Direct upload/download to Cloud Storage disabled on Spark plan. | Uncomment cloud upload/download inside `[BLAZE-DISABLED]` markers. |
 | **Web Firebase Storage Client** | `web/u/firebase-init.js`, `web/u/guest.js` | Lines 47–50, 2465–2472 | Web Cloud Storage access disabled; optional proof stored in Firestore doc `proof/image`. | Uncomment `getStorageInstance` and `uploadProofToFirebaseStorage` in `[BLAZE-DISABLED]` blocks. |
+| **Legacy Firestore Security Rules Test** | `firestore.test.js` | `blaze_disabled/tests/firestore.legacy.test.js` | Tests obsolete direct client collections (shared_records, partial_payments, chats) forbidden on Spark. | Move back to root if upgrading to Blaze. |
 
 ---
 

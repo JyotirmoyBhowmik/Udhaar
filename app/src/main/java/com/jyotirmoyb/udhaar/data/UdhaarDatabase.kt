@@ -863,6 +863,12 @@ abstract class UdhaarDatabase : RoomDatabase() {
         @Volatile
         private var isBlockedFallbackInstance: Boolean = false
 
+        @androidx.annotation.VisibleForTesting
+        fun setTestInstance(testInstance: UdhaarDatabase?) {
+            INSTANCE = testInstance
+            isBlockedFallbackInstance = false
+        }
+
         fun getInstance(context: Context): UdhaarDatabase {
             val current = INSTANCE
             if (current != null && !isBlockedFallbackInstance) {
