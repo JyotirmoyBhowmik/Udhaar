@@ -1404,7 +1404,7 @@
           createdAtMs: nowMs
         });
       } catch (proofErr) {
-        console.warn("[Udhaar] Proof upload failed (action was recorded):", proofErr);
+        console.warn("[Udhaar] Proof upload failed (action was recorded):", proofErr ? (proofErr.name || "Error") : "Unknown");
       }
     }
 

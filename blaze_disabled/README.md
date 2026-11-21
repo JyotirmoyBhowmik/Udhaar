@@ -79,4 +79,42 @@ Uncomment the blocks marked `# [BLAZE-DISABLED START]` in:
 ```bash
 firebase deploy --project <blaze-project-id>
 ```
+
+---
+
+## 3. Spark Setup Checklist: Enabling App Check Enforcement in Firebase Console
+
+Firebase App Check protects free Spark tier Firestore quota from unauthorized scripts, scrapers, and abusive API calls.
+
+### Step 1: Register Android App in Firebase Console
+1. Open the [Firebase Console](https://console.firebase.google.com/) and navigate to your project.
+2. In the left navigation, select **App Check** -> **Apps** tab.
+3. Locate the Android app (`com.jyotirmoyb.udhaar`).
+4. Click **Play Integrity**:
+   - Link your Google Play account (or verify package name and SHA-256 certificate fingerprints from `keytool` / Play Console).
+   - Set Token TTL to **1 hour** (recommended for mobile).
+5. For Local Development / Debug builds:
+   - In the overflow menu (three dots) next to the Android app, select **Manage debug tokens**.
+   - Launch the debug app on an emulator or physical device. Look for the debug token in logcat:
+     `D/DebugAppCheckProvider: Enter this debug token into the Firebase Console: <DEBUG_TOKEN>`
+   - Add this debug token in the Firebase Console.
+
+### Step 2: Register Web Portal in Firebase Console
+1. Under **App Check** -> **Apps** tab, select the Web app.
+2. Click **reCAPTCHA v3** (free tier):
+   - Enter your reCAPTCHA v3 Site Secret from the [Google Cloud reCAPTCHA Console](https://cloud.google.com/recaptcha-enterprise).
+   - Copy the generated **Site Key** into `web/u/config.js` (`const RECAPTCHA_SITE_KEY = "<YOUR_KEY>";`).
+   - Set Token TTL to **1 hour**.
+
+### Step 3: Monitor Traffic Before Enforcement
+1. Allow both Android and Web apps to run for 24–48 hours in production or staging.
+2. In **App Check** -> **APIs** tab -> **Cloud Firestore**:
+   - Inspect the request metrics: **Verified requests** (green), **Unverified requests** (amber), and **Outdated client requests**.
+   - Verify that all legitimate app traffic shows as **Verified**.
+
+### Step 4: Enable Enforcement for Cloud Firestore
+1. In **App Check** -> **APIs** tab, click **Cloud Firestore**.
+2. Click the **Enforce** button.
+3. In the confirmation dialog, click **Enforce**.
+4. Once enforced, any incoming request to Cloud Firestore lacking a valid Play Integrity or reCAPTCHA v3 App Check token is rejected at the Google edge before consuming daily Spark database read/write quota.
 This deploys Firestore rules, Firestore indexes, Cloud Storage rules, Cloud Functions v2, and Firebase Hosting.

@@ -78,6 +78,7 @@ open class MainActivity : FragmentActivity() {
         ReminderReceiver.ensureNotificationChannel(this)
         ChatNotificationHelper.ensureNotificationChannel(this)
         com.jyotirmoyb.udhaar.notification.GuestActionNotificationHelper.ensureNotificationChannel(this)
+        com.jyotirmoyb.udhaar.sync.CleanExpiredGuestLinksWorker.enqueueWeekly(this)
         extractIntentPayloads(intent)
 
         val repo = if (::injectedRepository.isInitialized) {

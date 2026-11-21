@@ -64,6 +64,7 @@ class GuestActionPollingWorker(
             // 2. Query the lender's ACTIVE links (limit 50 as permitted by rules)
             val linksSnapshot = firestore.collection("guestLinks")
                 .whereEqualTo("ownerUid", ownerUid)
+                .whereEqualTo("status", "ACTIVE")
                 .limit(50)
                 .get()
                 .await()

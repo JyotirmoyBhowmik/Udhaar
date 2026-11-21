@@ -824,6 +824,10 @@
     <string name="btn_reject_dispute">সমস্যা ৰিপ’ৰ্ট নাকচ কৰক</string>
     <string name="ack_via_private_link">ব্যক্তিগত লিংকৰ জৰিয়তে স্বীকৃত</string>
     <string name="ack_via_google">Google দ্বাৰা স্বীকৃত</string>
+    <string name="cloud_quota_exhausted_friendly">দৈনিক বিনামূলীয়া ক্লাউড সীমা সমাপ্ত হৈছে। তথ্যসমূহ ডিভাইচত স্থানীয়ভাৱে সুৰক্ষিত আছে।</string>
+    <string name="settings_plan_mode_label">প্লেন মোড: %1$s</string>
+    <string name="settings_plan_mode_spark">Spark (বিনামূলীয়া)</string>
+    <string name="settings_plan_mode_blaze">Blaze (পে-এজ-ইউ-গ\')</string>
     <string name="days_count">%1$d দিন</string>
     <string name="btn_qr_app_link">QR / এপ লিংক</string>
     <string name="settings_default_link_expiry">ডিফল্ট লিংক ম্যাদ</string>

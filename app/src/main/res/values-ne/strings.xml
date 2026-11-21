@@ -824,6 +824,10 @@
     <string name="btn_reject_dispute">समस्या प्रतिवेदन अस्वीकार गर्नुहोस्</string>
     <string name="ack_via_private_link">व्यक्तिगत लिङ्कमार्फत स्वीकृत</string>
     <string name="ack_via_google">Google मार्फत स्वीकृत</string>
+    <string name="cloud_quota_exhausted_friendly">दैनिक नि:शुल्क क्लाउड कोटा सकिएको छ। रेकर्डहरू डिभाइसमा सुरक्षित छन्।</string>
+    <string name="settings_plan_mode_label">योजना मोड: %1$s</string>
+    <string name="settings_plan_mode_spark">Spark (नि:शुल्क)</string>
+    <string name="settings_plan_mode_blaze">Blaze (पे-एज-यु-गो)</string>
     <string name="days_count">%1$d दिन</string>
     <string name="btn_qr_app_link">QR / एप लिङ्क</string>
     <string name="settings_default_link_expiry">पूर्वनिर्धारित लिङ्क म्याद</string>

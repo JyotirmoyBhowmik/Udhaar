@@ -2,6 +2,7 @@ package com.jyotirmoyb.udhaar.data.cloud
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.Source
 import com.jyotirmoyb.udhaar.util.SafeLogger
@@ -197,7 +198,16 @@ open class GuestWebCloudRepository @Inject constructor(
                 .set(docData)
                 .await()
         } catch (e: Exception) {
+            if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.RESOURCE_EXHAUSTED) {
+                SafeLogger.w("GuestWebCloudRepo", "Daily Firestore write quota reached for Spark plan")
+                SafeLogger.recordNonFatal("GuestWebCloudRepo", "RESOURCE_EXHAUSTED", e, mapOf("linkId" to linkId))
+                return@withContext GuestWebLinkCreateResult(
+                    success = false,
+                    errorMessage = "Daily free cloud limit reached. Please try again tomorrow."
+                )
+            }
             SafeLogger.e("GuestWebCloudRepo", "Unable to publish guest link: ${e.javaClass.simpleName}")
+            SafeLogger.recordNonFatal("GuestWebCloudRepo", "PUBLISH_FAILED", e, mapOf("linkId" to linkId))
             return@withContext GuestWebLinkCreateResult(
                 success = false,
                 errorMessage = "Unable to publish guest link"
@@ -210,7 +220,16 @@ open class GuestWebCloudRepository @Inject constructor(
                 .get(Source.SERVER)
                 .await()
         } catch (e: Exception) {
+            if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.RESOURCE_EXHAUSTED) {
+                SafeLogger.w("GuestWebCloudRepo", "Daily Firestore read quota reached for Spark plan")
+                SafeLogger.recordNonFatal("GuestWebCloudRepo", "RESOURCE_EXHAUSTED", e, mapOf("linkId" to linkId))
+                return@withContext GuestWebLinkCreateResult(
+                    success = false,
+                    errorMessage = "Daily free cloud limit reached. Please try again tomorrow."
+                )
+            }
             SafeLogger.e("GuestWebCloudRepo", "Failed to verify published link from server: ${e.javaClass.simpleName}")
+            SafeLogger.recordNonFatal("GuestWebCloudRepo", "READBACK_FAILED", e, mapOf("linkId" to linkId))
             return@withContext GuestWebLinkCreateResult(
                 success = false,
                 errorMessage = "Unable to publish guest link"
@@ -223,6 +242,7 @@ open class GuestWebCloudRepository @Inject constructor(
             snapshot.getString("status") != "ACTIVE"
         ) {
             SafeLogger.w("GuestWebCloudRepo", "Server readback validation failed for link $linkId")
+            SafeLogger.recordNonFatal("GuestWebCloudRepo", "READBACK_MISMATCH", metadata = mapOf("linkId" to linkId))
             return@withContext GuestWebLinkCreateResult(
                 success = false,
                 errorMessage = "Unable to publish guest link"
@@ -326,13 +346,23 @@ open class GuestWebCloudRepository @Inject constructor(
                     .get(Source.SERVER)
                     .await()
             } catch (e: Exception) {
-                SafeLogger.e("GuestWebCloudRepo", "Failed to verify revoked link from server: ${e.javaClass.simpleName}")
+                if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.RESOURCE_EXHAUSTED) {
+                    SafeLogger.w("GuestWebCloudRepo", "Daily Firestore quota reached during revoke verify")
+                } else {
+                    SafeLogger.e("GuestWebCloudRepo", "Failed to verify revoked link from server: ${e.javaClass.simpleName}")
+                }
+                SafeLogger.recordNonFatal("GuestWebCloudRepo", "REVOKE_VERIFY_FAILED", e, mapOf("linkId" to resolvedLinkId))
                 return@withContext false
             }
 
             verifySnap.exists() && verifySnap.getString("status") == "REVOKED"
         } catch (e: Exception) {
-            SafeLogger.e("GuestWebCloudRepo", "Failed to revoke guest link: ${e.javaClass.simpleName}")
+            if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.RESOURCE_EXHAUSTED) {
+                SafeLogger.w("GuestWebCloudRepo", "Daily Firestore write quota reached during revoke")
+            } else {
+                SafeLogger.e("GuestWebCloudRepo", "Failed to revoke guest link: ${e.javaClass.simpleName}")
+            }
+            SafeLogger.recordNonFatal("GuestWebCloudRepo", "REVOKE_FAILED", e)
             false
         }
     }

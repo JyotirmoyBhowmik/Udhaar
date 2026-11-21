@@ -25,13 +25,32 @@ object FirebaseModule {
     fun provideFirebaseApp(@ApplicationContext context: Context): FirebaseApp? {
         return try {
             val apps = FirebaseApp.getApps(context)
-            if (apps.isEmpty()) {
+            val app = if (apps.isEmpty()) {
                 FirebaseApp.initializeApp(context)
             } else {
                 apps.first()
             }
+            app?.let { initAppCheck(it) }
+            app
         } catch (_: Throwable) {
             null
+        }
+    }
+
+    /**
+     * Initializes Firebase App Check with free-tier providers:
+     * - DebugAppCheckProviderFactory for debug builds
+     * - PlayIntegrityAppCheckProviderFactory for release builds
+     */
+    fun initAppCheck(app: FirebaseApp) {
+        runCatching {
+            val appCheck = com.google.firebase.appcheck.FirebaseAppCheck.getInstance(app)
+            val factory = if (com.jyotirmoyb.udhaar.BuildConfig.DEBUG) {
+                com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory.getInstance()
+            } else {
+                com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory.getInstance()
+            }
+            appCheck.installAppCheckProviderFactory(factory)
         }
     }
 

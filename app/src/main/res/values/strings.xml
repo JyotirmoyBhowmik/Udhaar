@@ -829,6 +829,10 @@
     <string name="btn_reject_dispute">Reject problem report</string>
     <string name="ack_via_private_link">Acknowledged via private link</string>
     <string name="ack_via_google">Acknowledged via Google</string>
+    <string name="cloud_quota_exhausted_friendly">Daily free cloud quota reached. Records remain safe locally on device.</string>
+    <string name="settings_plan_mode_label">Plan mode: %1$s</string>
+    <string name="settings_plan_mode_spark">Spark (free)</string>
+    <string name="settings_plan_mode_blaze">Blaze (pay-as-you-go)</string>
     <string name="days_count">%1$d Days</string>
     <string name="btn_qr_app_link">QR / App Link</string>
     <string name="settings_default_link_expiry">Default Link Expiry</string>

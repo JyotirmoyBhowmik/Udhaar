@@ -7,9 +7,16 @@
  */
 const BLAZE_FEATURES_ENABLED = false;
 
+// App Check: reCAPTCHA v3 / Enterprise free-tier provider site key
+// Register site in Firebase Console -> App Check -> Apps -> Web -> reCAPTCHA v3
+const RECAPTCHA_SITE_KEY = (typeof window !== "undefined" && window.RECAPTCHA_SITE_KEY)
+  ? window.RECAPTCHA_SITE_KEY
+  : "6Ld_placeholder_site_key_spark_free_tier";
+
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { BLAZE_FEATURES_ENABLED };
+  module.exports = { BLAZE_FEATURES_ENABLED, RECAPTCHA_SITE_KEY };
 }
 if (typeof window !== "undefined") {
   window.BLAZE_FEATURES_ENABLED = BLAZE_FEATURES_ENABLED;
+  window.RECAPTCHA_SITE_KEY = RECAPTCHA_SITE_KEY;
 }

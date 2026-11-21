@@ -824,6 +824,10 @@
     <string name="btn_reject_dispute">সমস্যার রিপোর্ট প্রত্যাখ্যান করুন</string>
     <string name="ack_via_private_link">ব্যক্তিগত লিঙ্কের মাধ্যমে স্বীকৃত</string>
     <string name="ack_via_google">Google দ্বারা স্বীকৃত</string>
+    <string name="cloud_quota_exhausted_friendly">দৈনিক বিনামূল্যের ক্লাউড কোটা শেষ হয়েছে। তথ্যগুলো ডিভাইসে স্থানীয়ভাবে সুরক্ষিত রয়েছে।</string>
+    <string name="settings_plan_mode_label">প্ল্যান মোড: %1$s</string>
+    <string name="settings_plan_mode_spark">Spark (বিনামূল্যে)</string>
+    <string name="settings_plan_mode_blaze">Blaze (পে-অ্যাজ-ইউ-গো)</string>
     <string name="days_count">%1$d দিন</string>
     <string name="btn_qr_app_link">QR / অ্যাপ লিংক</string>
     <string name="settings_default_link_expiry">ডিফল্ট লিংক মেয়াদ</string>

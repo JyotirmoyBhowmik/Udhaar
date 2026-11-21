@@ -179,7 +179,7 @@ class VerificationCloudRepository(
             put("path", path ?: JSONObject.NULL)
             put("authInfo", JSONObject().apply {
                 put("userId", currentUser?.uid ?: JSONObject.NULL)
-                put("email", currentUser?.email ?: JSONObject.NULL)
+                put("hasEmail", !currentUser?.email.isNullOrBlank())
                 put("emailVerified", currentUser?.isEmailVerified ?: false)
                 put("isAnonymous", currentUser?.isAnonymous ?: false)
                 put("tenantId", currentUser?.tenantId ?: JSONObject.NULL)
@@ -187,15 +187,18 @@ class VerificationCloudRepository(
                 currentUser?.providerData?.forEach { p ->
                     providers.put(JSONObject().apply {
                         put("providerId", p.providerId)
-                        put("displayName", p.displayName ?: JSONObject.NULL)
-                        put("email", p.email ?: JSONObject.NULL)
-                        put("photoUrl", p.photoUrl?.toString() ?: JSONObject.NULL)
                     })
                 }
                 put("providerInfo", providers)
             })
         }
-        Log.e("FirestoreError", errorJson.toString(), exception)
+        com.jyotirmoyb.udhaar.util.SafeLogger.e("FirestoreError", errorJson.toString(), exception)
+        com.jyotirmoyb.udhaar.util.SafeLogger.recordNonFatal(
+            "FirestoreError",
+            "FIRESTORE_WRITE_ERROR",
+            exception,
+            mapOf("path" to (path ?: "unknown"), "operation" to operationType.name)
+        )
         throw exception
     }
 

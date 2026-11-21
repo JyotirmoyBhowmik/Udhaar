@@ -824,6 +824,10 @@
     <string name="btn_reject_dispute">समस्या रिपोर्ट अस्वीकार करें</string>
     <string name="ack_via_private_link">व्यक्तिगत लिंक द्वारा स्वीकृत</string>
     <string name="ack_via_google">Google द्वारा स्वीकृत</string>
+    <string name="cloud_quota_exhausted_friendly">दैनिक मुफ्त क्लाउड कोटा पूरा हो गया है। रिकॉर्ड्स डिवाइस पर स्थानीय रूप से सुरक्षित हैं।</string>
+    <string name="settings_plan_mode_label">प्लान मोड: %1$s</string>
+    <string name="settings_plan_mode_spark">Spark (मुफ्त)</string>
+    <string name="settings_plan_mode_blaze">Blaze (पे-ऐज़-यू-गो)</string>
     <string name="days_count">%1$d दिन</string>
     <string name="btn_qr_app_link">क्यूआर / ऐप लिंक</string>
     <string name="settings_default_link_expiry">डिफ़ॉल्ट लिंक समाप्ति</string>

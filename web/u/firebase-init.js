@@ -44,6 +44,20 @@ function initFirebase() {
   // Single provider: Spark free tier covers only the "(default)" Firestore database
   const db = typeof sdk.getFirestore === "function" ? sdk.getFirestore(app) : null;
 
+  // App Check (Free tier: reCAPTCHA v3 provider)
+  if (app && typeof sdk.initializeAppCheck === "function" && typeof sdk.ReCaptchaV3Provider === "function") {
+    try {
+      const siteKey = (typeof window !== "undefined" && window.RECAPTCHA_SITE_KEY) ||
+                      (typeof RECAPTCHA_SITE_KEY !== "undefined" ? RECAPTCHA_SITE_KEY : "");
+      if (siteKey && !siteKey.includes("placeholder")) {
+        sdk.initializeAppCheck(app, {
+          provider: new sdk.ReCaptchaV3Provider(siteKey),
+          isTokenAutoRefreshEnabled: true
+        });
+      }
+    } catch (_) {}
+  }
+
   // [BLAZE-DISABLED START] reason: Cloud Storage unavailable on Spark free plan (calls return 402/403) | restore: Blaze: signed URLs, server-validated ownership, storage.rules in blaze_disabled/storage.rules
   // const storage = (globalThis.UDHAAR_CONFIG?.BLAZE_FEATURES_ENABLED && typeof sdk.getStorage === "function") ? sdk.getStorage(app) : null;
   // [BLAZE-DISABLED END]

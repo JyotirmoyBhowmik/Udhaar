@@ -272,7 +272,13 @@ open class GuestWebRepository @Inject constructor(
                         cloudUpdateSuccess = true
                     }
                 } catch (e: Exception) {
-                    SafeLogger.w("GuestWebRepo", "Firestore update failed on accept: ${e.message}")
+                    if (e is com.google.firebase.firestore.FirebaseFirestoreException &&
+                        e.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.RESOURCE_EXHAUSTED) {
+                        SafeLogger.w("GuestWebRepo", "Spark Firestore quota exhausted on payment accept. Queuing outbox sync.")
+                    } else {
+                        SafeLogger.w("GuestWebRepo", "Firestore update failed on accept: ${e.message}")
+                    }
+                    SafeLogger.recordNonFatal("GuestWebRepo", "ACCEPT_PAYMENT_FAILED", e, mapOf("linkId" to linkId, "actionId" to remoteActionId))
                 }
             }
         }
@@ -352,7 +358,13 @@ open class GuestWebRepository @Inject constructor(
                         }
                     }
                 } catch (e: Exception) {
-                    SafeLogger.w("GuestWebRepo", "Firestore update failed on confirm: ${e.message}")
+                    if (e is com.google.firebase.firestore.FirebaseFirestoreException &&
+                        e.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.RESOURCE_EXHAUSTED) {
+                        SafeLogger.w("GuestWebRepo", "Spark Firestore quota exhausted on confirm.")
+                    } else {
+                        SafeLogger.w("GuestWebRepo", "Firestore update failed on confirm: ${e.message}")
+                    }
+                    SafeLogger.recordNonFatal("GuestWebRepo", "ACCEPT_CONFIRM_FAILED", e, mapOf("linkId" to linkId))
                 }
             }
         }
@@ -413,7 +425,13 @@ open class GuestWebRepository @Inject constructor(
                         }
                     }
                 } catch (e: Exception) {
-                    SafeLogger.w("GuestWebRepo", "Firestore update failed on reject: ${e.message}")
+                    if (e is com.google.firebase.firestore.FirebaseFirestoreException &&
+                        e.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.RESOURCE_EXHAUSTED) {
+                        SafeLogger.w("GuestWebRepo", "Spark Firestore quota exhausted on reject claim.")
+                    } else {
+                        SafeLogger.w("GuestWebRepo", "Firestore update failed on reject: ${e.message}")
+                    }
+                    SafeLogger.recordNonFatal("GuestWebRepo", "REJECT_CLAIM_FAILED", e, mapOf("linkId" to linkId, "actionId" to actionId))
                 }
             }
         }
@@ -479,7 +497,13 @@ open class GuestWebRepository @Inject constructor(
                         }
                     }
                 } catch (e: Exception) {
-                    SafeLogger.w("GuestWebRepo", "Firestore update failed on acceptDateProposal: ${e.message}")
+                    if (e is com.google.firebase.firestore.FirebaseFirestoreException &&
+                        e.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.RESOURCE_EXHAUSTED) {
+                        SafeLogger.w("GuestWebRepo", "Spark Firestore quota exhausted on acceptDateProposal.")
+                    } else {
+                        SafeLogger.w("GuestWebRepo", "Firestore update failed on acceptDateProposal: ${e.message}")
+                    }
+                    SafeLogger.recordNonFatal("GuestWebRepo", "ACCEPT_DATE_FAILED", e, mapOf("linkId" to linkId))
                 }
             }
         }
@@ -529,7 +553,13 @@ open class GuestWebRepository @Inject constructor(
                         }
                     }
                 } catch (e: Exception) {
-                    SafeLogger.w("GuestWebRepo", "Firestore update failed on declineDateProposal: ${e.message}")
+                    if (e is com.google.firebase.firestore.FirebaseFirestoreException &&
+                        e.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.RESOURCE_EXHAUSTED) {
+                        SafeLogger.w("GuestWebRepo", "Spark Firestore quota exhausted on declineDateProposal.")
+                    } else {
+                        SafeLogger.w("GuestWebRepo", "Firestore update failed on declineDateProposal: ${e.message}")
+                    }
+                    SafeLogger.recordNonFatal("GuestWebRepo", "DECLINE_DATE_FAILED", e, mapOf("linkId" to linkId))
                 }
             }
         }
@@ -580,7 +610,13 @@ open class GuestWebRepository @Inject constructor(
                         }
                     }
                 } catch (e: Exception) {
-                    SafeLogger.w("GuestWebRepo", "Firestore update failed on rejectDispute: ${e.message}")
+                    if (e is com.google.firebase.firestore.FirebaseFirestoreException &&
+                        e.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.RESOURCE_EXHAUSTED) {
+                        SafeLogger.w("GuestWebRepo", "Spark Firestore quota exhausted on rejectDispute.")
+                    } else {
+                        SafeLogger.w("GuestWebRepo", "Firestore update failed on rejectDispute: ${e.message}")
+                    }
+                    SafeLogger.recordNonFatal("GuestWebRepo", "REJECT_DISPUTE_FAILED", e, mapOf("linkId" to linkId))
                 }
             }
         }

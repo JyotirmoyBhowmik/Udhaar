@@ -129,6 +129,18 @@ fun AboutSection(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    val planModeText = if (BuildConfig.BLAZE_FEATURES_ENABLED) {
+                        stringResource(R.string.settings_plan_mode_blaze)
+                    } else {
+                        stringResource(R.string.settings_plan_mode_spark)
+                    }
+                    Text(
+                        text = stringResource(R.string.settings_plan_mode_label, planModeText),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.testTag("settings_plan_mode_text")
+                    )
                 }
             }
             Text(

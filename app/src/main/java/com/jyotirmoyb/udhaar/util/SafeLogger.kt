@@ -62,4 +62,29 @@ object SafeLogger {
             }
         }
     }
+
+    /**
+     * Records a non-fatal event to Firebase Crashlytics using sanitized error codes and IDs only,
+     * ensuring no PII (phone, email, names, amounts) is leaked.
+     */
+    fun recordNonFatal(
+        tag: String,
+        errorId: String,
+        throwable: Throwable? = null,
+        metadata: Map<String, String> = emptyMap()
+    ) {
+        runCatching {
+            val crashlytics = com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
+            crashlytics.setCustomKey("tag", tag)
+            crashlytics.setCustomKey("error_id", errorId)
+            metadata.forEach { (key, value) ->
+                crashlytics.setCustomKey(key, redact(value))
+            }
+            if (throwable != null) {
+                crashlytics.recordException(throwable)
+            } else {
+                crashlytics.log("$tag: $errorId")
+            }
+        }
+    }
 }
