@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Bundle
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.jyotirmoyb.udhaar.BuildConfig
 import java.security.SecureRandom
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -23,12 +24,13 @@ interface TelemetrySink {
  */
 class DirectFirebaseTelemetrySink : TelemetrySink {
     override fun setConsent(context: Context?, enabled: Boolean) {
+        val allowNetworkTelemetry = enabled && !BuildConfig.DEBUG
         runCatching {
-            FirebaseCrashlytics.getInstance().isCrashlyticsCollectionEnabled = enabled
+            FirebaseCrashlytics.getInstance().isCrashlyticsCollectionEnabled = allowNetworkTelemetry
         }
         if (context != null) {
             runCatching {
-                FirebaseAnalytics.getInstance(context).setAnalyticsCollectionEnabled(enabled)
+                FirebaseAnalytics.getInstance(context).setAnalyticsCollectionEnabled(allowNetworkTelemetry)
             }
         }
     }

@@ -189,6 +189,16 @@ class AppLoggerAndSecurityHardeningTest {
             "VIBRATE permission must not be active",
             Regex("""<uses-permission\s+android:name="android.permission.VIBRATE"\s*/>""").containsMatchIn(uncommented)
         )
+
+        // 4. Opt-in Crashlytics and Analytics disabled at manifest level until user opts in
+        assertTrue(
+            "firebase_crashlytics_collection_enabled must be false by default",
+            content.contains("android:name=\"firebase_crashlytics_collection_enabled\"")
+        )
+        assertTrue(
+            "firebase_analytics_collection_enabled must be false by default",
+            content.contains("android:name=\"firebase_analytics_collection_enabled\"")
+        )
     }
 
     @Test
