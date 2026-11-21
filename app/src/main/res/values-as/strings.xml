@@ -818,6 +818,12 @@
     <string name="btn_retry">পুনৰ চেষ্টা কৰক</string>
     <string name="inbox_proof_image_attached">প্ৰমাণৰ ফটো সংলগ্ন আছে</string>
     <string name="inbox_view_record_detail">ৰেকৰ্ডৰ বিৱৰণ চাওক →</string>
+    <string name="inbox_borrower_confirmed_title">%1$s এ এই ৰেকৰ্ড নিশ্চিত কৰিছে</string>
+    <string name="inbox_borrower_confirmed_sub">ধাৰ লোৱা ব্যক্তিয়ে ৱেব লিংকৰ জৰিয়তে সকলো বিৱৰণ নিশ্চিত কৰিছে।</string>
+    <string name="inbox_problem_reported_title">%1$s এ সমস্যা দাখিল কৰিছে</string>
+    <string name="btn_reject_dispute">সমস্যা ৰিপ’ৰ্ট নাকচ কৰক</string>
+    <string name="ack_via_private_link">ব্যক্তিগত লিংকৰ জৰিয়তে স্বীকৃত</string>
+    <string name="ack_via_google">Google দ্বাৰা স্বীকৃত</string>
     <string name="days_count">%1$d দিন</string>
     <string name="btn_qr_app_link">QR / এপ লিংক</string>
     <string name="settings_default_link_expiry">ডিফল্ট লিংক ম্যাদ</string>

@@ -818,6 +818,12 @@
     <string name="btn_retry">पुनः प्रयास करें</string>
     <string name="inbox_proof_image_attached">रसीद की फोटो संलग्न है</string>
     <string name="inbox_view_record_detail">रिकॉर्ड का विवरण देखें →</string>
+    <string name="inbox_borrower_confirmed_title">%1$s ने इस रिकॉर्ड की पुष्टि की</string>
+    <string name="inbox_borrower_confirmed_sub">उधार लेने वाले ने वेब लिंक से सभी विवरणों की पुष्टि की है।</string>
+    <string name="inbox_problem_reported_title">%1$s ने समस्या दर्ज की है</string>
+    <string name="btn_reject_dispute">समस्या रिपोर्ट अस्वीकार करें</string>
+    <string name="ack_via_private_link">व्यक्तिगत लिंक द्वारा स्वीकृत</string>
+    <string name="ack_via_google">Google द्वारा स्वीकृत</string>
     <string name="days_count">%1$d दिन</string>
     <string name="btn_qr_app_link">क्यूआर / ऐप लिंक</string>
     <string name="settings_default_link_expiry">डिफ़ॉल्ट लिंक समाप्ति</string>

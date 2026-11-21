@@ -23,7 +23,8 @@ enum class PaymentMode(val label: String, val shortBadge: String) {
     CASH("Cash", "Cash"),
     ONLINE("Online", "Online"),
     UPI("UPI", "UPI"),
-    PARTY_ACCOUNT("Party Account", "Party Acc")
+    PARTY_ACCOUNT("Party Account", "Party Acc"),
+    BANK_TRANSFER("Bank Transfer", "Bank")
 }
 
 enum class InterestType(val label: String) {

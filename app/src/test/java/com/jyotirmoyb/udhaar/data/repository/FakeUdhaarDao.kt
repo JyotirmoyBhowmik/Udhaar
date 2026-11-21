@@ -389,6 +389,18 @@ class FakeUdhaarDao : UdhaarDao {
         attachmentsFlow.value = attachmentsFlow.value.filterNot { it.id == id }
     }
 
+    override suspend fun getAttachmentById(id: Long): Attachment? =
+        attachmentsFlow.value.firstOrNull { it.id == id }
+
+    override suspend fun updateAttachment(attachment: Attachment) {
+        val current = attachmentsFlow.value.toMutableList()
+        val idx = current.indexOfFirst { it.id == attachment.id }
+        if (idx >= 0) {
+            current[idx] = attachment
+            attachmentsFlow.value = current
+        }
+    }
+
     override fun getAttachmentsForTransaction(transactionId: Long): Flow<List<Attachment>> =
         attachmentsFlow.map { list -> list.filter { it.transactionId == transactionId } }
 

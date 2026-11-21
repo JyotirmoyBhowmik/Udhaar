@@ -7,8 +7,11 @@ import com.jyotirmoyb.udhaar.data.AuditEventType
 import com.jyotirmoyb.udhaar.data.Installment
 import com.jyotirmoyb.udhaar.data.InstallmentPlan
 import com.jyotirmoyb.udhaar.data.PaymentMode
+import com.jyotirmoyb.udhaar.data.SyncOutboxDao
+import com.jyotirmoyb.udhaar.data.SyncOutboxEntity
 import com.jyotirmoyb.udhaar.data.TransactionType
 import com.jyotirmoyb.udhaar.data.UdhaarDao
+import com.jyotirmoyb.udhaar.data.UdhaarDatabase
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
 import com.jyotirmoyb.udhaar.data.cloud.GuestWebCloudRepository
 import com.jyotirmoyb.udhaar.data.cloud.GuestWebLinkCreateResult
@@ -16,6 +19,7 @@ import com.jyotirmoyb.udhaar.data.getParsedDateProposal
 import com.jyotirmoyb.udhaar.data.getParsedPaymentClaim
 import com.jyotirmoyb.udhaar.di.FirebaseModule
 import com.jyotirmoyb.udhaar.notification.ReminderScheduler
+import com.jyotirmoyb.udhaar.sync.GuestActionPollingWorker
 import com.jyotirmoyb.udhaar.util.AttachmentManager
 import com.jyotirmoyb.udhaar.util.AuditTrailHelper
 import com.jyotirmoyb.udhaar.util.InterestCalculator
@@ -24,6 +28,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
+import org.json.JSONObject
 import java.io.File
 import java.util.UUID
 import javax.inject.Inject
@@ -36,8 +42,12 @@ open class GuestWebRepository @Inject constructor(
     private val paymentRepository: PaymentRepository,
     private val installmentRepository: InstallmentRepository,
     private val guestWebCloudRepository: GuestWebCloudRepository,
-    @ApplicationContext private val context: Context?
+    @ApplicationContext private val context: Context?,
+    private val syncOutboxDao: SyncOutboxDao? = null,
+    private val firestoreInstance: com.google.firebase.firestore.FirebaseFirestore? = null
 ) {
+    protected open fun getFirestore(): com.google.firebase.firestore.FirebaseFirestore? =
+        firestoreInstance ?: FirebaseModule.getFirestore(context)
 
     fun getTransactionsWithGuestUpdates(): Flow<List<UdhaarTransaction>> {
         return dao.getTransactionsWithGuestUpdates()
@@ -161,35 +171,197 @@ open class GuestWebRepository @Inject constructor(
         val claim = tx.getParsedPaymentClaim() ?: return false
         val settings = settingsRepository.userSettings.first()
 
-        paymentRepository.recordPartialPaymentPaise(
-            transaction = tx,
-            paymentAmountPaise = claim.amountPaise,
+        val cleanPaymentPaise = claim.amountPaise.coerceAtLeast(0L)
+        if (cleanPaymentPaise <= 0L) return false
+
+        val remoteActionId = claim.actionId.ifBlank { "claim_${System.currentTimeMillis()}" }
+        val createdAtMs = if (claim.dateMillis > 0L) claim.dateMillis else System.currentTimeMillis()
+        val uniqueKey = "${remoteActionId}_$createdAtMs"
+
+        // Check if proof attachment was saved locally
+        val attachments = dao.getAttachmentsForTransactionSnapshot(transactionId)
+        val proofAttachment = attachments.firstOrNull { it.addedBy.contains("Guest") }
+
+        val payment = com.jyotirmoyb.udhaar.data.PartialPayment(
+            id = 0L,
+            transactionId = transactionId,
+            amountPaise = cleanPaymentPaise,
             paymentMode = claim.paymentMode,
-            note = if (claim.reference.isNotBlank()) "Claim verified (Ref: ${claim.reference})" else "Payment verified",
-            totalAccruedAmountPaise = tx.principalAmountPaise,
-            actorName = tx.partyName.ifBlank { "Guest" }
+            paidAtMillis = createdAtMs,
+            note = if (claim.reference.isNotBlank()) {
+                if (claim.note.isNotBlank()) "${claim.note} (Ref: ${claim.reference})" else "Ref: ${claim.reference}"
+            } else claim.note.ifBlank { "Claim verified" },
+            remotePaymentId = uniqueKey,
+            syncId = "guest_action_$uniqueKey",
+            recordedByUserId = settings.cloudUserId,
+            recordedByName = tx.partyName.ifBlank { "Guest" },
+            isAcknowledged = true,
+            acknowledgedAtMillis = System.currentTimeMillis()
         )
 
+        val formattedAmt = "${tx.currency.symbol}${InterestCalculator.formatPaise(cleanPaymentPaise)}"
+        val auditEntry = com.jyotirmoyb.udhaar.data.AuditTrailEntry(
+            id = 0L,
+            transactionId = transactionId,
+            remoteEventId = uniqueKey,
+            eventType = AuditEventType.PAYMENT_RECORDED,
+            actorUserId = settings.cloudUserId,
+            actorName = settings.payeeName.ifBlank { "You" },
+            summaryText = "Payment claim of $formattedAmt accepted via ${claim.paymentMode.label}${if (claim.reference.isNotBlank()) " (Ref: ${claim.reference})" else ""}",
+            contentHashSnapshot = tx.contentHash,
+            isAcknowledged = true,
+            eventTimeMillis = System.currentTimeMillis()
+        )
+
+        // ONE Room @Transaction: inserts payment, recomputes paidPaise, updates transaction, writes audit entry
+        val insertedPaymentId = dao.applyGuestPaymentClaimAtomic(
+            transactionId = transactionId,
+            payment = payment,
+            proofAttachmentId = proofAttachment?.id,
+            auditEntry = auditEntry
+        )
+
+        if (insertedPaymentId <= 0L) return false
+
+        // Fetch fresh recomputed balances
         val freshTx = dao.getTransactionById(transactionId) ?: tx
-        val updatedTx = freshTx.copy(
-            pendingPaymentClaim = "",
-            lastGuestAction = "PAYMENT_CONFIRMED"
+        val totalPaidPaise = freshTx.amountPaidPaise
+        val payablePaise = (freshTx.principalAmountPaise - totalPaidPaise).coerceAtLeast(0L)
+
+        // Update Firestore: action status=ACCEPTED, link paidPaise/payableAmountPaise
+        val linkId = claim.linkId.ifBlank {
+            if (tx.shareToken.isNotBlank()) GuestWebCloudRepository.sha256Hex(tx.shareToken) else ""
+        }
+
+        var cloudUpdateSuccess = false
+        if (linkId.isNotBlank()) {
+            val firestore = getFirestore()
+            if (firestore != null) {
+                try {
+                    withTimeoutOrNull(3000L) {
+                        firestore.collection("guestLinks").document(linkId)
+                            .collection("actions").document(remoteActionId)
+                            .update(
+                                mapOf(
+                                    "status" to "ACCEPTED",
+                                    "reviewedAtMs" to System.currentTimeMillis()
+                                )
+                            ).await()
+
+                        firestore.collection("guestLinks").document(linkId)
+                            .update(
+                                mapOf(
+                                    "paidPaise" to totalPaidPaise,
+                                    "payableAmountPaise" to payablePaise,
+                                    "updatedAtMs" to System.currentTimeMillis()
+                                )
+                            ).await()
+
+                        // Cleanup: delete action doc (and proof) so guest can submit again and quota stays low
+                        runCatching {
+                            firestore.collection("guestLinks").document(linkId)
+                                .collection("actions").document(remoteActionId)
+                                .collection("proof").document("image")
+                                .delete().await()
+                        }
+                        runCatching {
+                            firestore.collection("guestLinks").document(linkId)
+                                .collection("actions").document(remoteActionId)
+                                .delete().await()
+                        }
+                        cloudUpdateSuccess = true
+                    }
+                } catch (e: Exception) {
+                    SafeLogger.w("GuestWebRepo", "Firestore update failed on accept: ${e.message}")
+                }
+            }
+        }
+
+        if (!cloudUpdateSuccess && linkId.isNotBlank()) {
+            // Keep local "pendingCloudSync" flag and retry with WorkManager
+            val outbox = syncOutboxDao ?: context?.let {
+                runCatching { UdhaarDatabase.getInstance(it).syncOutboxDao() }.getOrNull()
+            }
+            if (outbox != null) {
+                outbox.enqueue(
+                    SyncOutboxEntity(
+                        entity = "guest_action_sync",
+                        syncId = "$linkId/$remoteActionId",
+                        op = "ACCEPT_PAYMENT",
+                        payloadJson = JSONObject().apply {
+                            put("linkId", linkId)
+                            put("actionId", remoteActionId)
+                            put("paidPaise", totalPaidPaise)
+                            put("payableAmountPaise", payablePaise)
+                        }.toString(),
+                        idempotencyKey = uniqueKey,
+                        status = "PENDING"
+                    )
+                )
+                context?.let { ctx ->
+                    GuestActionPollingWorker.enqueueImmediate(ctx)
+                }
+            }
+        }
+
+        return true
+    }
+
+    suspend fun acceptConfirmation(transactionId: Long): Boolean {
+        val tx = dao.getTransactionById(transactionId) ?: return false
+        val settings = settingsRepository.userSettings.first()
+        val isGoogle = tx.trustLevel.equals("GOOGLE_VERIFIED", ignoreCase = true)
+        val ackLabel = if (isGoogle) "Acknowledged via Google" else "Acknowledged via private link"
+
+        val updatedTx = tx.copy(
+            verificationStatus = com.jyotirmoyb.udhaar.data.VerificationStatus.CONFIRMED,
+            verifiedAtMillis = System.currentTimeMillis(),
+            lastGuestAction = "CONFIRMED"
         )
         dao.updateTransaction(updatedTx)
 
         AuditTrailHelper.appendLocalAuditEvent(
             dao = dao,
             transactionId = tx.id,
-            eventType = AuditEventType.PAYMENT_ACKNOWLEDGED,
+            eventType = AuditEventType.CONFIRMED,
             actorUserId = settings.cloudUserId,
-            actorName = settings.payeeName.ifBlank { "You" },
-            summaryText = "Payment claim of ${InterestCalculator.formatCurrencyPaise(claim.amountPaise, tx.currency)} accepted"
+            actorName = tx.partyName.ifBlank { "Guest" },
+            summaryText = ackLabel
         )
+
+        val linkId = if (tx.shareToken.isNotBlank()) GuestWebCloudRepository.sha256Hex(tx.shareToken) else ""
+        if (linkId.isNotBlank()) {
+            val firestore = getFirestore()
+            if (firestore != null) {
+                try {
+                    withTimeoutOrNull(3000L) {
+                        runCatching {
+                            firestore.collection("guestLinks").document(linkId)
+                                .collection("actions").document("CONFIRM")
+                                .update(
+                                    mapOf(
+                                        "status" to "ACCEPTED",
+                                        "reviewedAtMs" to System.currentTimeMillis()
+                                    )
+                                ).await()
+                        }
+                        runCatching {
+                            firestore.collection("guestLinks").document(linkId)
+                                .collection("actions").document("CONFIRM")
+                                .delete().await()
+                        }
+                    }
+                } catch (e: Exception) {
+                    SafeLogger.w("GuestWebRepo", "Firestore update failed on confirm: ${e.message}")
+                }
+            }
+        }
         return true
     }
 
     suspend fun rejectPaymentClaim(transactionId: Long, reason: String = "Not received"): Boolean {
         val tx = dao.getTransactionById(transactionId) ?: return false
+        val claim = tx.getParsedPaymentClaim()
         val settings = settingsRepository.userSettings.first()
 
         val updatedTx = tx.copy(
@@ -206,6 +378,45 @@ open class GuestWebRepository @Inject constructor(
             actorName = settings.payeeName.ifBlank { "You" },
             summaryText = "Payment claim marked not received (${reason.ifBlank { "No funds received" }})"
         )
+
+        val linkId = claim?.linkId?.ifBlank {
+            if (tx.shareToken.isNotBlank()) GuestWebCloudRepository.sha256Hex(tx.shareToken) else ""
+        } ?: if (tx.shareToken.isNotBlank()) GuestWebCloudRepository.sha256Hex(tx.shareToken) else ""
+        val actionId = claim?.actionId?.ifBlank { "CLAIM_PAYMENT" } ?: "CLAIM_PAYMENT"
+
+        if (linkId.isNotBlank()) {
+            val firestore = getFirestore()
+            if (firestore != null) {
+                try {
+                    withTimeoutOrNull(3000L) {
+                        runCatching {
+                            firestore.collection("guestLinks").document(linkId)
+                                .collection("actions").document(actionId)
+                                .update(
+                                    mapOf(
+                                        "status" to "REJECTED",
+                                        "rejectReason" to reason.ifBlank { "Not received" },
+                                        "reviewedAtMs" to System.currentTimeMillis()
+                                    )
+                                ).await()
+                        }
+                        runCatching {
+                            firestore.collection("guestLinks").document(linkId)
+                                .collection("actions").document(actionId)
+                                .collection("proof").document("image")
+                                .delete().await()
+                        }
+                        runCatching {
+                            firestore.collection("guestLinks").document(linkId)
+                                .collection("actions").document(actionId)
+                                .delete().await()
+                        }
+                    }
+                } catch (e: Exception) {
+                    SafeLogger.w("GuestWebRepo", "Firestore update failed on reject: ${e.message}")
+                }
+            }
+        }
         return true
     }
 
@@ -224,7 +435,6 @@ open class GuestWebRepository @Inject constructor(
         )
         dao.updateTransaction(updatedTx)
 
-        // Reschedule reminders
         context?.let { ctx ->
             ReminderScheduler.scheduleReminder(ctx, updatedTx)
         }
@@ -237,6 +447,42 @@ open class GuestWebRepository @Inject constructor(
             actorName = settings.payeeName.ifBlank { "You" },
             summaryText = "Proposed return date accepted (new due date: ${InterestCalculator.formatDate(newDueDate)})"
         )
+
+        val linkId = if (tx.shareToken.isNotBlank()) GuestWebCloudRepository.sha256Hex(tx.shareToken) else ""
+        if (linkId.isNotBlank()) {
+            val firestore = getFirestore()
+            if (firestore != null) {
+                try {
+                    withTimeoutOrNull(3000L) {
+                        runCatching {
+                            firestore.collection("guestLinks").document(linkId).update(
+                                mapOf(
+                                    "dueDateMs" to newDueDate,
+                                    "updatedAtMs" to System.currentTimeMillis()
+                                )
+                            ).await()
+                        }
+                        runCatching {
+                            firestore.collection("guestLinks").document(linkId)
+                                .collection("actions").document("PROPOSE_DATE")
+                                .update(
+                                    mapOf(
+                                        "status" to "ACCEPTED",
+                                        "reviewedAtMs" to System.currentTimeMillis()
+                                    )
+                                ).await()
+                        }
+                        runCatching {
+                            firestore.collection("guestLinks").document(linkId)
+                                .collection("actions").document("PROPOSE_DATE")
+                                .delete().await()
+                        }
+                    }
+                } catch (e: Exception) {
+                    SafeLogger.w("GuestWebRepo", "Firestore update failed on acceptDateProposal: ${e.message}")
+                }
+            }
+        }
         return true
     }
 
@@ -258,6 +504,86 @@ open class GuestWebRepository @Inject constructor(
             actorName = settings.payeeName.ifBlank { "You" },
             summaryText = "Proposed return date declined"
         )
+
+        val linkId = if (tx.shareToken.isNotBlank()) GuestWebCloudRepository.sha256Hex(tx.shareToken) else ""
+        if (linkId.isNotBlank()) {
+            val firestore = getFirestore()
+            if (firestore != null) {
+                try {
+                    withTimeoutOrNull(3000L) {
+                        runCatching {
+                            firestore.collection("guestLinks").document(linkId)
+                                .collection("actions").document("PROPOSE_DATE")
+                                .update(
+                                    mapOf(
+                                        "status" to "REJECTED",
+                                        "rejectReason" to reason.ifBlank { "Declined" },
+                                        "reviewedAtMs" to System.currentTimeMillis()
+                                    )
+                                ).await()
+                        }
+                        runCatching {
+                            firestore.collection("guestLinks").document(linkId)
+                                .collection("actions").document("PROPOSE_DATE")
+                                .delete().await()
+                        }
+                    }
+                } catch (e: Exception) {
+                    SafeLogger.w("GuestWebRepo", "Firestore update failed on declineDateProposal: ${e.message}")
+                }
+            }
+        }
+        return true
+    }
+
+    suspend fun rejectDispute(transactionId: Long, reason: String = "Dispute rejected"): Boolean {
+        val tx = dao.getTransactionById(transactionId) ?: return false
+        val settings = settingsRepository.userSettings.first()
+
+        val updatedTx = tx.copy(
+            verificationStatus = com.jyotirmoyb.udhaar.data.VerificationStatus.LOCAL_ONLY,
+            disputeReason = "",
+            lastGuestAction = "DISPUTE_REJECTED"
+        )
+        dao.updateTransaction(updatedTx)
+
+        AuditTrailHelper.appendLocalAuditEvent(
+            dao = dao,
+            transactionId = tx.id,
+            eventType = AuditEventType.DISPUTED,
+            actorUserId = settings.cloudUserId,
+            actorName = settings.payeeName.ifBlank { "You" },
+            summaryText = "Dispute rejected by lender (${reason.ifBlank { "Dispute rejected" }})"
+        )
+
+        val linkId = if (tx.shareToken.isNotBlank()) GuestWebCloudRepository.sha256Hex(tx.shareToken) else ""
+        if (linkId.isNotBlank()) {
+            val firestore = getFirestore()
+            if (firestore != null) {
+                try {
+                    withTimeoutOrNull(3000L) {
+                        runCatching {
+                            firestore.collection("guestLinks").document(linkId)
+                                .collection("actions").document("DISPUTE")
+                                .update(
+                                    mapOf(
+                                        "status" to "REJECTED",
+                                        "rejectReason" to reason.ifBlank { "Dispute rejected" },
+                                        "reviewedAtMs" to System.currentTimeMillis()
+                                    )
+                                ).await()
+                        }
+                        runCatching {
+                            firestore.collection("guestLinks").document(linkId)
+                                .collection("actions").document("DISPUTE")
+                                .delete().await()
+                        }
+                    }
+                } catch (e: Exception) {
+                    SafeLogger.w("GuestWebRepo", "Firestore update failed on rejectDispute: ${e.message}")
+                }
+            }
+        }
         return true
     }
 
@@ -281,18 +607,20 @@ open class GuestWebRepository @Inject constructor(
 
     suspend fun fetchPaymentClaimProof(linkId: String): Pair<String, String>? {
         if (linkId.isBlank()) return null
-        val firestore = FirebaseModule.getFirestore(context) ?: return null
+        val firestore = getFirestore() ?: return null
         return try {
-            val doc = firestore.collection("guestLinks").document(linkId)
-                .collection("actions").document("CLAIM_PAYMENT")
-                .collection("proof").document("image")
-                .get()
-                .await()
-            if (doc.exists()) {
-                val b64 = doc.getString("dataB64") ?: return null
-                val mime = doc.getString("mime") ?: "image/webp"
-                Pair(mime, b64)
-            } else null
+            withTimeoutOrNull(3000L) {
+                val doc = firestore.collection("guestLinks").document(linkId)
+                    .collection("actions").document("CLAIM_PAYMENT")
+                    .collection("proof").document("image")
+                    .get()
+                    .await()
+                if (doc.exists()) {
+                    val b64 = doc.getString("dataB64") ?: return@withTimeoutOrNull null
+                    val mime = doc.getString("mime") ?: "image/webp"
+                    Pair(mime, b64)
+                } else null
+            }
         } catch (e: Exception) {
             SafeLogger.e("GuestWebRepo", "Failed to fetch proof: ${e.javaClass.simpleName}")
             null
@@ -343,14 +671,16 @@ open class GuestWebRepository @Inject constructor(
 
         // Delete cloud proof doc to free quota
         if (linkId.isNotBlank()) {
-            val firestore = FirebaseModule.getFirestore(ctx)
+            val firestore = getFirestore()
             if (firestore != null) {
                 try {
-                    firestore.collection("guestLinks").document(linkId)
-                        .collection("actions").document("CLAIM_PAYMENT")
-                        .collection("proof").document("image")
-                        .delete()
-                        .await()
+                    withTimeoutOrNull(3000L) {
+                        firestore.collection("guestLinks").document(linkId)
+                            .collection("actions").document("CLAIM_PAYMENT")
+                            .collection("proof").document("image")
+                            .delete()
+                            .await()
+                    }
                 } catch (e: Exception) {
                     SafeLogger.w("GuestWebRepo", "Failed to delete cloud proof doc: ${e.javaClass.simpleName}")
                 }

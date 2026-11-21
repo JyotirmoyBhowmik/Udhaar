@@ -486,6 +486,10 @@ class UdhaarViewModel(
         verificationViewModel.declineDateProposal(transactionId, reason)
     fun suggestCounterDate(transactionId: Long, newDateMillis: Long) =
         verificationViewModel.suggestCounterDate(transactionId, newDateMillis)
+    fun acceptConfirmation(transactionId: Long) =
+        verificationViewModel.acceptConfirmation(transactionId)
+    fun rejectDispute(transactionId: Long, reason: String = "Dispute rejected") =
+        verificationViewModel.rejectDispute(transactionId, reason)
     fun revokeAllWebLinks() =
         verificationViewModel.revokeAllGuestLinks()
 

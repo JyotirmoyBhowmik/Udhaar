@@ -262,6 +262,21 @@ class VerificationViewModel @Inject constructor(
         }
     }
 
+    fun acceptConfirmation(transactionId: Long) {
+        viewModelScope.launch {
+            val ok = guestWebRepository.acceptConfirmation(transactionId)
+            if (ok) {
+                appStateHolder.setSuccessAnimation(SuccessAnimationEvent(message = "Record confirmed"))
+            }
+        }
+    }
+
+    fun rejectDispute(transactionId: Long, reason: String = "Dispute rejected") {
+        viewModelScope.launch {
+            guestWebRepository.rejectDispute(transactionId, reason)
+        }
+    }
+
     fun handleIncomingDeepLinkOrToken(
         urlOrToken: String,
         targetPartyId: Long? = null

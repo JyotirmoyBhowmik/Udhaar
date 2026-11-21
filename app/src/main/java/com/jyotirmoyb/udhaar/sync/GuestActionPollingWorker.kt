@@ -11,10 +11,13 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
-import com.google.firebase.firestore.FirebaseFirestore
+import com.jyotirmoyb.udhaar.data.GuestActionV1
+import com.jyotirmoyb.udhaar.data.PaymentMode
 import com.jyotirmoyb.udhaar.data.UdhaarDatabase
-import com.jyotirmoyb.udhaar.data.VerificationStatus
 import com.jyotirmoyb.udhaar.data.cloud.GuestWebCloudRepository
+import com.jyotirmoyb.udhaar.di.FirebaseModule
+import com.jyotirmoyb.udhaar.notification.GuestActionNotificationHelper
+import com.jyotirmoyb.udhaar.util.SafeLogger
 import kotlinx.coroutines.tasks.await
 import org.json.JSONArray
 import org.json.JSONObject
@@ -23,13 +26,14 @@ import java.util.concurrent.TimeUnit
 /**
  * Spark Plan Phase 5 (`SP-5`): `GuestActionPollingWorker`.
  *
- * Polls `/guestLinks/{linkId}/actions/{actionId}` using a Firestore collection-group query
- * filtered by `ownerUid == currentUser.uid`:
- *   `firestore.collectionGroup("actions").whereEqualTo("ownerUid", uid).get()`
+ * Polls `/guestLinks/{linkId}/actions/{actionId}` for active links owned by the current user:
+ *   `firestore.collection("guestLinks").whereEqualTo("ownerUid", uid).limit(50)`
  *
- * Deduplicates discovered actions locally and applies them to the matching local Room
- * `UdhaarTransaction` so the lender sees confirmations, disputes, payment claims, and
- * proposed repayment dates in `UpdatesScreen` and transaction details.
+ * Actions are parsed through `GuestActionV1`. Invalid payloads are marked REJECTED with
+ * `rejectReason = "invalid_payload"` on Firestore and never applied locally.
+ *
+ * Staged proposals are deduplicated and recorded in Room without modifying core ledger state
+ * until explicitly accepted by the lender.
  */
 class GuestActionPollingWorker(
     appContext: Context,
@@ -43,7 +47,7 @@ class GuestActionPollingWorker(
             null
         } ?: return Result.success()
 
-        if (!currentUser.isEmailVerified) {
+        if (!currentUser.isEmailVerified && !currentUser.isAnonymous) {
             return Result.success()
         }
 
@@ -51,174 +55,64 @@ class GuestActionPollingWorker(
         if (ownerUid.isBlank()) return Result.success()
 
         return try {
-            val firestore = com.jyotirmoyb.udhaar.di.FirebaseModule.getFirestore(applicationContext)
+            // 1. Process any pending cloud sync retries from local outbox
+            processPendingCloudSyncOutbox(applicationContext)
+
+            val firestore = FirebaseModule.getFirestore(applicationContext)
                 ?: return Result.success()
 
-            val actionDocs = mutableListOf<DocumentSnapshot>()
-            try {
-                // Spark Mode: Lender lists up to 50 of their own guestLinks, then queries each link's /actions
-                val linksSnapshot = firestore.collection("guestLinks")
-                    .whereEqualTo("ownerUid", ownerUid)
-                    .limit(50)
+            // 2. Query the lender's ACTIVE links (limit 50 as permitted by rules)
+            val linksSnapshot = firestore.collection("guestLinks")
+                .whereEqualTo("ownerUid", ownerUid)
+                .limit(50)
+                .get()
+                .await()
+
+            val now = System.currentTimeMillis()
+            val activeLinks = linksSnapshot.documents.filter { doc ->
+                val status = doc.getString("status")
+                val expiresAtMs = doc.getLong("expiresAtMs") ?: Long.MAX_VALUE
+                status == "ACTIVE" && expiresAtMs > now
+            }
+
+            // 3. For each active link, query actions where status == "PENDING"
+            for (linkDoc in activeLinks) {
+                val actionsSnap = linkDoc.reference.collection("actions")
+                    .whereEqualTo("status", "PENDING")
                     .get()
                     .await()
-                for (linkDoc in linksSnapshot.documents) {
-                    val actionsSnap = linkDoc.reference.collection("actions").get().await()
-                    actionDocs.addAll(actionsSnap.documents)
-                }
-            } catch (e: Exception) {
-                // Fallback attempt with collectionGroup (e.g. if Blaze rules are active)
-                try {
-                    val cgSnapshot = firestore.collectionGroup("actions")
-                        .whereEqualTo("ownerUid", ownerUid)
-                        .get()
-                        .await()
-                    actionDocs.addAll(cgSnapshot.documents)
-                } catch (_: Exception) {
-                    // Ignored
+
+                for (doc in actionsSnap.documents) {
+                    val action = GuestActionV1.fromDocument(doc)
+                    if (action == null) {
+                        // Invalid document: mark REJECTED with rejectReason "invalid_payload"
+                        runCatching {
+                            doc.reference.update(
+                                mapOf(
+                                    "status" to "REJECTED",
+                                    "rejectReason" to "invalid_payload",
+                                    "reviewedAtMs" to System.currentTimeMillis()
+                                )
+                            ).await()
+                        }
+                        continue
+                    }
+
+                    processSingleAction(
+                        context = applicationContext,
+                        action = action,
+                        ownerUid = ownerUid
+                    )
                 }
             }
 
             val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val processedIds = prefs.getStringSet(KEY_PROCESSED_ACTION_IDS, emptySet())
-                ?.toMutableSet() ?: mutableSetOf()
-            val existingJson = prefs.getString(KEY_PENDING_ACTIONS_JSON, "[]") ?: "[]"
-            val pendingArray = runCatching { JSONArray(existingJson) }.getOrElse { JSONArray() }
-
-            val dao = runCatching {
-                UdhaarDatabase.getInstance(applicationContext).udhaarDao()
-            }.getOrNull()
-            val allTransactions = runCatching {
-                dao?.getAllTransactionsSnapshot().orEmpty()
-            }.getOrDefault(emptyList())
-
-            var newlyDiscovered = 0
-            for (doc in actionDocs) {
-                val linkId = doc.getString("linkId")
-                    ?: doc.reference.parent.parent?.id
-                    ?: continue
-                val actionId = doc.id
-                val compositeKey = "$linkId/$actionId"
-                if (processedIds.contains(compositeKey)) continue
-
-                val actionType = doc.getString("actionType")
-                    ?: doc.getString("type")
-                    ?: inferActionType(actionId)
-                val recordIdStr = doc.getString("recordId")
-                val reason = doc.getString("reason") ?: doc.getString("note") ?: ""
-                val utrLast4 = doc.getString("utrLast4") ?: doc.getString("utrSuffix") ?: ""
-                val referenceNumber = doc.getString("referenceNumber") ?: (if (utrLast4.isNotBlank()) "UTR *$utrLast4" else "")
-                val paymentMode = doc.getString("paymentMode") ?: "UPI"
-                val hasProof = doc.getBoolean("hasProof") ?: false
-                val amountPaise = doc.getLong("amountPaise") ?: doc.getLong("claimedAmountPaise") ?: 0L
-                val proposedDateMs = doc.getLong("proposedDateMs") ?: doc.getLong("proposedDueDateMillis") ?: 0L
-                val createdAtMs = doc.getLong("createdAtMs") ?: System.currentTimeMillis()
-
-                val actionObj = JSONObject().apply {
-                    put("compositeKey", compositeKey)
-                    put("linkId", linkId)
-                    put("actionId", actionId)
-                    put("actionType", actionType)
-                    put("ownerUid", ownerUid)
-                    put("recordId", recordIdStr ?: "")
-                    put("reason", reason)
-                    put("utrLast4", utrLast4)
-                    put("referenceNumber", referenceNumber)
-                    put("paymentMode", paymentMode)
-                    put("hasProof", hasProof)
-                    put("amountPaise", amountPaise)
-                    put("proposedDateMs", proposedDateMs)
-                    put("createdAtMs", createdAtMs)
-                }
-                pendingArray.put(actionObj)
-                processedIds.add(compositeKey)
-                newlyDiscovered++
-
-                // Match local transaction by shareToken hash, remoteId, or id
-                if (dao != null) {
-                    val matchedTx = allTransactions.firstOrNull { tx ->
-                        (tx.shareToken.isNotBlank() && GuestWebCloudRepository.sha256Hex(tx.shareToken) == linkId) ||
-                            (recordIdStr != null && (tx.remoteId == recordIdStr || tx.id.toString() == recordIdStr))
-                    } ?: run {
-                        val linkDoc = runCatching {
-                            firestore.collection("guestLinks").document(linkId).get().await()
-                        }.getOrNull()
-                        val resolvedRecordId = linkDoc?.getString("recordId")
-                        allTransactions.firstOrNull { tx ->
-                            resolvedRecordId != null && (tx.remoteId == resolvedRecordId || tx.id.toString() == resolvedRecordId)
-                        }
-                    }
-
-                    if (matchedTx != null) {
-                        val updatedTx = when (actionType.uppercase()) {
-                            "CONFIRM" -> matchedTx.copy(
-                                verificationStatus = VerificationStatus.CONFIRMED,
-                                verifiedAtMillis = createdAtMs,
-                                lastGuestAction = "CONFIRMED"
-                            )
-                            "DISPUTE" -> matchedTx.copy(
-                                verificationStatus = VerificationStatus.DISPUTED,
-                                disputeReason = reason.ifBlank { "Disputed via web link" },
-                                lastGuestAction = "DISPUTED"
-                            )
-                            "CLAIM_PAYMENT" -> {
-                                val claimJson = JSONObject().apply {
-                                    put("amountPaise", amountPaise)
-                                    put("dateMillis", createdAtMs)
-                                    put("paymentMode", paymentMode)
-                                    put("reference", referenceNumber)
-                                    put("note", reason)
-                                    put("hasProof", hasProof)
-                                    put("linkId", linkId)
-                                    put("actionId", actionId)
-                                }.toString()
-                                matchedTx.copy(
-                                    pendingPaymentClaim = claimJson,
-                                    lastGuestAction = "PAYMENT_CLAIMED"
-                                )
-                            }
-                            "PROPOSE_DATE" -> {
-                                val proposalJson = JSONObject().apply {
-                                    put("proposedDateMillis", proposedDateMs)
-                                    put("message", reason.ifBlank { "Proposed new due date via web link" })
-                                }.toString()
-                                matchedTx.copy(
-                                    pendingDateProposal = proposalJson,
-                                    lastGuestAction = "DATE_PROPOSED"
-                                )
-                            }
-                            else -> matchedTx
-                        }
-                        dao.updateTransaction(updatedTx)
-                    }
-                }
-            }
-
-            if (newlyDiscovered > 0) {
-                prefs.edit()
-                    .putStringSet(KEY_PROCESSED_ACTION_IDS, processedIds)
-                    .putString(KEY_PENDING_ACTIONS_JSON, pendingArray.toString())
-                    .putLong(KEY_LAST_POLL_MS, System.currentTimeMillis())
-                    .apply()
-            } else {
-                prefs.edit()
-                    .putLong(KEY_LAST_POLL_MS, System.currentTimeMillis())
-                    .apply()
-            }
+            prefs.edit().putLong(KEY_LAST_POLL_MS, System.currentTimeMillis()).apply()
 
             Result.success()
         } catch (e: Exception) {
+            SafeLogger.w("GuestActionPollingWorker", "Poll failed: ${e.message}")
             if (runAttemptCount < 3) Result.retry() else Result.failure()
-        }
-    }
-
-    private fun inferActionType(actionId: String): String {
-        return when {
-            actionId == "confirm" -> "CONFIRM"
-            actionId == "dispute" -> "DISPUTE"
-            actionId.startsWith("claim_") -> "CLAIM_PAYMENT"
-            actionId.startsWith("date_") -> "PROPOSE_DATE"
-            else -> "CONFIRM"
         }
     }
 
@@ -230,14 +124,176 @@ class GuestActionPollingWorker(
         const val KEY_PENDING_ACTIONS_JSON = "pending_actions_json"
         const val KEY_LAST_POLL_MS = "last_poll_ms"
 
+        suspend fun processSingleAction(
+            context: Context,
+            action: GuestActionV1,
+            ownerUid: String
+        ): Boolean {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val processedIds = prefs.getStringSet(KEY_PROCESSED_ACTION_IDS, emptySet())
+                ?.toMutableSet() ?: mutableSetOf()
+
+            val compositeKey = action.compositeKey
+            if (processedIds.contains(compositeKey)) return false
+
+            val dao = runCatching {
+                UdhaarDatabase.getInstance(context).udhaarDao()
+            }.getOrNull() ?: return false
+
+            val allTransactions = dao.getAllTransactionsSnapshot()
+
+            val linkId = action.linkId
+            val matchedTx = allTransactions.firstOrNull { tx ->
+                (tx.shareToken.isNotBlank() && GuestWebCloudRepository.sha256Hex(tx.shareToken) == linkId)
+            } ?: run {
+                val firestore = FirebaseModule.getFirestore(context)
+                val linkDoc = runCatching {
+                    firestore?.collection("guestLinks")?.document(linkId)?.get()?.await()
+                }.getOrNull()
+                val resolvedRecordId = linkDoc?.getString("recordId")
+                allTransactions.firstOrNull { tx ->
+                    resolvedRecordId != null && (tx.remoteId == resolvedRecordId || tx.id.toString() == resolvedRecordId)
+                }
+            }
+
+            if (matchedTx == null) return false
+
+            val updatedTx = when (action) {
+                is GuestActionV1.Confirm -> {
+                    matchedTx.copy(
+                        lastGuestAction = "CONFIRM_PENDING"
+                    )
+                }
+                is GuestActionV1.Dispute -> {
+                    matchedTx.copy(
+                        disputeReason = action.reason.ifBlank { "Disputed via web link" },
+                        lastGuestAction = "DISPUTE"
+                    )
+                }
+                is GuestActionV1.ProposeDate -> {
+                    val proposalJson = JSONObject().apply {
+                        put("proposedDateMillis", action.proposedDateMs)
+                        put("message", action.reason.ifBlank { "Proposed new due date via web link" })
+                    }.toString()
+                    matchedTx.copy(
+                        pendingDateProposal = proposalJson,
+                        lastGuestAction = "DATE_PROPOSED"
+                    )
+                }
+                is GuestActionV1.ClaimPayment -> {
+                    val claimJson = JSONObject().apply {
+                        put("amountPaise", action.amountPaise)
+                        put("dateMillis", action.createdAtMs)
+                        // [LEGACY-DISABLED START] reason: hardcoded fallback obscured invalid guest action payloads | restore: remove marker if legacy un-typed fallback is ever needed
+                        // put("paymentMode", "UPI")
+                        // [LEGACY-DISABLED END]
+                        put("paymentMode", action.paymentMode.name)
+                        put("reference", action.referenceNumber)
+                        put("note", action.note)
+                        put("hasProof", action.hasProof)
+                        put("linkId", action.linkId)
+                        put("actionId", action.actionId)
+                    }.toString()
+                    matchedTx.copy(
+                        pendingPaymentClaim = claimJson,
+                        lastGuestAction = "PAYMENT_CLAIMED"
+                    )
+                }
+            }
+
+            dao.updateTransaction(updatedTx)
+
+            // Local notification (no FCM server required)
+            GuestActionNotificationHelper.showPendingActionNotification(
+                context = context,
+                action = action,
+                partyName = matchedTx.partyName,
+                currency = matchedTx.currency,
+                transactionId = matchedTx.id
+            )
+
+            processedIds.add(compositeKey)
+            prefs.edit()
+                .putStringSet(KEY_PROCESSED_ACTION_IDS, processedIds)
+                .apply()
+
+            return true
+        }
+
+        suspend fun processPendingCloudSyncOutbox(context: Context) {
+            val db = runCatching { UdhaarDatabase.getInstance(context) }.getOrNull() ?: return
+            val outboxDao = db.syncOutboxDao()
+            val firestore = FirebaseModule.getFirestore(context) ?: return
+
+            val pendingSyncs = runCatching {
+                outboxDao.getPendingMutations().filter { it.entity == "guest_action_sync" }
+            }.getOrDefault(emptyList())
+
+            for (entry in pendingSyncs) {
+                try {
+                    val payload = JSONObject(entry.payloadJson)
+                    val linkId = payload.getString("linkId")
+                    val actionId = payload.getString("actionId")
+                    val paidPaise = payload.getLong("paidPaise")
+                    val payableAmountPaise = payload.getLong("payableAmountPaise")
+
+                    // Update action status=ACCEPTED
+                    runCatching {
+                        firestore.collection("guestLinks").document(linkId)
+                            .collection("actions").document(actionId)
+                            .update(
+                                mapOf(
+                                    "status" to "ACCEPTED",
+                                    "reviewedAtMs" to System.currentTimeMillis()
+                                )
+                            ).await()
+                    }
+
+                    // Update link balances
+                    firestore.collection("guestLinks").document(linkId)
+                        .update(
+                            mapOf(
+                                "paidPaise" to paidPaise,
+                                "payableAmountPaise" to payableAmountPaise,
+                                "updatedAtMs" to System.currentTimeMillis()
+                            )
+                        ).await()
+
+                    // Cleanup: delete action doc and proof doc to free quota
+                    runCatching {
+                        firestore.collection("guestLinks").document(linkId)
+                            .collection("actions").document(actionId)
+                            .collection("proof").document("image")
+                            .delete().await()
+                    }
+                    runCatching {
+                        firestore.collection("guestLinks").document(linkId)
+                            .collection("actions").document(actionId)
+                            .delete().await()
+                    }
+
+                    outboxDao.deleteById(entry.id)
+                } catch (e: Exception) {
+                    outboxDao.update(
+                        entry.copy(
+                            attempts = entry.attempts + 1,
+                            status = "FAILED",
+                            nextRetryAtMs = System.currentTimeMillis() + 15 * 60 * 1000L
+                        )
+                    )
+                }
+            }
+        }
+
         fun enqueuePeriodicPolling(context: Context) {
             runCatching {
                 val constraints = Constraints.Builder()
                     .setRequiredNetworkType(NetworkType.CONNECTED)
                     .build()
 
+                // Minimum WorkManager periodic interval is 15 minutes
                 val request = PeriodicWorkRequestBuilder<GuestActionPollingWorker>(
-                    6, TimeUnit.HOURS
+                    15, TimeUnit.MINUTES
                 )
                     .setConstraints(constraints)
                     .build()

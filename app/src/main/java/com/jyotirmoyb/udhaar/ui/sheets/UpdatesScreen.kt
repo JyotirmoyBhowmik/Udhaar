@@ -84,6 +84,8 @@ fun UpdatesScreen(
     onDeclineDateProposal: (transactionId: Long, reason: String) -> Unit,
     onSuggestCounterDate: (transactionId: Long, newDateMillis: Long) -> Unit,
     onOpenTransactionDetail: (transactionId: Long) -> Unit,
+    onAcceptConfirmation: (transactionId: Long) -> Unit = {},
+    onRejectDispute: (transactionId: Long, reason: String) -> Unit = { _, _ -> },
     onDismiss: () -> Unit
 ) {
     var suggestingCounterDateTxId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -383,8 +385,133 @@ fun UpdatesScreen(
                                         }
                                     }
 
+                                    // Action 3: Pending Confirmation Request
+                                    if (tx.lastGuestAction == "CONFIRM_PENDING") {
+                                        Surface(
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = MaterialTheme.colorScheme.surface,
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Column(modifier = Modifier.padding(10.dp)) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(
+                                                        Icons.Default.CheckCircle,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = stringResource(R.string.inbox_borrower_confirmed_title, tx.partyName),
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = stringResource(R.string.inbox_borrower_confirmed_sub),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                Spacer(modifier = Modifier.height(10.dp))
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    Button(
+                                                        onClick = { onAcceptConfirmation(tx.id) },
+                                                        modifier = Modifier
+                                                            .weight(1f)
+                                                            .heightIn(min = 48.dp)
+                                                            .testTag("btn_accept_confirm_${tx.id}"),
+                                                        shape = RoundedCornerShape(8.dp)
+                                                    ) {
+                                                        Text(stringResource(R.string.btn_accept), style = MaterialTheme.typography.labelSmall)
+                                                    }
+                                                    OutlinedButton(
+                                                        onClick = { onRejectPaymentClaim(tx.id, "Confirmation declined") },
+                                                        modifier = Modifier
+                                                            .weight(1f)
+                                                            .heightIn(min = 48.dp)
+                                                            .testTag("btn_decline_confirm_${tx.id}"),
+                                                        shape = RoundedCornerShape(8.dp)
+                                                    ) {
+                                                        Text(stringResource(R.string.btn_decline), style = MaterialTheme.typography.labelSmall)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Action 4: Dispute / Reported Problem
+                                    if (tx.lastGuestAction == "DISPUTE" || tx.verificationStatus == com.jyotirmoyb.udhaar.data.VerificationStatus.DISPUTED) {
+                                        Surface(
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = MaterialTheme.colorScheme.surface,
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Column(modifier = Modifier.padding(10.dp)) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(
+                                                        Icons.Default.Warning,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.error,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = stringResource(R.string.inbox_problem_reported_title, tx.partyName),
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = MaterialTheme.colorScheme.error
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = tx.disputeReason.ifBlank { stringResource(R.string.status_badge_disputed) },
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                                Spacer(modifier = Modifier.height(10.dp))
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    Button(
+                                                        onClick = {
+                                                            onOpenTransactionDetail(tx.id)
+                                                            onDismiss()
+                                                        },
+                                                        modifier = Modifier
+                                                            .weight(1f)
+                                                            .heightIn(min = 48.dp)
+                                                            .testTag("btn_edit_dispute_${tx.id}"),
+                                                        shape = RoundedCornerShape(8.dp)
+                                                    ) {
+                                                        Text(stringResource(R.string.ui_str_edit_17865b), style = MaterialTheme.typography.labelSmall)
+                                                    }
+                                                    OutlinedButton(
+                                                        onClick = { onRejectDispute(tx.id, "Dispute rejected") },
+                                                        modifier = Modifier
+                                                            .weight(1f)
+                                                            .heightIn(min = 48.dp)
+                                                            .testTag("btn_reject_dispute_${tx.id}"),
+                                                        shape = RoundedCornerShape(8.dp),
+                                                        colors = ButtonDefaults.outlinedButtonColors(
+                                                            contentColor = MaterialTheme.colorScheme.error
+                                                        )
+                                                    ) {
+                                                        Text(stringResource(R.string.btn_reject_dispute), style = MaterialTheme.typography.labelSmall)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
                                     // Status Summary line
-                                    if (tx.lastGuestAction.isNotBlank() && claim == null && dateProposal == null) {
+                                    if (tx.lastGuestAction.isNotBlank() && claim == null && dateProposal == null && tx.lastGuestAction != "CONFIRM_PENDING" && tx.lastGuestAction != "DISPUTE" && tx.verificationStatus != com.jyotirmoyb.udhaar.data.VerificationStatus.DISPUTED) {
                                         Text(
                                             text = when (tx.lastGuestAction) {
                                                 "CONFIRMED" -> "✓ Confirmed by ${tx.partyName}"

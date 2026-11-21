@@ -68,6 +68,7 @@ open class MainActivity : FragmentActivity() {
     private var pendingChatTransactionId by mutableStateOf<Long?>(null)
     private var pendingChatPartyName by mutableStateOf<String?>(null)
     private var pendingRemoteRecordId by mutableStateOf<String?>(null)
+    private var pendingShowUpdates by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -76,6 +77,7 @@ open class MainActivity : FragmentActivity() {
         TelemetryManager.setConsent(applicationContext, enabled = false)
         ReminderReceiver.ensureNotificationChannel(this)
         ChatNotificationHelper.ensureNotificationChannel(this)
+        com.jyotirmoyb.udhaar.notification.GuestActionNotificationHelper.ensureNotificationChannel(this)
         extractIntentPayloads(intent)
 
         val repo = if (::injectedRepository.isInitialized) {
@@ -145,11 +147,29 @@ open class MainActivity : FragmentActivity() {
                             }
                         }
 
+                        val shouldShowUpdates = pendingShowUpdates
+                        LaunchedEffect(shouldShowUpdates) {
+                            if (shouldShowUpdates) {
+                                viewModel.openUpdatesScreen()
+                                pendingShowUpdates = false
+                            }
+                        }
+
                         UdhaarApp(viewModel = viewModel)
                     }
                 }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        com.jyotirmoyb.udhaar.sync.ForegroundGuestActionListener.start(this)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        com.jyotirmoyb.udhaar.sync.ForegroundGuestActionListener.stop()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -165,6 +185,10 @@ open class MainActivity : FragmentActivity() {
         }
         val chatKey = intent?.getStringExtra(ChatNotificationHelper.EXTRA_CHAT_THREAD_KEY)
         val remoteRecId = intent?.getStringExtra(ChatNotificationHelper.EXTRA_REMOTE_RECORD_ID)
+        val showUpdates = intent?.getBooleanExtra(com.jyotirmoyb.udhaar.notification.GuestActionNotificationHelper.EXTRA_SHOW_UPDATES, false) ?: false
+        if (showUpdates) {
+            pendingShowUpdates = true
+        }
         if (!chatKey.isNullOrBlank() || !remoteRecId.isNullOrBlank()) {
             pendingChatThreadKey = chatKey
             pendingRemoteRecordId = remoteRecId

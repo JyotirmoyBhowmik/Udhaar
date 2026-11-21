@@ -823,6 +823,12 @@
     <string name="btn_retry">Retry</string>
     <string name="inbox_proof_image_attached">Proof image attached</string>
     <string name="inbox_view_record_detail">View Record Detail →</string>
+    <string name="inbox_borrower_confirmed_title">%1$s confirmed this record</string>
+    <string name="inbox_borrower_confirmed_sub">Borrower verified all terms and details via web link.</string>
+    <string name="inbox_problem_reported_title">%1$s reported a problem</string>
+    <string name="btn_reject_dispute">Reject problem report</string>
+    <string name="ack_via_private_link">Acknowledged via private link</string>
+    <string name="ack_via_google">Acknowledged via Google</string>
     <string name="days_count">%1$d Days</string>
     <string name="btn_qr_app_link">QR / App Link</string>
     <string name="settings_default_link_expiry">Default Link Expiry</string>

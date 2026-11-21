@@ -206,6 +206,8 @@ internal fun UdhaarOverlaysHost(
             onDeclineDateProposal = viewModel::declineDateProposal,
             onSuggestCounterDate = viewModel::suggestCounterDate,
             onOpenTransactionDetail = viewModel::openTransactionDetail,
+            onAcceptConfirmation = viewModel::acceptConfirmation,
+            onRejectDispute = viewModel::rejectDispute,
             onDismiss = viewModel::closeUpdatesScreen
         )
     }

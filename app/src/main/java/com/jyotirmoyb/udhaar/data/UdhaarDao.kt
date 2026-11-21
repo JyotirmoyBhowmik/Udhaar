@@ -195,6 +195,12 @@ interface UdhaarDao {
     @Query("DELETE FROM attachments WHERE id = :id")
     suspend fun deleteAttachmentById(id: Long)
 
+    @Query("SELECT * FROM attachments WHERE id = :id LIMIT 1")
+    suspend fun getAttachmentById(id: Long): Attachment?
+
+    @Update
+    suspend fun updateAttachment(attachment: Attachment)
+
     @Query("SELECT * FROM attachments WHERE transactionId = :transactionId ORDER BY addedAtMillis ASC")
     fun getAttachmentsForTransaction(transactionId: Long): Flow<List<Attachment>>
 
@@ -356,6 +362,52 @@ interface UdhaarDao {
         deleteAllInstallmentPlans()
         deleteAllTransactions()
         deleteAllParties()
+    }
+
+    @Transaction
+    suspend fun applyGuestPaymentClaimAtomic(
+        transactionId: Long,
+        payment: PartialPayment,
+        proofAttachmentId: Long? = null,
+        auditEntry: AuditTrailEntry
+    ): Long {
+        val tx = getTransactionById(transactionId)
+            ?: throw IllegalStateException("Transaction not found for ID: $transactionId")
+
+        // Idempotency: never double-apply
+        val existing = getPartialPaymentsForTransactionSnapshot(transactionId)
+        val alreadyApplied = existing.firstOrNull {
+            (payment.remotePaymentId.isNotBlank() && it.remotePaymentId == payment.remotePaymentId) ||
+            (payment.syncId.isNotBlank() && it.syncId == payment.syncId)
+        }
+        if (alreadyApplied != null) {
+            return alreadyApplied.id
+        }
+
+        val insertedPaymentId = insertPartialPayment(payment.copy(transactionId = transactionId))
+
+        if (proofAttachmentId != null && proofAttachmentId > 0L) {
+            val attachment = getAttachmentById(proofAttachmentId)
+            if (attachment != null) {
+                updateAttachment(attachment.copy(paymentId = insertedPaymentId))
+            }
+        }
+
+        val allPayments = getPartialPaymentsForTransactionSnapshot(transactionId)
+        val totalPaidPaise = allPayments.sumOf { it.amountPaise }
+        val isSettled = totalPaidPaise >= tx.principalAmountPaise && tx.principalAmountPaise > 0L
+        val updatedTx = tx.copy(
+            amountPaidPaise = totalPaidPaise,
+            isSettled = isSettled,
+            settledAtMillis = if (isSettled) System.currentTimeMillis() else tx.settledAtMillis,
+            pendingPaymentClaim = "",
+            lastGuestAction = "PAYMENT_CONFIRMED"
+        )
+        updateTransaction(updatedTx)
+
+        insertAuditTrailEntry(auditEntry.copy(transactionId = transactionId))
+
+        return insertedPaymentId
     }
 }
 
