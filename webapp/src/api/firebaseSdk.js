@@ -5,6 +5,8 @@
  * `firebase` npm package (zero CDN dependencies, zero `window.__udhaarFirebaseAuth` dependency).
  */
 
+const FIRESTORE_DATABASE_ID = "ai-studio-android-udhaar-42622035-52d2-4bfb-8070-8962975a82cf";
+
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyBnlNuS6il5y53n4fUfICJSd3mtmAS-WiM",
   authDomain: "gen-lang-client-0216629575.firebaseapp.com",
@@ -73,14 +75,18 @@ function initFirebaseSdk(options = {}) {
     } catch (_) {}
   }
 
+  const isEmulatorEnv = _isEmulatorEnvironment(options);
+
   if (!_firestoreInstance && typeof sdk.getFirestore === "function") {
     try {
-      _firestoreInstance = sdk.getFirestore(_appInstance);
+      const dbId = options.databaseId || (isEmulatorEnv ? "" : FIRESTORE_DATABASE_ID);
+      _firestoreInstance = dbId
+        ? sdk.getFirestore(_appInstance, dbId)
+        : sdk.getFirestore(_appInstance);
     } catch (_) {}
   }
 
   // Initialise App Check in browser environments (skip on emulator unless explicitly requested)
-  const isEmulatorEnv = _isEmulatorEnvironment(options);
   if (
     !_appCheckInstance &&
     !isEmulatorEnv &&

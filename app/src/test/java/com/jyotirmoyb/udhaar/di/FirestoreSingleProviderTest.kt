@@ -43,21 +43,24 @@ class FirestoreSingleProviderTest {
     }
 
     @Test
-    fun firebaseModule_providesDefaultDatabaseInstance() {
+    fun firebaseModule_providesConfiguredDatabaseInstance() {
         val app = FirebaseApp.getInstance()
+        val expectedDbId = context.getString(com.jyotirmoyb.udhaar.R.string.firestore_database_id)
         val firestoreFromProvider = FirebaseModule.provideFirebaseFirestore(app, context)
         assertNotNull("FirebaseModule must provide non-null Firestore instance", firestoreFromProvider)
 
         val firestoreFromAccessor = FirebaseModule.getFirestore(context)
         assertNotNull("FirebaseModule.getFirestore() must provide non-null Firestore instance", firestoreFromAccessor)
 
-        // Under Spark free tier, only the (default) database is used
         val databaseId = runCatching {
             val field = firestoreFromProvider?.javaClass?.declaredFields?.firstOrNull { it.name == "databaseId" }
             field?.isAccessible = true
-            field?.get(firestoreFromProvider)?.toString() ?: "(default)"
-        }.getOrDefault("(default)")
-        assertTrue("Database ID must be (default): $databaseId", databaseId.contains("default"))
+            field?.get(firestoreFromProvider)?.toString() ?: ""
+        }.getOrDefault("")
+        assertTrue(
+            "Database ID must match configured firestore_database_id ($expectedDbId): $databaseId",
+            databaseId.contains(expectedDbId)
+        )
     }
 
     @Test

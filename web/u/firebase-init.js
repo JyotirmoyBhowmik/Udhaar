@@ -5,6 +5,8 @@
  * No other web code may initialize or retrieve a Firestore instance directly.
  */
 
+const FIRESTORE_DATABASE_ID = "ai-studio-android-udhaar-42622035-52d2-4bfb-8070-8962975a82cf";
+
 const FIREBASE_GUEST_CONFIG = {
   apiKey: "AIzaSyBnlNuS6il5y53n4fUfICJSd3mtmAS-WiM",
   authDomain: "gen-lang-client-0216629575.firebaseapp.com",
@@ -41,8 +43,16 @@ function initFirebase() {
   const app = apps.length > 0 ? apps[0] : sdk.initializeApp(FIREBASE_GUEST_CONFIG);
   const auth = typeof sdk.getAuth === "function" ? sdk.getAuth(app) : null;
 
-  // Single provider: Spark free tier covers only the "(default)" Firestore database
-  const db = typeof sdk.getFirestore === "function" ? sdk.getFirestore(app) : null;
+  const search = (typeof window !== "undefined" && window.location && window.location.search) || "";
+  const urlParams = new URLSearchParams(search);
+  const emulatorCfg = (typeof globalThis !== "undefined" && globalThis.__UDHAAR_EMULATORS__) || null;
+  const useEmulator = Boolean(emulatorCfg || urlParams.get("emulator") === "1");
+
+  // Single provider: target the project's active Spark Firestore database in production,
+  // and (default) when connected to the local Firestore emulator for tests.
+  const db = typeof sdk.getFirestore === "function"
+    ? (useEmulator ? sdk.getFirestore(app) : sdk.getFirestore(app, FIRESTORE_DATABASE_ID))
+    : null;
 
   // App Check (Free tier: reCAPTCHA v3 provider)
   if (app && typeof sdk.initializeAppCheck === "function" && typeof sdk.ReCaptchaV3Provider === "function") {
@@ -61,11 +71,6 @@ function initFirebase() {
   // [BLAZE-DISABLED START] reason: Cloud Storage unavailable on Spark free plan (calls return 402/403) | restore: Blaze: signed URLs, server-validated ownership, storage.rules in blaze_disabled/storage.rules
   // const storage = (globalThis.UDHAAR_CONFIG?.BLAZE_FEATURES_ENABLED && typeof sdk.getStorage === "function") ? sdk.getStorage(app) : null;
   // [BLAZE-DISABLED END]
-
-  const search = (typeof window !== "undefined" && window.location && window.location.search) || "";
-  const urlParams = new URLSearchParams(search);
-  const emulatorCfg = (typeof globalThis !== "undefined" && globalThis.__UDHAAR_EMULATORS__) || null;
-  const useEmulator = Boolean(emulatorCfg || urlParams.get("emulator") === "1");
 
   if (useEmulator && sdk) {
     const authHost = (emulatorCfg && emulatorCfg.authHost) || urlParams.get("authHost") || "127.0.0.1:9099";

@@ -1,9 +1,9 @@
 {
   "version": "29.0.0",
-  "timestamp": "2026-11-21T17:26:28.396Z",
+  "timestamp": "2026-11-21T18:35:15.437Z",
   "budgets": {
     "landingKb": 247.9,
-    "guestKb": 233.5
+    "guestKb": 233.8
   },
   "hashes": {
     "index.html": "40d51a4b5c",
@@ -26,7 +26,7 @@
     "u/guest.css": "8af1306852",
     "u/config.js": "cebae59aff",
     "u/actionSchema.js": "c6fd82c80b",
-    "u/firebase-init.js": "3a63711d23",
+    "u/firebase-init.js": "875271109f",
     "u/guest.js": "795971c0e6",
     "assets/idb-outbox.js": "40e9410e10",
     "assets/merkle-chain.js": "768271e6dc",

@@ -1,5 +1,6 @@
 {
   "firestore": {
+    "database": "ai-studio-android-udhaar-42622035-52d2-4bfb-8070-8962975a82cf",
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },

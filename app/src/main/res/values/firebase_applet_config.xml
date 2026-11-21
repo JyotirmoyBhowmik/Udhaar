@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <resources>
-    <!-- [BLAZE-DISABLED] unused in Spark Mode; Spark free tier covers only one database "(default)". Preserved for Blaze upgrade. -->
+    <!-- Active Firestore database ID for project gen-lang-client-0216629575 (Spark free tier single database). -->
     <string name="firestore_database_id" translatable="false">ai-studio-android-udhaar-42622035-52d2-4bfb-8070-8962975a82cf</string>
 </resources>
