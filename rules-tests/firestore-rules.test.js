@@ -7,6 +7,7 @@ const { test, before, after, beforeEach } = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
 const crypto = require("node:crypto");
+const path = require("node:path");
 
 let testEnv;
 const PROJECT_ID = "demo-udhaar-spark";
@@ -22,15 +23,18 @@ function sha256Hex(str) {
 }
 
 const [emulatorHost, emulatorPortStr] = (
-  process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8085"
+  process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080"
 ).split(":");
 const emulatorPort = parseInt(emulatorPortStr, 10);
 
 before(async () => {
+  const rulesPath = fs.existsSync("firestore.rules")
+    ? "firestore.rules"
+    : path.resolve(__dirname, "../firestore.rules");
   testEnv = await initializeTestEnvironment({
     projectId: PROJECT_ID,
     firestore: {
-      rules: fs.readFileSync("firestore.rules", "utf8"),
+      rules: fs.readFileSync(rulesPath, "utf8"),
       host: emulatorHost,
       port: emulatorPort,
     },

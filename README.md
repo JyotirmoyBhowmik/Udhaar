@@ -1,5 +1,10 @@
 # Udhaar v28.0 (Spark Mode) — Offline-First Personal Loan & Khata Platform
 
+[![Udhaar CI/CD](https://github.com/JyotirmoyBhowmik/Udhaar/actions/workflows/ci.yml/badge.svg)](https://github.com/JyotirmoyBhowmik/Udhaar/actions/workflows/ci.yml)
+[![Firebase Spark](https://img.shields.io/badge/Firebase_Plan-Spark_(Free)-039be5?logo=firebase)](docs/OPERATIONS.md)
+[![Security: SQLCipher](https://img.shields.io/badge/Security-Fail--Closed_SQLCipher-2e7d32)](docs/SECURITY.md)
+[![Google Play](https://img.shields.io/badge/Google_Play-Review_Ready-34a853?logo=googleplay)](docs/PLAY_DATA_SAFETY.md)
+
 **Udhaar** (`com.jyotirmoyb.udhaar`, `versionName = "28.0"`, `versionCode = 28`, Room Schema `v12`) is an offline-first personal loan and khata platform for Android and the Web. It tracks **Given / Owed** and **Taken / Borrowed** records across **Indian Rupees (`INR ₹`)** and **Nepalese Rupees (`NPR रू`)** in **5 languages** (`English`, `Hindi`, `Bengali`, `Assamese`, and `Nepali`) and **8 visual themes**.
 
 Udhaar runs 100% on the **Firebase Spark (Free) Tier** (`UDHAAR_TIER = "spark"`) with **zero server-side Cloud Functions, zero Secret Manager secrets, zero Cloud KMS keys, and zero Cloud Storage buckets** in production. Furthermore, unfinished cloud screens in the Android production build are gated off by default behind `BuildConfig.CLOUD_FEATURES = false` (enabled only via `-Pudhaar.cloudFeatures=true`).
@@ -192,7 +197,9 @@ To enable the two honest verification levels for web guest confirmation links wi
 ## 6. Open-Source Governance, Legal & Support Contacts
 
 - **License:** See [`LICENSE`](LICENSE) in the repository root.
+- **Operations & Spark Monitoring Runbook:** See [`docs/OPERATIONS.md`](docs/OPERATIONS.md).
 - **Security Policy & Vulnerability Reporting:** See [`SECURITY.md`](SECURITY.md).
+- **Google Play Data Safety Audit:** See [`docs/PLAY_DATA_SAFETY.md`](docs/PLAY_DATA_SAFETY.md).
 - **Contributing Guidelines:** See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - **Live Privacy Policy (5 Languages):** [`https://udhaar.jyotirmoyb.com/privacy.html`](https://udhaar.jyotirmoyb.com/privacy.html) (`web/privacy.html`)
 - **Live Terms of Service (5 Languages):** [`https://udhaar.jyotirmoyb.com/terms.html`](https://udhaar.jyotirmoyb.com/terms.html) (`web/terms.html`)

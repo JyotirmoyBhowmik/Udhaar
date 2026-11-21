@@ -1,0 +1,9 @@
+{
+  "name": "udhaar-rules-tests",
+  "version": "1.0.0",
+  "description": "Firestore Security Rules unit test suite for Udhaar Spark-mode",
+  "private": true,
+  "scripts": {
+    "test": "node --test firestore-rules.test.js"
+  }
+}

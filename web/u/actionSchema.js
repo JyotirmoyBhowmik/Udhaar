@@ -16,6 +16,82 @@
   "use strict";
 
   const ALLOWED_PAYMENT_MODES = ["UPI", "CASH", "BANK_TRANSFER"];
+  const UPI_REGEX = /^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/;
+
+  /**
+   * Validates if a string is a valid UPI VPA handle.
+   */
+  function isValidUpi(upi) {
+    if (!upi || typeof upi !== "string") return false;
+    return UPI_REGEX.test(upi.trim());
+  }
+
+  /**
+   * Masks a UPI ID for display to protect privacy (e.g. jyo***@okaxis).
+   */
+  function maskUpi(upi) {
+    if (!upi || typeof upi !== "string") return "—";
+    const trimmed = upi.trim();
+    const parts = trimmed.split("@");
+    if (parts.length !== 2) return trimmed;
+    const handle = parts[0];
+    const prov = parts[1];
+    if (handle.length <= 2) {
+      return handle + "***@" + prov;
+    }
+    return handle.substring(0, 3) + "***@" + prov;
+  }
+
+  /**
+   * Converts a rupee amount (number or string) into an integer number of paise.
+   * Throws an error on non-positive, NaN, infinite, or malformed input.
+   */
+  function rupeesToPaise(val) {
+    if (val === null || val === undefined || val === "") {
+      throw new Error("Amount is required.");
+    }
+    const num = Number(val);
+    if (isNaN(num) || !isFinite(num)) {
+      throw new Error("Invalid amount.");
+    }
+    if (num <= 0) {
+      throw new Error("Amount must be greater than zero.");
+    }
+    const paise = Math.round(num * 100);
+    if (!Number.isSafeInteger(paise) || paise <= 0) {
+      throw new Error("Amount exceeds allowable range.");
+    }
+    return paise;
+  }
+
+  /**
+   * Converts integer paise to floating rupees.
+   */
+  function paiseToRupees(paise) {
+    if (typeof paise !== "number" || !Number.isInteger(paise) || paise < 0) {
+      throw new Error("Paise must be a non-negative integer.");
+    }
+    return paise / 100;
+  }
+
+  /**
+   * Builds an RFC/NPCI compliant UPI URI intent string.
+   */
+  function buildUpiUri({ upiId, payeeName, amountPaise, note }) {
+    if (!isValidUpi(upiId)) {
+      throw new Error("Valid UPI ID is required.");
+    }
+    const cleanName = encodeURIComponent(String(payeeName || "Udhaar").trim().slice(0, 50));
+    const cleanUpi = upiId.trim();
+    let uri = `upi://pay?pa=${cleanUpi}&pn=${cleanName}&cu=INR`;
+    if (typeof amountPaise === "number" && amountPaise > 0) {
+      const amt = (amountPaise / 100).toFixed(2);
+      uri += `&am=${amt}`;
+    }
+    const cleanNote = encodeURIComponent(String(note || "Udhaar Settlement").trim().slice(0, 50));
+    uri += `&tn=${cleanNote}`;
+    return uri;
+  }
 
   /**
    * Builds a CONFIRM proposal payload.
@@ -231,6 +307,12 @@
 
   return {
     ALLOWED_PAYMENT_MODES,
+    UPI_REGEX,
+    isValidUpi,
+    maskUpi,
+    rupeesToPaise,
+    paiseToRupees,
+    buildUpiUri,
     buildConfirmAction,
     buildDisputeAction,
     buildProposeDateAction,

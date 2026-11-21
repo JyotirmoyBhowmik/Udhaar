@@ -133,6 +133,80 @@ console.log("======================================================\n");
   console.log("✔ Passed: buildClaimPaymentAction enforces integer paise, payableAmount cap, and mode validation");
 }
 
+// 5. Amount Conversion Suite (Rupees <-> Integer Paise)
+{
+  // Valid conversions
+  assert.equal(schema.rupeesToPaise(100), 10000);
+  assert.equal(schema.rupeesToPaise("100"), 10000);
+  assert.equal(schema.rupeesToPaise(0.5), 50);
+  assert.equal(schema.rupeesToPaise("0.05"), 5);
+  assert.equal(schema.rupeesToPaise(19.99), 1999);
+  assert.equal(schema.rupeesToPaise("2500.75"), 250075);
+
+  // Round-trip conversion
+  assert.equal(schema.paiseToRupees(10000), 100);
+  assert.equal(schema.paiseToRupees(250075), 2500.75);
+  assert.equal(schema.paiseToRupees(0), 0);
+
+  // Invalid conversions rejected fail-closed
+  assert.throws(() => schema.rupeesToPaise(0), /greater than zero/);
+  assert.throws(() => schema.rupeesToPaise(-10), /greater than zero/);
+  assert.throws(() => schema.rupeesToPaise("-5.50"), /greater than zero/);
+  assert.throws(() => schema.rupeesToPaise(null), /required/);
+  assert.throws(() => schema.rupeesToPaise(undefined), /required/);
+  assert.throws(() => schema.rupeesToPaise(""), /required/);
+  assert.throws(() => schema.rupeesToPaise("abc"), /Invalid amount/);
+  assert.throws(() => schema.rupeesToPaise(NaN), /Invalid amount/);
+  assert.throws(() => schema.rupeesToPaise(Infinity), /Invalid amount/);
+
+  assert.throws(() => schema.paiseToRupees(-1), /non-negative integer/);
+  assert.throws(() => schema.paiseToRupees(10.5), /non-negative integer/);
+  assert.throws(() => schema.paiseToRupees("100"), /non-negative integer/);
+
+  console.log("✔ Passed: Amount conversion accurately transforms currencies and fails closed on malformed values");
+}
+
+// 6. UPI Validation Suite (Handles, Masking, Intent URIs)
+{
+  // Valid UPI IDs
+  assert.equal(schema.isValidUpi("user@okaxis"), true);
+  assert.equal(schema.isValidUpi("merchant.store@okhdfcbank"), true);
+  assert.equal(schema.isValidUpi("user_123-abc@paytm"), true);
+  assert.equal(schema.isValidUpi("9876543210@ybl"), true);
+
+  // Invalid UPI IDs
+  assert.equal(schema.isValidUpi(""), false);
+  assert.equal(schema.isValidUpi(null), false);
+  assert.equal(schema.isValidUpi("plainstring"), false);
+  assert.equal(schema.isValidUpi("@okaxis"), false);
+  assert.equal(schema.isValidUpi("user@"), false);
+  assert.equal(schema.isValidUpi("user@@okaxis"), false);
+  assert.equal(schema.isValidUpi("user@ok axis"), false);
+  assert.equal(schema.isValidUpi("a<script>@okaxis"), false);
+
+  // Masking
+  assert.equal(schema.maskUpi("jyotirmoy@okaxis"), "jyo***@okaxis");
+  assert.equal(schema.maskUpi("ab@okaxis"), "ab***@okaxis");
+  assert.equal(schema.maskUpi(null), "—");
+
+  // URI Generation
+  const uri = schema.buildUpiUri({
+    upiId: "merchant@okhdfcbank",
+    payeeName: "Jyotirmoy",
+    amountPaise: 500000,
+    note: "Udhaar Loan Return"
+  });
+  assert.equal(
+    uri,
+    "upi://pay?pa=merchant@okhdfcbank&pn=Jyotirmoy&cu=INR&am=5000.00&tn=Udhaar%20Loan%20Return"
+  );
+
+  // Reject URI build with invalid UPI
+  assert.throws(() => schema.buildUpiUri({ upiId: "invalid", payeeName: "Test" }), /Valid UPI ID is required/);
+
+  console.log("✔ Passed: UPI validation, privacy masking, and URI generation conform to banking standards");
+}
+
 console.log("\n======================================================");
 console.log("All Action Schema tests passed!");
 console.log("======================================================\n");
