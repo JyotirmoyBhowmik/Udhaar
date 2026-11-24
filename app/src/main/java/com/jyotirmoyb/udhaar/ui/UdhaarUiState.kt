@@ -157,7 +157,8 @@ data class PreselectedPartyDraft(
     val partyId: Long?,
     val name: String,
     val phoneNumber: String,
-    val preferredCurrency: CurrencyType
+    val preferredCurrency: CurrencyType,
+    val initialTransactionType: com.jyotirmoyb.udhaar.data.TransactionType? = null
 )
 
 data class BackupSelfTestReport(

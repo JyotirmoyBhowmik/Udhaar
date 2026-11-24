@@ -1,19 +1,34 @@
 package com.jyotirmoyb.udhaar.ui.sheets
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -105,6 +120,7 @@ fun RecordDetailSheet(
 ) {
     val tx = summary.transaction
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    var showMoreOptions by rememberSaveable(tx.id) { mutableStateOf(false) }
 
     if (confirmDelete) {
         AlertDialog(
@@ -208,10 +224,10 @@ fun RecordDetailSheet(
                     TransactionBalanceCard(
                         summary = summary,
                         tx = tx,
-                        animatedNetBalanceText = animatedNetBalanceText
+                        animatedNetBalanceText = com.jyotirmoyb.udhaar.ui.components.compactCurrencyDisplay(animatedNetBalanceText)
                     )
 
-                    // 2. Partial Payment Entry Section (Up top for instant payment logging)
+                    // 2. Collapsible Payment Logger (Cleanly tucked until needed)
                     if (!tx.isSettled) {
                         PartialPaymentSection(
                             summary = summary,
@@ -222,7 +238,44 @@ fun RecordDetailSheet(
                         )
                     }
 
-                    // 3. Installment Plan & Repayment Schedule Section
+                    // 3. Clean 2x2 Primary Quick Actions (Chat, Mark Paid, WhatsApp, Collect QR / Pay UPI)
+                    TransactionActionsSection(
+                        summary = summary,
+                        tx = tx,
+                        linkedParty = linkedParty,
+                        unreadChatCount = unreadChatCount,
+                        confirmDelete = confirmDelete,
+                        onOpenTransactionChat = onOpenTransactionChat,
+                        onOpenWhatsApp = onOpenWhatsApp,
+                        onShareReceipt = onShareReceipt,
+                        onOpenQr = onOpenQr,
+                        onPayPartyViaUpi = onPayPartyViaUpi,
+                        onToggleSettled = onToggleSettled,
+                        onEdit = onEdit,
+                        onDeleteClicked = {
+                            if (confirmDelete) {
+                                onDeleteTransaction()
+                            } else {
+                                confirmDelete = true
+                            }
+                        }
+                    )
+
+                    // 4. Two-Party Verification Card
+                    TransactionVerificationCard(
+                        summary = summary,
+                        tx = tx,
+                        onRequestVerification = onRequestVerification,
+                        onConfirmOrDisputeRecord = onConfirmOrDisputeRecord,
+                        onOpenWebShare = onOpenWebShare,
+                        onRevokeWebLink = onRevokeWebLink,
+                        onConfirmPaymentClaim = onConfirmPaymentClaim,
+                        onRejectPaymentClaim = onRejectPaymentClaim,
+                        onAcceptDateProposal = onAcceptDateProposal,
+                        onDeclineDateProposal = onDeclineDateProposal
+                    )
+
+                    // 5. Active Installment Schedule (only shown prominently when already created)
                     if (installmentPlan != null) {
                         if (installmentPlan.scheduleProposalStatus == "PENDING") {
                             Surface(
@@ -263,80 +316,132 @@ fun RecordDetailSheet(
                             onMoveInstallmentPayment = onMoveInstallmentPayment,
                             modifier = Modifier.testTag("installment_timeline_card")
                         )
-                    } else if (!tx.isSettled) {
-                        OutlinedButton(
-                            onClick = onOpenPlanBuilder,
-                            modifier = Modifier.fillMaxWidth().testTag("split_into_installments_button")
-                        ) {
-                            Icon(
-                                imageVector = UdhaarIcons.Schedule,
-                                contentDescription = null,
-                                modifier = Modifier.padding(end = 6.dp)
-                            )
-                            Text(stringResource(R.string.split_into_installments))
-                        }
                     }
 
-                    // 4. Compact Quick Actions Row (WhatsApp, Receipt, UPI QR, Chat, Mark Settled, Edit & Delete)
-                    TransactionActionsSection(
-                        summary = summary,
-                        tx = tx,
-                        linkedParty = linkedParty,
-                        unreadChatCount = unreadChatCount,
-                        confirmDelete = confirmDelete,
-                        onOpenTransactionChat = onOpenTransactionChat,
-                        onOpenWhatsApp = onOpenWhatsApp,
-                        onShareReceipt = onShareReceipt,
-                        onOpenQr = onOpenQr,
-                        onPayPartyViaUpi = onPayPartyViaUpi,
-                        onToggleSettled = onToggleSettled,
-                        onEdit = onEdit,
-                        onDeleteClicked = {
-                            if (confirmDelete) {
-                                onDeleteTransaction()
-                            } else {
-                                confirmDelete = true
+                    // 6. Recorded Payments History (shown when payments exist)
+                    if (partialPayments.isNotEmpty()) {
+                        InstallmentHistorySection(
+                            tx = tx,
+                            partialPayments = partialPayments,
+                            attachmentsByPayment = attachmentsByPayment,
+                            onAcknowledgePartialPayment = onAcknowledgePartialPayment,
+                            onDeletePartialPayment = onDeletePartialPayment,
+                            onOpenAttachmentViewer = onOpenAttachmentViewer
+                        )
+                    }
+
+                    // 7. Collapsible More Options (Installment builder, Documents, Audit trail, Edit & Delete)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateContentSize()
+                            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 12.dp, vertical = if (showMoreOptions) 10.dp else 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                                .clickable { showMoreOptions = !showMoreOptions }
+                                .testTag("detail_more_options_toggle"),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "More options",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Installments, documents (${attachments.size}), history & delete",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Icon(
+                                imageVector = if (showMoreOptions) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = if (showMoreOptions) "Collapse more options" else "Expand more options",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        if (showMoreOptions) {
+                            if (installmentPlan == null && !tx.isSettled) {
+                                OutlinedButton(
+                                    onClick = onOpenPlanBuilder,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 48.dp)
+                                        .testTag("split_into_installments_button")
+                                ) {
+                                    Icon(
+                                        imageVector = UdhaarIcons.Schedule,
+                                        contentDescription = null,
+                                        modifier = Modifier.padding(end = 6.dp)
+                                    )
+                                    Text(stringResource(R.string.split_into_installments))
+                                }
+                            }
+
+                            TransactionAttachmentsSection(
+                                transactionId = tx.id,
+                                attachments = attachments,
+                                onAddAttachment = onAddAttachment,
+                                onOpenAttachmentViewer = onOpenAttachmentViewer
+                            )
+
+                            VerificationAuditTrailSection(
+                                tx = tx,
+                                auditTrail = auditTrail
+                            )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = onEdit,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
+                                        .testTag("edit_transaction_button"),
+                                    shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
+                                    contentPadding = PaddingValues(horizontal = 8.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                                ) {
+                                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(15.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(stringResource(R.string.ui_str_edit_17865b), style = MaterialTheme.typography.labelLarge)
+                                }
+                                OutlinedButton(
+                                    onClick = { confirmDelete = true },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
+                                        .testTag("delete_transaction_button"),
+                                    shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
+                                    contentPadding = PaddingValues(horizontal = 8.dp),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                                ) {
+                                    Icon(
+                                        UdhaarIcons.DeleteOutline,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(15.dp),
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = stringResource(R.string.ui_str_delete_d6f563),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
                             }
                         }
-                    )
-
-                    // 5. Two-Party Verification Card
-                    TransactionVerificationCard(
-                        summary = summary,
-                        tx = tx,
-                        onRequestVerification = onRequestVerification,
-                        onConfirmOrDisputeRecord = onConfirmOrDisputeRecord,
-                        onOpenWebShare = onOpenWebShare,
-                        onRevokeWebLink = onRevokeWebLink,
-                        onConfirmPaymentClaim = onConfirmPaymentClaim,
-                        onRejectPaymentClaim = onRejectPaymentClaim,
-                        onAcceptDateProposal = onAcceptDateProposal,
-                        onDeclineDateProposal = onDeclineDateProposal
-                    )
-
-                    // 6. Transaction Documents & Attachments Section
-                    TransactionAttachmentsSection(
-                        transactionId = tx.id,
-                        attachments = attachments,
-                        onAddAttachment = onAddAttachment,
-                        onOpenAttachmentViewer = onOpenAttachmentViewer
-                    )
-
-                    // 7. Installment History List
-                    InstallmentHistorySection(
-                        tx = tx,
-                        partialPayments = partialPayments,
-                        attachmentsByPayment = attachmentsByPayment,
-                        onAcknowledgePartialPayment = onAcknowledgePartialPayment,
-                        onDeletePartialPayment = onDeletePartialPayment,
-                        onOpenAttachmentViewer = onOpenAttachmentViewer
-                    )
-
-                    // 8. Verification details section (SHA-256 hash, cloud IDs, and Audit Trail)
-                    VerificationAuditTrailSection(
-                        tx = tx,
-                        auditTrail = auditTrail
-                    )
+                    }
                 }
             }
         }

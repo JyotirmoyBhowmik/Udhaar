@@ -224,6 +224,7 @@ internal fun UdhaarScreenRouter(
                                     onSearchQueryChange = viewModel::setSearchQuery,
                                     onPeopleSearchQueryChange = viewModel::setPeopleSearchQuery,
                                     onAddUdhaarClick = viewModel::openAddTransaction,
+                                    onAddUdhaarWithTypeClick = viewModel::openAddTransactionWithType,
                                     onAddPartyClick = viewModel::openAddPartyModal,
                                     onPartyClick = { khata -> viewModel.openPartyLedgerScreen(khata.party.partyId) },
                                     onQuickAddLoanForParty = viewModel::openAddTransactionForParty,

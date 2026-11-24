@@ -82,6 +82,7 @@ fun DashboardScreen(
     onSearchQueryChange: (String) -> Unit,
     onPeopleSearchQueryChange: (String) -> Unit,
     onAddUdhaarClick: () -> Unit,
+    onAddUdhaarWithTypeClick: (TransactionType) -> Unit = { onAddUdhaarClick() },
     onAddPartyClick: () -> Unit,
     onPartyClick: (PartyKhataSummary) -> Unit,
     onQuickAddLoanForParty: (PartyEntity) -> Unit,
@@ -361,9 +362,30 @@ fun DashboardScreen(
                                         totals = uiState.activeSummaryTotals,
                                         inrCount = uiState.inrTotals.activeGivenCount + uiState.inrTotals.activeTakenCount,
                                         nprCount = uiState.nprTotals.activeGivenCount + uiState.nprTotals.activeTakenCount,
+                                        selectedFilter = uiState.selectedFilter,
                                         isAmountsHidden = uiState.isAmountsHidden,
                                         onToggleHideAmounts = onToggleHideAmounts,
-                                        onSelectCurrency = onSelectSummaryCurrency
+                                        onSelectCurrency = onSelectSummaryCurrency,
+                                        onSelectReceivableFilter = {
+                                            isHistoryMode = false
+                                            onSelectFilter(
+                                                if (uiState.selectedFilter == LedgerFilter.GIVEN) LedgerFilter.ALL
+                                                else LedgerFilter.GIVEN
+                                            )
+                                        },
+                                        onSelectPayableFilter = {
+                                            isHistoryMode = false
+                                            onSelectFilter(
+                                                if (uiState.selectedFilter == LedgerFilter.TAKEN) LedgerFilter.ALL
+                                                else LedgerFilter.TAKEN
+                                            )
+                                        },
+                                        onDoubleTapReceivable = {
+                                            onAddUdhaarWithTypeClick(TransactionType.GIVEN)
+                                        },
+                                        onDoubleTapPayable = {
+                                            onAddUdhaarWithTypeClick(TransactionType.TAKEN)
+                                        }
                                     )
                                 }
                             }

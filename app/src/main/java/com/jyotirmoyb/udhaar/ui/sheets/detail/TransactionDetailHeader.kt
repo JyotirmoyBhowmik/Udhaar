@@ -20,6 +20,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.basicMarquee
+import androidx.compose.ui.unit.sp
 import com.jyotirmoyb.udhaar.R
 import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
@@ -59,11 +61,16 @@ fun TransactionDetailHeader(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = tx.partyName,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontSize = 15.sp,
+                        letterSpacing = (-0.2).sp
+                    ),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.udhaarSharedBounds("tx_name_${tx.id}")
+                    softWrap = false,
+                    modifier = Modifier
+                        .basicMarquee(iterations = Int.MAX_VALUE, velocity = 36.dp)
+                        .udhaarSharedBounds("tx_name_${tx.id}")
                 )
                 Text(
                     text = stringResource(
@@ -73,7 +80,9 @@ fun TransactionDetailHeader(
                         tx.paymentMode.label
                     ),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

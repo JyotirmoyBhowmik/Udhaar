@@ -7,9 +7,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,12 +25,15 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -73,6 +78,7 @@ fun PartialPaymentSection(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    var isFormExpanded by rememberSaveable(tx.id) { mutableStateOf(false) }
     var partialAmountText by rememberSaveable { mutableStateOf("") }
     var partialPaymentMode by rememberSaveable { mutableStateOf<PaymentMode>(tx.paymentMode) }
     var partialNoteText by rememberSaveable { mutableStateOf("") }
@@ -145,18 +151,60 @@ fun PartialPaymentSection(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
-            .padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+            .animateContentSize()
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = if (isFormExpanded) 10.dp else 4.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(
-            text = stringResource(R.string.ui_str_record_partial_installment_payment_a11544),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .clickable { isFormExpanded = !isFormExpanded }
+                .testTag("toggle_partial_payment_form_button"),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    imageVector = UdhaarIcons.Payments,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Column {
+                    Text(
+                        text = "Record payment",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (!isFormExpanded) {
+                        Text(
+                            text = "Log a partial or full installment",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+            Icon(
+                imageVector = if (isFormExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                contentDescription = if (isFormExpanded) "Collapse payment form" else "Expand payment form",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
 
-        // Quick Percentage Fill Chips (25%, 50%, 75%, 100% Full Remaining)
+        if (!isFormExpanded) return
+
+        // Quick Percentage Fill Chips (25%, 50%, 75%, 100%)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -165,7 +213,7 @@ fun PartialPaymentSection(
                 "25%" to 0.25,
                 "50%" to 0.50,
                 "75%" to 0.75,
-                "100% FULL" to 1.0
+                "100%" to 1.0
             ).forEach { (label, fraction) ->
                 Box(
                     modifier = Modifier
@@ -181,7 +229,7 @@ fun PartialPaymentSection(
                             }
                             errorText = null
                         }
-                        .padding(vertical = 4.dp)
+                        .padding(vertical = 6.dp)
                         .testTag("quick_pay_${label.take(3).lowercase()}"),
                     contentAlignment = Alignment.Center
                 ) {
@@ -189,22 +237,25 @@ fun PartialPaymentSection(
                         text = label,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }
         }
 
-        // Payment Mode Selector for Installment (Cash / UPI / Bank / Other)
+        // Horizontally scrollable Payment Mode chips so labels never clip
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             PaymentMode.entries.forEach { mode ->
                 val isSelected = partialPaymentMode == mode
                 Box(
                     modifier = Modifier
-                        .weight(1f)
                         .border(
                             width = if (isSelected) 1.5.dp else 1.dp,
                             color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
@@ -215,7 +266,7 @@ fun PartialPaymentSection(
                             shape = RoundedCornerShape(8.dp)
                         )
                         .clickable { partialPaymentMode = mode }
-                        .padding(vertical = 4.dp)
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
                         .testTag("partial_mode_${mode.name.lowercase()}"),
                     contentAlignment = Alignment.Center
                 ) {
@@ -225,7 +276,7 @@ fun PartialPaymentSection(
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                         color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        softWrap = false
                     )
                 }
             }
@@ -401,6 +452,7 @@ fun PartialPaymentSection(
                 pendingProofAttachment = null
                 reportedByCounterparty = false
                 errorText = null
+                isFormExpanded = false
             },
             modifier = Modifier
                 .fillMaxWidth()

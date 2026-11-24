@@ -2,6 +2,7 @@ package com.jyotirmoyb.udhaar.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -34,6 +35,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.jyotirmoyb.udhaar.R
 import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.ui.PartyKhataSummary
@@ -198,9 +200,17 @@ internal fun PartyDirectoryCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = party.name,
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontSize = 14.5.sp,
+                            letterSpacing = (-0.2).sp,
+                            fontWeight = FontWeight.SemiBold
+                        ),
                         color = PureBlack,
-                        modifier = Modifier.udhaarSharedBounds("party_name_${party.partyId}_${party.name}")
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier
+                            .basicMarquee(iterations = Int.MAX_VALUE, velocity = 36.dp)
+                            .udhaarSharedBounds("party_name_${party.partyId}_${party.name}")
                     )
                     val contactSub = buildString {
                         if (party.phoneNumber.isNotBlank()) append(InterestCalculator.maskPhoneNumber(party.phoneNumber))
@@ -217,7 +227,9 @@ internal fun PartyDirectoryCard(
                         Text(
                             text = contactSub,
                             style = MaterialTheme.typography.bodySmall,
-                            color = SecondaryInkGrey
+                            color = SecondaryInkGrey,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -232,17 +244,23 @@ internal fun PartyDirectoryCard(
                         inrNetPaise < 0L -> "PAY "
                         else -> "SETTLED "
                     }
-                    val animatedInrAbs = rememberAnimatedCurrencyText(
-                        targetAmount = InterestCalculator.paiseToRupees(kotlin.math.abs(inrNetPaise)),
-                        currency = CurrencyType.INR,
-                        isAmountsHidden = isAmountsHidden,
-                        durationMillis = 240
+                    val animatedInrAbs = compactCurrencyDisplay(
+                        rememberAnimatedCurrencyText(
+                            targetAmount = InterestCalculator.paiseToRupees(kotlin.math.abs(inrNetPaise)),
+                            currency = CurrencyType.INR,
+                            isAmountsHidden = isAmountsHidden,
+                            durationMillis = 240
+                        )
                     )
                     Text(
                         text = stringResource(R.string.ui_fmt_symbol_3d2c34, prefix, animatedInrAbs),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = PureBlack
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            letterSpacing = (-0.4).sp,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        color = PureBlack,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
                 if (nprEnabled && (kotlin.math.abs(nprNetPaise) > 0L || !inrEnabled || party.preferredCurrency == CurrencyType.NPR)) {
@@ -251,17 +269,23 @@ internal fun PartyDirectoryCard(
                         nprNetPaise < 0L -> "PAY "
                         else -> "SETTLED "
                     }
-                    val animatedNprAbs = rememberAnimatedCurrencyText(
-                        targetAmount = InterestCalculator.paiseToRupees(kotlin.math.abs(nprNetPaise)),
-                        currency = CurrencyType.NPR,
-                        isAmountsHidden = isAmountsHidden,
-                        durationMillis = 240
+                    val animatedNprAbs = compactCurrencyDisplay(
+                        rememberAnimatedCurrencyText(
+                            targetAmount = InterestCalculator.paiseToRupees(kotlin.math.abs(nprNetPaise)),
+                            currency = CurrencyType.NPR,
+                            isAmountsHidden = isAmountsHidden,
+                            durationMillis = 240
+                        )
                     )
                     Text(
                         text = stringResource(R.string.ui_fmt_symbol_808375, prefix, animatedNprAbs),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = SecondaryInkGrey
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            letterSpacing = (-0.3).sp,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        color = SecondaryInkGrey,
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }

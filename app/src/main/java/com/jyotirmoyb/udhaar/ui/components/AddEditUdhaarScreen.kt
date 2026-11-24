@@ -163,7 +163,13 @@ fun AddEditUdhaarScreen(
     }
 
     var selectedPartyId by rememberSaveable { mutableStateOf<Long?>(initialTransaction?.partyId ?: preselectedPartyDraft?.partyId) }
-    var transactionType by rememberSaveable { mutableStateOf(initialTransaction?.transactionType ?: TransactionType.GIVEN) }
+    var transactionType by rememberSaveable {
+        mutableStateOf(
+            initialTransaction?.transactionType
+                ?: preselectedPartyDraft?.initialTransactionType
+                ?: TransactionType.GIVEN
+        )
+    }
     var currency by rememberSaveable {
         mutableStateOf(
             initialTransaction?.currency

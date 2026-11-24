@@ -21,6 +21,7 @@ import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.PaymentMode
 import com.jyotirmoyb.udhaar.data.ReminderChannel
 import com.jyotirmoyb.udhaar.data.TransactionSortOption
+import com.jyotirmoyb.udhaar.data.TransactionType
 import com.jyotirmoyb.udhaar.data.UdhaarRepository
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
 import com.jyotirmoyb.udhaar.security.EncryptedStorageManager
@@ -398,6 +399,8 @@ class UdhaarViewModel(
     fun generateFullLedgerPdf(onReady: (File) -> Unit) = peopleViewModel.generateFullLedgerPdf(onReady)
 
     fun openAddTransaction() = appStateHolder.openAddTransaction()
+    fun openAddTransactionWithType(transactionType: TransactionType) =
+        appStateHolder.openAddTransactionWithType(transactionType, uiState.value.summaryCurrency)
     fun openAddTransactionForParty(party: PartyEntity) = appStateHolder.openAddTransactionForParty(party)
     fun openEditTransaction(transaction: UdhaarTransaction) = appStateHolder.openEditTransaction(transaction)
     fun navigateBackToDashboard() = appStateHolder.navigateBackToDashboard()

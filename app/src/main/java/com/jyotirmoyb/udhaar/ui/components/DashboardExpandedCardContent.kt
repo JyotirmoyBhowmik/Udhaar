@@ -1,6 +1,7 @@
 package com.jyotirmoyb.udhaar.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -310,15 +311,18 @@ internal fun ExpandedTransactionCardContent(
                 Text(
                     text = tx.partyName,
                     style = MaterialTheme.typography.headlineMedium.copy(
-                        fontSize = 16.sp,
-                        lineHeight = 20.sp,
+                        fontSize = 14.5.sp,
+                        lineHeight = 18.sp,
+                        letterSpacing = (-0.2).sp,
                         fontWeight = FontWeight.SemiBold
                     ),
                     color = PureBlack,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 1,
+                    softWrap = false,
                     textDecoration = if (tx.isSettled) TextDecoration.LineThrough else TextDecoration.None,
-                    modifier = Modifier.udhaarSharedBounds("tx_name_${tx.id}")
+                    modifier = Modifier
+                        .basicMarquee(iterations = Int.MAX_VALUE, velocity = 36.dp)
+                        .udhaarSharedBounds("tx_name_${tx.id}")
                 )
                 if (tx.phoneNumber.isNotBlank()) {
                     Text(
@@ -340,10 +344,12 @@ internal fun ExpandedTransactionCardContent(
             style = MaterialTheme.typography.headlineLarge.copy(
                 fontFamily = IbmPlexMonoFamily,
                 fontWeight = FontWeight.Bold,
-                fontSize = cardAmountFontSize
+                fontSize = cardAmountFontSize,
+                letterSpacing = (-0.5).sp
             ),
             color = PureBlack,
             maxLines = 1,
+            softWrap = false,
             textDecoration = if (tx.isSettled) TextDecoration.LineThrough else TextDecoration.None,
             modifier = Modifier
                 .udhaarSharedBounds("tx_amount_${tx.id}")

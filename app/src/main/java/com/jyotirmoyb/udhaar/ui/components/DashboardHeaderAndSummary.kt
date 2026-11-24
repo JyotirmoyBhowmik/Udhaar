@@ -4,9 +4,11 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -66,6 +68,9 @@ internal enum class HomePillTab {
     PEOPLE,
     HISTORY
 }
+
+internal fun compactCurrencyDisplay(raw: String): String =
+    raw.replace("₹ ", "₹\u2009").replace("रू ", "रू\u2009")
 
 @Composable
 internal fun DashboardTopHeaderBar(
@@ -261,6 +266,7 @@ internal fun PillTabItem(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun TopLedgerSummaryCard(
     selectedCurrency: CurrencyType,
@@ -268,9 +274,14 @@ internal fun TopLedgerSummaryCard(
     totals: CurrencyLedgerTotals,
     inrCount: Int,
     nprCount: Int,
+    selectedFilter: LedgerFilter = LedgerFilter.ALL,
     isAmountsHidden: Boolean = false,
     onToggleHideAmounts: () -> Unit = {},
-    onSelectCurrency: (CurrencyType) -> Unit
+    onSelectCurrency: (CurrencyType) -> Unit,
+    onSelectReceivableFilter: () -> Unit = {},
+    onSelectPayableFilter: () -> Unit = {},
+    onDoubleTapReceivable: () -> Unit = {},
+    onDoubleTapPayable: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -325,31 +336,38 @@ internal fun TopLedgerSummaryCard(
             }
         }
 
-        val animatedReceivableText = rememberAnimatedCurrencyText(
-            targetAmount = totals.totalToReceive,
-            currency = selectedCurrency,
-            isAmountsHidden = isAmountsHidden,
-            durationMillis = 260
+        val animatedReceivableText = compactCurrencyDisplay(
+            rememberAnimatedCurrencyText(
+                targetAmount = totals.totalToReceive,
+                currency = selectedCurrency,
+                isAmountsHidden = isAmountsHidden,
+                durationMillis = 260
+            )
         )
-        val animatedPayableText = rememberAnimatedCurrencyText(
-            targetAmount = totals.totalToPay,
-            currency = selectedCurrency,
-            isAmountsHidden = isAmountsHidden,
-            durationMillis = 260
+        val animatedPayableText = compactCurrencyDisplay(
+            rememberAnimatedCurrencyText(
+                targetAmount = totals.totalToPay,
+                currency = selectedCurrency,
+                isAmountsHidden = isAmountsHidden,
+                durationMillis = 260
+            )
         )
 
         val receivableFontSize = when {
-            animatedReceivableText.length <= 8 -> 19.sp
-            animatedReceivableText.length <= 11 -> 16.sp
-            animatedReceivableText.length <= 14 -> 14.sp
-            else -> 12.5.sp
+            animatedReceivableText.length <= 8 -> 16.sp
+            animatedReceivableText.length <= 11 -> 14.sp
+            animatedReceivableText.length <= 14 -> 12.sp
+            else -> 10.5.sp
         }
         val payableFontSize = when {
-            animatedPayableText.length <= 8 -> 19.sp
-            animatedPayableText.length <= 11 -> 16.sp
-            animatedPayableText.length <= 14 -> 14.sp
-            else -> 12.5.sp
+            animatedPayableText.length <= 8 -> 16.sp
+            animatedPayableText.length <= 11 -> 14.sp
+            animatedPayableText.length <= 14 -> 12.sp
+            else -> 10.5.sp
         }
+
+        val isReceivableSelected = selectedFilter == LedgerFilter.GIVEN
+        val isPayableSelected = selectedFilter == LedgerFilter.TAKEN
 
         Row(
             modifier = Modifier
@@ -363,26 +381,36 @@ internal fun TopLedgerSummaryCard(
                     .fillMaxHeight()
                     .clip(UdhaarShapeTokens.Corner16)
                     .background(ReceivableCardBg, UdhaarShapeTokens.Corner16)
-                    .border(1.dp, ReceivableCardInk.copy(alpha = 0.15f), UdhaarShapeTokens.Corner16)
+                    .border(
+                        width = if (isReceivableSelected) 2.dp else 1.dp,
+                        color = if (isReceivableSelected) ReceivableCardInk else ReceivableCardInk.copy(alpha = 0.18f),
+                        shape = UdhaarShapeTokens.Corner16
+                    )
+                    .combinedClickable(
+                        onClick = onSelectReceivableFilter,
+                        onDoubleClick = onDoubleTapReceivable
+                    )
                     .testTag("summary_receivable_card")
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                        .padding(horizontal = 10.dp, vertical = 9.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     Text(
                         text = stringResource(R.string.ui_str_total_receivable_6cb1b1),
                         style = MaterialTheme.typography.titleMedium.copy(
-                            fontSize = 13.sp,
-                            lineHeight = 16.sp,
-                            fontWeight = FontWeight.Medium
+                            fontSize = 11.5.sp,
+                            lineHeight = 14.sp,
+                            letterSpacing = (-0.25).sp,
+                            fontWeight = if (isReceivableSelected) FontWeight.Bold else FontWeight.SemiBold
                         ),
                         color = ReceivableCardInk,
                         maxLines = 1,
+                        softWrap = false,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(end = 26.dp)
+                        modifier = Modifier.padding(end = 22.dp)
                     )
 
                     Text(
@@ -391,10 +419,12 @@ internal fun TopLedgerSummaryCard(
                             fontFamily = IbmPlexMonoFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = receivableFontSize,
-                            lineHeight = (receivableFontSize.value + 3f).sp
+                            letterSpacing = (-0.6).sp,
+                            lineHeight = (receivableFontSize.value + 2.5f).sp
                         ),
                         color = ReceivableCardInk,
                         maxLines = 1,
+                        softWrap = false,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.testTag("summary_total_to_receive")
                     )
@@ -407,7 +437,8 @@ internal fun TopLedgerSummaryCard(
                     Text(
                         text = activeRecordLabel,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            fontSize = 12.sp,
+                            fontSize = 10.5.sp,
+                            letterSpacing = (-0.2).sp,
                             fontWeight = FontWeight.Medium
                         ),
                         color = ReceivableCardInk,
@@ -423,7 +454,7 @@ internal fun TopLedgerSummaryCard(
                         .clip(UdhaarShapeTokens.Corner8)
                         .pressScaleFeedback()
                         .clickable(onClick = onToggleHideAmounts)
-                        .padding(top = 10.dp, end = 12.dp)
+                        .padding(top = 8.dp, end = 8.dp)
                         .testTag("privacy_hide_amounts_toggle"),
                     contentAlignment = Alignment.TopEnd
                 ) {
@@ -435,7 +466,7 @@ internal fun TopLedgerSummaryCard(
                             stringResource(R.string.cd_hide_amounts)
                         },
                         tint = ReceivableCardInk,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(15.dp)
                     )
                 }
             }
@@ -446,26 +477,36 @@ internal fun TopLedgerSummaryCard(
                     .fillMaxHeight()
                     .clip(UdhaarShapeTokens.Corner16)
                     .background(PayableCardBg, UdhaarShapeTokens.Corner16)
-                    .border(1.dp, PayableCardInk.copy(alpha = 0.15f), UdhaarShapeTokens.Corner16)
+                    .border(
+                        width = if (isPayableSelected) 2.dp else 1.dp,
+                        color = if (isPayableSelected) PayableCardInk else PayableCardInk.copy(alpha = 0.18f),
+                        shape = UdhaarShapeTokens.Corner16
+                    )
+                    .combinedClickable(
+                        onClick = onSelectPayableFilter,
+                        onDoubleClick = onDoubleTapPayable
+                    )
                     .testTag("summary_payable_card")
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                        .padding(horizontal = 10.dp, vertical = 9.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     Text(
                         text = stringResource(R.string.ui_str_total_payable_65e9b2),
                         style = MaterialTheme.typography.titleMedium.copy(
-                            fontSize = 13.sp,
-                            lineHeight = 16.sp,
-                            fontWeight = FontWeight.Medium
+                            fontSize = 11.5.sp,
+                            lineHeight = 14.sp,
+                            letterSpacing = (-0.25).sp,
+                            fontWeight = if (isPayableSelected) FontWeight.Bold else FontWeight.SemiBold
                         ),
                         color = PayableCardInk,
                         maxLines = 1,
+                        softWrap = false,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(end = 26.dp)
+                        modifier = Modifier.padding(end = 22.dp)
                     )
 
                     Text(
@@ -474,10 +515,12 @@ internal fun TopLedgerSummaryCard(
                             fontFamily = IbmPlexMonoFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = payableFontSize,
-                            lineHeight = (payableFontSize.value + 3f).sp
+                            letterSpacing = (-0.6).sp,
+                            lineHeight = (payableFontSize.value + 2.5f).sp
                         ),
                         color = PayableCardInk,
                         maxLines = 1,
+                        softWrap = false,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.testTag("summary_total_to_pay")
                     )
@@ -490,7 +533,8 @@ internal fun TopLedgerSummaryCard(
                     Text(
                         text = payableRecordLabel,
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            fontSize = 12.sp,
+                            fontSize = 10.5.sp,
+                            letterSpacing = (-0.2).sp,
                             fontWeight = FontWeight.Medium
                         ),
                         color = PayableCardInk,
@@ -506,7 +550,7 @@ internal fun TopLedgerSummaryCard(
                         .clip(UdhaarShapeTokens.Corner8)
                         .pressScaleFeedback()
                         .clickable(onClick = onToggleHideAmounts)
-                        .padding(top = 10.dp, end = 12.dp)
+                        .padding(top = 8.dp, end = 8.dp)
                         .testTag("privacy_hide_amounts_toggle_payable"),
                     contentAlignment = Alignment.TopEnd
                 ) {
@@ -518,7 +562,7 @@ internal fun TopLedgerSummaryCard(
                             stringResource(R.string.cd_hide_amounts)
                         },
                         tint = PayableCardInk,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(15.dp)
                     )
                 }
             }
@@ -545,11 +589,13 @@ internal fun TopLedgerSummaryCard(
             animationSpec = tween(netColorDuration, easing = FastOutSlowInEasing),
             label = "netPositionAmountColor"
         )
-        val animatedNetAbsText = rememberAnimatedCurrencyText(
-            targetAmount = kotlin.math.abs(net),
-            currency = selectedCurrency,
-            isAmountsHidden = isAmountsHidden,
-            durationMillis = 260
+        val animatedNetAbsText = compactCurrencyDisplay(
+            rememberAnimatedCurrencyText(
+                targetAmount = kotlin.math.abs(net),
+                currency = selectedCurrency,
+                isAmountsHidden = isAmountsHidden,
+                durationMillis = 260
+            )
         )
 
         Row(
@@ -566,7 +612,8 @@ internal fun TopLedgerSummaryCard(
             Text(
                 text = stringResource(R.string.ui_fmt_net_position_ebdd5e, selectedCurrency.code),
                 style = MaterialTheme.typography.titleMedium.copy(
-                    fontSize = 12.sp,
+                    fontSize = 11.5.sp,
+                    letterSpacing = (-0.2).sp,
                     fontWeight = FontWeight.Medium
                 ),
                 color = PureBlack,
@@ -584,7 +631,8 @@ internal fun TopLedgerSummaryCard(
                 text = stringResource(R.string.ui_fmt_symbol_a68a33, prefix, animatedNetAbsText),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontFamily = IbmPlexMonoFamily,
-                    fontSize = 14.sp,
+                    fontSize = 13.sp,
+                    letterSpacing = (-0.5).sp,
                     fontWeight = FontWeight.SemiBold
                 ),
                 color = netAmountColor,

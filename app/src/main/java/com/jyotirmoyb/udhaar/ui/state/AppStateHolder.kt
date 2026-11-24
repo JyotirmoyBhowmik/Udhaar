@@ -108,6 +108,21 @@ class AppStateHolder @Inject constructor() {
         _activeScreen.value = ActiveScreen.ADD_EDIT
     }
 
+    fun openAddTransactionWithType(
+        transactionType: com.jyotirmoyb.udhaar.data.TransactionType,
+        currency: CurrencyType = CurrencyType.INR
+    ) {
+        openAddTransaction(
+            PreselectedPartyDraft(
+                partyId = null,
+                name = "",
+                phoneNumber = "",
+                preferredCurrency = currency,
+                initialTransactionType = transactionType
+            )
+        )
+    }
+
     fun openAddTransactionForParty(party: PartyEntity) {
         _detailTransactionId.value = null
         _editingTransaction.value = null

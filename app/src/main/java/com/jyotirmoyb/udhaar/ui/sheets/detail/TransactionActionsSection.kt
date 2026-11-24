@@ -58,112 +58,7 @@ fun TransactionActionsSection(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Row 1: WhatsApp + Receipt + UPI QR / Pay Party UPI
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)
-        ) {
-            OutlinedButton(
-                onClick = onOpenWhatsApp,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
-                    .pressScaleFeedback()
-                    .testTag("detail_whatsapp_button"),
-                shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
-                contentPadding = PaddingValues(horizontal = 8.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-            ) {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(14.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    stringResource(R.string.ui_str_whatsapp_5c39d5),
-                    style = MaterialTheme.typography.labelSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            OutlinedButton(
-                onClick = onShareReceipt,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
-                    .pressScaleFeedback()
-                    .testTag("detail_thermal_receipt_button"),
-                shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
-                contentPadding = PaddingValues(horizontal = 8.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-            ) {
-                Icon(UdhaarIcons.ReceiptLong, contentDescription = null, modifier = Modifier.size(14.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    stringResource(R.string.ui_str_receipt_slip_1ccbe9),
-                    style = MaterialTheme.typography.labelSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            if (tx.currency == CurrencyType.INR && !tx.isSettled) {
-                if (tx.transactionType == TransactionType.GIVEN) {
-                    OutlinedButton(
-                        onClick = onOpenQr,
-                        modifier = Modifier
-                            .weight(1.1f)
-                            .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
-                            .pressScaleFeedback()
-                            .testTag("detail_upi_qr_button"),
-                        shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
-                        contentPadding = PaddingValues(horizontal = 8.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-                    ) {
-                        Icon(UdhaarIcons.QrCode2, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            stringResource(R.string.ui_str_collect_via_my_upi_qr_c6b866),
-                            style = MaterialTheme.typography.labelSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                } else if (tx.transactionType == TransactionType.TAKEN) {
-                    val partyUpi = linkedParty?.upiId.orEmpty()
-                    OutlinedButton(
-                        onClick = {
-                            if (partyUpi.isNotBlank()) {
-                                onPayPartyViaUpi(tx.partyName, partyUpi, summary.netBalanceDue)
-                            } else {
-                                onOpenQr()
-                            }
-                        },
-                        modifier = Modifier
-                            .weight(1.1f)
-                            .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
-                            .pressScaleFeedback()
-                            .testTag("detail_pay_party_upi_button"),
-                        shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
-                        contentPadding = PaddingValues(horizontal = 8.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
-                    ) {
-                        Icon(UdhaarIcons.QrCode2, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (partyUpi.isNotBlank()) {
-                                stringResource(R.string.ui_fmt_pay_via_upi_7718ac, tx.partyName.uppercase())
-                            } else {
-                                stringResource(R.string.ui_str_open_upi_qr_tool_2e9aa8)
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-        }
-
-        // Row 2: In-App Transaction Chat & Mark Settled / Re-open
+        // Row 1: Primary Actions (Chat & Mark Paid / Re-open)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)
@@ -176,23 +71,20 @@ fun TransactionActionsSection(
                     .pressScaleFeedback()
                     .testTag("detail_open_chat_button"),
                 shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
-                contentPadding = PaddingValues(horizontal = 8.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(14.dp))
-                Spacer(modifier = Modifier.width(4.dp))
+                Icon(UdhaarIcons.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(15.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = if (unreadChatCount > 0) {
-                        stringResource(R.string.ui_fmt_open_transaction_chat_new_91bcd1, unreadChatCount)
-                    } else {
-                        stringResource(R.string.ui_str_open_transaction_chat_extension_41a166)
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
+                    text = if (unreadChatCount > 0) "Chat ($unreadChatCount)" else "Chat",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
+                    softWrap = false,
                     overflow = TextOverflow.Ellipsis
                 )
             }
@@ -205,76 +97,128 @@ fun TransactionActionsSection(
                     .pressScaleFeedback()
                     .testTag("toggle_settled_button"),
                 shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
-                contentPadding = PaddingValues(horizontal = 8.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (tx.isSettled) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.secondaryContainer,
                     contentColor = if (tx.isSettled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSecondaryContainer
                 ),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
             ) {
-                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp))
-                Spacer(modifier = Modifier.width(4.dp))
+                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(15.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = if (tx.isSettled) {
-                        stringResource(R.string.ui_str_re_open_ledger_entry_bd882c)
-                    } else {
-                        stringResource(R.string.ui_str_mark_as_fully_settled_c262a2)
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
+                    text = if (tx.isSettled) "Re-open" else "Mark Paid",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
+                    softWrap = false,
                     overflow = TextOverflow.Ellipsis
                 )
             }
         }
 
-        // Row 3: Edit & Delete Row
+        // Row 2: Share & Collect (WhatsApp + Collect QR / Pay UPI / Receipt)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)
         ) {
             OutlinedButton(
-                onClick = onEdit,
+                onClick = onOpenWhatsApp,
                 modifier = Modifier
                     .weight(1f)
                     .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
                     .pressScaleFeedback()
-                    .testTag("edit_transaction_button"),
+                    .testTag("detail_whatsapp_button"),
                 shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
-                contentPadding = PaddingValues(horizontal = 8.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                contentPadding = PaddingValues(horizontal = 10.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
             ) {
-                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(stringResource(R.string.ui_str_edit_17865b), style = MaterialTheme.typography.labelSmall)
-            }
-            OutlinedButton(
-                onClick = onDeleteClicked,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
-                    .pressScaleFeedback()
-                    .testTag("delete_transaction_button"),
-                shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
-                contentPadding = PaddingValues(horizontal = 8.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
-            ) {
-                Icon(
-                    UdhaarIcons.DeleteOutline,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.error
-                )
-                Spacer(modifier = Modifier.width(4.dp))
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(15.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = if (confirmDelete) {
-                        stringResource(R.string.ui_str_tap_to_confirm_0fe819)
-                    } else {
-                        stringResource(R.string.ui_str_delete_d6f563)
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error
+                    text = stringResource(R.string.ui_str_whatsapp_5c39d5),
+                    style = MaterialTheme.typography.labelLarge,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis
                 )
+            }
+
+            if (tx.currency == CurrencyType.INR && !tx.isSettled) {
+                if (tx.transactionType == TransactionType.GIVEN) {
+                    OutlinedButton(
+                        onClick = onOpenQr,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
+                            .pressScaleFeedback()
+                            .testTag("detail_upi_qr_button"),
+                        shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
+                        contentPadding = PaddingValues(horizontal = 10.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                    ) {
+                        Icon(UdhaarIcons.QrCode2, contentDescription = null, modifier = Modifier.size(15.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Collect QR",
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                } else {
+                    val partyUpi = linkedParty?.upiId.orEmpty()
+                    OutlinedButton(
+                        onClick = {
+                            if (partyUpi.isNotBlank()) {
+                                onPayPartyViaUpi(tx.partyName, partyUpi, summary.netBalanceDue)
+                            } else {
+                                onOpenQr()
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
+                            .pressScaleFeedback()
+                            .testTag("detail_pay_party_upi_button"),
+                        shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
+                        contentPadding = PaddingValues(horizontal = 10.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                    ) {
+                        Icon(UdhaarIcons.QrCode2, contentDescription = null, modifier = Modifier.size(15.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (partyUpi.isNotBlank()) "Pay UPI" else "UPI QR",
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            } else {
+                OutlinedButton(
+                    onClick = onShareReceipt,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
+                        .pressScaleFeedback()
+                        .testTag("detail_thermal_receipt_button"),
+                    shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
+                    contentPadding = PaddingValues(horizontal = 10.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                ) {
+                    Icon(UdhaarIcons.ReceiptLong, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(R.string.ui_str_receipt_slip_1ccbe9),
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }

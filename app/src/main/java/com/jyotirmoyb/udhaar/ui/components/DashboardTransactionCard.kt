@@ -4,7 +4,9 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -213,11 +215,13 @@ internal fun TransactionCardItem(
     }
 
     val displayAmount = if (tx.isSettled) summary.grossTotal else summary.netBalanceDue
-    val formattedCardAmount = InterestCalculator.formatCurrencyPrivacy(displayAmount, tx.currency, isAmountsHidden)
+    val formattedCardAmount = compactCurrencyDisplay(
+        InterestCalculator.formatCurrencyPrivacy(displayAmount, tx.currency, isAmountsHidden)
+    )
     val cardAmountFontSize = when {
-        formattedCardAmount.length <= 8 -> 19.sp
-        formattedCardAmount.length <= 11 -> 16.sp
-        else -> 14.sp
+        formattedCardAmount.length <= 8 -> 16.5.sp
+        formattedCardAmount.length <= 11 -> 14.5.sp
+        else -> 12.5.sp
     }
 
     Surface(
@@ -276,15 +280,20 @@ internal fun TransactionCardItem(
                         Text(
                             text = tx.partyName,
                             style = MaterialTheme.typography.titleMedium.copy(
-                                fontSize = 15.sp,
+                                fontSize = 13.5.sp,
+                                letterSpacing = (-0.2).sp,
                                 fontWeight = FontWeight.SemiBold
                             ),
                             color = PureBlack,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                            softWrap = false,
                             textDecoration = if (tx.isSettled) TextDecoration.LineThrough else TextDecoration.None,
                             modifier = Modifier
                                 .weight(1f, fill = false)
+                                .basicMarquee(
+                                    iterations = Int.MAX_VALUE,
+                                    velocity = 36.dp
+                                )
                                 .udhaarSharedBounds("tx_name_${tx.id}")
                         )
                         Box(
@@ -293,12 +302,12 @@ internal fun TransactionCardItem(
                                     color = if (isGiven) PureBlack else PayableCardBg,
                                     shape = UdhaarShapeTokens.Pill
                                 )
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
                                 text = if (isGiven) stringResource(R.string.ui_str_given_567b49) else stringResource(R.string.ui_str_taken_7abbf5),
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 11.sp,
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
                                 ),
                                 color = if (isGiven) CardSurfaceWhite else PayableCardInk,
@@ -309,12 +318,12 @@ internal fun TransactionCardItem(
                         Box(
                             modifier = Modifier
                                 .background(MutedChipGrey, UdhaarShapeTokens.Pill)
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
                                 text = tx.paymentMode.shortBadge,
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 11.sp,
+                                    fontSize = 10.sp,
                                     fontWeight = FontWeight.Medium
                                 ),
                                 color = PureBlack,
@@ -326,12 +335,12 @@ internal fun TransactionCardItem(
                             Box(
                                 modifier = Modifier
                                     .background(SelectedPillTint, UdhaarShapeTokens.Pill)
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    .padding(horizontal = 5.dp, vertical = 2.dp)
                             ) {
                                 Text(
                                     text = groupTag,
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = 11.sp,
+                                        fontSize = 10.sp,
                                         fontWeight = FontWeight.SemiBold
                                     ),
                                     color = PureBlack,
@@ -344,14 +353,15 @@ internal fun TransactionCardItem(
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
                         Text(
                             text = formattedCardAmount,
                             style = MaterialTheme.typography.headlineLarge.copy(
                                 fontFamily = IbmPlexMonoFamily,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = cardAmountFontSize
+                                fontSize = cardAmountFontSize,
+                                letterSpacing = (-0.5).sp
                             ),
                             color = PureBlack,
                             maxLines = 1,
@@ -365,7 +375,7 @@ internal fun TransactionCardItem(
                             imageVector = Icons.Default.KeyboardArrowDown,
                             contentDescription = stringResource(R.string.card_expand_details),
                             tint = PureBlack,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
