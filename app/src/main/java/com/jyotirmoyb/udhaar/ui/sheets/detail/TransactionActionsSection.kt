@@ -56,7 +56,7 @@ fun TransactionActionsSection(
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         // Row 1: Primary Actions (Chat & Mark Paid / Re-open)
         Row(
@@ -80,7 +80,11 @@ fun TransactionActionsSection(
                 Icon(UdhaarIcons.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(15.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = if (unreadChatCount > 0) "Chat ($unreadChatCount)" else "Chat",
+                    text = if (unreadChatCount > 0) {
+                        stringResource(R.string.ui_fmt_chat_d40839, unreadChatCount)
+                    } else {
+                        stringResource(R.string.ui_str_chat_26bc51)
+                    },
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
@@ -107,7 +111,7 @@ fun TransactionActionsSection(
                 Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(15.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = if (tx.isSettled) "Re-open" else "Mark Paid",
+                    text = stringResource(if (tx.isSettled) R.string.detail_reopen_btn else R.string.detail_mark_paid_btn),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
@@ -160,7 +164,7 @@ fun TransactionActionsSection(
                         Icon(UdhaarIcons.QrCode2, contentDescription = null, modifier = Modifier.size(15.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Collect QR",
+                            text = stringResource(R.string.detail_collect_qr_btn),
                             style = MaterialTheme.typography.labelLarge,
                             maxLines = 1,
                             softWrap = false,
@@ -189,7 +193,7 @@ fun TransactionActionsSection(
                         Icon(UdhaarIcons.QrCode2, contentDescription = null, modifier = Modifier.size(15.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (partyUpi.isNotBlank()) "Pay UPI" else "UPI QR",
+                            text = stringResource(if (partyUpi.isNotBlank()) R.string.detail_pay_upi_btn else R.string.detail_upi_qr_btn),
                             style = MaterialTheme.typography.labelLarge,
                             maxLines = 1,
                             softWrap = false,

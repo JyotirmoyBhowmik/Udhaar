@@ -51,11 +51,11 @@ fun TransactionBalanceCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(10.dp))
+            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.65f), RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(10.dp))
             .clickable { showFullBreakdown = !showFullBreakdown }
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

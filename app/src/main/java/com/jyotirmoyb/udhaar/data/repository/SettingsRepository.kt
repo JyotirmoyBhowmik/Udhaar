@@ -130,7 +130,13 @@ open class SettingsRepository(
         }
 
         val currentSettings = userSettings.first()
-        if (currentSettings.cloudVerificationConsent && currentSettings.cloudUserId.isNotBlank()) {
+        val authUser = runCatching { com.google.firebase.auth.FirebaseAuth.getInstance().currentUser }.getOrNull()
+        if (currentSettings.cloudVerificationConsent &&
+            currentSettings.cloudUserId.isNotBlank() &&
+            authUser != null &&
+            !authUser.isAnonymous &&
+            authUser.uid == currentSettings.cloudUserId
+        ) {
             runCatching {
                 val fcmToken = resolveCurrentFcmToken()
                 cloudRepository?.upsertUserProfile(
@@ -219,13 +225,45 @@ open class SettingsRepository(
     suspend fun setCloudAccountState(
         consentGranted: Boolean,
         userId: String,
-        email: String
+        email: String,
+        displayName: String = ""
     ) {
         val cleanUid = userId.trim()
+        val cleanEmail = email.trim()
+        val cleanDisplayName = displayName.trim()
+        val currentFallback = inMemorySettingsFallback.value
+        val resolvedName = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.resolveUserProfileName(
+            payeeName = currentFallback.payeeName,
+            googleDisplayName = cleanDisplayName,
+            email = cleanEmail,
+            fallback = ""
+        )
+        inMemorySettingsFallback.value = currentFallback.copy(
+            cloudVerificationConsent = consentGranted,
+            cloudUserId = cleanUid,
+            cloudUserEmail = cleanEmail,
+            payeeName = if (com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.isPlaceholderSelfName(currentFallback.payeeName) && resolvedName.isNotBlank()) {
+                resolvedName
+            } else {
+                currentFallback.payeeName
+            },
+            cloudBackupState = if (consentGranted && cleanUid.isNotBlank()) CloudBackupState.BACKING_UP else CloudBackupState.IDLE,
+            cloudBackupError = ""
+        )
         context?.udhaarDataStore?.edit { prefs ->
             prefs[PrefKeys.CLOUD_CONSENT] = consentGranted
             prefs[PrefKeys.CLOUD_USER_ID] = cleanUid
-            prefs[PrefKeys.CLOUD_USER_EMAIL] = email.trim()
+            prefs[PrefKeys.CLOUD_USER_EMAIL] = cleanEmail
+            val existingPayee = prefs[PrefKeys.PAYEE_NAME].orEmpty()
+            val candidateName = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.resolveUserProfileName(
+                payeeName = existingPayee,
+                googleDisplayName = cleanDisplayName,
+                email = cleanEmail,
+                fallback = ""
+            )
+            if (com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.isPlaceholderSelfName(existingPayee) && candidateName.isNotBlank()) {
+                prefs[PrefKeys.PAYEE_NAME] = candidateName
+            }
             if (consentGranted && cleanUid.isNotBlank()) {
                 prefs[PrefKeys.CLOUD_BACKUP_STATE] = CloudBackupState.BACKING_UP.name
                 prefs[PrefKeys.CLOUD_BACKUP_ERROR] = ""
@@ -234,6 +272,15 @@ open class SettingsRepository(
                 prefs[PrefKeys.CLOUD_BACKUP_ERROR] = ""
             }
         }
+    }
+
+    fun resolveSelfDisplayName(settings: UserSettings): String {
+        val authUser = runCatching { com.google.firebase.auth.FirebaseAuth.getInstance().currentUser }.getOrNull()
+        return com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.resolveUserProfileName(
+            payeeName = settings.payeeName,
+            googleDisplayName = authUser?.displayName.orEmpty(),
+            email = settings.cloudUserEmail.ifBlank { authUser?.email.orEmpty() }
+        )
     }
 
     fun verifyPin(candidatePin: String): PinVerificationResult {

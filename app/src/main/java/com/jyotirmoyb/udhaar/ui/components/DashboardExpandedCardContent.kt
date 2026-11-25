@@ -311,9 +311,9 @@ internal fun ExpandedTransactionCardContent(
                 Text(
                     text = tx.partyName,
                     style = MaterialTheme.typography.headlineMedium.copy(
-                        fontSize = 14.5.sp,
-                        lineHeight = 18.sp,
-                        letterSpacing = (-0.2).sp,
+                        fontSize = 13.5.sp,
+                        lineHeight = 17.sp,
+                        letterSpacing = (-0.25).sp,
                         fontWeight = FontWeight.SemiBold
                     ),
                     color = PureBlack,
@@ -321,7 +321,12 @@ internal fun ExpandedTransactionCardContent(
                     softWrap = false,
                     textDecoration = if (tx.isSettled) TextDecoration.LineThrough else TextDecoration.None,
                     modifier = Modifier
-                        .basicMarquee(iterations = Int.MAX_VALUE, velocity = 36.dp)
+                        .basicMarquee(
+                            iterations = Int.MAX_VALUE,
+                            repeatDelayMillis = 700,
+                            initialDelayMillis = 300,
+                            velocity = 34.dp
+                        )
                         .udhaarSharedBounds("tx_name_${tx.id}")
                 )
                 if (tx.phoneNumber.isNotBlank()) {

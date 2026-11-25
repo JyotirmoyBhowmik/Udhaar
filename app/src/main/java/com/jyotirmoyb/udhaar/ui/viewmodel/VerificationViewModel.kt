@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.jyotirmoyb.udhaar.data.PartialPayment
 import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
+import com.jyotirmoyb.udhaar.data.cloud.GuestLinkFetchResult
 import com.jyotirmoyb.udhaar.data.cloud.GuestWebLinkCreateResult
 import com.jyotirmoyb.udhaar.data.repository.GuestWebRepository
 import com.jyotirmoyb.udhaar.data.repository.PaymentRepository
@@ -16,6 +17,7 @@ import com.jyotirmoyb.udhaar.ui.state.AppStateHolder
 import com.jyotirmoyb.udhaar.util.VerificationCryptoHelper
 import com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.SharedPaymentProfilePayload
 import com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.SharedVerificationPayload
+import kotlinx.coroutines.flow.first
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -281,17 +283,52 @@ class VerificationViewModel @Inject constructor(
         urlOrToken: String,
         targetPartyId: Long? = null
     ): Boolean {
-        // 1. Check for guest web link: https://udhaar.jyotirmoyb.com/u/r/<recordId>#<secret>
-        val guestLinkData = VerificationCryptoHelper.parseGuestWebLink(urlOrToken)
+        val cleanInput = VerificationCryptoHelper.sanitizeIncomingUrl(urlOrToken)
+        if (cleanInput.isBlank()) return false
+
+        // 1. Check for guest web capability link (/u/#k=<secret>, /u#k=<secret>, or /u/r/<recordId>#<secret>)
+        val guestLinkData = VerificationCryptoHelper.parseGuestWebLink(cleanInput)
         if (guestLinkData != null) {
             viewModelScope.launch {
-                guestWebRepository.claimGuestActions(guestLinkData.recordId, guestLinkData.secret)
+                if (guestLinkData.secret.isBlank()) {
+                    if (guestLinkData.recordId.isNotBlank()) {
+                        guestWebRepository.claimGuestActions(guestLinkData.recordId, "")
+                    }
+                    appStateHolder.showDeepLinkStatusMessage("This verification link is invalid or incomplete.")
+                    return@launch
+                }
+
+                when (val result = guestWebRepository.fetchGuestLinkBySecret(guestLinkData.secret, guestLinkData.recordId)) {
+                    is GuestLinkFetchResult.Success -> {
+                        val settings = settingsRepository.userSettings.first()
+                        val myUid = settings.cloudUserId.trim()
+                        if (myUid.isNotBlank() && result.payload.guestOwnerUid == myUid) {
+                            guestWebRepository.claimGuestActions(result.payload.remoteId, guestLinkData.secret)
+                            appStateHolder.showDeepLinkStatusMessage("Checked guest updates on your shared Udhaar link.")
+                        } else {
+                            _incomingVerificationPayload.value = result.payload
+                        }
+                    }
+                    is GuestLinkFetchResult.FallbackToBrowser -> {
+                        val browserUrl = guestLinkData.rawUrl.ifBlank { cleanInput }
+                        if (browserUrl.startsWith("http://", ignoreCase = true) ||
+                            browserUrl.startsWith("https://", ignoreCase = true)
+                        ) {
+                            appStateHolder.triggerExternalBrowserFallback(browserUrl)
+                        } else {
+                            appStateHolder.showDeepLinkStatusMessage(result.reason)
+                        }
+                    }
+                    is GuestLinkFetchResult.InvalidOrExpired -> {
+                        appStateHolder.showDeepLinkStatusMessage(result.reason)
+                    }
+                }
             }
             return true
         }
 
         // 2. Check for payment profile link
-        val profilePayload = VerificationCryptoHelper.parsePaymentProfileLink(urlOrToken)
+        val profilePayload = VerificationCryptoHelper.parsePaymentProfileLink(cleanInput)
         if (profilePayload != null) {
             _incomingPaymentProfilePayload.value = profilePayload
             _incomingPaymentProfileTargetPartyId.value = targetPartyId
@@ -299,30 +336,50 @@ class VerificationViewModel @Inject constructor(
         }
 
         // 3. Check for standard verification link
-        val verificationPayload = VerificationCryptoHelper.parseVerificationLink(urlOrToken)
+        val verificationPayload = VerificationCryptoHelper.parseVerificationLink(cleanInput)
         if (verificationPayload != null) {
             _incomingVerificationPayload.value = verificationPayload
             return true
+        }
+
+        if (cleanInput.contains("/u/", ignoreCase = true) || cleanInput.contains("/u#", ignoreCase = true)) {
+            appStateHolder.showDeepLinkStatusMessage("This Udhaar verification link is invalid or expired.")
         }
         return false
     }
 
     fun confirmOrDisputeIncomingVerification(
         confirm: Boolean,
-        disputeReason: String = ""
+        disputeReason: String = "",
+        counterpartyNameOverride: String = ""
     ) {
         val payload = _incomingVerificationPayload.value ?: return
         viewModelScope.launch {
             val savedTx = verificationRepository.processIncomingVerificationResponse(
                 payload = payload,
                 confirm = confirm,
-                disputeReason = disputeReason
+                disputeReason = disputeReason,
+                counterpartyNameOverride = counterpartyNameOverride
             )
+            var cloudStatusSynced = true
+            if (payload.guestLinkId.isNotBlank()) {
+                val actionRes = guestWebRepository.submitGuestActionFromApp(
+                    linkId = payload.guestLinkId,
+                    actionType = if (confirm) "CONFIRM" else "DISPUTE",
+                    reason = disputeReason
+                )
+                cloudStatusSynced = actionRes.isSuccess
+            }
             _incomingVerificationPayload.value = null
             appStateHolder.openTransactionDetail(savedTx.id)
             appStateHolder.setSummaryCurrency(savedTx.currency)
             if (confirm) {
                 appStateHolder.setSuccessAnimation(SuccessAnimationEvent(message = "Record verified"))
+            }
+            if (!cloudStatusSynced) {
+                appStateHolder.showDeepLinkStatusMessage(
+                    "Saved to Khata locally. Could not sync confirmation status online."
+                )
             }
         }
     }
@@ -351,7 +408,7 @@ class VerificationViewModel @Inject constructor(
     fun acknowledgePartialPayment(
         transaction: UdhaarTransaction,
         payment: PartialPayment,
-        actorName: String = "You"
+        actorName: String = ""
     ) {
         viewModelScope.launch {
             paymentRepository.acknowledgePartialPayment(

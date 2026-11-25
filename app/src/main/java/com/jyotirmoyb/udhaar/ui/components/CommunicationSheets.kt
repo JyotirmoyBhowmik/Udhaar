@@ -130,6 +130,7 @@ fun ChatThreadBottomSheet(
     auditEntries: List<AuditTrailEntry>,
     myProfileName: String,
     myUpiId: String,
+    isCloudLinked: Boolean = true,
     onDismiss: () -> Unit,
     onSendMessage: (
         messageType: ChatMessageType,
@@ -749,6 +750,29 @@ fun ChatThreadBottomSheet(
                 }
             }
 
+            if (!isCloudLinked) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp)
+                        .testTag("chat_local_only_notice_banner"),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                ) {
+                    Text(
+                        text = if (scope == ChatThreadScope.TRANSACTION) {
+                            stringResource(R.string.chat_local_only_notice_tx)
+                        } else {
+                            stringResource(R.string.chat_local_only_notice_party)
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
             // --- Timeline (Messages + Audit Events) ---
@@ -805,6 +829,7 @@ fun ChatThreadBottomSheet(
                                 is TimelineDisplayItem.UserChatMessageItem -> {
                                     ChatMessageBubbleItem(
                                         message = item.message,
+                                        isCloudLinked = isCloudLinked,
                                         onAcceptExtension = { onRespondToExtension(item.message, true) },
                                         onDeclineExtension = { onRespondToExtension(item.message, false) }
                                     )
@@ -1021,6 +1046,7 @@ private fun SystemAuditPillItem(entry: AuditTrailEntry) {
 @Composable
 private fun ChatMessageBubbleItem(
     message: ChatMessageEntity,
+    isCloudLinked: Boolean = true,
     onAcceptExtension: () -> Unit,
     onDeclineExtension: () -> Unit
 ) {
@@ -1253,20 +1279,22 @@ private fun ChatMessageBubbleItem(
                     )
                     if (isOutgoing) {
                         Spacer(modifier = Modifier.width(4.dp))
-                        val tickLabel = when (message.deliveryStatus) {
-                            MessageDeliveryStatus.SENT -> "✓ Sent"
-                            MessageDeliveryStatus.DELIVERED -> "✓✓ Delivered"
-                            MessageDeliveryStatus.READ -> "✓✓ Read"
+                        val isLocalOnlyStatus = !isCloudLinked && message.deliveryStatus != MessageDeliveryStatus.READ
+                        val tickLabel = when {
+                            isLocalOnlyStatus -> "Saved locally"
+                            message.deliveryStatus == MessageDeliveryStatus.SENT -> "✓ Sent"
+                            message.deliveryStatus == MessageDeliveryStatus.DELIVERED -> "✓✓ Delivered"
+                            else -> "✓✓ Read"
                         }
                         Icon(
-                            imageVector = if (message.deliveryStatus == MessageDeliveryStatus.SENT) {
+                            imageVector = if (isLocalOnlyStatus || message.deliveryStatus == MessageDeliveryStatus.SENT) {
                                 Icons.Default.Check
                             } else {
                                 UdhaarIcons.DoneAll
                             },
                             contentDescription = tickLabel,
                             modifier = Modifier.size(13.dp),
-                            tint = if (message.deliveryStatus == MessageDeliveryStatus.READ) {
+                            tint = if (!isLocalOnlyStatus && message.deliveryStatus == MessageDeliveryStatus.READ) {
                                 financeColors.receiveAccent
                             } else {
                                 bubbleText.copy(alpha = 0.75f)
@@ -1274,16 +1302,17 @@ private fun ChatMessageBubbleItem(
                         )
                         Spacer(modifier = Modifier.width(2.dp))
                         Text(
-                            text = when (message.deliveryStatus) {
-                                MessageDeliveryStatus.SENT -> stringResource(R.string.ui_str_sent_35f49d)
-                                MessageDeliveryStatus.DELIVERED -> stringResource(R.string.ui_str_delivered_eea956)
-                                MessageDeliveryStatus.READ -> stringResource(R.string.ui_str_read_852b43)
+                            text = when {
+                                isLocalOnlyStatus -> stringResource(R.string.chat_status_local_only)
+                                message.deliveryStatus == MessageDeliveryStatus.SENT -> stringResource(R.string.ui_str_sent_35f49d)
+                                message.deliveryStatus == MessageDeliveryStatus.DELIVERED -> stringResource(R.string.ui_str_delivered_eea956)
+                                else -> stringResource(R.string.ui_str_read_852b43)
                             },
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             ),
-                            color = if (message.deliveryStatus == MessageDeliveryStatus.READ) {
+                            color = if (!isLocalOnlyStatus && message.deliveryStatus == MessageDeliveryStatus.READ) {
                                 financeColors.receiveAccent
                             } else {
                                 bubbleText.copy(alpha = 0.75f)

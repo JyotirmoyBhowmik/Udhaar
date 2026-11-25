@@ -14,6 +14,7 @@ const OWNER_UID = "alice_owner";
 const ATTACKER_UID = "mallory_attacker";
 const GUEST_ANON_UID = "guest_anon_uid";
 const GUEST_GOOGLE_UID = "guest_google_uid";
+const BORROWER_UID = "bob_borrower";
 const BORROWER_EMAIL = "borrower@gmail.com";
 const WRONG_EMAIL = "wrong@gmail.com";
 
@@ -100,6 +101,16 @@ function getGoogleGuestDb(email = BORROWER_EMAIL, verified = true) {
       email,
       email_verified: verified,
       firebase: { sign_in_provider: "google.com" },
+    })
+    .firestore();
+}
+
+function getBorrowerDb() {
+  return testEnv
+    .authenticatedContext(BORROWER_UID, {
+      email: "bob@udhaar.test",
+      email_verified: true,
+      firebase: { sign_in_provider: "password" },
     })
     .firestore();
 }
@@ -545,10 +556,11 @@ test("A7. /users/{uid}/meta/syncSignal & catch-all denied collections", async ()
   await assertSucceeds(ref(ownerDb).update({ updatedAtMs: now + 10, rev: 2 }));
   await assertSucceeds(ref(ownerDb).delete());
 
-  // Legacy Blaze-only collections denied by catch-all
+  // Server-mediated collections denied by catch-all
   await assertFails(ownerDb.collection("webLinks").doc("wl_1").set({ ownerUid: OWNER_UID }));
-  await assertFails(ownerDb.collection("shared_records").doc("sr_1").set({ ownerUid: OWNER_UID }));
   await assertFails(ownerDb.collection("chat").doc("c_1").set({ ownerUid: OWNER_UID }));
+  // Malformed / non-conforming shared_records document denied
+  await assertFails(ownerDb.collection("shared_records").doc("sr_1").set({ ownerUid: OWNER_UID }));
 });
 
 // =========================================================================
@@ -773,4 +785,442 @@ test("B6. GuestAction Proof: other user read DENIED, oversized base64 DENIED, up
   await assertFails(proofRef(guestDb).update({ dataB64: "B".repeat(100) }));
   await assertFails(proofRef(attackerDb).get());
   await assertSucceeds(proofRef(ownerDb).get());
+});
+
+// =========================================================================
+// PART C: Participant-Scoped Real-Time Collections (Spark Mode)
+// (user_profiles, shared_records, partial_payments, audit_trail, chat_threads, messages)
+// =========================================================================
+
+function buildValidSharedRecord(overrides = {}) {
+  return {
+    remoteId: "rec_c1001",
+    creatorUid: OWNER_UID,
+    counterpartyUid: "",
+    participantUids: [OWNER_UID],
+    lenderName: "Alice Owner",
+    borrowerName: "Bob Borrower",
+    creatorRole: "GIVEN",
+    currency: "INR",
+    principalAmount: 5000.0,
+    amountPaid: 0.0,
+    paymentMode: "UPI",
+    isInterestEnabled: true,
+    interestType: "SIMPLE",
+    interestRate: 2.0,
+    interestRatePeriod: "PER_MONTH",
+    compoundFrequency: "MONTHLY",
+    startDateMillis: 1730000000000,
+    expiryDateMillis: -1,
+    contentHash: "a".repeat(64),
+    verificationStatus: "PENDING",
+    verifiedAtMillis: -1,
+    disputeReason: "",
+    encryptedNotes: "AES_GCM_CIPHERTEXT_SAMPLE",
+    attachmentRefs: [],
+    isSettled: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
+
+function buildValidChatThread(overrides = {}) {
+  return {
+    threadId: "tx_rec_c1001",
+    threadScope: "TRANSACTION",
+    remoteRecordId: "rec_c1001",
+    partyName: "Bob Borrower",
+    creatorUid: OWNER_UID,
+    counterpartyUid: "",
+    participantUids: [OWNER_UID],
+    typingUid: "",
+    typingUpdatedAtMillis: -1,
+    mutedByUids: [],
+    blockedByUid: "",
+    reportedByUid: "",
+    reportReason: "",
+    lastMessagePreview: "Record created",
+    lastMessageAtMillis: 1730000000000,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
+
+test("C1. /user_profiles/{uid}: owner create, read, update, delete OK, outsider denied", async () => {
+  const ownerDb = getOwnerDb();
+  const borrowerDb = getBorrowerDb();
+  const strangerDb = getStrangerDb();
+
+  const profileRef = (db, uid = OWNER_UID) => db.collection("user_profiles").doc(uid);
+  const now = new Date();
+  const validProfile = {
+    userId: OWNER_UID,
+    displayName: "Alice Owner",
+    phoneNumber: "+919876543210",
+    upiId: "alice@upi",
+    photoUri: "https://example.com/avatar.webp",
+    fcmToken: "fcm_token_initial",
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  // Stranger and outsider -> DENIED
+  await assertFails(profileRef(strangerDb).set(validProfile));
+  await assertFails(profileRef(borrowerDb).set(validProfile));
+
+  // Owner create -> OK
+  await assertSucceeds(profileRef(ownerDb).set(validProfile));
+
+  // Owner read -> OK, outsider read -> DENIED
+  await assertSucceeds(profileRef(ownerDb).get());
+  await assertFails(profileRef(borrowerDb).get());
+
+  // Owner update fcmToken -> OK
+  await assertSucceeds(
+    profileRef(ownerDb).update({
+      fcmToken: "fcm_token_refreshed",
+      updatedAt: new Date(),
+    })
+  );
+
+  // Owner delete -> OK
+  await assertSucceeds(profileRef(ownerDb).delete());
+});
+
+test("C2. /shared_records/{id}: create, counterparty claim & confirm, query, terms edit & outsider deny", async () => {
+  const ownerDb = getOwnerDb();
+  const borrowerDb = getBorrowerDb();
+  const attackerDb = getAttackerDb();
+  const strangerDb = getStrangerDb();
+
+  const recRef = (db) => db.collection("shared_records").doc("rec_c1001");
+
+  // Stranger & outsider cannot create with forged creatorUid
+  await assertFails(recRef(strangerDb).set(buildValidSharedRecord()));
+  await assertFails(recRef(attackerDb).set(buildValidSharedRecord()));
+
+  // Owner (Alice) creates valid record
+  await assertSucceeds(recRef(ownerDb).set(buildValidSharedRecord()));
+
+  // Stranger and non-participant attacker cannot read
+  await assertFails(recRef(strangerDb).get());
+  await assertFails(recRef(attackerDb).get());
+
+  // Creator cannot confirm their own record
+  await assertFails(
+    recRef(ownerDb).update({
+      verificationStatus: "CONFIRMED",
+      updatedAt: new Date(),
+    })
+  );
+
+  // Borrower claims and confirms the record
+  await assertSucceeds(
+    recRef(borrowerDb).update({
+      counterpartyUid: BOB_UID,
+      participantUids: [OWNER_UID, BOB_UID],
+      verificationStatus: "CONFIRMED",
+      verifiedAtMillis: 1730000500000,
+      disputeReason: "",
+      updatedAt: new Date(),
+    })
+  );
+
+  // Both participants can read and list with array-contains
+  await assertSucceeds(recRef(ownerDb).get());
+  await assertSucceeds(recRef(borrowerDb).get());
+  await assertSucceeds(
+    ownerDb.collection("shared_records").where("participantUids", "array-contains", OWNER_UID).get()
+  );
+  await assertSucceeds(
+    borrowerDb.collection("shared_records").where("participantUids", "array-contains", BOB_UID).get()
+  );
+
+  // Attacker cannot read or hijack already claimed record
+  await assertFails(recRef(attackerDb).get());
+  await assertFails(
+    recRef(attackerDb).update({
+      counterpartyUid: ATTACKER_UID,
+      participantUids: [OWNER_UID, ATTACKER_UID],
+      updatedAt: new Date(),
+    })
+  );
+
+  // Term modification requires EDITED_AFTER_CONFIRM status
+  await assertFails(
+    recRef(ownerDb).update({
+      principalAmount: 7000.0,
+      updatedAt: new Date(),
+    })
+  );
+  await assertSucceeds(
+    recRef(ownerDb).update({
+      principalAmount: 7000.0,
+      verificationStatus: "EDITED_AFTER_CONFIRM",
+      updatedAt: new Date(),
+    })
+  );
+});
+
+test("C3. /shared_records/{id}/partial_payments/{id}: participant record, acknowledge, tamper deny", async () => {
+  const ownerDb = getOwnerDb();
+  const borrowerDb = getBorrowerDb();
+  const attackerDb = getAttackerDb();
+
+  // Create base shared record
+  await ownerDb.collection("shared_records").doc("rec_c1001").set(
+    buildValidSharedRecord({
+      counterpartyUid: BOB_UID,
+      participantUids: [OWNER_UID, BOB_UID],
+      verificationStatus: "CONFIRMED",
+    })
+  );
+
+  const payRef = (db) =>
+    db.collection("shared_records").doc("rec_c1001").collection("partial_payments").doc("pay_1");
+
+  const validPayment = {
+    paymentId: "pay_1",
+    remoteId: "rec_c1001",
+    recordedByUid: BOB_UID,
+    recordedByName: "Bob Borrower",
+    participantUids: [OWNER_UID, BOB_UID],
+    amount: 1500.0,
+    paymentMode: "UPI",
+    paidAtMillis: 1730001000000,
+    encryptedNote: "",
+    isAcknowledged: false,
+    acknowledgedByUid: "",
+    acknowledgedAtMillis: -1,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  // Attacker cannot write payment
+  await assertFails(payRef(attackerDb).set(validPayment));
+
+  // Bob records partial payment -> OK
+  await assertSucceeds(payRef(borrowerDb).set(validPayment));
+
+  // Attacker cannot read payment
+  await assertFails(payRef(attackerDb).get());
+
+  // Alice acknowledges partial payment -> OK
+  await assertSucceeds(
+    payRef(ownerDb).update({
+      isAcknowledged: true,
+      acknowledgedByUid: OWNER_UID,
+      acknowledgedAtMillis: 1730002000000,
+      updatedAt: new Date(),
+    })
+  );
+
+  // Alice cannot tamper with recorded amount -> DENIED
+  await assertFails(
+    payRef(ownerDb).update({
+      amount: 500.0,
+      updatedAt: new Date(),
+    })
+  );
+});
+
+test("C4. /shared_records/{id}/audit_trail/{id}: append-only, tamper deny, outsider deny", async () => {
+  const ownerDb = getOwnerDb();
+  const borrowerDb = getBorrowerDb();
+  const attackerDb = getAttackerDb();
+
+  await ownerDb.collection("shared_records").doc("rec_c1001").set(
+    buildValidSharedRecord({
+      counterpartyUid: BOB_UID,
+      participantUids: [OWNER_UID, BOB_UID],
+      verificationStatus: "CONFIRMED",
+    })
+  );
+
+  const auditRef = (db) =>
+    db.collection("shared_records").doc("rec_c1001").collection("audit_trail").doc("evt_1");
+
+  const validAudit = {
+    eventId: "evt_1",
+    remoteId: "rec_c1001",
+    eventType: "CONFIRMED",
+    actorUid: BOB_UID,
+    actorName: "Bob Borrower",
+    participantUids: [OWNER_UID, BOB_UID],
+    summaryText: "Bob confirmed the record",
+    contentHashSnapshot: "a".repeat(64),
+    acknowledged: true,
+    eventTimeMillis: 1730000500000,
+    createdAt: new Date(),
+  };
+
+  // Attacker cannot create audit event
+  await assertFails(auditRef(attackerDb).set(validAudit));
+
+  // Bob appends audit event -> OK
+  await assertSucceeds(auditRef(borrowerDb).set(validAudit));
+
+  // Both participants can read audit event
+  await assertSucceeds(auditRef(ownerDb).get());
+  await assertSucceeds(auditRef(borrowerDb).get());
+
+  // Attacker cannot read audit event
+  await assertFails(auditRef(attackerDb).get());
+
+  // Updating audit event MUST FAIL (immutable history)
+  await assertFails(auditRef(ownerDb).update({ summaryText: "Tampered note" }));
+  await assertFails(auditRef(borrowerDb).update({ summaryText: "Tampered note" }));
+});
+
+test("C5. /chat_threads/{id}: tx_ and dm_ creation, joining, typing/mute updates, outsider deny & 3rd UID cap", async () => {
+  const ownerDb = getOwnerDb();
+  const borrowerDb = getBorrowerDb();
+  const attackerDb = getAttackerDb();
+
+  const txThreadRef = (db) => db.collection("chat_threads").doc("tx_rec_c1001");
+
+  // Alice creates transaction thread with 1 participant
+  await assertSucceeds(txThreadRef(ownerDb).set(buildValidChatThread()));
+
+  // Attacker cannot read
+  await assertFails(txThreadRef(attackerDb).get());
+
+  // Bob joins thread as counterparty
+  await assertSucceeds(
+    txThreadRef(borrowerDb).update({
+      counterpartyUid: BOB_UID,
+      participantUids: [OWNER_UID, BOB_UID],
+      partyName: "Alice Owner",
+      typingUid: BOB_UID,
+      typingUpdatedAtMillis: 1730001000000,
+      lastMessagePreview: "Joined thread",
+      lastMessageAtMillis: 1730001000000,
+      updatedAt: new Date(),
+    })
+  );
+
+  // Attacker cannot join already-joined thread
+  await assertFails(
+    txThreadRef(attackerDb).update({
+      counterpartyUid: ATTACKER_UID,
+      participantUids: [OWNER_UID, ATTACKER_UID],
+      updatedAt: new Date(),
+    })
+  );
+
+  // Bob updates typing status and mute using SetOptions.merge
+  await assertSucceeds(
+    txThreadRef(borrowerDb).set(
+      {
+        typingUid: BOB_UID,
+        typingUpdatedAtMillis: 1730002000000,
+        mutedByUids: [BOB_UID],
+        updatedAt: new Date(),
+      },
+      { merge: true }
+    )
+  );
+
+  // Attempting to inject a third UID into participantUids (cap <= 2) -> DENIED
+  await assertFails(
+    txThreadRef(ownerDb).update({
+      participantUids: [OWNER_UID, BOB_UID, ATTACKER_UID],
+      updatedAt: new Date(),
+    })
+  );
+
+  // DM thread: Alice creates deterministic dm_<uidA>_<uidB>
+  const dmId = `dm_${OWNER_UID}_${BOB_UID}`;
+  const validDm = {
+    threadId: dmId,
+    threadScope: "PARTY",
+    remoteRecordId: "",
+    partyName: "Bob Borrower",
+    creatorUid: OWNER_UID,
+    counterpartyUid: BOB_UID,
+    participantUids: [OWNER_UID, BOB_UID],
+    typingUid: "",
+    typingUpdatedAtMillis: -1,
+    mutedByUids: [],
+    blockedByUid: "",
+    reportedByUid: "",
+    reportReason: "",
+    lastMessagePreview: "Hello",
+    lastMessageAtMillis: 1730000000000,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  // Attacker cannot create dm_ thread between Alice and Bob
+  await assertFails(attackerDb.collection("chat_threads").doc(dmId).set(validDm));
+
+  // Alice can create dm_ thread
+  await assertSucceeds(ownerDb.collection("chat_threads").doc(dmId).set(validDm));
+});
+
+test("C6. /chat_threads/{id}/messages/{id}: send, read receipt, extension request & body tamper deny", async () => {
+  const ownerDb = getOwnerDb();
+  const borrowerDb = getBorrowerDb();
+  const attackerDb = getAttackerDb();
+
+  await ownerDb.collection("chat_threads").doc("tx_rec_c1001").set(
+    buildValidChatThread({
+      counterpartyUid: BOB_UID,
+      participantUids: [OWNER_UID, BOB_UID],
+    })
+  );
+
+  const msgRef = (db, id = "msg_1") =>
+    db.collection("chat_threads").doc("tx_rec_c1001").collection("messages").doc(id);
+
+  const validMsg = {
+    messageId: "msg_1",
+    threadId: "tx_rec_c1001",
+    senderUid: BOB_UID,
+    senderName: "Bob Borrower",
+    participantUids: [OWNER_UID, BOB_UID],
+    messageType: "EXTENSION_REQUEST",
+    bodyText: "Requesting extension until Friday",
+    attachmentUri: "",
+    attachmentMimeType: "",
+    attachmentName: "",
+    deliveryStatus: "SENT",
+    proposedDueDateMillis: 1731000000000,
+    extensionStatus: "PENDING",
+    sentAtMillis: 1730003000000,
+    deliveredAtMillis: -1,
+    readAtMillis: -1,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  // Attacker cannot send message
+  await assertFails(msgRef(attackerDb).set(validMsg));
+
+  // Bob sends message -> OK
+  await assertSucceeds(msgRef(borrowerDb).set(validMsg));
+
+  // Attacker cannot read message
+  await assertFails(msgRef(attackerDb).get());
+
+  // Alice marks message READ and ACCEPTS extension
+  await assertSucceeds(
+    msgRef(ownerDb).update({
+      deliveryStatus: "READ",
+      deliveredAtMillis: 1730003100000,
+      readAtMillis: 1730003200000,
+      extensionStatus: "ACCEPTED",
+      updatedAt: new Date(),
+    })
+  );
+
+  // Alice attempts to tamper with Bob's message bodyText -> DENIED
+  await assertFails(
+    msgRef(ownerDb).update({
+      bodyText: "Forged message body",
+      updatedAt: new Date(),
+    })
+  );
 });

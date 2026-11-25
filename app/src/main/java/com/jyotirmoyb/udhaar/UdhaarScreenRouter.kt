@@ -14,6 +14,11 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -21,9 +26,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import com.jyotirmoyb.udhaar.data.PaymentMode
 import com.jyotirmoyb.udhaar.data.TransactionType
 import com.jyotirmoyb.udhaar.ui.ActiveScreen
@@ -31,6 +38,7 @@ import com.jyotirmoyb.udhaar.ui.UdhaarUiState
 import com.jyotirmoyb.udhaar.ui.UdhaarViewModel
 import com.jyotirmoyb.udhaar.ui.components.AddEditUdhaarScreen
 import com.jyotirmoyb.udhaar.ui.components.BiometricSecurityScreen
+import com.jyotirmoyb.udhaar.ui.components.CloudVerificationGateScreen
 import com.jyotirmoyb.udhaar.ui.components.DashboardScreen
 import com.jyotirmoyb.udhaar.ui.components.LocalAnimatedVisibilityScope
 import com.jyotirmoyb.udhaar.ui.components.LocalSharedTransitionScope
@@ -106,6 +114,42 @@ internal fun UdhaarScreenRouter(
             onVerifyPin = viewModel::verifyPin,
             onAuthenticated = viewModel::markAuthenticated
         )
+        return
+    }
+
+    val deepLinkSnackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(uiState.deepLinkStatusMessage) {
+        val msg = uiState.deepLinkStatusMessage
+        if (!msg.isNullOrBlank()) {
+            deepLinkSnackbarHostState.showSnackbar(message = msg, duration = SnackbarDuration.Long)
+            viewModel.dismissDeepLinkStatusMessage()
+        }
+    }
+
+    if (uiState.requiresCloudVerificationGate) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            CloudVerificationGateScreen(
+                isFirebaseConfigured = uiState.isFirebaseConfigured,
+                isSignedInUnverified = uiState.cloudVerificationEmailUnverified,
+                pendingEmail = uiState.cloudVerificationPendingEmail,
+                onVerifiedSession = { uid, email, displayName ->
+                    viewModel.setCloudAccountState(
+                        consentGranted = true,
+                        userId = uid,
+                        email = email,
+                        displayName = displayName
+                    )
+                },
+                onSignedOut = viewModel::handleCloudSignOut
+            )
+            SnackbarHost(
+                hostState = deepLinkSnackbarHostState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(16.dp)
+            )
+        }
         return
     }
 
@@ -408,6 +452,11 @@ internal fun UdhaarScreenRouter(
                                         onShareReceipt = { viewModel.openTransactionReceiptModal(detailSummary.transaction.id) },
                                         onOpenWhatsApp = { viewModel.openWhatsAppReminderModal(detailSummary.transaction.id) },
                                         unreadChatCount = uiState.unreadCountByTx[detailSummary.transaction.id] ?: 0,
+                                        selfDisplayName = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.resolveUserProfileName(
+                                            payeeName = uiState.userSettings.payeeName,
+                                            email = uiState.userSettings.cloudUserEmail,
+                                            fallback = ""
+                                        ),
                                         onOpenTransactionChat = {
                                             viewModel.closeTransactionDetail()
                                             viewModel.openTransactionChat(detailSummary.transaction.id)
@@ -547,6 +596,13 @@ internal fun UdhaarScreenRouter(
         SuccessCheckmarkOverlay(
             event = uiState.successAnimationEvent,
             onFinished = viewModel::clearSuccessAnimation
+        )
+        SnackbarHost(
+            hostState = deepLinkSnackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(16.dp)
         )
     }
 }

@@ -39,7 +39,7 @@ open class PaymentRepository(
         paymentMode: PaymentMode = PaymentMode.CASH,
         note: String,
         totalAccruedAmount: Double,
-        actorName: String = "You",
+        actorName: String = "",
         proofAttachment: Attachment? = null
     ): Long = recordPartialPaymentPaise(
         transaction = transaction,
@@ -57,7 +57,7 @@ open class PaymentRepository(
         paymentMode: PaymentMode = PaymentMode.CASH,
         note: String,
         totalAccruedAmountPaise: Long,
-        actorName: String = "You",
+        actorName: String = "",
         proofAttachment: Attachment? = null
     ): Long {
         val amtRes = com.jyotirmoyb.udhaar.util.InputValidator.validateAmountPaise(paymentAmountPaise)
@@ -68,7 +68,10 @@ open class PaymentRepository(
         val cleanPaymentPaise = paymentAmountPaise
 
         val settings = settingsRepository.userSettings.first()
-        val effectiveActor = actorName.trim().ifEmpty { settings.payeeName.ifBlank { "You" } }
+        val selfName = settingsRepository.resolveSelfDisplayName(settings)
+        val effectiveActor = actorName.trim()
+            .takeUnless { com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.isPlaceholderSelfName(it) }
+            ?: selfName
         val remotePaymentId = "pay_${UUID.randomUUID().toString().replace("-", "").take(16)}"
         val nowMillis = System.currentTimeMillis()
         val isSharedRecord = transaction.verificationStatus != VerificationStatus.LOCAL_ONLY
@@ -178,10 +181,12 @@ open class PaymentRepository(
     suspend fun acknowledgePartialPayment(
         transaction: UdhaarTransaction,
         payment: PartialPayment,
-        actorName: String = "You"
+        actorName: String = ""
     ) {
         val settings = settingsRepository.userSettings.first()
-        val effectiveActor = actorName.trim().ifEmpty { settings.payeeName.ifBlank { "You" } }
+        val effectiveActor = actorName.trim()
+            .takeUnless { com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.isPlaceholderSelfName(it) }
+            ?: settingsRepository.resolveSelfDisplayName(settings)
         val nowMillis = System.currentTimeMillis()
 
         val updatedPayment = payment.copy(

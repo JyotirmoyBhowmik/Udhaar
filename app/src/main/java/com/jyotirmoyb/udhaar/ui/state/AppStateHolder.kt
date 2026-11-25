@@ -50,6 +50,12 @@ class AppStateHolder @Inject constructor() {
     private val _undoSnackbarMessage = MutableStateFlow<String?>(null)
     val undoSnackbarMessage: StateFlow<String?> = _undoSnackbarMessage.asStateFlow()
 
+    private val _deepLinkStatusMessage = MutableStateFlow<String?>(null)
+    val deepLinkStatusMessage: StateFlow<String?> = _deepLinkStatusMessage.asStateFlow()
+
+    private val _externalBrowserFallbackUrl = MutableStateFlow<String?>(null)
+    val externalBrowserFallbackUrl: StateFlow<String?> = _externalBrowserFallbackUrl.asStateFlow()
+
     private val _lastDeletedTransaction = MutableStateFlow<UdhaarTransaction?>(null)
     val lastDeletedTransaction: StateFlow<UdhaarTransaction?> = _lastDeletedTransaction.asStateFlow()
 
@@ -180,6 +186,22 @@ class AppStateHolder @Inject constructor() {
         _undoSnackbarMessage.value = null
         _lastDeletedTransaction.value = null
         _lastSettledBeforeTransaction.value = null
+    }
+
+    fun showDeepLinkStatusMessage(message: String) {
+        _deepLinkStatusMessage.value = message
+    }
+
+    fun dismissDeepLinkStatusMessage() {
+        _deepLinkStatusMessage.value = null
+    }
+
+    fun triggerExternalBrowserFallback(url: String) {
+        _externalBrowserFallbackUrl.value = url
+    }
+
+    fun consumeExternalBrowserFallback() {
+        _externalBrowserFallbackUrl.value = null
     }
 
     fun setSuccessAnimation(event: SuccessAnimationEvent) {

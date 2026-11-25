@@ -23,9 +23,12 @@ import com.jyotirmoyb.udhaar.util.ChatSyncHelper
 import com.jyotirmoyb.udhaar.util.SafeLogger
 import com.jyotirmoyb.udhaar.util.VerificationCryptoHelper
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -60,8 +63,74 @@ open class ChatRepository(
             scope: ChatThreadScope,
             remoteId: String,
             partyName: String,
-            fallbackThreadKey: String
-        ): String = ChatSyncHelper.cloudThreadIdFor(scope, remoteId, partyName, fallbackThreadKey)
+            fallbackThreadKey: String,
+            myUid: String = "",
+            counterpartyUid: String = ""
+        ): String = ChatSyncHelper.cloudThreadIdFor(scope, remoteId, partyName, fallbackThreadKey, myUid, counterpartyUid)
+    }
+
+    suspend fun resolveCounterpartyUid(
+        transaction: UdhaarTransaction? = null,
+        partyId: Long? = null,
+        partyName: String = ""
+    ): String {
+        val txUid = transaction?.counterpartyUserId?.trim().orEmpty()
+        if (txUid.isNotBlank()) return txUid
+
+        if (transaction != null && transaction.remoteId.isNotBlank()) {
+            val fromDbByRemote = dao.getTransactionByRemoteId(transaction.remoteId)?.counterpartyUserId?.trim().orEmpty()
+            if (fromDbByRemote.isNotBlank()) return fromDbByRemote
+        }
+
+        val party = when {
+            partyId != null && partyId > 0L -> dao.getPartyById(partyId)
+            transaction?.partyId != null && transaction.partyId > 0L -> dao.getPartyById(transaction.partyId)
+            partyName.isNotBlank() -> dao.getPartyByName(partyName.trim())
+            transaction != null && transaction.partyName.isNotBlank() -> dao.getPartyByName(transaction.partyName.trim())
+            else -> null
+        }
+        if (party != null && party.linkedUserId.isNotBlank()) {
+            return party.linkedUserId.trim()
+        }
+
+        val resolvedName = partyName.trim().ifBlank { transaction?.partyName?.trim().orEmpty() }
+        val resolvedPartyId = party?.partyId ?: partyId ?: transaction?.partyId
+        val fromAnyTx = dao.getAllTransactionsSnapshot().firstOrNull { candidate ->
+            candidate.counterpartyUserId.isNotBlank() && (
+                (resolvedPartyId != null && resolvedPartyId > 0L && candidate.partyId == resolvedPartyId) ||
+                    (resolvedName.isNotBlank() && candidate.partyName.trim().equals(resolvedName, ignoreCase = true))
+                )
+        }?.counterpartyUserId?.trim().orEmpty()
+
+        if (fromAnyTx.isNotBlank() && party != null && party.linkedUserId.isBlank()) {
+            dao.updateParty(party.copy(linkedUserId = fromAnyTx))
+        }
+        return fromAnyTx
+    }
+
+    private suspend fun linkCounterpartyUidLocally(
+        transactionId: Long?,
+        remoteId: String,
+        partyId: Long?,
+        partyName: String,
+        counterpartyUid: String
+    ) {
+        val cleanUid = counterpartyUid.trim()
+        if (cleanUid.isBlank()) return
+        val tx = (transactionId?.let { dao.getTransactionById(it) })
+            ?: remoteId.takeIf { it.isNotBlank() }?.let { dao.getTransactionByRemoteId(it) }
+        if (tx != null && tx.counterpartyUserId != cleanUid) {
+            dao.updateTransaction(tx.copy(counterpartyUserId = cleanUid))
+        }
+        val targetParty = when {
+            partyId != null && partyId > 0L -> dao.getPartyById(partyId)
+            tx?.partyId != null && tx.partyId > 0L -> dao.getPartyById(tx.partyId)
+            partyName.isNotBlank() -> dao.getPartyByName(partyName.trim())
+            else -> null
+        }
+        if (targetParty != null && targetParty.linkedUserId.isBlank()) {
+            dao.updateParty(targetParty.copy(linkedUserId = cleanUid))
+        }
     }
 
     suspend fun getOrCreateThreadMetadata(
@@ -122,22 +191,22 @@ open class ChatRepository(
         if (meta.isBlocked) return null
 
         val settings = settingsRepository.userSettings.first()
-        val myName = settings.payeeName.ifBlank { "You" }
+        val myName = settingsRepository.resolveSelfDisplayName(settings)
         val nowMillis = System.currentTimeMillis()
         val remoteMsgId = "msg_${UUID.randomUUID().toString().replace("-", "").take(16)}"
 
+        val resolvedCounterpartyUid = resolveCounterpartyUid(resolvedTx, partyId, partyName)
         val senderName = if (fromCounterparty) partyName.trim().ifBlank { "Party" } else myName
         val senderUid = if (fromCounterparty) {
-            resolvedTx?.counterpartyUserId?.ifBlank { "party_remote" } ?: "party_remote"
+            resolvedCounterpartyUid.ifBlank { "party_remote" }
         } else {
             settings.cloudUserId.ifBlank { "local_me" }
         }
 
-        val initialDelivery = when {
-            fromCounterparty -> MessageDeliveryStatus.DELIVERED
-            settings.cloudVerificationConsent && settings.cloudUserId.isNotBlank() -> MessageDeliveryStatus.DELIVERED
-            resolvedTx != null && resolvedTx.verificationStatus == VerificationStatus.CONFIRMED -> MessageDeliveryStatus.DELIVERED
-            else -> MessageDeliveryStatus.SENT
+        val initialDelivery = if (fromCounterparty) {
+            MessageDeliveryStatus.DELIVERED
+        } else {
+            MessageDeliveryStatus.SENT
         }
 
         val msgEntity = ChatMessageEntity(
@@ -185,12 +254,22 @@ open class ChatRepository(
             )
         }
 
-        syncChatThreadAndMessageToCloudIfEnabled(
+        val cloudSynced = syncChatThreadAndMessageToCloudIfEnabled(
             meta = updatedMeta,
             message = savedMsg,
             settings = settings,
-            counterpartyUserId = resolvedTx?.counterpartyUserId.orEmpty()
+            counterpartyUserId = resolvedCounterpartyUid
         )
+
+        if (!fromCounterparty && cloudSynced && resolvedCounterpartyUid.isNotBlank()) {
+            val deliveredAt = System.currentTimeMillis()
+            val deliveredMsg = savedMsg.copy(
+                deliveryStatus = MessageDeliveryStatus.DELIVERED,
+                deliveredAtMillis = deliveredAt
+            )
+            dao.updateChatMessage(deliveredMsg)
+            return deliveredMsg
+        }
 
         return savedMsg
     }
@@ -218,7 +297,7 @@ open class ChatRepository(
         transaction: UdhaarTransaction? = null,
         message: ChatMessageEntity,
         accept: Boolean,
-        responderName: String = "You"
+        responderName: String = ""
     ): UdhaarTransaction = ChatExtensionHelper.respondToExtensionRequest(
         dao = dao,
         settingsRepository = settingsRepository,
@@ -263,13 +342,23 @@ open class ChatRepository(
         val settings = settingsRepository.userSettings.first()
         if (settings.cloudVerificationConsent && settings.cloudUserId.isNotBlank()) {
             runCatching {
-                val cloudThreadId = cloudThreadIdFor(updated.threadScope, updated.remoteThreadId, updated.partyName, threadKey)
-                cloudRepository?.updateTypingStatus(
-                    threadId = cloudThreadId,
-                    typingUserId = if (isCounterpartyTyping) "party" else settings.cloudUserId,
-                    typingUserName = if (isCounterpartyTyping) updated.partyName else settings.payeeName.ifBlank { "You" },
-                    typingUpdatedAtMillis = nowMillis
+                val counterpartyUid = resolveCounterpartyUid(null, partyId, updated.partyName)
+                val cloudThreadId = cloudThreadIdFor(
+                    scope = updated.threadScope,
+                    remoteId = updated.remoteThreadId,
+                    partyName = updated.partyName,
+                    fallbackThreadKey = threadKey,
+                    myUid = settings.cloudUserId,
+                    counterpartyUid = counterpartyUid
                 )
+                if (cloudThreadId.startsWith("tx_") || cloudThreadId.startsWith("dm_")) {
+                    cloudRepository?.updateTypingStatus(
+                        threadId = cloudThreadId,
+                        typingUserId = if (isCounterpartyTyping) counterpartyUid.ifBlank { "party" } else settings.cloudUserId,
+                        typingUserName = if (isCounterpartyTyping) updated.partyName else settingsRepository.resolveSelfDisplayName(settings),
+                        typingUpdatedAtMillis = nowMillis
+                    )
+                }
             }
         }
     }
@@ -328,7 +417,13 @@ open class ChatRepository(
     }
 
     private suspend fun syncModerationFlagsToCloud(meta: ChatThreadMetadata) {
-        ChatSyncHelper.syncModerationFlagsToCloud(meta, settingsRepository, cloudRepository)
+        val counterpartyUid = resolveCounterpartyUid(null, meta.partyId, meta.partyName)
+        val settings = settingsRepository.userSettings.first()
+        val effectiveMeta = if ((meta.threadScope == ChatThreadScope.PARTY || meta.threadScope == ChatThreadScope.PARTY_GENERAL) && counterpartyUid.isNotBlank()) {
+            val dmId = cloudThreadIdFor(meta.threadScope, meta.remoteThreadId, meta.partyName, meta.threadKey, settings.cloudUserId, counterpartyUid)
+            meta.copy(remoteThreadId = dmId)
+        } else meta
+        ChatSyncHelper.syncModerationFlagsToCloud(effectiveMeta, settingsRepository, cloudRepository)
     }
 
     private suspend fun syncChatThreadAndMessageToCloudIfEnabled(
@@ -336,13 +431,235 @@ open class ChatRepository(
         message: ChatMessageEntity,
         settings: UserSettings,
         counterpartyUserId: String
-    ) {
-        ChatSyncHelper.syncChatThreadAndMessageToCloudIfEnabled(
+    ): Boolean {
+        return ChatSyncHelper.syncChatThreadAndMessageToCloudIfEnabled(
             meta = meta,
             message = message,
             settings = settings,
             counterpartyUserId = counterpartyUserId,
             cloudRepository = cloudRepository
         )
+    }
+
+    /**
+     * Observes real-time Firestore chat thread & messages for the active thread and syncs incoming
+     * messages, read/delivery receipts, and counterparty UID links into local Room storage.
+     */
+    fun observeAndSyncCloudThread(
+        threadKey: String,
+        scope: ChatThreadScope,
+        transactionId: Long?,
+        remoteId: String,
+        partyId: Long?,
+        partyName: String
+    ): Flow<Unit> = flow {
+        val cloud = cloudRepository
+        if (cloud == null || !cloud.isAvailable) return@flow
+
+        val settings = settingsRepository.userSettings.first()
+        val myUid = settings.cloudUserId.trim()
+        if (!settings.cloudVerificationConsent || myUid.isBlank()) return@flow
+
+        val tx = (transactionId?.let { dao.getTransactionById(it) })
+            ?: remoteId.takeIf { it.isNotBlank() }?.let { dao.getTransactionByRemoteId(it) }
+        val resolvedRemoteId = tx?.remoteId?.ifBlank { remoteId } ?: remoteId
+        val safeRemoteId = resolvedRemoteId.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
+
+        var counterpartyUid = resolveCounterpartyUid(tx, partyId, partyName)
+        if (safeRemoteId.isNotBlank() && counterpartyUid.isBlank()) {
+            val shared = runCatching { cloud.getSharedRecord(safeRemoteId) }.getOrNull()
+            if (shared != null) {
+                val otherUid = when {
+                    shared.counterpartyUid.isNotBlank() && shared.counterpartyUid != myUid -> shared.counterpartyUid
+                    shared.creatorUid.isNotBlank() && shared.creatorUid != myUid -> shared.creatorUid
+                    else -> ""
+                }
+                if (otherUid.isNotBlank()) {
+                    counterpartyUid = otherUid
+                    linkCounterpartyUidLocally(tx?.id ?: transactionId, safeRemoteId, partyId, partyName, otherUid)
+                }
+            }
+        }
+
+        val cloudThreadId = cloudThreadIdFor(
+            scope = scope,
+            remoteId = safeRemoteId,
+            partyName = partyName,
+            fallbackThreadKey = threadKey,
+            myUid = myUid,
+            counterpartyUid = counterpartyUid
+        )
+        if (!cloudThreadId.startsWith("tx_") && !cloudThreadId.startsWith("dm_")) {
+            return@flow
+        }
+
+        coroutineScope {
+            if (safeRemoteId.isNotBlank()) {
+                launch {
+                    cloud.observeSharedRecord(safeRemoteId)
+                        .catch { e -> SafeLogger.w("ChatRepository", "observeSharedRecord error", e) }
+                        .collect { shared ->
+                            if (shared != null) {
+                                val otherUid = when {
+                                    shared.counterpartyUid.isNotBlank() && shared.counterpartyUid != myUid -> shared.counterpartyUid
+                                    shared.creatorUid.isNotBlank() && shared.creatorUid != myUid -> shared.creatorUid
+                                    else -> ""
+                                }
+                                if (otherUid.isNotBlank()) {
+                                    linkCounterpartyUidLocally(tx?.id ?: transactionId, safeRemoteId, partyId, partyName, otherUid)
+                                }
+                            }
+                        }
+                }
+            }
+
+            launch {
+                cloud.observeChatThread(cloudThreadId)
+                    .catch { e -> SafeLogger.w("ChatRepository", "observeChatThread error", e) }
+                    .collect { cloudThread ->
+                        if (cloudThread != null) {
+                            val otherUid = when {
+                                cloudThread.counterpartyUid.isNotBlank() && cloudThread.counterpartyUid != myUid -> cloudThread.counterpartyUid
+                                cloudThread.creatorUid.isNotBlank() && cloudThread.creatorUid != myUid -> cloudThread.creatorUid
+                                else -> cloudThread.participantUids.firstOrNull { it.isNotBlank() && it != myUid }.orEmpty()
+                            }
+                            if (otherUid.isNotBlank()) {
+                                linkCounterpartyUidLocally(tx?.id ?: transactionId, safeRemoteId, partyId, partyName, otherUid)
+                            }
+                            val existingMeta = getOrCreateThreadMetadata(
+                                threadKey = threadKey,
+                                scope = scope,
+                                transactionId = tx?.id ?: transactionId,
+                                remoteId = safeRemoteId.ifBlank { cloudThreadId },
+                                partyId = partyId,
+                                partyName = partyName
+                            )
+                            val typingActive = cloudThread.typingUserId.isNotBlank() &&
+                                cloudThread.typingUserId != myUid &&
+                                (System.currentTimeMillis() - cloudThread.typingUpdatedAtMillis) < 15_000L
+                            val remoteBlocked = cloudThread.blockedByUids.isNotEmpty()
+                            dao.upsertChatThreadMetadata(
+                                existingMeta.copy(
+                                    remoteThreadId = existingMeta.remoteThreadId.ifBlank { safeRemoteId.ifBlank { cloudThreadId } },
+                                    counterpartyTyping = typingActive,
+                                    typingUpdatedAtMillis = cloudThread.typingUpdatedAtMillis.coerceAtLeast(existingMeta.typingUpdatedAtMillis),
+                                    isBlocked = existingMeta.isBlocked || remoteBlocked,
+                                    updatedAtMillis = System.currentTimeMillis()
+                                )
+                            )
+                        }
+                    }
+            }
+
+            launch {
+                cloud.observeChatMessages(cloudThreadId, myUid)
+                    .catch { e -> SafeLogger.w("ChatRepository", "observeChatMessages error", e) }
+                    .collect { cloudMsgs ->
+                        val nowMillis = System.currentTimeMillis()
+                        for (cMsg in cloudMsgs) {
+                            val isFromMe = cMsg.senderUid == myUid
+                            val parsedType = runCatching { ChatMessageType.valueOf(cMsg.messageType) }
+                                .getOrDefault(ChatMessageType.TEXT)
+                            val parsedExtStatus = runCatching { ExtensionRequestStatus.valueOf(cMsg.extensionStatus) }
+                                .getOrDefault(ExtensionRequestStatus.NONE)
+                            val parsedDelivery = runCatching { MessageDeliveryStatus.valueOf(cMsg.deliveryStatus) }
+                                .getOrDefault(MessageDeliveryStatus.DELIVERED)
+
+                            if (!isFromMe && cMsg.senderUid.isNotBlank()) {
+                                linkCounterpartyUidLocally(tx?.id ?: transactionId, safeRemoteId, partyId, partyName, cMsg.senderUid)
+                            }
+
+                            val existingLocal = dao.getChatMessageByRemoteId(cMsg.messageId)
+                            if (existingLocal == null) {
+                                val resolvedDeliveredAt = cMsg.deliveredAtMillis.takeIf { it > 0L } ?: nowMillis
+                                val resolvedReadAt = if (!isFromMe) {
+                                    nowMillis
+                                } else {
+                                    cMsg.readAtMillis.takeIf { it > 0L }
+                                }
+                                val entity = ChatMessageEntity(
+                                    remoteMessageId = cMsg.messageId,
+                                    threadKey = threadKey,
+                                    threadScope = scope,
+                                    transactionId = tx?.id ?: transactionId,
+                                    partyId = partyId ?: tx?.partyId,
+                                    partyName = partyName.ifBlank { cMsg.senderName },
+                                    senderUserId = cMsg.senderUid,
+                                    senderName = cMsg.senderName.ifBlank { partyName.ifBlank { "Party" } },
+                                    isFromMe = isFromMe,
+                                    messageType = parsedType,
+                                    bodyText = cMsg.textContent,
+                                    attachmentUri = cMsg.attachmentRef,
+                                    attachmentMimeType = cMsg.attachmentMimeType,
+                                    attachmentName = "",
+                                    proposedDueDateMillis = cMsg.proposedDueDateMillis.takeIf { it > 0L },
+                                    extensionStatus = parsedExtStatus,
+                                    deliveryStatus = if (!isFromMe) MessageDeliveryStatus.READ else parsedDelivery,
+                                    isUnreadForMe = false,
+                                    sentAtMillis = cMsg.sentAtMillis.takeIf { it > 0L } ?: nowMillis,
+                                    deliveredAtMillis = resolvedDeliveredAt,
+                                    readAtMillis = resolvedReadAt
+                                )
+                                dao.insertChatMessage(entity)
+
+                                if (!isFromMe) {
+                                    runCatching {
+                                        cloud.updateChatMessageDeliveryOrExtension(
+                                            threadId = cloudThreadId,
+                                            messageId = cMsg.messageId,
+                                            deliveryStatus = MessageDeliveryStatus.READ.name,
+                                            deliveredAtMillis = resolvedDeliveredAt,
+                                            readAtMillis = nowMillis,
+                                            extensionStatus = parsedExtStatus.name
+                                        )
+                                    }
+                                }
+                            } else {
+                                val needsDeliveryUpdate = parsedDelivery.ordinal > existingLocal.deliveryStatus.ordinal
+                                val needsExtensionUpdate = parsedExtStatus != existingLocal.extensionStatus
+                                val shouldMarkReadRemotely = !isFromMe && existingLocal.deliveryStatus != MessageDeliveryStatus.READ
+                                if (needsDeliveryUpdate || needsExtensionUpdate || shouldMarkReadRemotely) {
+                                    val nextDelivery = if (!isFromMe) {
+                                        MessageDeliveryStatus.READ
+                                    } else if (needsDeliveryUpdate) {
+                                        parsedDelivery
+                                    } else {
+                                        existingLocal.deliveryStatus
+                                    }
+                                    val nextDeliveredAt = cMsg.deliveredAtMillis.takeIf { it > 0L }
+                                        ?: existingLocal.deliveredAtMillis ?: nowMillis
+                                    val nextReadAt = if (!isFromMe) {
+                                        nowMillis
+                                    } else {
+                                        cMsg.readAtMillis.takeIf { it > 0L } ?: existingLocal.readAtMillis
+                                    }
+                                    dao.updateChatMessage(
+                                        existingLocal.copy(
+                                            deliveryStatus = nextDelivery,
+                                            extensionStatus = if (needsExtensionUpdate) parsedExtStatus else existingLocal.extensionStatus,
+                                            deliveredAtMillis = nextDeliveredAt,
+                                            readAtMillis = nextReadAt,
+                                            isUnreadForMe = false
+                                        )
+                                    )
+                                    if (shouldMarkReadRemotely) {
+                                        runCatching {
+                                            cloud.updateChatMessageDeliveryOrExtension(
+                                                threadId = cloudThreadId,
+                                                messageId = cMsg.messageId,
+                                                deliveryStatus = MessageDeliveryStatus.READ.name,
+                                                deliveredAtMillis = nextDeliveredAt,
+                                                readAtMillis = nowMillis,
+                                                extensionStatus = parsedExtStatus.name
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+            }
+        }
+        emit(Unit)
     }
 }

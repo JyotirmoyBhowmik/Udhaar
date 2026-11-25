@@ -1096,4 +1096,43 @@
     <string name="delete_account_progress_auth">प्रमाणीकरण खाता मेटाइँदै…</string>
     <string name="delete_account_progress_local">स्थानीय डाटाबेस र इन्क्रिप्सन कुञ्जीहरू स्थायी रूपमा मेटाउँदै…</string>
     <string name="delete_account_done_dismiss">सकियो</string>
+
+    <!-- v31.0 Incoming Verification Name Edit, Honest Chat Notice & Mandatory Cloud Verification Gate -->
+    <string name="incoming_counterparty_name_label">अर्को पक्षको वास्तविक नाम</string>
+    <string name="incoming_counterparty_name_placeholder">पठाउने वा व्यक्तिको नाम लेख्नुहोस्</string>
+    <string name="incoming_counterparty_name_required">अगाडि बढ्नु अघि कृपया अर्को पक्षको वास्तविक नाम लेख्नुहोस्।</string>
+    <string name="incoming_counterparty_name_hint">यस लिङ्कमा अस्थायी नाम थियो। तपाईंको खाताको लागि वास्तविक नाम पुष्टि वा सम्पादन गर्नुहोस्।</string>
+    <string name="chat_local_only_notice_tx">स्थानीय च्याट मात्र — यो रेकर्ड अझै क्लाउडमा प्रमाणित व्यक्तिसँग जोडिएको छैन। सन्देशहरू यही फोनमा सुरक्षित रहनेछन्।</string>
+    <string name="chat_local_only_notice_party">स्थानीय च्याट मात्र — वास्तविक-समय सन्देशको लागि यस व्यक्तिलाई प्रमाणित क्लाउड रेकर्डसँग जोड्नुहोस्।</string>
+    <string name="chat_status_local_only">स्थानीय रूपमा सुरक्षित</string>
+    <string name="cloud_gate_title">क्लाउड प्रमाणीकरण आवश्यक छ</string>
+    <string name="cloud_gate_subtitle">दोहोरो उधारो रेकर्ड, वास्तविक-समय सन्देश र सुरक्षित पुष्टिका लागि आफ्नो खाता प्रमाणित गर्नुहोस्।</string>
+    <string name="cloud_gate_beta_cap_badge">प्रारम्भिक पहुँच • अस्थायी १००-प्रयोगकर्ता सीमा</string>
+    <string name="cloud_gate_beta_cap_body">रोलआउटको समयमा पहुँच अस्थायी रूपमा १०० प्रमाणित प्रयोगकर्ताहरूमा सीमित छ। जारी राख्न Google वा प्रमाणित इमेलबाट साइन इन गर्नुहोस्।</string>
+    <string name="cloud_gate_signed_in_unverified_title">अगाडि बढ्न आफ्नो इमेल प्रमाणित गर्नुहोस्</string>
+    <string name="cloud_gate_signed_in_unverified_body">%1$s को रूपमा साइन इन गरिएको छ। आफ्नो इनबक्समा रहेको प्रमाणीकरण लिङ्कमा क्लिक गर्नुहोस्, त्यसपछि प्रमाणीकरण स्थिति जाँच गर्नुहोस् ट्याप गर्नुहोस्।</string>
+    <string name="cloud_gate_check_status_btn">प्रमाणीकरण स्थिति जाँच गर्नुहोस्</string>
+    <string name="cloud_gate_resend_email_btn">प्रमाणीकरण इमेल पुनः पठाउनुहोस्</string>
+    <string name="cloud_gate_sign_out_switch_btn">अर्को खाता प्रयोग गर्नुहोस्</string>
+    <string name="cloud_gate_firebase_unconfigured_msg">यस बिल्डमा क्लाउड प्रमाणीकरण सेवा कन्फिगर गरिएको छैन।</string>
+    <string name="cloud_gate_footer_note">तपाईंको स्थानीय खाता डिभाइसमा AES-256 इन्क्रिप्टेड भण्डारणद्वारा सुरक्षित रहन्छ।</string>
+    <string name="cloud_gate_verify_consent_note">साइन इन गर्दा दोहोरो क्लाउड प्रमाणीकरण र वास्तविक-समय सन्देश सक्रिय हुन्छ।</string>
+    <string name="deeplink_error_no_browser">यो प्रमाणीकरण लिङ्क खोल्नको लागि कुनै वेब ब्राउजर एप उपलब्ध छैन।</string>
+    <string name="detail_more_actions_title">थप विकल्पहरू</string>
+    <string name="detail_more_options_subtitle">किस्ता, कागजात (%1$d), इतिहास र मेटाउनुहोस्</string>
+    <string name="detail_record_payment_title">भुक्तानी रेकर्ड गर्नुहोस्</string>
+    <string name="detail_record_payment_subtitle">आंशिक वा पूर्ण किस्ता थप्नुहोस्</string>
+    <string name="detail_collect_qr_btn">QR सङ्कलन</string>
+    <string name="detail_mark_paid_btn">भुक्तानी पूरा</string>
+    <string name="detail_reopen_btn">फेरि खोल्नुहोस्</string>
+    <string name="detail_pay_upi_btn">UPI तिर्नुहोस्</string>
+    <string name="detail_upi_qr_btn">UPI QR देखाउनुहोस्</string>
+    <string name="detail_invalid_amount_error">0 भन्दा बढी सही रकम लेख्नुहोस्</string>
+    <string name="detail_verify_share_title">प्रमाणीकरण र सेयर</string>
+    <string name="detail_link_active_status">वेब लिङ्क सक्रिय</string>
+    <string name="detail_link_revoked_status">वेब लिङ्क बन्द</string>
+    <string name="detail_link_expired_status">वेब लिङ्क म्याद सकियो</string>
+    <string name="detail_trust_google">Google प्रमाणित ✓</string>
+    <string name="detail_trust_private">निजी लिङ्क ✓</string>
+    <string name="detail_trust_app">एप प्रमाणित ✓</string>
 </resources>

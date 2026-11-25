@@ -116,7 +116,8 @@ fun TransactionDetailModal(
     onShareReceipt: () -> Unit = {},
     onOpenWhatsApp: () -> Unit,
     unreadChatCount: Int = 0,
-    onOpenTransactionChat: () -> Unit = {}
+    onOpenTransactionChat: () -> Unit = {},
+    selfDisplayName: String = ""
 ) {
     RecordDetailSheet(
         summary = summary,
@@ -159,7 +160,8 @@ fun TransactionDetailModal(
         onShareReceipt = onShareReceipt,
         onOpenWhatsApp = onOpenWhatsApp,
         unreadChatCount = unreadChatCount,
-        onOpenTransactionChat = onOpenTransactionChat
+        onOpenTransactionChat = onOpenTransactionChat,
+        selfDisplayName = selfDisplayName
     )
 }
 

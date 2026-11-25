@@ -2,6 +2,7 @@ package com.jyotirmoyb.udhaar.ui.components
 
 import android.content.Context
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -150,7 +151,10 @@ internal fun dispatchBorrowerAction(
             val msg = ReminderEngine.renderDraftMessage(
                 template = context.getString(R.string.borrower_msg_i_paid),
                 name = summary.transaction.partyName,
-                myName = userSettings.payeeName.ifBlank { "Me" },
+                myName = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.resolveUserProfileName(
+                    payeeName = userSettings.payeeName,
+                    email = userSettings.cloudUserEmail
+                ),
                 amount = netDue,
                 remaining = netDue,
                 paidSoFar = "",
@@ -165,7 +169,10 @@ internal fun dispatchBorrowerAction(
             val msg = ReminderEngine.renderDraftMessage(
                 template = context.getString(R.string.borrower_msg_ask_details),
                 name = summary.transaction.partyName,
-                myName = userSettings.payeeName.ifBlank { "Me" },
+                myName = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.resolveUserProfileName(
+                    payeeName = userSettings.payeeName,
+                    email = userSettings.cloudUserEmail
+                ),
                 amount = netDue,
                 remaining = netDue,
                 paidSoFar = "",
@@ -202,7 +209,10 @@ internal fun BorrowerExtensionDatePickerDialog(
                     val msg = ReminderEngine.renderDraftMessage(
                         template = context.getString(R.string.borrower_msg_need_more_time),
                         name = summary.transaction.partyName,
-                        myName = userSettings.payeeName.ifBlank { "Me" },
+                        myName = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.resolveUserProfileName(
+                    payeeName = userSettings.payeeName,
+                    email = userSettings.cloudUserEmail
+                ),
                         amount = netDue,
                         remaining = netDue,
                         paidSoFar = "",
@@ -300,9 +310,20 @@ internal fun DashboardAdaptiveDetailPane(
                         Column {
                             Text(
                                 text = tx.partyName,
-                                style = MaterialTheme.typography.titleLarge,
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontSize = 16.sp,
+                                    letterSpacing = (-0.25).sp
+                                ),
                                 fontWeight = FontWeight.Bold,
-                                color = PureBlack
+                                color = PureBlack,
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.basicMarquee(
+                                    iterations = Int.MAX_VALUE,
+                                    repeatDelayMillis = 700,
+                                    initialDelayMillis = 300,
+                                    velocity = 34.dp
+                                )
                             )
                             Text(
                                 text = selectedSummary.dueStatusText,

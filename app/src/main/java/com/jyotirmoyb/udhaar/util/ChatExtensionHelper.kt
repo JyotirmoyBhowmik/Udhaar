@@ -45,7 +45,7 @@ object ChatExtensionHelper {
             partyName = transaction.partyName
         )
         val settings = settingsRepository.userSettings.first()
-        val myName = settings.payeeName.ifBlank { "You" }
+        val myName = settingsRepository.resolveSelfDisplayName(settings)
         val nowMillis = System.currentTimeMillis()
         val dateFmt = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(proposedDueDateMillis))
 
@@ -61,6 +61,12 @@ object ChatExtensionHelper {
             if (effectiveNote.isNotBlank()) append(" — \"$effectiveNote\"")
         }
 
+        val isCloudLinked = requestedByCounterparty || (
+            settings.cloudVerificationConsent &&
+                settings.cloudUserId.isNotBlank() &&
+                transaction.remoteId.isNotBlank() &&
+                transaction.counterpartyUserId.isNotBlank()
+            )
         val extMsg = ChatMessageEntity(
             remoteMessageId = "ext_${UUID.randomUUID().toString().replace("-", "").take(16)}",
             threadKey = threadKey,
@@ -75,10 +81,10 @@ object ChatExtensionHelper {
             bodyText = textBody,
             proposedDueDateMillis = proposedDueDateMillis,
             extensionStatus = ExtensionRequestStatus.PENDING,
-            deliveryStatus = MessageDeliveryStatus.DELIVERED,
+            deliveryStatus = if (isCloudLinked) MessageDeliveryStatus.DELIVERED else MessageDeliveryStatus.SENT,
             isUnreadForMe = requestedByCounterparty,
             sentAtMillis = nowMillis,
-            deliveredAtMillis = nowMillis,
+            deliveredAtMillis = if (isCloudLinked) nowMillis else null,
             readAtMillis = null
         )
 
@@ -127,7 +133,7 @@ object ChatExtensionHelper {
         transaction: UdhaarTransaction? = null,
         message: ChatMessageEntity,
         accept: Boolean,
-        responderName: String = "You"
+        responderName: String = ""
     ): UdhaarTransaction {
         val tx = transaction ?: message.transactionId?.let { dao.getTransactionById(it) }
             ?: throw IllegalArgumentException("Transaction not found for extension request")
@@ -169,7 +175,9 @@ object ChatExtensionHelper {
         } ?: "proposed date"
 
         val settings = settingsRepository.userSettings.first()
-        val myName = responderName.trim().ifEmpty { settings.payeeName.ifBlank { "You" } }
+        val myName = responderName.trim()
+            .takeUnless { VerificationCryptoHelper.isPlaceholderSelfName(it) }
+            ?: settingsRepository.resolveSelfDisplayName(settings)
         val auditSummary = if (accept) {
             "$myName accepted due date extension to $dateFmt"
         } else {

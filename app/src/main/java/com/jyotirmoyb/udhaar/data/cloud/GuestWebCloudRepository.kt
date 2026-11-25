@@ -29,6 +29,15 @@ data class GuestWebLinkCreateResult(
     val errorMessage: String = ""
 )
 
+sealed class GuestLinkFetchResult {
+    data class Success(
+        val payload: com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.SharedVerificationPayload
+    ) : GuestLinkFetchResult()
+
+    data class FallbackToBrowser(val reason: String) : GuestLinkFetchResult()
+    data class InvalidOrExpired(val reason: String) : GuestLinkFetchResult()
+}
+
 /**
  * Spark-native Cloud Repository for Web Guest Links (`/guestLinks/{linkId}`).
  *
@@ -184,7 +193,8 @@ open class GuestWebCloudRepository @Inject constructor(
             "lenderUpiId" to if (showUpiQr && lenderUpiId.isNotBlank()) lenderUpiId else null,
             "verificationLevel" to verificationLevel,
             "expectedGuestEmailHash" to emailHash,
-            "allowScreenshotProof" to allowAttachments
+            "allowScreenshotProof" to allowAttachments,
+            "counterpartyRole" to counterpartyRole
         )
 
         // [BLAZE-DISABLED START] reason: an OTP stored in a readable document provides no security on Spark | restore: restore server-generated OTP when upgrading to Blaze plan with secure Cloud Functions verification
@@ -416,6 +426,211 @@ open class GuestWebCloudRepository @Inject constructor(
         } catch (e: Exception) {
             SafeLogger.w("GuestWebCloudRepo", "claimGuestActions fallback", e)
             true
+        }
+    }
+
+    /**
+     * Fetches `/guestLinks/{sha256(secret)}` from Cloud Firestore for native in-app verification.
+     * - Returns [GuestLinkFetchResult.FallbackToBrowser] when user is signed out or Firestore is unreachable.
+     * - Returns [GuestLinkFetchResult.InvalidOrExpired] when link does not exist, is revoked, expired,
+     *   or restricted to a different Google email address.
+     */
+    open suspend fun fetchGuestLinkBySecret(
+        secret: String,
+        fallbackRecordId: String = ""
+    ): GuestLinkFetchResult = withContext(ioDispatcher) {
+        val cleanSecret = secret.trim()
+        if (cleanSecret.isBlank()) {
+            return@withContext GuestLinkFetchResult.InvalidOrExpired("This verification link is incomplete.")
+        }
+
+        val auth = authOverride ?: runCatching { FirebaseAuth.getInstance() }.getOrNull()
+        val currentUser = auth?.currentUser
+        if (currentUser == null || currentUser.isAnonymous) {
+            return@withContext GuestLinkFetchResult.FallbackToBrowser(
+                "Sign in to Cloud Verification to review this link in-app."
+            )
+        }
+
+        val firestore = firestoreOverride ?: com.jyotirmoyb.udhaar.di.FirebaseModule.getFirestore()
+        if (firestore == null) {
+            return@withContext GuestLinkFetchResult.FallbackToBrowser(
+                "Cloud service unavailable; opening in browser."
+            )
+        }
+
+        val linkId = sha256Hex(cleanSecret)
+        val snap = try {
+            kotlinx.coroutines.withTimeoutOrNull(8_000L) {
+                firestore.collection("guestLinks")
+                    .document(linkId)
+                    .get(Source.SERVER)
+                    .await()
+            } ?: return@withContext GuestLinkFetchResult.FallbackToBrowser(
+                "Cloud timed out; opening in browser."
+            )
+        } catch (e: Exception) {
+            val code = (e as? FirebaseFirestoreException)?.code
+            if (code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                SafeLogger.w("GuestWebCloudRepo", "fetchGuestLinkBySecret permission denied for linkId=$linkId")
+                return@withContext GuestLinkFetchResult.InvalidOrExpired(
+                    "This Udhaar link is expired, revoked, or restricted to another account."
+                )
+            }
+            if (code == FirebaseFirestoreException.Code.RESOURCE_EXHAUSTED) {
+                SafeLogger.recordNonFatal("GuestWebCloudRepo", "FETCH_LINK_QUOTA", e, mapOf("linkId" to linkId))
+            } else {
+                SafeLogger.w("GuestWebCloudRepo", "fetchGuestLinkBySecret unreachable: ${e.javaClass.simpleName}")
+            }
+            return@withContext GuestLinkFetchResult.FallbackToBrowser(
+                "Cloud unreachable right now; opening in browser."
+            )
+        }
+
+        if (!snap.exists()) {
+            return@withContext GuestLinkFetchResult.InvalidOrExpired(
+                "This verification link is invalid or no longer exists."
+            )
+        }
+
+        val status = snap.getString("status").orEmpty()
+        val expiresAtMs = snap.getLong("expiresAtMs") ?: Long.MAX_VALUE
+        val nowMs = System.currentTimeMillis()
+        if (status.equals("REVOKED", ignoreCase = true)) {
+            return@withContext GuestLinkFetchResult.InvalidOrExpired(
+                "This Udhaar link was revoked by its creator."
+            )
+        }
+        if (status != "ACTIVE" || expiresAtMs <= nowMs) {
+            return@withContext GuestLinkFetchResult.InvalidOrExpired(
+                "This verification link has expired."
+            )
+        }
+
+        val verificationLevel = snap.getString("verificationLevel").orEmpty()
+        val expectedEmailHash = snap.getString("expectedGuestEmailHash").orEmpty()
+        if (verificationLevel == "GOOGLE_VERIFIED" && expectedEmailHash.isNotBlank()) {
+            val myEmailHash = currentUser.email.orEmpty().trim().lowercase()
+                .takeIf { it.isNotBlank() }
+                ?.let { sha256Hex(it) }
+                .orEmpty()
+            if (myEmailHash != expectedEmailHash.lowercase()) {
+                return@withContext GuestLinkFetchResult.InvalidOrExpired(
+                    "This verification link is restricted to a different Google account."
+                )
+            }
+        }
+
+        val recordId = snap.getString("recordId")?.ifBlank { fallbackRecordId } ?: fallbackRecordId.ifBlank { linkId.take(12) }
+        val ownerUid = snap.getString("ownerUid").orEmpty()
+        val lenderName = snap.getString("lenderDisplayName").orEmpty().ifBlank { "Lender" }
+        val borrowerName = snap.getString("borrowerDisplayName").orEmpty().ifBlank { "Borrower" }
+        val counterpartyRole = snap.getString("counterpartyRole").orEmpty()
+        val creatorRole = if (counterpartyRole.equals("LENDER", ignoreCase = true)) {
+            com.jyotirmoyb.udhaar.data.TransactionType.TAKEN
+        } else {
+            com.jyotirmoyb.udhaar.data.TransactionType.GIVEN
+        }
+        val principalPaise = snap.getLong("principalPaise") ?: 0L
+        val principalRupees = com.jyotirmoyb.udhaar.util.InterestCalculator.paiseToRupees(principalPaise)
+        val currencyCode = snap.getString("currency").orEmpty().ifBlank { "INR" }
+        val createdAtMs = snap.getLong("createdAtMs") ?: nowMs
+        val dueDateMs = snap.getLong("dueDateMs")?.takeIf { it > 0L }
+
+        val contentHash = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.computeContentHash(
+            lenderName = lenderName,
+            borrowerName = borrowerName,
+            principalAmount = principalRupees,
+            currencyCode = currencyCode,
+            startDateMillis = createdAtMs,
+            expiryDateMillis = dueDateMs,
+            isInterestEnabled = false,
+            interestType = com.jyotirmoyb.udhaar.data.InterestType.SIMPLE,
+            interestRate = 0.0,
+            interestRatePeriod = com.jyotirmoyb.udhaar.data.InterestRatePeriod.PER_MONTH,
+            compoundFrequency = com.jyotirmoyb.udhaar.data.CompoundFrequency.MONTHLY
+        )
+
+        GuestLinkFetchResult.Success(
+            com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.SharedVerificationPayload(
+                remoteId = recordId,
+                shareToken = cleanSecret,
+                creatorUserId = ownerUid,
+                creatorRole = creatorRole,
+                lenderName = lenderName,
+                borrowerName = borrowerName,
+                creatorPhone = "",
+                counterpartyPhone = "",
+                principalAmount = principalRupees,
+                currencyCode = currencyCode,
+                startDateMillis = createdAtMs,
+                expiryDateMillis = dueDateMs,
+                isInterestEnabled = false,
+                interestType = com.jyotirmoyb.udhaar.data.InterestType.SIMPLE,
+                interestRate = 0.0,
+                interestRatePeriod = com.jyotirmoyb.udhaar.data.InterestRatePeriod.PER_MONTH,
+                compoundFrequency = com.jyotirmoyb.udhaar.data.CompoundFrequency.MONTHLY,
+                contentHash = contentHash,
+                encryptedNote = "",
+                guestLinkId = linkId,
+                guestLinkSecret = cleanSecret,
+                guestOwnerUid = ownerUid,
+                expectedGuestEmailHash = expectedEmailHash,
+                guestVerificationLevel = verificationLevel
+            )
+        )
+    }
+
+    /**
+     * Submits a counterparty action (`CONFIRM` or `DISPUTE`) to `/guestLinks/{linkId}/actions/{actionType}`
+     * conforming strictly to `firestore.rules`.
+     */
+    open suspend fun submitGuestActionFromApp(
+        linkId: String,
+        actionType: String,
+        reason: String = ""
+    ): Result<Unit> = withContext(ioDispatcher) {
+        val cleanLinkId = linkId.trim()
+        val canonicalAction = actionType.trim().uppercase()
+        if (cleanLinkId.isBlank() || canonicalAction !in setOf("CONFIRM", "DISPUTE")) {
+            return@withContext Result.failure(IllegalArgumentException("Unsupported guest action"))
+        }
+
+        val auth = authOverride ?: runCatching { FirebaseAuth.getInstance() }.getOrNull()
+        val currentUser = auth?.currentUser
+            ?: return@withContext Result.failure(IllegalStateException("Sign-in required"))
+        val firestore = firestoreOverride ?: com.jyotirmoyb.udhaar.di.FirebaseModule.getFirestore()
+            ?: return@withContext Result.failure(IllegalStateException("Cloud database unavailable"))
+
+        val nowMs = System.currentTimeMillis()
+        val data = mutableMapOf<String, Any>(
+            "schemaVersion" to 1L,
+            "actionType" to canonicalAction,
+            "guestUid" to currentUser.uid,
+            "status" to "PENDING",
+            "createdAtMs" to nowMs
+        )
+        if (canonicalAction == "DISPUTE") {
+            data["reason"] = reason.trim().ifBlank { "Terms disputed" }.take(500)
+        }
+
+        try {
+            kotlinx.coroutines.withTimeoutOrNull(8_000L) {
+                firestore.collection("guestLinks")
+                    .document(cleanLinkId)
+                    .collection("actions")
+                    .document(canonicalAction)
+                    .set(data)
+                    .await()
+            } ?: return@withContext Result.failure(IllegalStateException("Request timed out"))
+            Result.success(Unit)
+        } catch (e: Exception) {
+            if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.RESOURCE_EXHAUSTED) {
+                SafeLogger.recordNonFatal("GuestWebCloudRepo", "SUBMIT_ACTION_QUOTA", e, mapOf("linkId" to cleanLinkId))
+            } else {
+                SafeLogger.w("GuestWebCloudRepo", "Failed to submit $canonicalAction: ${e.javaClass.simpleName}")
+            }
+            Result.failure(e)
         }
     }
 }

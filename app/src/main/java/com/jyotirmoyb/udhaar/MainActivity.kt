@@ -50,6 +50,7 @@ import com.jyotirmoyb.udhaar.notification.ReminderReceiver
 import com.jyotirmoyb.udhaar.ui.UdhaarViewModel
 import com.jyotirmoyb.udhaar.ui.theme.UdhaarTheme
 import com.jyotirmoyb.udhaar.util.DeviceContactHelper
+import com.jyotirmoyb.udhaar.util.ExternalBrowserHelper
 import com.jyotirmoyb.udhaar.util.TelemetryManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -128,6 +129,21 @@ open class MainActivity : FragmentActivity() {
                             if (!incomingUrl.isNullOrBlank()) {
                                 viewModel.handleIncomingDeepLinkOrToken(incomingUrl)
                                 pendingDeepLinkUrl = null
+                            }
+                        }
+
+                        val browserFallbackUrl = uiState.externalBrowserFallbackUrl
+                        LaunchedEffect(browserFallbackUrl) {
+                            if (!browserFallbackUrl.isNullOrBlank()) {
+                                val opened = ExternalBrowserHelper.openInExternalBrowser(applicationContext, browserFallbackUrl)
+                                if (!opened) {
+                                    Toast.makeText(
+                                        applicationContext,
+                                        getString(R.string.deeplink_error_no_browser),
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                                viewModel.consumeExternalBrowserFallbackUrl()
                             }
                         }
 
@@ -217,7 +233,7 @@ open class MainActivity : FragmentActivity() {
             val isAllowedScheme = scheme == "https" || (BuildConfig.DEBUG && scheme == "http")
             val isAllowedHost = host == "udhaar.jyotirmoyb.com" ||
                 (BuildConfig.DEBUG && (host == "localhost" || host == "10.0.2.2" || host == "127.0.0.1"))
-            val isAllowedPath = path.startsWith("/u/") || path.startsWith("/v/")
+            val isAllowedPath = path == "/u" || path.startsWith("/u/") || path == "/v" || path.startsWith("/v/")
 
             if (isAllowedScheme && isAllowedHost && isAllowedPath) {
                 val fullUrl = if (!uri.fragment.isNullOrBlank() && !uri.toString().contains("#")) {
@@ -374,7 +390,8 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                         viewModel.setCloudAccountState(
                             consentGranted = true,
                             userId = user.uid,
-                            email = user.email.orEmpty()
+                            email = user.email.orEmpty(),
+                            displayName = user.displayName.orEmpty()
                         )
                         Toast.makeText(
                             context,

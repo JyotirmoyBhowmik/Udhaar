@@ -203,7 +203,7 @@ open class UdhaarRepository(
     suspend fun acknowledgePartialPayment(
         transaction: UdhaarTransaction,
         payment: PartialPayment,
-        actorName: String = "You"
+        actorName: String = ""
     ) = paymentRepository.acknowledgePartialPayment(transaction, payment, actorName)
 
     suspend fun deletePartialPayment(
@@ -222,8 +222,14 @@ open class UdhaarRepository(
     suspend fun processIncomingVerificationResponse(
         payload: VerificationCryptoHelper.SharedVerificationPayload,
         confirm: Boolean,
-        disputeReason: String = ""
-    ): UdhaarTransaction = verificationRepository.processIncomingVerificationResponse(payload, confirm, disputeReason)
+        disputeReason: String = "",
+        counterpartyNameOverride: String = ""
+    ): UdhaarTransaction = verificationRepository.processIncomingVerificationResponse(
+        payload = payload,
+        confirm = confirm,
+        disputeReason = disputeReason,
+        counterpartyNameOverride = counterpartyNameOverride
+    )
 
     suspend fun confirmOrDisputeExistingTransaction(
         transaction: UdhaarTransaction,

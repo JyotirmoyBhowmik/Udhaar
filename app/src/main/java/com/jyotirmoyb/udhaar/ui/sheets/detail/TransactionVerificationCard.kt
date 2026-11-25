@@ -72,11 +72,11 @@ fun TransactionVerificationCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(10.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(10.dp))
             .padding(10.dp)
             .testTag("detail_verification_section"),
-        verticalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -84,33 +84,41 @@ fun TransactionVerificationCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = stringResource(R.string.ui_str_verification_status_760fa1),
+                text = stringResource(R.string.detail_verify_share_title),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small), verticalAlignment = Alignment.CenterVertically) {
-                if (tx.trustLevel.isNotBlank()) {
+            if (tx.verificationStatus == VerificationStatus.CONFIRMED && tx.trustLevel.isNotBlank()) {
+                val trustRes = when (tx.trustLevel) {
+                    "GOOGLE_VERIFIED" -> R.string.detail_trust_google
+                    "PRIVATE_LINK", "LINK_ONLY", "WHATSAPP_OTP", "PHONE_VERIFIED" -> R.string.detail_trust_private
+                    "APP_VERIFIED" -> R.string.detail_trust_app
+                    else -> 0
+                }
+                if (trustRes != 0) {
                     Surface(
                         shape = RoundedCornerShape(6.dp),
                         color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.testTag("trust_level_badge_${tx.id}")
+                        modifier = Modifier
+                            .testTag("trust_level_badge_${tx.id}")
+                            .testTag("detail_status_at_a_glance_badge")
                     ) {
                         Text(
-                            text = when (tx.trustLevel) {
-                                "GOOGLE_VERIFIED" -> "Google-verified ✓"
-                                "PRIVATE_LINK", "LINK_ONLY" -> "Private link ✓"
-                                "WHATSAPP_OTP", "PHONE_VERIFIED" -> "Private link ✓"
-                                "APP_VERIFIED" -> "App Verified ✓"
-                                else -> tx.trustLevel
-                            },
+                            text = stringResource(trustRes),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
+                } else {
+                    StatusAtAGlanceBadge(
+                        summary = summary,
+                        modifier = Modifier.testTag("detail_status_at_a_glance_badge")
+                    )
                 }
+            } else {
                 StatusAtAGlanceBadge(
                     summary = summary,
                     modifier = Modifier.testTag("detail_status_at_a_glance_badge")
@@ -137,17 +145,17 @@ fun TransactionVerificationCard(
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = when (tx.webLinkStatus) {
-                                    "ACTIVE" -> "Web Link: Active"
-                                    "REVOKED" -> "Web Link: Revoked"
-                                    "EXPIRED" -> "Web Link: Expired"
-                                    else -> "Web Link: ${tx.webLinkStatus}"
+                                    "ACTIVE" -> stringResource(R.string.detail_link_active_status)
+                                    "REVOKED" -> stringResource(R.string.detail_link_revoked_status)
+                                    "EXPIRED" -> stringResource(R.string.detail_link_expired_status)
+                                    else -> tx.webLinkStatus
                                 },
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold
                             )
                         }
-                        if (tx.lastGuestAction.isNotBlank()) {
-                            val actionSummary = "Action: ${tx.lastGuestAction}"
+                        if (tx.lastGuestAction.isNotBlank() && claim == null && dateProposal == null) {
+                            val actionSummary = tx.lastGuestAction
                             Text(
                                 text = actionSummary,
                                 style = MaterialTheme.typography.labelSmall,

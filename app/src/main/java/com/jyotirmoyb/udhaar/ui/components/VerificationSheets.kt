@@ -499,12 +499,23 @@ fun VerificationShareSheet(
 fun IncomingVerificationReviewSheet(
     payload: VerificationCryptoHelper.SharedVerificationPayload,
     onDismiss: () -> Unit,
-    onConfirmRecord: () -> Unit,
-    onDisputeRecord: (String) -> Unit
+    onConfirmRecord: (counterpartyNameOverride: String) -> Unit,
+    onDisputeRecord: (reason: String, counterpartyNameOverride: String) -> Unit
 ) {
     val dateFormat = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
     var showDisputeReason by remember { mutableStateOf(false) }
     var disputeReason by remember { mutableStateOf("") }
+
+    val rawSenderName = if (payload.creatorRole == TransactionType.GIVEN) payload.lenderName else payload.borrowerName
+    val needsCounterpartyNameConfirm = VerificationCryptoHelper.isPlaceholderSelfName(rawSenderName) ||
+        payload.lenderName.trim().equals("You", ignoreCase = true) ||
+        payload.borrowerName.trim().equals("You", ignoreCase = true)
+    var editableCounterpartyName by remember(payload) {
+        mutableStateOf(
+            if (VerificationCryptoHelper.isPlaceholderSelfName(rawSenderName)) "" else rawSenderName.trim()
+        )
+    }
+    var counterpartyNameError by remember(payload) { mutableStateOf(false) }
 
     val decryptedNote = remember(payload) {
         if (payload.encryptedNote.isNotBlank() && payload.shareToken.isNotBlank()) {
@@ -516,11 +527,11 @@ fun IncomingVerificationReviewSheet(
         } else ""
     }
 
-    val senderName = if (payload.creatorRole == TransactionType.GIVEN) payload.lenderName else payload.borrowerName
+    val senderName = editableCounterpartyName.trim().ifBlank { rawSenderName }
     val mirroredRoleText = if (payload.creatorRole == TransactionType.GIVEN) {
-        "YOU TOOK / BORROWED (Mirrored from ${payload.lenderName}'s 'Given' entry)"
+        "YOU TOOK / BORROWED (Mirrored from ${senderName}'s 'Given' entry)"
     } else {
-        "YOU GAVE / LENT (Mirrored from ${payload.borrowerName}'s 'Taken' entry)"
+        "YOU GAVE / LENT (Mirrored from ${senderName}'s 'Taken' entry)"
     }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -655,6 +666,35 @@ fun IncomingVerificationReviewSheet(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                if (needsCounterpartyNameConfirm) {
+                    Text(
+                        text = stringResource(R.string.incoming_counterparty_name_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    OutlinedTextField(
+                        value = editableCounterpartyName,
+                        onValueChange = {
+                            editableCounterpartyName = it
+                            if (it.trim().isNotBlank() && !it.trim().equals("You", ignoreCase = true)) {
+                                counterpartyNameError = false
+                            }
+                        },
+                        label = { Text(stringResource(R.string.incoming_counterparty_name_label)) },
+                        placeholder = { Text(stringResource(R.string.incoming_counterparty_name_placeholder)) },
+                        isError = counterpartyNameError,
+                        supportingText = if (counterpartyNameError) {
+                            { Text(stringResource(R.string.incoming_counterparty_name_required)) }
+                        } else null,
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("incoming_counterparty_name_input")
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
                 if (showDisputeReason) {
                     OutlinedTextField(
                         value = disputeReason,
@@ -677,7 +717,17 @@ fun IncomingVerificationReviewSheet(
                         }
                         Button(
                             onClick = {
-                                onDisputeRecord(disputeReason.ifBlank { "Disputed by counterparty" })
+                                val resolvedName = editableCounterpartyName.trim()
+                                if (VerificationCryptoHelper.isPlaceholderSelfName(rawSenderName) &&
+                                    VerificationCryptoHelper.isPlaceholderSelfName(resolvedName)
+                                ) {
+                                    counterpartyNameError = true
+                                    return@Button
+                                }
+                                onDisputeRecord(
+                                    disputeReason.ifBlank { "Disputed by counterparty" },
+                                    resolvedName
+                                )
                             },
                             modifier = Modifier
                                 .weight(1f)
@@ -693,7 +743,16 @@ fun IncomingVerificationReviewSheet(
                     }
                 } else {
                     Button(
-                        onClick = onConfirmRecord,
+                        onClick = {
+                            val resolvedName = editableCounterpartyName.trim()
+                            if (VerificationCryptoHelper.isPlaceholderSelfName(rawSenderName) &&
+                                VerificationCryptoHelper.isPlaceholderSelfName(resolvedName)
+                            ) {
+                                counterpartyNameError = true
+                                return@Button
+                            }
+                            onConfirmRecord(resolvedName)
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp)

@@ -43,7 +43,7 @@ fun TransactionDetailHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Large, vertical = com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small),
+            .padding(horizontal = 12.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -55,21 +55,26 @@ fun TransactionDetailHeader(
             PersonAvatar(
                 name = tx.partyName,
                 photoUri = linkedParty?.photoUri.orEmpty(),
-                size = 36.dp,
+                size = 34.dp,
                 modifier = Modifier.udhaarSharedElement("tx_avatar_${tx.id}")
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = tx.partyName,
                     style = MaterialTheme.typography.titleMedium.copy(
-                        fontSize = 15.sp,
-                        letterSpacing = (-0.2).sp
+                        fontSize = 14.sp,
+                        letterSpacing = (-0.25).sp
                     ),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     softWrap = false,
                     modifier = Modifier
-                        .basicMarquee(iterations = Int.MAX_VALUE, velocity = 36.dp)
+                        .basicMarquee(
+                            iterations = Int.MAX_VALUE,
+                            repeatDelayMillis = 700,
+                            initialDelayMillis = 300,
+                            velocity = 34.dp
+                        )
                         .udhaarSharedBounds("tx_name_${tx.id}")
                 )
                 Text(

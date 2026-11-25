@@ -102,8 +102,12 @@ open class LedgerRepository(
 
     suspend fun saveTransaction(
         transaction: UdhaarTransaction,
-        myProfileName: String = "You"
+        myProfileName: String = ""
     ): Long {
+        val settings = settingsRepository.userSettings.first()
+        val effectiveSelfName = myProfileName.trim()
+            .takeUnless { VerificationCryptoHelper.isPlaceholderSelfName(it) }
+            ?: settingsRepository.resolveSelfDisplayName(settings)
         val validation = com.jyotirmoyb.udhaar.util.InputValidator.validateTransaction(transaction)
         if (!validation.isValid) {
             throw IllegalArgumentException(validation.errorMessage ?: "Invalid transaction input")
@@ -144,7 +148,7 @@ open class LedgerRepository(
         val (lenderName, borrowerName) = VerificationCryptoHelper.resolveLenderAndBorrowerNames(
             type = transaction.transactionType,
             partyName = transaction.partyName,
-            myProfileName = myProfileName,
+            myProfileName = effectiveSelfName,
             explicitLenderName = transaction.lenderName.ifBlank { existingTx?.lenderName.orEmpty() },
             explicitBorrowerName = transaction.borrowerName.ifBlank { existingTx?.borrowerName.orEmpty() }
         )
@@ -188,7 +192,7 @@ open class LedgerRepository(
             needsMyConfirmation = if (termsChanged) false else transaction.needsMyConfirmation
         )
 
-        val actorDisplay = myProfileName.trim().ifEmpty { "You" }
+        val actorDisplay = effectiveSelfName
 
         val auditEntry = if (existingTx == null) {
             AuditTrailEntry(
@@ -208,7 +212,13 @@ open class LedgerRepository(
             )
         } else null
 
-        val savedId = if (auditEntry != null) {
+        val savedId = if (existingTx != null) {
+            dao.updateTransaction(preparedTx)
+            if (auditEntry != null) {
+                dao.insertAuditTrailEntry(auditEntry.copy(transactionId = preparedTx.id))
+            }
+            preparedTx.id
+        } else if (auditEntry != null) {
             dao.saveTransactionWithAuditAtomic(preparedTx, auditEntry)
         } else {
             dao.insertTransaction(preparedTx)
@@ -249,7 +259,7 @@ open class LedgerRepository(
 
     suspend fun toggleFullSettlement(transaction: UdhaarTransaction, totalAccruedAmount: Double) {
         val settings = settingsRepository.userSettings.first()
-        val actorName = settings.payeeName.ifBlank { "You" }
+        val actorName = settingsRepository.resolveSelfDisplayName(settings)
         if (transaction.isSettled) {
             val updatedTx = transaction.copy(
                 isSettled = false,

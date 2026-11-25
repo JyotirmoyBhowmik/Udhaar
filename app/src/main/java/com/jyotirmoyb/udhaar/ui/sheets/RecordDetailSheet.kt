@@ -116,7 +116,8 @@ fun RecordDetailSheet(
     onShareReceipt: () -> Unit = {},
     onOpenWhatsApp: () -> Unit,
     unreadChatCount: Int = 0,
-    onOpenTransactionChat: () -> Unit = {}
+    onOpenTransactionChat: () -> Unit = {},
+    selfDisplayName: String = ""
 ) {
     val tx = summary.transaction
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
@@ -211,14 +212,15 @@ fun RecordDetailSheet(
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
 
-                // Scrollable Body (Compact layout with Payment & Actions up front)
+                // Scrollable Body (Compact layout with Balance, Payment & Actions up front)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f, fill = false)
                         .verticalScroll(rememberScrollState())
-                        .padding(start = com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Large, end = com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Large, top = com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Medium, bottom = 36.dp),
-                    verticalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Medium)
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .padding(bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // 1. Net Balance & Expandable Breakdown Card
                     TransactionBalanceCard(
@@ -227,14 +229,15 @@ fun RecordDetailSheet(
                         animatedNetBalanceText = com.jyotirmoyb.udhaar.ui.components.compactCurrencyDisplay(animatedNetBalanceText)
                     )
 
-                    // 2. Collapsible Payment Logger (Cleanly tucked until needed)
+                    // 2. Collapsible Payment Logger
                     if (!tx.isSettled) {
                         PartialPaymentSection(
                             summary = summary,
                             tx = tx,
                             onRecordPartialPayment = onRecordPartialPayment,
                             onRecordCounterpartyPayment = onRecordCounterpartyPayment,
-                            onRecordPartialPaymentWithProof = onRecordPartialPaymentWithProof
+                            onRecordPartialPaymentWithProof = onRecordPartialPaymentWithProof,
+                            selfDisplayName = selfDisplayName
                         )
                     }
 
@@ -330,14 +333,14 @@ fun RecordDetailSheet(
                         )
                     }
 
-                    // 7. Collapsible More Options (Installment builder, Documents, Audit trail, Edit & Delete)
+                    // 7. Collapsible More Options (Installment builder, Documents, Audit trail & Delete)
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .animateContentSize()
                             .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f), RoundedCornerShape(12.dp))
-                            .padding(horizontal = 12.dp, vertical = if (showMoreOptions) 10.dp else 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                            .padding(horizontal = 10.dp, vertical = if (showMoreOptions) 8.dp else 2.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Row(
                             modifier = Modifier
@@ -350,13 +353,13 @@ fun RecordDetailSheet(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "More options",
+                                    text = stringResource(R.string.detail_more_actions_title),
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Installments, documents (${attachments.size}), history & delete",
+                                    text = stringResource(R.string.detail_more_options_subtitle, attachments.size),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -398,47 +401,28 @@ fun RecordDetailSheet(
                                 auditTrail = auditTrail
                             )
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            OutlinedButton(
+                                onClick = { confirmDelete = true },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
+                                    .testTag("delete_transaction_button"),
+                                shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
+                                contentPadding = PaddingValues(horizontal = 8.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
                             ) {
-                                OutlinedButton(
-                                    onClick = onEdit,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
-                                        .testTag("edit_transaction_button"),
-                                    shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
-                                    contentPadding = PaddingValues(horizontal = 8.dp),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                                ) {
-                                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(15.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(stringResource(R.string.ui_str_edit_17865b), style = MaterialTheme.typography.labelLarge)
-                                }
-                                OutlinedButton(
-                                    onClick = { confirmDelete = true },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.SecondaryButtonHeight)
-                                        .testTag("delete_transaction_button"),
-                                    shape = com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner12,
-                                    contentPadding = PaddingValues(horizontal = 8.dp),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
-                                ) {
-                                    Icon(
-                                        UdhaarIcons.DeleteOutline,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(15.dp),
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = stringResource(R.string.ui_str_delete_d6f563),
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                }
+                                Icon(
+                                    UdhaarIcons.DeleteOutline,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(15.dp),
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = stringResource(R.string.ui_str_delete_d6f563),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.error
+                                )
                             }
                         }
                     }

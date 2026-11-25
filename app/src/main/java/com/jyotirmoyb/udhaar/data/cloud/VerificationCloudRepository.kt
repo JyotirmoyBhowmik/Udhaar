@@ -142,10 +142,10 @@ data class CloudChatMessage(
  *   [Context] constructor that resolves `R.string.firestore_database_id`.
  * - Implements structured error reporting via [handleFirestoreError].
  */
-class VerificationCloudRepository(
+open class VerificationCloudRepository(
     private val rawDb: FirebaseFirestore?
 ) {
-    val isAvailable: Boolean get() = rawDb != null
+    open val isAvailable: Boolean get() = rawDb != null
 
     private val db: FirebaseFirestore
         get() = rawDb ?: throw IllegalStateException("Firebase not configured: verification and chat are off")
@@ -417,7 +417,7 @@ class VerificationCloudRepository(
         }
     }
 
-    fun observeSharedRecord(remoteId: String): Flow<CloudSharedRecord?> {
+    open fun observeSharedRecord(remoteId: String): Flow<CloudSharedRecord?> {
         if (!isAvailable) return flowOf(null)
         return callbackFlow {
         val path = "shared_records/$remoteId"
@@ -591,13 +591,22 @@ class VerificationCloudRepository(
     /**
      * Phase 4 — In-App Communication (Chat Threads & Messages)
      */
-    suspend fun upsertChatThread(thread: CloudChatThread) {
+    open suspend fun upsertChatThread(thread: CloudChatThread) {
         val path = "chat_threads/${thread.threadId}"
         val normalizedScope = if (thread.scope == "PARTY_GENERAL" || thread.scope == "PARTY") "PARTY" else "TRANSACTION"
         try {
             val docRef = db.collection("chat_threads").document(thread.threadId)
-            val existing = runCatching { docRef.get().await() }.getOrNull()
-            if (existing == null || !existing.exists()) {
+            val existingResult = try {
+                docRef.get().await() to false
+            } catch (e: Exception) {
+                val permDenied = e is com.google.firebase.firestore.FirebaseFirestoreException &&
+                    e.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED
+                null to permDenied
+            }
+            val existing = existingResult.first
+            val likelyExistsUnjoined = existingResult.second
+
+            if (!likelyExistsUnjoined && (existing == null || !existing.exists())) {
                 val data = mapOf(
                     "threadId" to thread.threadId,
                     "threadScope" to normalizedScope,
@@ -630,7 +639,19 @@ class VerificationCloudRepository(
                     "lastMessageAtMillis" to thread.lastMessageAtMillis.coerceAtLeast(-1L),
                     "updatedAt" to FieldValue.serverTimestamp()
                 )
-                if (thread.counterpartyUid.isNotBlank() && existing.getString("counterpartyUid").isNullOrEmpty()) {
+                if (likelyExistsUnjoined) {
+                    val myUid = thread.creatorUid
+                    val mergedParticipants = thread.participantUids.ifEmpty {
+                        listOfNotNull(
+                            thread.counterpartyUid.takeIf { it.isNotBlank() },
+                            myUid.takeIf { it.isNotBlank() }
+                        ).distinct()
+                    }
+                    if (myUid.isNotBlank()) {
+                        updates["counterpartyUid"] = myUid
+                    }
+                    updates["participantUids"] = mergedParticipants
+                } else if (thread.counterpartyUid.isNotBlank() && existing?.getString("counterpartyUid").isNullOrEmpty()) {
                     updates["counterpartyUid"] = thread.counterpartyUid
                     updates["participantUids"] = thread.participantUids
                 }
@@ -653,7 +674,7 @@ class VerificationCloudRepository(
         }
     }
 
-    fun observeChatThread(threadId: String): Flow<CloudChatThread?> {
+    open fun observeChatThread(threadId: String): Flow<CloudChatThread?> {
         if (!isAvailable) return flowOf(null)
         return callbackFlow {
             val path = "chat_threads/$threadId"
@@ -719,7 +740,7 @@ class VerificationCloudRepository(
         }
     }
 
-    suspend fun sendChatMessage(message: CloudChatMessage) {
+    open suspend fun sendChatMessage(message: CloudChatMessage) {
         val path = "chat_threads/${message.threadId}/messages/${message.messageId}"
         try {
             val data = mapOf(
@@ -753,7 +774,7 @@ class VerificationCloudRepository(
         }
     }
 
-    suspend fun updateChatMessageDeliveryOrExtension(
+    open suspend fun updateChatMessageDeliveryOrExtension(
         threadId: String,
         messageId: String,
         deliveryStatus: String,
@@ -799,7 +820,7 @@ class VerificationCloudRepository(
         }
     }
 
-    fun observeChatMessages(threadId: String, participantUid: String): Flow<List<CloudChatMessage>> {
+    open fun observeChatMessages(threadId: String, participantUid: String): Flow<List<CloudChatMessage>> {
         if (!isAvailable) return flowOf(emptyList())
         return callbackFlow {
             val path = "chat_threads/$threadId/messages"

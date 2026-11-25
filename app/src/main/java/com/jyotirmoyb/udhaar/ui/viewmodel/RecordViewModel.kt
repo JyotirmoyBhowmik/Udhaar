@@ -211,11 +211,12 @@ class RecordViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             val isNew = transaction.id == 0L
+            val settings = settingsRepository.userSettings.first()
+            val myRealName = settingsRepository.resolveSelfDisplayName(settings)
             val savedId = if (isNew) {
-                ledgerRepository.saveTransaction(transaction)
+                ledgerRepository.saveTransaction(transaction, myProfileName = myRealName)
             } else {
-                ledgerRepository.updateTransaction(transaction)
-                transaction.id
+                ledgerRepository.saveTransaction(transaction, myProfileName = myRealName)
             }
             val savedTx = transaction.copy(id = savedId)
 
@@ -254,8 +255,9 @@ class RecordViewModel @Inject constructor(
     fun saveGroupSplitTransactions(transactions: List<UdhaarTransaction>) {
         if (transactions.isEmpty()) return
         viewModelScope.launch {
+            val myRealName = settingsRepository.resolveSelfDisplayName(settingsRepository.userSettings.first())
             for (tx in transactions) {
-                val savedId = ledgerRepository.saveTransaction(tx)
+                val savedId = ledgerRepository.saveTransaction(tx, myProfileName = myRealName)
                 val savedTx = tx.copy(id = savedId)
                 appContext?.let { ctx ->
                     if (savedTx.expiryDateMillis != null && !savedTx.isSettled) {
@@ -311,7 +313,8 @@ class RecordViewModel @Inject constructor(
         proofAttachment: Attachment? = null
     ) {
         viewModelScope.launch {
-            val myName = settingsRepository.userSettings.first().payeeName.ifBlank { "You" }
+            val settings = settingsRepository.userSettings.first()
+            val myName = settingsRepository.resolveSelfDisplayName(settings)
             val actor = if (recordedByCounterparty) {
                 summary.transaction.partyName
             } else {
@@ -411,7 +414,8 @@ class RecordViewModel @Inject constructor(
         onSuccess: (Long) -> Unit = {}
     ) {
         viewModelScope.launch {
-            val myName = settingsRepository.userSettings.first().payeeName.ifBlank { "You" }
+            val settings = settingsRepository.userSettings.first()
+            val myName = settingsRepository.resolveSelfDisplayName(settings)
             val planId = installmentRepository.createOrUpdatePlan(
                 tx = tx,
                 plan = plan,
@@ -430,7 +434,8 @@ class RecordViewModel @Inject constructor(
         proposals: List<InstallmentDraft>
     ) {
         viewModelScope.launch {
-            val myName = settingsRepository.userSettings.first().payeeName.ifBlank { "You" }
+            val settings = settingsRepository.userSettings.first()
+            val myName = settingsRepository.resolveSelfDisplayName(settings)
             installmentRepository.proposeNewSchedule(planId, txId, proposals, myName)
             appStateHolder.setSuccessAnimation(SuccessAnimationEvent(message = "Revised schedule proposed"))
         }
@@ -441,7 +446,8 @@ class RecordViewModel @Inject constructor(
         tx: UdhaarTransaction
     ) {
         viewModelScope.launch {
-            val myName = settingsRepository.userSettings.first().payeeName.ifBlank { "You" }
+            val settings = settingsRepository.userSettings.first()
+            val myName = settingsRepository.resolveSelfDisplayName(settings)
             installmentRepository.acceptProposedSchedule(planId, tx, myName)
             appStateHolder.setSuccessAnimation(SuccessAnimationEvent(message = "Schedule accepted"))
         }
@@ -452,7 +458,8 @@ class RecordViewModel @Inject constructor(
         txId: Long
     ) {
         viewModelScope.launch {
-            val myName = settingsRepository.userSettings.first().payeeName.ifBlank { "You" }
+            val settings = settingsRepository.userSettings.first()
+            val myName = settingsRepository.resolveSelfDisplayName(settings)
             installmentRepository.declineProposedSchedule(planId, txId, myName)
         }
     }

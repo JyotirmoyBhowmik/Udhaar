@@ -5,6 +5,8 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.FirebaseAuth
 import com.jyotirmoyb.udhaar.backup.DriveConnectionTestReport
 import com.jyotirmoyb.udhaar.backup.DriveRemoteBackup
 import com.jyotirmoyb.udhaar.backup.DriveResult
@@ -26,6 +28,8 @@ import com.jyotirmoyb.udhaar.data.UdhaarRepository
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
 import com.jyotirmoyb.udhaar.security.EncryptedStorageManager
 import com.jyotirmoyb.udhaar.security.PinVerificationResult
+import com.jyotirmoyb.udhaar.ui.sheets.settings.FirebaseSparkAuthController
+import com.jyotirmoyb.udhaar.ui.sheets.settings.SparkAuthSession
 import com.jyotirmoyb.udhaar.ui.state.AppStateHolder
 import com.jyotirmoyb.udhaar.ui.theme.AppFontScale
 import com.jyotirmoyb.udhaar.ui.theme.AppThemeMode
@@ -48,9 +52,11 @@ import com.jyotirmoyb.udhaar.util.DeviceContact
 import com.jyotirmoyb.udhaar.util.ParsedLedgerBackup
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
@@ -115,8 +121,64 @@ class UdhaarViewModel(
         settingsViewModel = SettingsViewModel(repository.settingsRepository, stateHolder, appContext)
     )
 
+    private val sparkAuthController = FirebaseSparkAuthController()
+    private val isFirebaseConfiguredFlag: Boolean = appContext?.let { ctx ->
+        runCatching { FirebaseApp.getApps(ctx).isNotEmpty() }.getOrDefault(false)
+    } ?: false
+    private val cloudAuthSessionFlow = MutableStateFlow(
+        if (isFirebaseConfiguredFlag) sparkAuthController.currentSession() else null
+    )
+    private var authStateListener: FirebaseAuth.AuthStateListener? = null
+
     init {
         appStateHolder.initSecurityState(appContext)
+        if (isFirebaseConfiguredFlag) {
+            runCatching {
+                val auth = FirebaseAuth.getInstance()
+                val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+                    val current = firebaseAuth.currentUser
+                    val mapped = if (current == null || current.isAnonymous) {
+                        null
+                    } else {
+                        val provider = current.providerData.firstOrNull { it.providerId != "firebase" }?.providerId ?: "password"
+                        SparkAuthSession(
+                            uid = current.uid,
+                            email = current.email.orEmpty(),
+                            displayName = current.displayName.orEmpty(),
+                            phoneNumber = current.phoneNumber.orEmpty(),
+                            isEmailVerified = current.isEmailVerified || provider == "google.com",
+                            providerId = provider
+                        )
+                    }
+                    cloudAuthSessionFlow.value = mapped
+                    viewModelScope.launch {
+                        val settings = repository.settingsRepository.userSettings.first()
+                        if (mapped != null && mapped.isEmailVerified) {
+                            if (!settings.cloudVerificationConsent ||
+                                settings.cloudUserId != mapped.uid ||
+                                com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.isPlaceholderSelfName(settings.payeeName)
+                            ) {
+                                repository.settingsRepository.setCloudAccountState(
+                                    consentGranted = true,
+                                    userId = mapped.uid,
+                                    email = mapped.email,
+                                    displayName = mapped.displayName
+                                )
+                            }
+                        } else if (mapped == null && settings.cloudUserId.isNotBlank()) {
+                            repository.settingsRepository.setCloudAccountState(
+                                consentGranted = false,
+                                userId = "",
+                                email = "",
+                                displayName = ""
+                            )
+                        }
+                    }
+                }
+                authStateListener = listener
+                auth.addAuthStateListener(listener)
+            }
+        }
         viewModelScope.launch {
             EncryptedStorageManager.encryptionStateFlow.collect { encState ->
                 appStateHolder.setDbEncryptionState(encState)
@@ -127,6 +189,14 @@ class UdhaarViewModel(
                 appStateHolder.setBlockingSqlCipherError(err)
             }
         }
+    }
+
+    override fun onCleared() {
+        authStateListener?.let { listener ->
+            runCatching { FirebaseAuth.getInstance().removeAuthStateListener(listener) }
+        }
+        authStateListener = null
+        super.onCleared()
     }
 
     private data class SharedNavBundle(
@@ -162,13 +232,38 @@ class UdhaarViewModel(
         combine(
             appStateHolder.manualLockRequested,
             appStateHolder.dbEncryptionState,
-            appStateHolder.blockingSqlCipherError
-        ) { lockReq, encState, sqlErr ->
-            Triple(lockReq, encState, sqlErr)
+            appStateHolder.blockingSqlCipherError,
+            appStateHolder.deepLinkStatusMessage,
+            combine(
+                appStateHolder.externalBrowserFallbackUrl,
+                cloudAuthSessionFlow
+            ) { browserUrl, cloudSession -> browserUrl to cloudSession }
+        ) { lockReq, encState, sqlErr, deepLinkMsg, extraPair ->
+            NavExtraState(lockReq, encState, sqlErr, deepLinkMsg, extraPair.first, extraPair.second)
         }
-    ) { amountsHidden, undoMsg, animEvent, unlocked, triple ->
-        NavSecondHalf(amountsHidden, undoMsg, animEvent, unlocked, triple.first, triple.second, triple.third)
+    ) { amountsHidden, undoMsg, animEvent, unlocked, extra ->
+        NavSecondHalf(
+            isAmountsHidden = amountsHidden,
+            undoSnackbarMessage = undoMsg,
+            successAnimationEvent = animEvent,
+            hasUnlockedThisSession = unlocked,
+            manualLockRequested = extra.manualLockRequested,
+            dbEncryptionState = extra.dbEncryptionState,
+            blockingSqlCipherError = extra.blockingSqlCipherError,
+            deepLinkStatusMessage = extra.deepLinkStatusMessage,
+            externalBrowserFallbackUrl = extra.externalBrowserFallbackUrl,
+            cloudAuthSession = extra.cloudAuthSession
+        )
     }
+
+    private data class NavExtraState(
+        val manualLockRequested: Boolean,
+        val dbEncryptionState: EncryptedStorageManager.DbEncryptionState,
+        val blockingSqlCipherError: String?,
+        val deepLinkStatusMessage: String?,
+        val externalBrowserFallbackUrl: String?,
+        val cloudAuthSession: SparkAuthSession?
+    )
 
     private data class NavFirstHalf(
         val activeScreen: ActiveScreen,
@@ -185,7 +280,10 @@ class UdhaarViewModel(
         val hasUnlockedThisSession: Boolean,
         val manualLockRequested: Boolean,
         val dbEncryptionState: EncryptedStorageManager.DbEncryptionState,
-        val blockingSqlCipherError: String?
+        val blockingSqlCipherError: String?,
+        val deepLinkStatusMessage: String?,
+        val externalBrowserFallbackUrl: String?,
+        val cloudAuthSession: SparkAuthSession?
     )
 
     private data class CoreDomainBundle(
@@ -235,6 +333,15 @@ class UdhaarViewModel(
 
         val requiresAuth = (sState.userSettings.biometricLockEnabled && !nav2.hasUnlockedThisSession) || nav2.manualLockRequested
         val unlocked = !requiresAuth
+
+        val cloudSession = nav2.cloudAuthSession
+        val hasVerifiedFirebaseSession = cloudSession != null && cloudSession.isEmailVerified
+        val isUnverifiedFirebaseSession = cloudSession != null && !cloudSession.isEmailVerified
+        val requiresGate = if (isFirebaseConfiguredFlag) {
+            !hasVerifiedFirebaseSession
+        } else {
+            !sState.userSettings.cloudVerificationConsent || sState.userSettings.cloudUserId.isBlank()
+        }
 
         UdhaarUiState(
             isAuthenticated = unlocked,
@@ -319,6 +426,12 @@ class UdhaarViewModel(
             showCoachMarks = dState.showCoachMarks,
             isNeedsAttentionDismissed = dState.isNeedsAttentionDismissed,
             undoSnackbarMessage = nav2.undoSnackbarMessage,
+            deepLinkStatusMessage = nav2.deepLinkStatusMessage,
+            externalBrowserFallbackUrl = nav2.externalBrowserFallbackUrl,
+            requiresCloudVerificationGate = requiresGate,
+            cloudVerificationEmailUnverified = isUnverifiedFirebaseSession,
+            cloudVerificationPendingEmail = cloudSession?.email.orEmpty(),
+            isFirebaseConfigured = isFirebaseConfiguredFlag,
             successAnimationEvent = nav2.successAnimationEvent,
             dbEncryptionState = nav2.dbEncryptionState,
             blockingSqlCipherError = nav2.blockingSqlCipherError
@@ -386,6 +499,8 @@ class UdhaarViewModel(
     fun toggleHideAmounts() = settingsViewModel.toggleHideAmounts()
     fun dismissNeedsAttentionStrip() = dashboardViewModel.dismissNeedsAttentionStrip()
     fun dismissUndoSnackbar() = appStateHolder.dismissUndoSnackbar()
+    fun dismissDeepLinkStatusMessage() = appStateHolder.dismissDeepLinkStatusMessage()
+    fun consumeExternalBrowserFallbackUrl() = appStateHolder.consumeExternalBrowserFallback()
     fun clearSuccessAnimation() = appStateHolder.clearSuccessAnimation()
     fun performUndoAction() = dashboardViewModel.performUndoAction()
 
@@ -523,8 +638,11 @@ class UdhaarViewModel(
     fun handleIncomingDeepLinkOrToken(urlOrToken: String, targetPartyId: Long? = null): Boolean =
         verificationViewModel.handleIncomingDeepLinkOrToken(urlOrToken, targetPartyId)
 
-    fun confirmOrDisputeIncomingVerification(confirm: Boolean, disputeReason: String = "") =
-        verificationViewModel.confirmOrDisputeIncomingVerification(confirm, disputeReason)
+    fun confirmOrDisputeIncomingVerification(
+        confirm: Boolean,
+        disputeReason: String = "",
+        counterpartyNameOverride: String = ""
+    ) = verificationViewModel.confirmOrDisputeIncomingVerification(confirm, disputeReason, counterpartyNameOverride)
 
     fun dismissIncomingVerification() = verificationViewModel.dismissIncomingVerification()
 
@@ -535,7 +653,7 @@ class UdhaarViewModel(
         verificationViewModel.acknowledgePartialPayment(
             transaction,
             payment,
-            uiState.value.userSettings.payeeName.ifBlank { "You" }
+            ""
         )
     }
 
@@ -548,8 +666,38 @@ class UdhaarViewModel(
     fun acceptIncomingPaymentProfile() = verificationViewModel.acceptIncomingPaymentProfile()
     fun dismissIncomingPaymentProfile() = verificationViewModel.dismissIncomingPaymentProfile()
 
-    fun setCloudAccountState(consentGranted: Boolean, userId: String, email: String) =
-        verificationViewModel.setCloudAccountState(consentGranted, userId, email)
+    fun setCloudAccountState(
+        consentGranted: Boolean,
+        userId: String,
+        email: String,
+        displayName: String = ""
+    ) {
+        if (consentGranted && userId.isNotBlank()) {
+            cloudAuthSessionFlow.value = SparkAuthSession(
+                uid = userId,
+                email = email,
+                displayName = displayName,
+                isEmailVerified = true
+            )
+            appContext?.let { ctx ->
+                com.jyotirmoyb.udhaar.sync.ForegroundGuestActionListener.start(ctx)
+            }
+        } else {
+            cloudAuthSessionFlow.value = null
+            com.jyotirmoyb.udhaar.sync.ForegroundGuestActionListener.stop()
+        }
+        viewModelScope.launch {
+            repository.settingsRepository.setCloudAccountState(consentGranted, userId, email, displayName)
+        }
+    }
+
+    fun handleCloudSignOut() {
+        cloudAuthSessionFlow.value = null
+        com.jyotirmoyb.udhaar.sync.ForegroundGuestActionListener.stop()
+        viewModelScope.launch {
+            repository.settingsRepository.setCloudAccountState(false, "", "", "")
+        }
+    }
 
     fun saveParty(party: PartyEntity) = peopleViewModel.saveParty(party)
     fun deleteParty(party: PartyEntity) = peopleViewModel.deleteParty(party)

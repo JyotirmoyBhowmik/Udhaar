@@ -524,27 +524,10 @@ fun DashboardScreen(
                             }
 
                             item(key = "footer_vpa_item") {
-                                val vpaDisplay = if (uiState.userSettings.upiId.isNotBlank()) {
-                                    InterestCalculator.maskUpiId(uiState.userSettings.upiId)
-                                } else {
-                                    stringResource(R.string.vpa_not_configured)
-                                }
-                                Text(
-                                    text = stringResource(R.string.ui_fmt_vpa_560ef1, vpaDisplay),
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontFamily = IbmPlexMonoFamily,
-                                        fontSize = 14.sp
-                                    ),
-                                    color = SecondaryInkGrey,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = udhaarAnimateItem(reducedMotion)
-                                        .fillMaxWidth()
-                                        .heightIn(min = 48.dp)
-                                        .pressScaleFeedback()
-                                        .clickable { onSettingsClick() }
-                                        .padding(horizontal = 4.dp, vertical = 10.dp)
-                                        .testTag("footer_vpa_line")
+                                DashboardFooterVpaLine(
+                                    upiId = uiState.userSettings.upiId,
+                                    modifier = udhaarAnimateItem(reducedMotion),
+                                    onSettingsClick = onSettingsClick
                                 )
                             }
                         }

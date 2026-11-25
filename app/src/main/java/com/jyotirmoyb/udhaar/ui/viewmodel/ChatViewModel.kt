@@ -16,10 +16,12 @@ import com.jyotirmoyb.udhaar.notification.ReminderScheduler
 import com.jyotirmoyb.udhaar.ui.state.AppStateHolder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -117,6 +119,34 @@ class ChatViewModel @Inject constructor(
         val partyName: String
     )
 
+    private var cloudObservationJob: Job? = null
+
+    private fun startObservingActiveCloudThread(
+        threadKey: String,
+        scope: ChatThreadScope,
+        transactionId: Long?,
+        remoteId: String,
+        partyId: Long?,
+        partyName: String
+    ) {
+        cloudObservationJob?.cancel()
+        cloudObservationJob = viewModelScope.launch {
+            chatRepository.observeAndSyncCloudThread(
+                threadKey = threadKey,
+                scope = scope,
+                transactionId = transactionId,
+                remoteId = remoteId,
+                partyId = partyId,
+                partyName = partyName
+            ).collect()
+        }
+    }
+
+    override fun onCleared() {
+        cloudObservationJob?.cancel()
+        super.onCleared()
+    }
+
     fun openTransactionChat(transactionId: Long, partyName: String = "", partyId: Long? = null, remoteId: String = "") {
         val threadKey = UdhaarRepository.transactionThreadKey(transactionId)
         viewModelScope.launch {
@@ -130,6 +160,7 @@ class ChatViewModel @Inject constructor(
             )
             chatRepository.markThreadRead(threadKey)
         }
+        startObservingActiveCloudThread(threadKey, ChatThreadScope.TRANSACTION, transactionId, remoteId, partyId, partyName)
         _activeChatThreadKey.value = threadKey
         _activeChatScope.value = ChatThreadScope.TRANSACTION
         _activeChatTransactionId.value = transactionId
@@ -150,6 +181,14 @@ class ChatViewModel @Inject constructor(
             )
             chatRepository.markThreadRead(threadKey)
         }
+        startObservingActiveCloudThread(
+            threadKey = threadKey,
+            scope = ChatThreadScope.PARTY_GENERAL,
+            transactionId = null,
+            remoteId = "",
+            partyId = party.partyId.takeIf { it > 0L },
+            partyName = party.name
+        )
         _activeChatThreadKey.value = threadKey
         _activeChatScope.value = ChatThreadScope.PARTY_GENERAL
         _activeChatTransactionId.value = null
@@ -180,6 +219,14 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             chatRepository.markThreadRead(effectiveThreadKey)
         }
+        startObservingActiveCloudThread(
+            threadKey = effectiveThreadKey,
+            scope = scope,
+            transactionId = resolvedTxId,
+            remoteId = remoteRecordId,
+            partyId = null,
+            partyName = resolvedPartyName
+        )
         _activeChatThreadKey.value = effectiveThreadKey
         _activeChatScope.value = scope
         _activeChatTransactionId.value = resolvedTxId
@@ -187,6 +234,8 @@ class ChatViewModel @Inject constructor(
     }
 
     fun closeChatSheet() {
+        cloudObservationJob?.cancel()
+        cloudObservationJob = null
         val currentKey = _activeChatThreadKey.value
         if (!currentKey.isNullOrBlank()) {
             viewModelScope.launch {

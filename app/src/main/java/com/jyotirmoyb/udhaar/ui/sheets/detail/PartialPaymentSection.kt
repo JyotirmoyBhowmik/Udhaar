@@ -75,9 +75,11 @@ fun PartialPaymentSection(
     onRecordPartialPayment: (amount: Double, paymentMode: PaymentMode, note: String) -> Unit,
     onRecordCounterpartyPayment: (amount: Double, paymentMode: PaymentMode, note: String) -> Unit,
     onRecordPartialPaymentWithProof: (amount: Double, paymentMode: PaymentMode, note: String, proof: Attachment?) -> Unit,
+    selfDisplayName: String = "",
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val resolvedAddedBy = selfDisplayName.ifBlank { "Account Owner" }
     var isFormExpanded by rememberSaveable(tx.id) { mutableStateOf(false) }
     var partialAmountText by rememberSaveable { mutableStateOf("") }
     var partialPaymentMode by rememberSaveable { mutableStateOf<PaymentMode>(tx.paymentMode) }
@@ -96,7 +98,7 @@ fun PartialPaymentSection(
                 context = context,
                 sourceUri = capturedUri,
                 transactionId = tx.id,
-                addedBy = "You"
+                addedBy = resolvedAddedBy
             )
             if (processed != null) {
                 pendingProofAttachment = processed
@@ -140,7 +142,7 @@ fun PartialPaymentSection(
                 context = context,
                 sourceUri = uri,
                 transactionId = tx.id,
-                addedBy = "You"
+                addedBy = resolvedAddedBy
             )
             if (processed != null) {
                 pendingProofAttachment = processed
@@ -154,8 +156,8 @@ fun PartialPaymentSection(
             .animateContentSize()
             .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
-            .padding(horizontal = 12.dp, vertical = if (isFormExpanded) 10.dp else 4.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(horizontal = 10.dp, vertical = if (isFormExpanded) 8.dp else 2.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(
             modifier = Modifier
@@ -179,14 +181,14 @@ fun PartialPaymentSection(
                 )
                 Column {
                     Text(
-                        text = "Record payment",
+                        text = stringResource(R.string.detail_record_payment_title),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     if (!isFormExpanded) {
                         Text(
-                            text = "Log a partial or full installment",
+                            text = stringResource(R.string.detail_record_payment_subtitle),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -436,7 +438,7 @@ fun PartialPaymentSection(
             onClick = {
                 val amt = partialAmountText.trim().toDoubleOrNull()
                 if (amt == null || amt <= 0.0) {
-                    errorText = "Enter a valid installment amount > 0"
+                    errorText = context.getString(R.string.detail_invalid_amount_error)
                     return@Button
                 }
                 val proof = pendingProofAttachment

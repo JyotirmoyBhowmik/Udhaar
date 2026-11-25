@@ -197,11 +197,11 @@ class SparkQuotaAndAppCheckTest {
 
         assertNotNull("versionCode must be present in version.properties", code)
         assertTrue("versionCode must never be below 28", (code ?: 0) >= 28)
-        assertEquals("30.0", name)
-        assertEquals(30, code)
+        assertEquals("31.0", name)
+        assertEquals(31, code)
         assertEquals(100, ciBase)
         assertTrue("BuildConfig.VERSION_CODE must be >= 28", BuildConfig.VERSION_CODE >= 28)
-        assertEquals("30.0", BuildConfig.VERSION_NAME)
+        assertEquals("31.0", BuildConfig.VERSION_NAME)
     }
 
     @Test

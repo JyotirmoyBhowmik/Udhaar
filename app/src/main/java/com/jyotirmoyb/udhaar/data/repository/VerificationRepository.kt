@@ -33,7 +33,7 @@ open class VerificationRepository(
 ) {
     suspend fun prepareVerificationShare(transaction: UdhaarTransaction): Pair<UdhaarTransaction, String> {
         val settings = settingsRepository.userSettings.first()
-        val myName = settings.payeeName.ifBlank { "Udhaar User" }
+        val myName = settingsRepository.resolveSelfDisplayName(settings)
         val remoteId = transaction.remoteId.ifBlank { VerificationCryptoHelper.generateShortId(10) }
         val shareToken = transaction.shareToken.ifBlank { VerificationCryptoHelper.generateShareToken() }
         val (lender, borrower) = VerificationCryptoHelper.resolveLenderAndBorrowerNames(
@@ -172,12 +172,10 @@ open class VerificationRepository(
     suspend fun processIncomingVerificationResponse(
         payload: VerificationCryptoHelper.SharedVerificationPayload,
         confirm: Boolean,
-        disputeReason: String = ""
+        disputeReason: String = "",
+        counterpartyNameOverride: String = ""
     ): UdhaarTransaction {
         val settings = settingsRepository.userSettings.first()
-        val myName = settings.payeeName.ifBlank {
-            if (payload.creatorRole == TransactionType.GIVEN) payload.borrowerName else payload.lenderName
-        }
         val nowMillis = System.currentTimeMillis()
         val existing = dao.getTransactionByRemoteId(payload.remoteId)
         val currency = runCatching { CurrencyType.valueOf(payload.currencyCode) }.getOrDefault(CurrencyType.INR)
@@ -187,9 +185,33 @@ open class VerificationRepository(
             shareToken = payload.shareToken
         )
 
+        val defaultSenderName = if (payload.creatorRole == TransactionType.GIVEN) payload.lenderName else payload.borrowerName
+        val defaultReceiverName = if (payload.creatorRole == TransactionType.GIVEN) payload.borrowerName else payload.lenderName
+        val resolvedCounterpartyName = counterpartyNameOverride.trim()
+            .takeUnless { VerificationCryptoHelper.isPlaceholderSelfName(it) }
+            ?: defaultSenderName.trim().takeUnless { VerificationCryptoHelper.isPlaceholderSelfName(it) }
+            ?: "Counterparty"
+        val myName = VerificationCryptoHelper.resolveUserProfileName(
+            payeeName = settingsRepository.resolveSelfDisplayName(settings),
+            fallback = defaultReceiverName.trim().takeUnless { VerificationCryptoHelper.isPlaceholderSelfName(it) } ?: "Udhaar User"
+        )
+        val resolvedSelfSideName = defaultReceiverName.trim()
+            .takeUnless { VerificationCryptoHelper.isPlaceholderSelfName(it) }
+            ?: myName
+        val effectiveLenderName = if (payload.creatorRole == TransactionType.GIVEN) {
+            resolvedCounterpartyName
+        } else {
+            resolvedSelfSideName
+        }
+        val effectiveBorrowerName = if (payload.creatorRole == TransactionType.GIVEN) {
+            resolvedSelfSideName
+        } else {
+            resolvedCounterpartyName
+        }
+
         val canonicalHash = VerificationCryptoHelper.computeContentHash(
-            lenderName = payload.lenderName,
-            borrowerName = payload.borrowerName,
+            lenderName = effectiveLenderName,
+            borrowerName = effectiveBorrowerName,
             principalAmount = payload.principalAmount,
             currencyCode = currency.code,
             startDateMillis = payload.startDateMillis,
@@ -204,14 +226,23 @@ open class VerificationRepository(
         val newStatus = if (confirm) VerificationStatus.CONFIRMED else VerificationStatus.DISPUTED
 
         val resultingTx: UdhaarTransaction = if (existing != null) {
+            val updatedPartyName = if (counterpartyNameOverride.isNotBlank() ||
+                VerificationCryptoHelper.isPlaceholderSelfName(existing.partyName)
+            ) {
+                resolvedCounterpartyName
+            } else {
+                existing.partyName
+            }
             val updated = existing.copy(
+                partyName = updatedPartyName,
                 verificationStatus = newStatus,
                 verifiedAtMillis = if (confirm) nowMillis else existing.verifiedAtMillis,
                 needsMyConfirmation = false,
                 disputeReason = if (confirm) "" else disputeReason.trim(),
+                counterpartyUserId = existing.counterpartyUserId.ifBlank { payload.creatorUserId },
                 contentHash = canonicalHash,
-                lenderName = payload.lenderName,
-                borrowerName = payload.borrowerName
+                lenderName = effectiveLenderName,
+                borrowerName = effectiveBorrowerName
             )
             dao.updateTransaction(updated)
             updated
@@ -221,21 +252,25 @@ open class VerificationRepository(
             } else {
                 TransactionType.GIVEN
             }
-            val counterpartyName = if (mirroredType == TransactionType.TAKEN) {
-                payload.lenderName
-            } else {
-                payload.borrowerName
-            }
+            val counterpartyName = resolvedCounterpartyName
             val counterpartyPhone = payload.creatorPhone
 
             val linkedParty = dao.getPartyByName(counterpartyName)
-            val partyId = linkedParty?.partyId ?: dao.insertParty(
-                PartyEntity(
-                    name = counterpartyName,
-                    phoneNumber = counterpartyPhone,
-                    preferredCurrency = currency
+            val partyId = if (linkedParty != null) {
+                if (linkedParty.linkedUserId.isBlank() && payload.creatorUserId.isNotBlank()) {
+                    dao.updateParty(linkedParty.copy(linkedUserId = payload.creatorUserId))
+                }
+                linkedParty.partyId
+            } else {
+                dao.insertParty(
+                    PartyEntity(
+                        name = counterpartyName,
+                        phoneNumber = counterpartyPhone,
+                        linkedUserId = payload.creatorUserId,
+                        preferredCurrency = currency
+                    )
                 )
-            )
+            }
 
             val mirroredTx = UdhaarTransaction(
                 partyId = partyId,
@@ -262,8 +297,8 @@ open class VerificationRepository(
                 needsMyConfirmation = false,
                 shareToken = payload.shareToken,
                 disputeReason = if (confirm) "" else disputeReason.trim(),
-                lenderName = payload.lenderName,
-                borrowerName = payload.borrowerName
+                lenderName = effectiveLenderName,
+                borrowerName = effectiveBorrowerName
             )
             val newId = dao.insertTransaction(mirroredTx)
             AuditTrailHelper.appendLocalAuditEvent(
@@ -335,7 +370,7 @@ open class VerificationRepository(
         disputeReason: String = ""
     ) {
         val settings = settingsRepository.userSettings.first()
-        val myName = settings.payeeName.ifBlank { "You" }
+        val myName = settingsRepository.resolveSelfDisplayName(settings)
         val nowMillis = System.currentTimeMillis()
         val nextStatus = if (confirm) VerificationStatus.CONFIRMED else VerificationStatus.DISPUTED
         val updated = transaction.copy(

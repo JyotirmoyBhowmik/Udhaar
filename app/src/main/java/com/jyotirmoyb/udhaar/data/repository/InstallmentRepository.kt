@@ -49,8 +49,12 @@ open class InstallmentRepository @Inject constructor(
         tx: UdhaarTransaction,
         plan: InstallmentPlan,
         draftInstallments: List<InstallmentDraft>,
-        myProfileName: String = "You"
+        myProfileName: String = ""
     ): Long {
+        val settings = settingsRepository.userSettings.first()
+        val effectiveProfileName = myProfileName.trim()
+            .takeUnless { VerificationCryptoHelper.isPlaceholderSelfName(it) }
+            ?: settingsRepository.resolveSelfDisplayName(settings)
         val existingPlan = dao.getInstallmentPlanForTransactionSnapshot(tx.id)
         if (existingPlan != null) {
             dao.deleteInstallmentsForPlan(existingPlan.id)
@@ -99,7 +103,7 @@ open class InstallmentRepository @Inject constructor(
         // Recompute content hash with plan included
         val computedHash = VerificationCryptoHelper.computeTransactionContentHash(
             tx = tx,
-            myProfileName = myProfileName,
+            myProfileName = effectiveProfileName,
             plan = planToInsert.copy(id = planId),
             installments = installmentsToInsert
         )
@@ -119,7 +123,7 @@ open class InstallmentRepository @Inject constructor(
             )
         )
 
-        val actor = myProfileName.trim().ifEmpty { "You" }
+        val actor = effectiveProfileName
         val totalFormatted = "${tx.currency.symbol}${InterestCalculator.formatPaise(plan.totalAmountDue)}"
         AuditTrailHelper.appendLocalAuditEvent(
             dao = dao,
@@ -217,12 +221,16 @@ open class InstallmentRepository @Inject constructor(
             )
         )
 
+        val effectiveActor = proposerName.trim()
+            .takeUnless { VerificationCryptoHelper.isPlaceholderSelfName(it) }
+            ?: settingsRepository.resolveSelfDisplayName(settingsRepository.userSettings.first())
+
         AuditTrailHelper.appendLocalAuditEvent(
             dao = dao,
             transactionId = txId,
             eventType = AuditEventType.EXTENSION_REQUESTED,
-            actorName = proposerName,
-            summaryText = "$proposerName proposed a revised installment schedule",
+            actorName = effectiveActor,
+            summaryText = "$effectiveActor proposed a revised installment schedule",
             contentHashSnapshot = ""
         )
     }
@@ -273,9 +281,13 @@ open class InstallmentRepository @Inject constructor(
         )
         dao.updateInstallmentPlan(updatedPlan)
 
+        val effectiveActor = actorName.trim()
+            .takeUnless { VerificationCryptoHelper.isPlaceholderSelfName(it) }
+            ?: settingsRepository.resolveSelfDisplayName(settingsRepository.userSettings.first())
+
         val newHash = VerificationCryptoHelper.computeTransactionContentHash(
             tx = tx,
-            myProfileName = actorName,
+            myProfileName = effectiveActor,
             plan = updatedPlan,
             installments = newInstallments
         )
@@ -291,8 +303,8 @@ open class InstallmentRepository @Inject constructor(
             dao = dao,
             transactionId = tx.id,
             eventType = AuditEventType.EXTENSION_ACCEPTED,
-            actorName = actorName,
-            summaryText = "$actorName accepted revised installment schedule",
+            actorName = effectiveActor,
+            summaryText = "$effectiveActor accepted revised installment schedule",
             contentHashSnapshot = newHash
         )
     }
@@ -309,12 +321,15 @@ open class InstallmentRepository @Inject constructor(
                 scheduleProposalStatus = "DECLINED"
             )
         )
+        val effectiveActor = actorName.trim()
+            .takeUnless { VerificationCryptoHelper.isPlaceholderSelfName(it) }
+            ?: settingsRepository.resolveSelfDisplayName(settingsRepository.userSettings.first())
         AuditTrailHelper.appendLocalAuditEvent(
             dao = dao,
             transactionId = txId,
             eventType = AuditEventType.EXTENSION_DECLINED,
-            actorName = actorName,
-            summaryText = "$actorName declined revised installment schedule",
+            actorName = effectiveActor,
+            summaryText = "$effectiveActor declined revised installment schedule",
             contentHashSnapshot = ""
         )
     }

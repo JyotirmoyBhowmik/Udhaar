@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -233,8 +234,9 @@ class DashboardViewModel @Inject constructor(
         val settledBefore = appStateHolder.lastSettledBeforeTransaction.value
 
         viewModelScope.launch {
+            val myName = settingsRepository.resolveSelfDisplayName(settingsRepository.userSettings.first())
             if (deletedTx != null) {
-                ledgerRepository.saveTransaction(deletedTx)
+                ledgerRepository.saveTransaction(deletedTx, myProfileName = myName)
                 appStateHolder.dismissUndoSnackbar()
             } else if (settledBefore != null) {
                 ledgerRepository.updateTransaction(settledBefore)

@@ -94,6 +94,27 @@ internal fun UdhaarOverlaysHost(
         }
         val resolvedPartyId = uiState.activeChatPartyId ?: activeTxSummary?.transaction?.partyId ?: activeParty?.partyId
 
+        val isCloudSessionActive = uiState.userSettings.cloudVerificationConsent &&
+            uiState.userSettings.cloudUserId.isNotBlank()
+        val hasLinkedCounterparty = if (uiState.activeChatScope == ChatThreadScope.TRANSACTION) {
+            val tx = activeTxSummary?.transaction
+            tx != null && tx.remoteId.isNotBlank() && tx.counterpartyUserId.isNotBlank()
+        } else {
+            val linkedUid = activeParty?.linkedUserId?.ifBlank {
+                uiState.allCalculatedItems.firstOrNull {
+                    it.transaction.counterpartyUserId.isNotBlank() &&
+                        ((resolvedPartyId != null && it.transaction.partyId == resolvedPartyId) ||
+                            it.transaction.partyName.trim().equals(resolvedPartyName.trim(), ignoreCase = true))
+                }?.transaction?.counterpartyUserId.orEmpty()
+            }.orEmpty()
+            linkedUid.isNotBlank()
+        }
+        val isChatCloudLinked = isCloudSessionActive && hasLinkedCounterparty
+        val resolvedMyName = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.resolveUserProfileName(
+            payeeName = uiState.userSettings.payeeName,
+            email = uiState.userSettings.cloudUserEmail
+        )
+
         ChatThreadBottomSheet(
             threadKey = activeThreadKey,
             scope = uiState.activeChatScope,
@@ -105,8 +126,9 @@ internal fun UdhaarOverlaysHost(
             threadMetadata = uiState.chatThreadsByKey[activeThreadKey],
             messages = uiState.chatMessagesByThreadKey[activeThreadKey].orEmpty(),
             auditEntries = activeTxId?.let { uiState.auditTrailByTx[it].orEmpty() }.orEmpty(),
-            myProfileName = uiState.userSettings.payeeName.ifBlank { "You" },
+            myProfileName = resolvedMyName,
             myUpiId = uiState.userSettings.upiId,
+            isCloudLinked = isChatCloudLinked,
             onDismiss = viewModel::closeChatSheet,
             onSendMessage = { messageType, textContent, attachmentUri, attachmentMimeType, fromCounterparty ->
                 viewModel.sendChatMessage(
@@ -228,12 +250,19 @@ internal fun UdhaarOverlaysHost(
         IncomingVerificationReviewSheet(
             payload = incomingVerification,
             onDismiss = viewModel::dismissIncomingVerification,
-            onConfirmRecord = {
-                viewModel.confirmOrDisputeIncomingVerification(confirm = true)
+            onConfirmRecord = { counterpartyOverride ->
+                viewModel.confirmOrDisputeIncomingVerification(
+                    confirm = true,
+                    counterpartyNameOverride = counterpartyOverride
+                )
                 Toast.makeText(context, "Confirmed! Mirrored record saved to your Khata.", Toast.LENGTH_LONG).show()
             },
-            onDisputeRecord = { reason ->
-                viewModel.confirmOrDisputeIncomingVerification(confirm = false, disputeReason = reason)
+            onDisputeRecord = { reason, counterpartyOverride ->
+                viewModel.confirmOrDisputeIncomingVerification(
+                    confirm = false,
+                    disputeReason = reason,
+                    counterpartyNameOverride = counterpartyOverride
+                )
                 Toast.makeText(context, "Dispute recorded on entry.", Toast.LENGTH_LONG).show()
             }
         )

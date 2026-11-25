@@ -38,15 +38,29 @@ class ExampleRobolectricTest {
         assertEquals("Udhaar", appName)
         assertEquals("com.jyotirmoyb.udhaar", BuildConfig.APPLICATION_ID)
         assertTrue(BuildConfig.VERSION_CODE >= 28)
-        assertEquals("30.0", BuildConfig.VERSION_NAME)
+        assertEquals("31.0", BuildConfig.VERSION_NAME)
     }
 
     @get:org.junit.Rule
     val composeRule = androidx.compose.ui.test.junit4.createAndroidComposeRule<MainActivity>()
 
+    private fun authenticateVerifiedSessionForDashboardUiTests() {
+        composeRule.waitForIdle()
+        composeRule.runOnUiThread {
+            androidx.lifecycle.ViewModelProvider(composeRule.activity)[com.jyotirmoyb.udhaar.ui.UdhaarViewModel::class.java]
+                .setCloudAccountState(
+                    consentGranted = true,
+                    userId = "robo_test_uid",
+                    email = "robo@udhaar.app",
+                    displayName = "Robo Test User"
+                )
+        }
+        composeRule.waitForIdle()
+    }
+
     @Test
     fun `mainActivity launches and renders dashboard UI without crashing`() {
-        composeRule.waitForIdle()
+        authenticateVerifiedSessionForDashboardUiTests()
         composeRule.onNode(androidx.compose.ui.test.hasText("Udhaar", ignoreCase = true)).assertExists()
     }
 
@@ -194,7 +208,7 @@ class ExampleRobolectricTest {
     @Test
     @Config(sdk = [36], qualifiers = "w360dp-h640dp-normal-long-port-hdpi")
     fun `small phone 360dp - header shows UDHAAR Emerald Slate and single gear icon while pill tabs summary cards and filter chips render`() {
-        composeRule.waitForIdle()
+        authenticateVerifiedSessionForDashboardUiTests()
 
         // Default theme mode is EMERALD_FINANCE ("Emerald Slate") and is first in AppThemeMode
         assertEquals(com.jyotirmoyb.udhaar.ui.theme.AppThemeMode.EMERALD_FINANCE, com.jyotirmoyb.udhaar.ui.theme.AppThemeMode.entries.first())
@@ -244,7 +258,7 @@ class ExampleRobolectricTest {
     @Test
     @Config(sdk = [36], qualifiers = "w411dp-h891dp-normal-long-port-xxhdpi")
     fun `large phone - full screen Settings has sticky Save button and 5 scrollable sections`() {
-        composeRule.waitForIdle()
+        authenticateVerifiedSessionForDashboardUiTests()
 
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("open_settings_button"))
             .performClick()
@@ -275,7 +289,7 @@ class ExampleRobolectricTest {
     @Test
     @Config(sdk = [36], qualifiers = "w360dp-h640dp-normal-long-port-hdpi", fontScale = 1.3f)
     fun `font scale 1_3 on 360dp phone - modals and Settings keep last buttons reachable`() {
-        composeRule.waitForIdle()
+        authenticateVerifiedSessionForDashboardUiTests()
 
         // Open Settings at 1.3x font scale and scroll to the very last section
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("open_settings_button"))
@@ -302,7 +316,7 @@ class ExampleRobolectricTest {
     @Test
     @Config(sdk = [36], qualifiers = "w640dp-h360dp-normal-long-land-hdpi")
     fun `landscape 640x360 - Settings and UPI QR ModalBottomSheet scroll to last button`() {
-        composeRule.waitForIdle()
+        authenticateVerifiedSessionForDashboardUiTests()
 
         // Open Settings in landscape and launch UPI QR ModalBottomSheet
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("open_settings_button"))
@@ -537,7 +551,7 @@ class ExampleRobolectricTest {
 
     @Test
     fun `restoreFullLedgerBackup wipes old data on replaceExisting true and preserves on merge`() =
-        kotlinx.coroutines.test.runTest {
+        kotlinx.coroutines.runBlocking {
             val context = ApplicationProvider.getApplicationContext<Context>()
             val db = androidx.room.Room.inMemoryDatabaseBuilder(context, com.jyotirmoyb.udhaar.data.UdhaarDatabase::class.java)
                 .allowMainThreadQueries()
@@ -764,7 +778,7 @@ class ExampleRobolectricTest {
             )
         }
 
-        composeRule.waitForIdle()
+        authenticateVerifiedSessionForDashboardUiTests()
 
         // 1. Verify summary cards (Total Receivable, Total Payable, Net Position, and Privacy Eye toggle)
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("summary_receivable_card")).assertExists()
@@ -1168,7 +1182,7 @@ class ExampleRobolectricTest {
 
         // 1. Version >= 28 (explicit version.properties) and Settings > About string format
         assertTrue(BuildConfig.VERSION_CODE >= 28)
-        assertEquals("30.0", BuildConfig.VERSION_NAME)
+        assertEquals("31.0", BuildConfig.VERSION_NAME)
         val aboutVersionText = context.getString(
             R.string.settings_about_version_format,
             BuildConfig.VERSION_NAME,
@@ -1269,7 +1283,7 @@ class ExampleRobolectricTest {
     @Test
     @Config(sdk = [36], qualifiers = "w411dp-h891dp-normal-long-port-xxhdpi", fontScale = 2.0f)
     fun `composeTest_touchTargetsAndButtonsAtFontScale2_0`() {
-        composeRule.waitForIdle()
+        authenticateVerifiedSessionForDashboardUiTests()
 
         // Verify primary interactive clickables on Dashboard at fontScale = 2.0 have at least 48dp height
         val interactiveTags = listOf(
@@ -1316,7 +1330,7 @@ class ExampleRobolectricTest {
     @Test
     @Config(sdk = [36], qualifiers = "w840dp-h600dp-xlarge-land-mdpi", fontScale = 2.0f)
     fun `adaptiveLayout_twoPaneAt600dp_and_centeredForm560dp`() {
-        composeRule.waitForIdle()
+        authenticateVerifiedSessionForDashboardUiTests()
 
         // At 840x600dp landscape (>= 600dp width & maxWidth > maxHeight), landscape root and two-pane list+detail render side-by-side
         composeRule.onNode(androidx.compose.ui.test.hasTestTag("dashboard_landscape_root")).assertExists()

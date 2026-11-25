@@ -260,6 +260,12 @@ data class UdhaarUiState(
     val showCoachMarks: Boolean = false,
     val isNeedsAttentionDismissed: Boolean = false,
     val undoSnackbarMessage: String? = null,
+    val deepLinkStatusMessage: String? = null,
+    val externalBrowserFallbackUrl: String? = null,
+    val requiresCloudVerificationGate: Boolean = false,
+    val cloudVerificationEmailUnverified: Boolean = false,
+    val cloudVerificationPendingEmail: String = "",
+    val isFirebaseConfigured: Boolean = true,
     val successAnimationEvent: SuccessAnimationEvent? = null,
     val dbEncryptionState: com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState =
         com.jyotirmoyb.udhaar.security.EncryptedStorageManager.DbEncryptionState.ENCRYPTED,

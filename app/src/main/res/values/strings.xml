@@ -1099,5 +1099,44 @@
     <string name="delete_account_progress_auth">Deleting authentication account…</string>
     <string name="delete_account_progress_local">Permanently wiping local database and encryption keys…</string>
     <string name="delete_account_done_dismiss">Done</string>
+
+    <!-- v31.0 Incoming Verification Name Edit, Honest Chat Notice & Mandatory Cloud Verification Gate -->
+    <string name="incoming_counterparty_name_label">Other person\'s real name</string>
+    <string name="incoming_counterparty_name_placeholder">Enter sender or party name</string>
+    <string name="incoming_counterparty_name_required">Please enter the other person\'s real name before continuing.</string>
+    <string name="incoming_counterparty_name_hint">This link contained a placeholder name. Confirm or edit the sender\'s real name for your Khata.</string>
+    <string name="chat_local_only_notice_tx">Local chat only — this record is not linked to the other person on Cloud yet. Messages stay on this device and are not delivered remotely.</string>
+    <string name="chat_local_only_notice_party">Local chat only — connect this party via a verified Cloud record to enable real-time message delivery.</string>
+    <string name="chat_status_local_only">Saved locally</string>
+    <string name="cloud_gate_title">Cloud Verification Required</string>
+    <string name="cloud_gate_subtitle">Verify your account to access two-party Udhaar records, real-time messaging, and tamper-evident confirmations.</string>
+    <string name="cloud_gate_beta_cap_badge">Early Access • Temporary 100-User Cap</string>
+    <string name="cloud_gate_beta_cap_body">Access is temporarily capped at 100 verified users during rollout. Sign in with Google or a verified email address to continue.</string>
+    <string name="cloud_gate_signed_in_unverified_title">Verify Your Email to Continue</string>
+    <string name="cloud_gate_signed_in_unverified_body">Signed in as %1$s. Please click the verification link in your inbox, then tap Check Verification Status.</string>
+    <string name="cloud_gate_check_status_btn">Check Verification Status</string>
+    <string name="cloud_gate_resend_email_btn">Resend Verification Email</string>
+    <string name="cloud_gate_sign_out_switch_btn">Use a Different Account</string>
+    <string name="cloud_gate_firebase_unconfigured_msg">Cloud verification service is not configured in this build.</string>
+    <string name="cloud_gate_footer_note">Your local Khata stays protected on-device with AES-256 encrypted storage.</string>
+    <string name="cloud_gate_verify_consent_note">Sign-in activates Two-Party Cloud Verification and Real-Time Messaging.</string>
+    <string name="deeplink_error_no_browser">No web browser app available to open this verification link.</string>
+    <string name="detail_more_actions_title">More options</string>
+    <string name="detail_more_options_subtitle">Installments, documents (%1$d), history &amp; delete</string>
+    <string name="detail_record_payment_title">Record payment</string>
+    <string name="detail_record_payment_subtitle">Log a partial or full installment</string>
+    <string name="detail_collect_qr_btn">Collect QR</string>
+    <string name="detail_mark_paid_btn">Mark Paid</string>
+    <string name="detail_reopen_btn">Re-open</string>
+    <string name="detail_pay_upi_btn">Pay UPI</string>
+    <string name="detail_upi_qr_btn">Show UPI QR</string>
+    <string name="detail_invalid_amount_error">Enter a valid amount greater than 0</string>
+    <string name="detail_verify_share_title">Verify &amp; Share</string>
+    <string name="detail_link_active_status">Web link active</string>
+    <string name="detail_link_revoked_status">Web link paused</string>
+    <string name="detail_link_expired_status">Web link expired</string>
+    <string name="detail_trust_google">Google verified ✓</string>
+    <string name="detail_trust_private">Private link ✓</string>
+    <string name="detail_trust_app">App verified ✓</string>
 </resources>
 

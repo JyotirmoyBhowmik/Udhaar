@@ -1096,4 +1096,43 @@
     <string name="delete_account_progress_auth">প্রমাণীকরণ অ্যাকাউন্ট মোছা হচ্ছে…</string>
     <string name="delete_account_progress_local">স্থানীয় ডেটাবেস ও এনক্রিপশন কী স্থায়ীভাবে মোছা হচ্ছে…</string>
     <string name="delete_account_done_dismiss">সম্পন্ন</string>
+
+    <!-- v31.0 Incoming Verification Name Edit, Honest Chat Notice & Mandatory Cloud Verification Gate -->
+    <string name="incoming_counterparty_name_label">অপর পক্ষের আসল নাম</string>
+    <string name="incoming_counterparty_name_placeholder">প্রেরক বা ব্যক্তির নাম লিখুন</string>
+    <string name="incoming_counterparty_name_required">এগিয়ে যাওয়ার আগে অনুগ্রহ করে অপর পক্ষের আসল নাম লিখুন।</string>
+    <string name="incoming_counterparty_name_hint">এই লিঙ্কে একটি অস্থায়ী নাম ছিল। আপনার খাতার জন্য আসল নাম নিশ্চিত বা সম্পাদনা করুন।</string>
+    <string name="chat_local_only_notice_tx">শুধুমাত্র স্থানীয় চ্যাট — এই রেকর্ডটি এখনও ক্লাউডে যাচাইকৃত ব্যক্তির সাথে যুক্ত নয়। বার্তাগুলি এই ডিভাইসেই সংরক্ষিত থাকবে।</string>
+    <string name="chat_local_only_notice_party">শুধুমাত্র স্থানীয় চ্যাট — রিয়েল-টাইম বার্তার জন্য এই ব্যক্তিকে একটি যাচাইকৃত ক্লাউড রেকর্ডের সাথে যুক্ত করুন।</string>
+    <string name="chat_status_local_only">স্থানীয়ভাবে সংরক্ষিত</string>
+    <string name="cloud_gate_title">ক্লাউড যাচাইকরণ প্রয়োজন</string>
+    <string name="cloud_gate_subtitle">দ্বিপাক্ষিক ধারের রেকর্ড, রিয়েল-টাইম চ্যাট এবং সুরক্ষিত নিশ্চিতকরণের জন্য আপনার অ্যাকাউন্ট যাচাই করুন।</string>
+    <string name="cloud_gate_beta_cap_badge">প্রাথমিক অ্যাক্সেস • অস্থায়ী ১০০-ব্যবহারকারী সীমা</string>
+    <string name="cloud_gate_beta_cap_body">রোলআউট চলাকালীন অ্যাক্সেস সাময়িকভাবে ১০০ জন যাচাইকৃত ব্যবহারকারীর মধ্যে সীমাবদ্ধ। চালিয়ে যেতে Google বা যাচাইকৃত ইমেল দিয়ে সাইন ইন করুন।</string>
+    <string name="cloud_gate_signed_in_unverified_title">চালিয়ে যেতে আপনার ইমেল যাচাই করুন</string>
+    <string name="cloud_gate_signed_in_unverified_body">%1$s হিসাবে সাইন ইন করা হয়েছে। আপনার ইনবক্সের যাচাইকরণ লিঙ্কে ক্লিক করুন, তারপর যাচাইকরণ স্থিতি পরীক্ষা করুন ট্যাপ করুন।</string>
+    <string name="cloud_gate_check_status_btn">যাচাইকরণ স্থিতি পরীক্ষা করুন</string>
+    <string name="cloud_gate_resend_email_btn">যাচাইকরণ ইমেল আবার পাঠান</string>
+    <string name="cloud_gate_sign_out_switch_btn">অন্য অ্যাকাউন্ট ব্যবহার করুন</string>
+    <string name="cloud_gate_firebase_unconfigured_msg">এই বিল্ডে ক্লাউড যাচাইকরণ পরিষেবা কনফিগার করা নেই।</string>
+    <string name="cloud_gate_footer_note">আপনার স্থানীয় খাতা ডিভাইসে AES-256 এনক্রিপ্টেড স্টোরেজ দ্বারা সুরক্ষিত থাকে।</string>
+    <string name="cloud_gate_verify_consent_note">সাইন ইন করলে দ্বিপাক্ষিক ক্লাউড যাচাইকরণ এবং রিয়েল-টাইম মেসেজিং সক্রিয় হয়।</string>
+    <string name="deeplink_error_no_browser">এই যাচাইকরণ লিঙ্কটি খোলার জন্য কোনো ওয়েব ব্রাউজার অ্যাপ উপলব্ধ নেই।</string>
+    <string name="detail_more_actions_title">আরও বিকল্প</string>
+    <string name="detail_more_options_subtitle">কিস্তি, নথি (%1$d), ইতিহাস ও মুছুন</string>
+    <string name="detail_record_payment_title">পেমেন্ট নথিভুক্ত করুন</string>
+    <string name="detail_record_payment_subtitle">আংশিক বা সম্পূর্ণ কিস্তি লিখুন</string>
+    <string name="detail_collect_qr_btn">QR সংগ্রহ</string>
+    <string name="detail_mark_paid_btn">পরিশোধিত চিহ্নিত করুন</string>
+    <string name="detail_reopen_btn">আবার খুলুন</string>
+    <string name="detail_pay_upi_btn">UPI পেমেন্ট</string>
+    <string name="detail_upi_qr_btn">UPI QR দেখান</string>
+    <string name="detail_invalid_amount_error">0 এর বেশি সঠিক পরিমাণ লিখুন</string>
+    <string name="detail_verify_share_title">যাচাই ও শেয়ার</string>
+    <string name="detail_link_active_status">ওয়েব লিঙ্ক সক্রিয়</string>
+    <string name="detail_link_revoked_status">ওয়েব লিঙ্ক বন্ধ</string>
+    <string name="detail_link_expired_status">ওয়েব লিঙ্কের মেয়াদ শেষ</string>
+    <string name="detail_trust_google">Google যাচাইকৃত ✓</string>
+    <string name="detail_trust_private">ব্যক্তিগত লিঙ্ক ✓</string>
+    <string name="detail_trust_app">অ্যাপ যাচাইকৃত ✓</string>
 </resources>

@@ -227,6 +227,7 @@ fun AddEditUdhaarScreen(
 
     LaunchedEffect(preselectedPartyDraft) {
         if (preselectedPartyDraft != null && initialTransaction == null) {
+            preselectedPartyDraft.initialTransactionType?.let { transactionType = it }
             if (preselectedPartyDraft.name.isNotBlank()) {
                 partyName = preselectedPartyDraft.name
                 validationError = null

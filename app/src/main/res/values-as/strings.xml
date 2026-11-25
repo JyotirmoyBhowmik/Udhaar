@@ -1096,4 +1096,43 @@
     <string name="delete_account_progress_auth">প্ৰমাণীকৰণ একাউণ্ট মচা হৈছে…</string>
     <string name="delete_account_progress_local">স্থানীয় ডাটাবেচ আৰু এনক্ৰিপশ্বন কী স্থায়ীভাৱে মচা হৈছে…</string>
     <string name="delete_account_done_dismiss">সম্পন্ন</string>
+
+    <!-- v31.0 Incoming Verification Name Edit, Honest Chat Notice & Mandatory Cloud Verification Gate -->
+    <string name="incoming_counterparty_name_label">বিপৰীত পক্ষৰ প্ৰকৃত নাম</string>
+    <string name="incoming_counterparty_name_placeholder">প্ৰেৰক বা ব্যক্তিৰ নাম লিখক</string>
+    <string name="incoming_counterparty_name_required">আগবাঢ়ি যোৱাৰ আগতে অনুগ্ৰহ কৰি বিপৰীত পক্ষৰ প্ৰকৃত নাম লিখক।</string>
+    <string name="incoming_counterparty_name_hint">এই লিংকত এটা অস্থায়ী নাম আছিল। আপোনাৰ খাতাৰ বাবে প্ৰকৃত নাম নিশ্চিত বা সম্পাদনা কৰক।</string>
+    <string name="chat_local_only_notice_tx">কেৱল স্থানীয় চেট — এই ৰেকৰ্ডটো এতিয়াও ক্লাউডত সত্যপিত ব্যক্তিৰ সৈতে সংযুক্ত নহয়। বাৰ্তাসমূহ এই ডিভাইচতহে সংৰক্ষিত হ\'ব।</string>
+    <string name="chat_local_only_notice_party">কেৱল স্থানীয় চেট — ৰিয়েল-টাইম বাৰ্তাৰ বাবে এই ব্যক্তিজনক সত্যপিত ক্লাউড ৰেকৰ্ডৰ সৈতে সংযুক্ত কৰক।</string>
+    <string name="chat_status_local_only">স্থানীয়ভাৱে সংৰক্ষিত</string>
+    <string name="cloud_gate_title">ক্লাউড সত্যপন প্ৰয়োজন</string>
+    <string name="cloud_gate_subtitle">দ্বিপাক্ষিক ধাৰৰ ৰেকৰ্ড, ৰিয়েল-টাইম মেচেজিং আৰু সুৰক্ষিত নিশ্চিতকৰণৰ বাবে আপোনাৰ একাউণ্ট সত্যপন কৰক।</string>
+    <string name="cloud_gate_beta_cap_badge">প্ৰাথমিক প্ৰৱেশ • অস্থায়ী ১০০-ব্যৱহাৰকাৰী সীমা</string>
+    <string name="cloud_gate_beta_cap_body">ৰ\'লআউটৰ সময়ত প্ৰৱেশ অস্থায়ীভাৱে ১০০ জন সত্যপিত ব্যৱহাৰকাৰীৰ মাজত সীমাবদ্ধ। আগবাঢ়িবলৈ Google বা সত্যপিত ইমেইলেৰে ছাইন ইন কৰক।</string>
+    <string name="cloud_gate_signed_in_unverified_title">আগবাঢ়িবলৈ আপোনাৰ ইমেইল সত্যপন কৰক</string>
+    <string name="cloud_gate_signed_in_unverified_body">%1$s হিচাপে ছাইন ইন কৰা হৈছে। আপোনাৰ ইনবক্সৰ সত্যপন লিংকত ক্লিক কৰক, তাৰ পিছত সত্যপন স্থিতি পৰীক্ষা কৰকত টিপক।</string>
+    <string name="cloud_gate_check_status_btn">সত্যপন স্থিতি পৰীক্ষা কৰক</string>
+    <string name="cloud_gate_resend_email_btn">সত্যপন ইমেইল পুনৰ পঠিয়াওক</string>
+    <string name="cloud_gate_sign_out_switch_btn">অন্য একাউণ্ট ব্যৱহাৰ কৰক</string>
+    <string name="cloud_gate_firebase_unconfigured_msg">এই বিল্ডত ক্লাউড সত্যপন সেৱা কনফিগাৰ কৰা হোৱা নাই।</string>
+    <string name="cloud_gate_footer_note">আপোনাৰ স্থানীয় খাতা ডিভাইচত AES-256 এনক্ৰিপ্টেড ষ্ট\'ৰেজৰ দ্বাৰা সুৰক্ষিত থাকে।</string>
+    <string name="cloud_gate_verify_consent_note">ছাইন ইন কৰিলে দ্বিপাক্ষিক ক্লাউড সত্যপন আৰু ৰিয়েল-টাইম মেচেজিং সক্ৰিয় হয়।</string>
+    <string name="deeplink_error_no_browser">এই সত্যপন লিংকটো খুলিবলৈ কোনো ৱেব ব্ৰাউজাৰ এপ্ উপলব্ধ নাই।</string>
+    <string name="detail_more_actions_title">অধিক বিকল্প</string>
+    <string name="detail_more_options_subtitle">কিস্তি, নথি (%1$d), ইতিহাস আৰু মচক</string>
+    <string name="detail_record_payment_title">পৰিশোধ নথিভুক্ত কৰক</string>
+    <string name="detail_record_payment_subtitle">আংশিক বা সম্পূৰ্ণ কিস্তি যোগ কৰক</string>
+    <string name="detail_collect_qr_btn">QR সংগ্ৰহ</string>
+    <string name="detail_mark_paid_btn">পৰিশোধিত বুলি চিহ্নিত কৰক</string>
+    <string name="detail_reopen_btn">পুনৰ খোলক</string>
+    <string name="detail_pay_upi_btn">UPI পৰিশোধ</string>
+    <string name="detail_upi_qr_btn">UPI QR দেখুৱাওক</string>
+    <string name="detail_invalid_amount_error">0 তকৈ অধিক সঠিক পৰিমাণ লিখক</string>
+    <string name="detail_verify_share_title">সত্যপন আৰু শ্বেয়াৰ</string>
+    <string name="detail_link_active_status">ৱেব লিংক সক্ৰিয়</string>
+    <string name="detail_link_revoked_status">ৱেব লিংক বন্ধ</string>
+    <string name="detail_link_expired_status">ৱেব লিংকৰ ম্যাদ উকলিছে</string>
+    <string name="detail_trust_google">Google সত্যপিত ✓</string>
+    <string name="detail_trust_private">ব্যক্তিগত লিংক ✓</string>
+    <string name="detail_trust_app">এপ্ সত্যপিত ✓</string>
 </resources>

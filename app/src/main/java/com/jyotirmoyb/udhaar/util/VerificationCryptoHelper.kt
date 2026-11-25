@@ -87,6 +87,55 @@ object VerificationCryptoHelper {
     }
 
     /**
+     * Strips trailing WhatsApp auto-link punctuation (`.,!?;:)>]*"'~`) from URLs while preserving
+     * valid Base64URL characters (`-`, `_`, `=`) inside fragments and tokens.
+     */
+    fun sanitizeIncomingUrl(input: String): String {
+        var clean = input.trim()
+        if (clean.isEmpty()) return clean
+        val looksLikeUrl = clean.contains("://", ignoreCase = true) ||
+            clean.contains("/u/", ignoreCase = true) ||
+            clean.contains("/u#", ignoreCase = true) ||
+            clean.contains("/v/", ignoreCase = true) ||
+            clean.contains("/v#", ignoreCase = true)
+        if (!looksLikeUrl) return clean
+        val trailingPunctuation = setOf('.', ',', '!', '?', ';', ':', ')', '>', ']', '*', '"', '\'', '~')
+        while (clean.isNotEmpty() && clean.last() in trailingPunctuation) {
+            clean = clean.dropLast(1).trimEnd()
+        }
+        return clean
+    }
+
+    fun sha256Hex(input: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(input.toByteArray(StandardCharsets.UTF_8))
+        return digest.joinToString("") { "%02x".format(it) }
+    }
+
+    fun isPlaceholderSelfName(name: String?): Boolean {
+        val trimmed = name?.trim().orEmpty()
+        return trimmed.isEmpty() ||
+            trimmed.equals("You", ignoreCase = true) ||
+            trimmed.equals("Me", ignoreCase = true) ||
+            trimmed.equals("Self", ignoreCase = true)
+    }
+
+    fun resolveUserProfileName(
+        payeeName: String = "",
+        googleDisplayName: String = "",
+        email: String = "",
+        fallback: String = "Udhaar User"
+    ): String {
+        val cleanPayee = payeeName.trim()
+        if (!isPlaceholderSelfName(cleanPayee)) return cleanPayee
+        val cleanGoogle = googleDisplayName.trim()
+        if (!isPlaceholderSelfName(cleanGoogle)) return cleanGoogle
+        val cleanEmailPrefix = email.trim().substringBefore("@").trim()
+        if (!isPlaceholderSelfName(cleanEmailPrefix)) return cleanEmailPrefix
+        return fallback
+    }
+
+    /**
      * Resolves canonical (lenderName, borrowerName) for a transaction so that a GIVEN record on Lender's phone
      * and the mirrored TAKEN record on Borrower's phone produce the identical SHA-256 contentHash.
      */
@@ -97,15 +146,31 @@ object VerificationCryptoHelper {
         explicitLenderName: String = "",
         explicitBorrowerName: String = ""
     ): Pair<String, String> {
-        if (explicitLenderName.isNotBlank() && explicitBorrowerName.isNotBlank()) {
-            return explicitLenderName.trim() to explicitBorrowerName.trim()
+        val cleanParty = partyName.trim()
+            .takeUnless { isPlaceholderSelfName(it) }
+            ?.ifEmpty { "Counterparty" } ?: "Counterparty"
+        val cleanSelf = resolveUserProfileName(payeeName = myProfileName)
+
+        val cleanExplicitLender = explicitLenderName.trim()
+            .takeUnless {
+                it.equals("You", ignoreCase = true) ||
+                    (type == TransactionType.GIVEN && isPlaceholderSelfName(it))
+            }
+            .orEmpty()
+        val cleanExplicitBorrower = explicitBorrowerName.trim()
+            .takeUnless {
+                it.equals("You", ignoreCase = true) ||
+                    (type == TransactionType.TAKEN && isPlaceholderSelfName(it))
+            }
+            .orEmpty()
+
+        if (cleanExplicitLender.isNotBlank() && cleanExplicitBorrower.isNotBlank()) {
+            return cleanExplicitLender to cleanExplicitBorrower
         }
-        val cleanParty = partyName.trim().ifEmpty { "Counterparty" }
-        val cleanSelf = myProfileName.trim().ifEmpty { "Udhaar User" }
         return if (type == TransactionType.GIVEN) {
-            cleanSelf to cleanParty
+            cleanSelf to (cleanExplicitBorrower.ifBlank { cleanParty })
         } else {
-            cleanParty to cleanSelf
+            (cleanExplicitLender.ifBlank { cleanParty }) to cleanSelf
         }
     }
 
@@ -267,7 +332,12 @@ object VerificationCryptoHelper {
         val interestRatePeriod: InterestRatePeriod,
         val compoundFrequency: CompoundFrequency,
         val contentHash: String,
-        val encryptedNote: String = ""
+        val encryptedNote: String = "",
+        val guestLinkId: String = "",
+        val guestLinkSecret: String = "",
+        val guestOwnerUid: String = "",
+        val expectedGuestEmailHash: String = "",
+        val guestVerificationLevel: String = ""
     )
 
     data class SharedPaymentProfilePayload(
@@ -279,8 +349,10 @@ object VerificationCryptoHelper {
     )
 
     data class GuestWebLinkData(
-        val recordId: String,
-        val secret: String
+        val recordId: String = "",
+        val secret: String = "",
+        val linkId: String = "",
+        val rawUrl: String = ""
     )
 
     /**
@@ -355,14 +427,17 @@ object VerificationCryptoHelper {
     }
 
     fun parseVerificationLink(input: String): SharedVerificationPayload? {
-        val trimmed = input.trim()
-        if (trimmed.startsWith(PROFILE_URL_PREFIX)) return null
+        val trimmed = sanitizeIncomingUrl(input)
+        if (trimmed.isBlank()) return null
+        if (trimmed.startsWith(PROFILE_URL_PREFIX) || trimmed.contains("/u/p/")) return null
+        if (parseGuestWebLink(trimmed) != null) return null
         val tokenPart = when {
             trimmed.startsWith(VERIFICATION_URL_PREFIX) -> trimmed.removePrefix(VERIFICATION_URL_PREFIX)
             trimmed.contains("/u/") && !trimmed.contains("/u/p/") && !trimmed.contains("/u/r/") ->
                 trimmed.substringAfter("/u/")
+            trimmed.contains("/u#") || trimmed.endsWith("/u") -> return null
             else -> trimmed
-        }.substringBefore("?").substringBefore("#").trim()
+        }.substringBefore("?").substringBefore("#").trimEnd('/').trim()
 
         if (tokenPart.isBlank()) return null
         return try {
@@ -513,21 +588,75 @@ object VerificationCryptoHelper {
     }
 
     /**
-     * Parses a guest web link of format: https://udhaar.jyotirmoyb.com/u/r/<recordId>#<secret>
-     * Extracts recordId from the path and the 128-bit secret from the URL fragment.
+     * Parses guest web capability links of formats:
+     * - Spark v3: `https://udhaar.jyotirmoyb.com/u/#k=<secret>` or `/u#k=<secret>`
+     * - Legacy v2: `https://udhaar.jyotirmoyb.com/u/r/<recordId>#<secret>`
+     * Strips trailing slashes and WhatsApp trailing punctuation.
      */
     fun parseGuestWebLink(input: String): GuestWebLinkData? {
-        val trimmed = input.trim()
-        if (!trimmed.contains("/u/r/")) return null
-        val afterPrefix = trimmed.substringAfter("/u/r/")
-        val recordId = afterPrefix.substringBefore("#").substringBefore("?").substringBefore("/").trim()
-        val secret = if (trimmed.contains("#")) {
-            trimmed.substringAfter("#").substringBefore("?").trim()
-        } else {
-            ""
+        val trimmed = sanitizeIncomingUrl(input)
+        if (trimmed.isBlank()) return null
+
+        // 1. Legacy /u/r/<recordId>#<secret>
+        if (trimmed.contains("/u/r/")) {
+            val afterPrefix = trimmed.substringAfter("/u/r/")
+            val recordId = afterPrefix.substringBefore("#").substringBefore("?").trimEnd('/').substringBefore("/").trim()
+            val fragment = if (trimmed.contains("#")) {
+                trimmed.substringAfter("#").substringBefore("?").trim()
+            } else {
+                ""
+            }
+            val secret = extractSecretFromFragment(fragment)
+            if (recordId.isBlank() && secret.isBlank()) return null
+            return GuestWebLinkData(
+                recordId = recordId,
+                secret = secret,
+                linkId = if (secret.isNotBlank()) sha256Hex(secret) else "",
+                rawUrl = trimmed
+            )
         }
-        if (recordId.isBlank()) return null
-        return GuestWebLinkData(recordId = recordId, secret = secret)
+
+        // 2. Spark capability links: /u/#k=<secret>, /u#k=<secret>, or /u/?...#k=<secret>
+        val lower = trimmed.lowercase(Locale.US)
+        val hasUFragmentPath = lower.contains("/u/#") ||
+            lower.contains("/u#") ||
+            Regex("""/u/?\?[^#]*#""").containsMatchIn(lower)
+        if (hasUFragmentPath && trimmed.contains("#")) {
+            val fragment = trimmed.substringAfter("#").trim()
+            val secret = extractKeyParamFromFragment(fragment)
+            if (secret.isNotBlank()) {
+                return GuestWebLinkData(
+                    recordId = "",
+                    secret = secret,
+                    linkId = sha256Hex(secret),
+                    rawUrl = trimmed
+                )
+            }
+        }
+        return null
+    }
+
+    private fun extractKeyParamFromFragment(fragment: String): String {
+        val cleanFrag = fragment.substringBefore("?").trim().trimEnd('/')
+        if (cleanFrag.isBlank()) return ""
+        val kParam = cleanFrag.split("&")
+            .firstOrNull { it.startsWith("k=", ignoreCase = true) }
+            ?.substringAfter("=")
+            ?.trim()
+        if (!kParam.isNullOrBlank()) {
+            return sanitizeIncomingUrl(kParam)
+        }
+        return ""
+    }
+
+    private fun extractSecretFromFragment(fragment: String): String {
+        val cleanFrag = fragment.trim().trimEnd('/')
+        if (cleanFrag.isBlank()) return ""
+        return if (cleanFrag.contains("k=", ignoreCase = true)) {
+            extractKeyParamFromFragment(cleanFrag)
+        } else {
+            cleanFrag.substringBefore("&").trim()
+        }
     }
 
     /**
@@ -613,12 +742,12 @@ object VerificationCryptoHelper {
     }
 
     fun parsePaymentProfileLink(input: String): SharedPaymentProfilePayload? {
-        val trimmed = input.trim()
+        val trimmed = sanitizeIncomingUrl(input)
         val tokenPart = when {
             trimmed.startsWith(PROFILE_URL_PREFIX) -> trimmed.removePrefix(PROFILE_URL_PREFIX)
             trimmed.contains("/u/p/") -> trimmed.substringAfter("/u/p/")
             else -> return null
-        }.substringBefore("?").substringBefore("#").trim()
+        }.substringBefore("?").substringBefore("#").trimEnd('/').trim()
 
         if (tokenPart.isBlank()) return null
         return try {

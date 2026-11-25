@@ -68,7 +68,7 @@ open class GuestWebRepository @Inject constructor(
             errorMessage = "Record not found"
         )
         val settings = settingsRepository.userSettings.first()
-        val myName = settings.payeeName.ifBlank { "Udhaar User" }
+        val myName = settingsRepository.resolveSelfDisplayName(settings)
         val remoteId = tx.remoteId.ifBlank { com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.generateShortId(10) }
         val role = if (tx.transactionType == TransactionType.GIVEN) "BORROWER" else "LENDER"
         val (lenderName, borrowerName) = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.resolveLenderAndBorrowerNames(
@@ -134,7 +134,7 @@ open class GuestWebRepository @Inject constructor(
                 transactionId = tx.id,
                 eventType = AuditEventType.SHARED,
                 actorUserId = settings.cloudUserId,
-                actorName = settings.payeeName.ifBlank { "You" },
+                actorName = settingsRepository.resolveSelfDisplayName(settings),
                 summaryText = "Web link created (${result.trustLevel}, expires in $expiryDays days)"
             )
         }
@@ -159,7 +159,7 @@ open class GuestWebRepository @Inject constructor(
                 transactionId = tx.id,
                 eventType = AuditEventType.EDITED,
                 actorUserId = settings.cloudUserId,
-                actorName = settings.payeeName.ifBlank { "You" },
+                actorName = settingsRepository.resolveSelfDisplayName(settings),
                 summaryText = "Web link revoked"
             )
         }
@@ -206,7 +206,7 @@ open class GuestWebRepository @Inject constructor(
             remoteEventId = uniqueKey,
             eventType = AuditEventType.PAYMENT_RECORDED,
             actorUserId = settings.cloudUserId,
-            actorName = settings.payeeName.ifBlank { "You" },
+            actorName = settingsRepository.resolveSelfDisplayName(settings),
             summaryText = "Payment claim of $formattedAmt accepted via ${claim.paymentMode.label}${if (claim.reference.isNotBlank()) " (Ref: ${claim.reference})" else ""}",
             contentHashSnapshot = tx.contentHash,
             isAcknowledged = true,
@@ -387,7 +387,7 @@ open class GuestWebRepository @Inject constructor(
             transactionId = tx.id,
             eventType = AuditEventType.DISPUTED,
             actorUserId = settings.cloudUserId,
-            actorName = settings.payeeName.ifBlank { "You" },
+            actorName = settingsRepository.resolveSelfDisplayName(settings),
             summaryText = "Payment claim marked not received (${reason.ifBlank { "No funds received" }})"
         )
 
@@ -462,7 +462,7 @@ open class GuestWebRepository @Inject constructor(
             transactionId = tx.id,
             eventType = AuditEventType.EXTENSION_ACCEPTED,
             actorUserId = settings.cloudUserId,
-            actorName = settings.payeeName.ifBlank { "You" },
+            actorName = settingsRepository.resolveSelfDisplayName(settings),
             summaryText = "Proposed return date accepted (new due date: ${InterestCalculator.formatDate(newDueDate)})"
         )
 
@@ -525,7 +525,7 @@ open class GuestWebRepository @Inject constructor(
             transactionId = tx.id,
             eventType = AuditEventType.EXTENSION_DECLINED,
             actorUserId = settings.cloudUserId,
-            actorName = settings.payeeName.ifBlank { "You" },
+            actorName = settingsRepository.resolveSelfDisplayName(settings),
             summaryText = "Proposed return date declined"
         )
 
@@ -582,7 +582,7 @@ open class GuestWebRepository @Inject constructor(
             transactionId = tx.id,
             eventType = AuditEventType.DISPUTED,
             actorUserId = settings.cloudUserId,
-            actorName = settings.payeeName.ifBlank { "You" },
+            actorName = settingsRepository.resolveSelfDisplayName(settings),
             summaryText = "Dispute rejected by lender (${reason.ifBlank { "Dispute rejected" }})"
         )
 
@@ -639,6 +639,21 @@ open class GuestWebRepository @Inject constructor(
 
     suspend fun claimGuestActions(recordId: String, secret: String): Boolean {
         return guestWebCloudRepository.claimGuestActions(recordId, secret)
+    }
+
+    suspend fun fetchGuestLinkBySecret(
+        secret: String,
+        fallbackRecordId: String = ""
+    ): com.jyotirmoyb.udhaar.data.cloud.GuestLinkFetchResult {
+        return guestWebCloudRepository.fetchGuestLinkBySecret(secret, fallbackRecordId)
+    }
+
+    suspend fun submitGuestActionFromApp(
+        linkId: String,
+        actionType: String,
+        reason: String = ""
+    ): Result<Unit> {
+        return guestWebCloudRepository.submitGuestActionFromApp(linkId, actionType, reason)
     }
 
     suspend fun fetchPaymentClaimProof(linkId: String): Pair<String, String>? {

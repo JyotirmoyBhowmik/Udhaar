@@ -37,7 +37,7 @@ object CloudSyncHelper {
             val cloud = cloudRepository
                 ?: throw IllegalStateException("Cloud backup service is unavailable.")
             val fcmToken = settingsRepository.resolveCurrentFcmToken()
-            val myName = current.payeeName.ifBlank { "Udhaar User" }
+            val myName = settingsRepository.resolveSelfDisplayName(current)
 
             cloud.upsertUserProfile(
                 CloudUserProfile(

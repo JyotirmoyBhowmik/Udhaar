@@ -20,12 +20,23 @@ object ChatSyncHelper {
         scope: ChatThreadScope,
         remoteId: String,
         partyName: String,
-        fallbackThreadKey: String
+        fallbackThreadKey: String,
+        myUid: String = "",
+        counterpartyUid: String = ""
     ): String {
         return if (scope == ChatThreadScope.TRANSACTION && remoteId.isNotBlank()) {
             "tx_${remoteId.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")}"
-        } else if (scope == ChatThreadScope.PARTY_GENERAL && partyName.isNotBlank()) {
-            "party_${partyName.trim().lowercase().replace(Regex("[^a-zA-Z0-9_\\-]"), "_")}"
+        } else if (scope == ChatThreadScope.PARTY_GENERAL || scope == ChatThreadScope.PARTY) {
+            val cleanMy = myUid.trim().replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
+            val cleanOther = counterpartyUid.trim().replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
+            if (cleanMy.isNotBlank() && cleanOther.isNotBlank()) {
+                val pair = listOf(cleanMy, cleanOther).sorted()
+                "dm_${pair[0]}_${pair[1]}"
+            } else if (partyName.isNotBlank()) {
+                "party_${partyName.trim().lowercase().replace(Regex("[^a-zA-Z0-9_\\-]"), "_")}"
+            } else {
+                fallbackThreadKey.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
+            }
         } else {
             fallbackThreadKey.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
         }
@@ -57,18 +68,30 @@ object ChatSyncHelper {
         settings: UserSettings,
         counterpartyUserId: String,
         cloudRepository: VerificationCloudRepository?
-    ) {
-        if (!settings.cloudVerificationConsent || settings.cloudUserId.isBlank()) return
-        runCatching {
-            val uid = settings.cloudUserId
-            val cloudThreadId = cloudThreadIdFor(meta.threadScope, meta.remoteThreadId, meta.partyName, meta.threadKey)
+    ): Boolean {
+        if (!settings.cloudVerificationConsent || settings.cloudUserId.isBlank() || cloudRepository == null) {
+            return false
+        }
+        val uid = settings.cloudUserId
+        val safeRemoteId = meta.remoteThreadId.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
+        val cloudThreadId = cloudThreadIdFor(
+            scope = meta.threadScope,
+            remoteId = meta.remoteThreadId,
+            partyName = meta.partyName,
+            fallbackThreadKey = meta.threadKey,
+            myUid = uid,
+            counterpartyUid = counterpartyUserId
+        )
+        val hasDeterministicCloudThread = cloudThreadId.startsWith("tx_") || cloudThreadId.startsWith("dm_")
+        if (!hasDeterministicCloudThread) return false
+
+        return runCatching {
             val participants = listOfNotNull(
                 uid.takeIf { it.isNotBlank() },
                 counterpartyUserId.takeIf { it.isNotBlank() }
             ).distinct()
-            val safeRemoteId = meta.remoteThreadId.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
 
-            cloudRepository?.upsertChatThread(
+            cloudRepository.upsertChatThread(
                 CloudChatThread(
                     threadId = cloudThreadId,
                     scope = meta.threadScope.name,
@@ -86,7 +109,7 @@ object ChatSyncHelper {
                 )
             )
 
-            cloudRepository?.sendChatMessage(
+            cloudRepository.sendChatMessage(
                 CloudChatMessage(
                     messageId = message.remoteMessageId.ifBlank { "msg_${message.id}" },
                     threadId = cloudThreadId,
@@ -104,6 +127,7 @@ object ChatSyncHelper {
                     sentAtMillis = message.sentAtMillis
                 )
             )
-        }
+            true
+        }.getOrDefault(false)
     }
 }

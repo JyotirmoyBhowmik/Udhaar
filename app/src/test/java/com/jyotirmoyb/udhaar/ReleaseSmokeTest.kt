@@ -58,6 +58,28 @@ class ReleaseSmokeTest {
     @get:Rule
     val composeRule = createAndroidComposeRule<MainActivity>()
 
+    private fun signInVerifiedSessionForDashboardSmokeTests() {
+        composeRule.waitForIdle()
+        composeRule.runOnUiThread {
+            androidx.lifecycle.ViewModelProvider(composeRule.activity)[com.jyotirmoyb.udhaar.ui.UdhaarViewModel::class.java]
+                .setCloudAccountState(
+                    consentGranted = true,
+                    userId = "smoke_test_uid",
+                    email = "smoke@udhaar.app",
+                    displayName = "Smoke Test User"
+                )
+        }
+        composeRule.waitForIdle()
+    }
+
+    @Test
+    fun smoke0_coldStart_unauthenticated_showsMandatoryCloudVerificationGateWithoutSkip() {
+        composeRule.waitForIdle()
+        composeRule.onNode(hasTestTag("cloud_verification_gate_screen")).assertExists()
+        composeRule.onNode(hasText("Skip", ignoreCase = true)).assertDoesNotExist()
+        composeRule.onNode(hasText("Bypass", ignoreCase = true)).assertDoesNotExist()
+    }
+
     @Test
     fun smoke1_coldStart_initializesSqlCipherKey_keepsTelemetryOff_and_rendersDashboard() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -71,7 +93,7 @@ class ReleaseSmokeTest {
         assertEquals("SQLCipher passphrase must be 32 bytes (256-bit)", 32, keyBytes.size)
         keyBytes.fill(0)
 
-        composeRule.waitForIdle()
+        signInVerifiedSessionForDashboardSmokeTests()
         composeRule.onNode(hasText("Udhaar", ignoreCase = true)).assertExists()
         composeRule.onNode(hasTestTag("summary_receivable_card")).assertExists()
         composeRule.onNode(hasTestTag("summary_payable_card")).assertExists()
@@ -80,6 +102,7 @@ class ReleaseSmokeTest {
 
     @Test
     fun smoke2_addRecord_persistsInPaise_and_displaysOnDashboard() {
+        signInVerifiedSessionForDashboardSmokeTests()
         val context = ApplicationProvider.getApplicationContext<Context>()
         val now = System.currentTimeMillis()
 
