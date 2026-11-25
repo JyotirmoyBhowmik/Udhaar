@@ -464,7 +464,7 @@ class VerificationAndMessagingV31Test {
     }
 
     @Test
-    fun cloudVerificationGateScreen_isMandatoryWithNoSkipOrBypass() {
+    fun cloudVerificationGateScreen_showsCloudVerificationFirst_allowsSkipForLocalOnly_andHides100UserCap() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val dummyAuth = object : SparkAuthController {
             override fun currentSession(): SparkAuthSession? = null
@@ -482,6 +482,7 @@ class VerificationAndMessagingV31Test {
             override suspend fun signOut() {}
         }
 
+        var skipped = false
         composeRule.setContent {
             UdhaarTheme {
                 CloudVerificationGateScreen(
@@ -490,16 +491,18 @@ class VerificationAndMessagingV31Test {
                     pendingEmail = "",
                     onVerifiedSession = { _, _, _ -> },
                     onSignedOut = {},
+                    onSkipLocalOnly = { skipped = true },
                     authControllerOverride = dummyAuth
                 )
             }
         }
 
         composeRule.onNode(hasTestTag("cloud_verification_gate_screen")).assertExists()
-        composeRule.onNode(hasText(context.getString(R.string.cloud_gate_beta_cap_badge))).assertExists()
-        composeRule.onNode(hasText("Skip", ignoreCase = true)).assertDoesNotExist()
-        composeRule.onNode(hasText("Bypass", ignoreCase = true)).assertDoesNotExist()
-        composeRule.onNode(hasText("Later", ignoreCase = true)).assertDoesNotExist()
+        composeRule.onNode(hasText(context.getString(R.string.cloud_gate_title))).assertExists()
+        composeRule.onNode(hasText("100", substring = true)).assertDoesNotExist()
+        composeRule.onNode(hasTestTag("cloud_gate_skip_local_btn")).performScrollTo().performClick()
+        composeRule.waitForIdle()
+        assertTrue("Skip button should invoke onSkipLocalOnly", skipped)
     }
 
     @Test

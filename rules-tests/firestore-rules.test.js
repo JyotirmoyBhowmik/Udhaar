@@ -919,8 +919,8 @@ test("C2. /shared_records/{id}: create, counterparty claim & confirm, query, ter
   // Borrower claims and confirms the record
   await assertSucceeds(
     recRef(borrowerDb).update({
-      counterpartyUid: BOB_UID,
-      participantUids: [OWNER_UID, BOB_UID],
+      counterpartyUid: BORROWER_UID,
+      participantUids: [OWNER_UID, BORROWER_UID],
       verificationStatus: "CONFIRMED",
       verifiedAtMillis: 1730000500000,
       disputeReason: "",
@@ -935,7 +935,7 @@ test("C2. /shared_records/{id}: create, counterparty claim & confirm, query, ter
     ownerDb.collection("shared_records").where("participantUids", "array-contains", OWNER_UID).get()
   );
   await assertSucceeds(
-    borrowerDb.collection("shared_records").where("participantUids", "array-contains", BOB_UID).get()
+    borrowerDb.collection("shared_records").where("participantUids", "array-contains", BORROWER_UID).get()
   );
 
   // Attacker cannot read or hijack already claimed record
@@ -972,8 +972,8 @@ test("C3. /shared_records/{id}/partial_payments/{id}: participant record, acknow
   // Create base shared record
   await ownerDb.collection("shared_records").doc("rec_c1001").set(
     buildValidSharedRecord({
-      counterpartyUid: BOB_UID,
-      participantUids: [OWNER_UID, BOB_UID],
+      counterpartyUid: BORROWER_UID,
+      participantUids: [OWNER_UID, BORROWER_UID],
       verificationStatus: "CONFIRMED",
     })
   );
@@ -984,9 +984,9 @@ test("C3. /shared_records/{id}/partial_payments/{id}: participant record, acknow
   const validPayment = {
     paymentId: "pay_1",
     remoteId: "rec_c1001",
-    recordedByUid: BOB_UID,
+    recordedByUid: BORROWER_UID,
     recordedByName: "Bob Borrower",
-    participantUids: [OWNER_UID, BOB_UID],
+    participantUids: [OWNER_UID, BORROWER_UID],
     amount: 1500.0,
     paymentMode: "UPI",
     paidAtMillis: 1730001000000,
@@ -1033,8 +1033,8 @@ test("C4. /shared_records/{id}/audit_trail/{id}: append-only, tamper deny, outsi
 
   await ownerDb.collection("shared_records").doc("rec_c1001").set(
     buildValidSharedRecord({
-      counterpartyUid: BOB_UID,
-      participantUids: [OWNER_UID, BOB_UID],
+      counterpartyUid: BORROWER_UID,
+      participantUids: [OWNER_UID, BORROWER_UID],
       verificationStatus: "CONFIRMED",
     })
   );
@@ -1046,9 +1046,9 @@ test("C4. /shared_records/{id}/audit_trail/{id}: append-only, tamper deny, outsi
     eventId: "evt_1",
     remoteId: "rec_c1001",
     eventType: "CONFIRMED",
-    actorUid: BOB_UID,
+    actorUid: BORROWER_UID,
     actorName: "Bob Borrower",
-    participantUids: [OWNER_UID, BOB_UID],
+    participantUids: [OWNER_UID, BORROWER_UID],
     summaryText: "Bob confirmed the record",
     contentHashSnapshot: "a".repeat(64),
     acknowledged: true,
@@ -1090,10 +1090,10 @@ test("C5. /chat_threads/{id}: tx_ and dm_ creation, joining, typing/mute updates
   // Bob joins thread as counterparty
   await assertSucceeds(
     txThreadRef(borrowerDb).update({
-      counterpartyUid: BOB_UID,
-      participantUids: [OWNER_UID, BOB_UID],
+      counterpartyUid: BORROWER_UID,
+      participantUids: [OWNER_UID, BORROWER_UID],
       partyName: "Alice Owner",
-      typingUid: BOB_UID,
+      typingUid: BORROWER_UID,
       typingUpdatedAtMillis: 1730001000000,
       lastMessagePreview: "Joined thread",
       lastMessageAtMillis: 1730001000000,
@@ -1114,9 +1114,9 @@ test("C5. /chat_threads/{id}: tx_ and dm_ creation, joining, typing/mute updates
   await assertSucceeds(
     txThreadRef(borrowerDb).set(
       {
-        typingUid: BOB_UID,
+        typingUid: BORROWER_UID,
         typingUpdatedAtMillis: 1730002000000,
-        mutedByUids: [BOB_UID],
+        mutedByUids: [BORROWER_UID],
         updatedAt: new Date(),
       },
       { merge: true }
@@ -1126,21 +1126,21 @@ test("C5. /chat_threads/{id}: tx_ and dm_ creation, joining, typing/mute updates
   // Attempting to inject a third UID into participantUids (cap <= 2) -> DENIED
   await assertFails(
     txThreadRef(ownerDb).update({
-      participantUids: [OWNER_UID, BOB_UID, ATTACKER_UID],
+      participantUids: [OWNER_UID, BORROWER_UID, ATTACKER_UID],
       updatedAt: new Date(),
     })
   );
 
   // DM thread: Alice creates deterministic dm_<uidA>_<uidB>
-  const dmId = `dm_${OWNER_UID}_${BOB_UID}`;
+  const dmId = `dm_${OWNER_UID}_${BORROWER_UID}`;
   const validDm = {
     threadId: dmId,
     threadScope: "PARTY",
     remoteRecordId: "",
     partyName: "Bob Borrower",
     creatorUid: OWNER_UID,
-    counterpartyUid: BOB_UID,
-    participantUids: [OWNER_UID, BOB_UID],
+    counterpartyUid: BORROWER_UID,
+    participantUids: [OWNER_UID, BORROWER_UID],
     typingUid: "",
     typingUpdatedAtMillis: -1,
     mutedByUids: [],
@@ -1167,8 +1167,8 @@ test("C6. /chat_threads/{id}/messages/{id}: send, read receipt, extension reques
 
   await ownerDb.collection("chat_threads").doc("tx_rec_c1001").set(
     buildValidChatThread({
-      counterpartyUid: BOB_UID,
-      participantUids: [OWNER_UID, BOB_UID],
+      counterpartyUid: BORROWER_UID,
+      participantUids: [OWNER_UID, BORROWER_UID],
     })
   );
 
@@ -1178,9 +1178,9 @@ test("C6. /chat_threads/{id}/messages/{id}: send, read receipt, extension reques
   const validMsg = {
     messageId: "msg_1",
     threadId: "tx_rec_c1001",
-    senderUid: BOB_UID,
+    senderUid: BORROWER_UID,
     senderName: "Bob Borrower",
-    participantUids: [OWNER_UID, BOB_UID],
+    participantUids: [OWNER_UID, BORROWER_UID],
     messageType: "EXTENSION_REQUEST",
     bodyText: "Requesting extension until Friday",
     attachmentUri: "",

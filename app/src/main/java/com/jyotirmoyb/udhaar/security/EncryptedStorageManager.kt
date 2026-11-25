@@ -46,6 +46,7 @@ object EncryptedStorageManager {
     const val KEY_DB_ENCRYPTION_STATE = "db_encryption_state"
     const val KEY_DB_ENCRYPTION_LAST_ERROR = "db_encryption_last_error"
     const val KEY_HIDE_AMOUNTS = "hide_amounts_enabled"
+    const val KEY_CLOUD_GATE_SKIPPED = "cloud_verification_gate_skipped"
     private const val KEY_JVM_ENCRYPTED_FILES = "jvm_encrypted_db_paths"
 
     private const val ENCRYPTED_SETTINGS_FILE = "udhaar_encrypted_settings_prefs"
@@ -232,6 +233,18 @@ object EncryptedStorageManager {
     fun setAmountsHidden(context: Context, hidden: Boolean) {
         runCatching {
             getEncryptedPreferences(context).edit().putBoolean(KEY_HIDE_AMOUNTS, hidden).commit()
+        }
+    }
+
+    fun isCloudGateSkipped(context: Context): Boolean {
+        return runCatching {
+            getEncryptedPreferences(context).getBoolean(KEY_CLOUD_GATE_SKIPPED, false)
+        }.getOrDefault(false)
+    }
+
+    fun setCloudGateSkipped(context: Context, skipped: Boolean) {
+        runCatching {
+            getEncryptedPreferences(context).edit().putBoolean(KEY_CLOUD_GATE_SKIPPED, skipped).commit()
         }
     }
 

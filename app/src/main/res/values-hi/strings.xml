@@ -1105,15 +1105,14 @@
     <string name="chat_local_only_notice_tx">केवल स्थानीय चैट — यह रिकॉर्ड अभी क्लाउड पर सत्यापित व्यक्ति से नहीं जुड़ा है। संदेश केवल इसी फ़ोन पर सहेजे जाएंगे।</string>
     <string name="chat_local_only_notice_party">केवल स्थानीय चैट — रीयल-टाइम संदेश के लिए इस व्यक्ति को सत्यापित क्लाउड रिकॉर्ड से जोड़ें।</string>
     <string name="chat_status_local_only">स्थानीय रूप से सहेजा गया</string>
-    <string name="cloud_gate_title">क्लाउड सत्यापन आवश्यक है</string>
+    <string name="cloud_gate_title">क्लाउड सत्यापन</string>
     <string name="cloud_gate_subtitle">दो-तरफ़ा उधार रिकॉर्ड, रीयल-टाइम चैट और सुरक्षित पुष्टि के लिए अपना खाता सत्यापित करें।</string>
-    <string name="cloud_gate_beta_cap_badge">प्रारंभिक पहुंच • अस्थायी 100-उपयोगकर्ता सीमा</string>
-    <string name="cloud_gate_beta_cap_body">रोलआउट के दौरान पहुंच अस्थायी रूप से 100 सत्यापित उपयोगकर्ताओं तक सीमित है। जारी रखने के लिए Google या सत्यापित ईमेल से साइन इन करें।</string>
     <string name="cloud_gate_signed_in_unverified_title">जारी रखने के लिए अपना ईमेल सत्यापित करें</string>
     <string name="cloud_gate_signed_in_unverified_body">%1$s के रूप में साइन इन हैं। अपने इनबॉक्स में सत्यापन लिंक पर क्लिक करें, फिर सत्यापन स्थिति जांचें पर टैप करें।</string>
     <string name="cloud_gate_check_status_btn">सत्यापन स्थिति जांचें</string>
     <string name="cloud_gate_resend_email_btn">सत्यापन ईमेल पुनः भेजें</string>
     <string name="cloud_gate_sign_out_switch_btn">दूसरा खाता उपयोग करें</string>
+    <string name="cloud_gate_skip_local_btn">अभी छोड़ें • केवल लोकल उपयोग करें</string>
     <string name="cloud_gate_firebase_unconfigured_msg">इस बिल्ड में क्लाउड सत्यापन सेवा कॉन्फ़िगर नहीं है।</string>
     <string name="cloud_gate_footer_note">आपका स्थानीय खाता आपके फ़ोन पर AES-256 एन्क्रिप्टेड स्टोरेज से सुरक्षित रहता है।</string>
     <string name="cloud_gate_verify_consent_note">साइन इन करने से दो-तरफ़ा क्लाउड सत्यापन और रीयल-टाइम चैट सक्रिय होती है।</string>

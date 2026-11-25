@@ -8,6 +8,8 @@ import android.net.Uri
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
@@ -73,11 +75,14 @@ class ReleaseSmokeTest {
     }
 
     @Test
-    fun smoke0_coldStart_unauthenticated_showsMandatoryCloudVerificationGateWithoutSkip() {
+    fun smoke0_coldStart_unauthenticated_showsCloudVerificationFirst_andAllowsSkipToLocalOnly() {
         composeRule.waitForIdle()
         composeRule.onNode(hasTestTag("cloud_verification_gate_screen")).assertExists()
-        composeRule.onNode(hasText("Skip", ignoreCase = true)).assertDoesNotExist()
-        composeRule.onNode(hasText("Bypass", ignoreCase = true)).assertDoesNotExist()
+        composeRule.onNode(hasText("100", substring = true)).assertDoesNotExist()
+        composeRule.onNode(hasTestTag("cloud_gate_skip_local_btn")).performScrollTo().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNode(hasTestTag("summary_receivable_card")).assertExists()
+        composeRule.onNode(hasTestTag("add_udhaar_fab")).assertExists()
     }
 
     @Test

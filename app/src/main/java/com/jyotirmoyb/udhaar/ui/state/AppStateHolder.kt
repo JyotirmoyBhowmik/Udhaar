@@ -77,10 +77,14 @@ class AppStateHolder @Inject constructor() {
     private val _blockingSqlCipherError = MutableStateFlow<String?>(null)
     val blockingSqlCipherError: StateFlow<String?> = _blockingSqlCipherError.asStateFlow()
 
+    private val _cloudGateSkipped = MutableStateFlow(false)
+    val cloudGateSkipped: StateFlow<Boolean> = _cloudGateSkipped.asStateFlow()
+
     fun initSecurityState(context: Context?) {
         if (context != null) {
             _isAmountsHidden.value = EncryptedStorageManager.isAmountsHidden(context)
             _dbEncryptionState.value = EncryptedStorageManager.getDatabaseEncryptionState(context)
+            _cloudGateSkipped.value = EncryptedStorageManager.isCloudGateSkipped(context)
         }
         _blockingSqlCipherError.value = EncryptedStorageManager.blockingStartupErrorFlow.value
     }
@@ -91,6 +95,11 @@ class AppStateHolder @Inject constructor() {
 
     fun setBlockingSqlCipherError(error: String?) {
         _blockingSqlCipherError.value = error
+    }
+
+    fun setCloudGateSkipped(skipped: Boolean, context: Context? = null) {
+        _cloudGateSkipped.value = skipped
+        context?.let { EncryptedStorageManager.setCloudGateSkipped(it, skipped) }
     }
 
     fun switchMainTab(screen: ActiveScreen) {

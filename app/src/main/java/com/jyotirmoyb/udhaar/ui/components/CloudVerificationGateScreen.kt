@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -56,9 +54,9 @@ import com.jyotirmoyb.udhaar.ui.sheets.settings.SparkAuthUiMode
 import kotlinx.coroutines.launch
 
 /**
- * Mandatory Cloud Verification gate shown before accessing ledger screens.
- * There is intentionally NO skip or bypass path; the 100-user cap notice reflects
- * temporary early-access capacity limits while still requiring verified sign-in.
+ * Initial Cloud Verification screen shown before accessing ledger screens.
+ * Users can verify their account for two-party cloud verification and messaging,
+ * or skip for now to continue in local-only encrypted mode.
  */
 @Composable
 fun CloudVerificationGateScreen(
@@ -67,6 +65,7 @@ fun CloudVerificationGateScreen(
     pendingEmail: String,
     onVerifiedSession: (uid: String, email: String, displayName: String) -> Unit,
     onSignedOut: () -> Unit,
+    onSkipLocalOnly: () -> Unit = {},
     authControllerOverride: SparkAuthController? = null
 ) {
     SecureScreenEffect(enabled = true)
@@ -139,24 +138,15 @@ fun CloudVerificationGateScreen(
                 Surface(
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.primaryContainer,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                    modifier = Modifier.size(48.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = stringResource(R.string.cloud_gate_beta_cap_badge),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }
@@ -182,22 +172,16 @@ fun CloudVerificationGateScreen(
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.cloud_gate_beta_cap_body),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = stringResource(R.string.cloud_gate_verify_consent_note),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
+                    Text(
+                        text = stringResource(R.string.cloud_gate_verify_consent_note),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                    )
                 }
 
                 if (!isFirebaseConfigured) {
@@ -383,7 +367,25 @@ fun CloudVerificationGateScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                OutlinedButton(
+                    onClick = onSkipLocalOnly,
+                    enabled = !isLoading,
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .testTag("cloud_gate_skip_local_btn")
+                ) {
+                    Text(
+                        text = stringResource(R.string.cloud_gate_skip_local_btn),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = stringResource(R.string.cloud_gate_footer_note),
                     style = MaterialTheme.typography.labelSmall,

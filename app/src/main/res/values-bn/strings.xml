@@ -1105,15 +1105,14 @@
     <string name="chat_local_only_notice_tx">শুধুমাত্র স্থানীয় চ্যাট — এই রেকর্ডটি এখনও ক্লাউডে যাচাইকৃত ব্যক্তির সাথে যুক্ত নয়। বার্তাগুলি এই ডিভাইসেই সংরক্ষিত থাকবে।</string>
     <string name="chat_local_only_notice_party">শুধুমাত্র স্থানীয় চ্যাট — রিয়েল-টাইম বার্তার জন্য এই ব্যক্তিকে একটি যাচাইকৃত ক্লাউড রেকর্ডের সাথে যুক্ত করুন।</string>
     <string name="chat_status_local_only">স্থানীয়ভাবে সংরক্ষিত</string>
-    <string name="cloud_gate_title">ক্লাউড যাচাইকরণ প্রয়োজন</string>
+    <string name="cloud_gate_title">ক্লাউড যাচাইকরণ</string>
     <string name="cloud_gate_subtitle">দ্বিপাক্ষিক ধারের রেকর্ড, রিয়েল-টাইম চ্যাট এবং সুরক্ষিত নিশ্চিতকরণের জন্য আপনার অ্যাকাউন্ট যাচাই করুন।</string>
-    <string name="cloud_gate_beta_cap_badge">প্রাথমিক অ্যাক্সেস • অস্থায়ী ১০০-ব্যবহারকারী সীমা</string>
-    <string name="cloud_gate_beta_cap_body">রোলআউট চলাকালীন অ্যাক্সেস সাময়িকভাবে ১০০ জন যাচাইকৃত ব্যবহারকারীর মধ্যে সীমাবদ্ধ। চালিয়ে যেতে Google বা যাচাইকৃত ইমেল দিয়ে সাইন ইন করুন।</string>
     <string name="cloud_gate_signed_in_unverified_title">চালিয়ে যেতে আপনার ইমেল যাচাই করুন</string>
     <string name="cloud_gate_signed_in_unverified_body">%1$s হিসাবে সাইন ইন করা হয়েছে। আপনার ইনবক্সের যাচাইকরণ লিঙ্কে ক্লিক করুন, তারপর যাচাইকরণ স্থিতি পরীক্ষা করুন ট্যাপ করুন।</string>
     <string name="cloud_gate_check_status_btn">যাচাইকরণ স্থিতি পরীক্ষা করুন</string>
     <string name="cloud_gate_resend_email_btn">যাচাইকরণ ইমেল আবার পাঠান</string>
     <string name="cloud_gate_sign_out_switch_btn">অন্য অ্যাকাউন্ট ব্যবহার করুন</string>
+    <string name="cloud_gate_skip_local_btn">এখন এড়িয়ে যান • শুধুমাত্র লোকাল ব্যবহার করুন</string>
     <string name="cloud_gate_firebase_unconfigured_msg">এই বিল্ডে ক্লাউড যাচাইকরণ পরিষেবা কনফিগার করা নেই।</string>
     <string name="cloud_gate_footer_note">আপনার স্থানীয় খাতা ডিভাইসে AES-256 এনক্রিপ্টেড স্টোরেজ দ্বারা সুরক্ষিত থাকে।</string>
     <string name="cloud_gate_verify_consent_note">সাইন ইন করলে দ্বিপাক্ষিক ক্লাউড যাচাইকরণ এবং রিয়েল-টাইম মেসেজিং সক্রিয় হয়।</string>

@@ -140,7 +140,8 @@ internal fun UdhaarScreenRouter(
                         displayName = displayName
                     )
                 },
-                onSignedOut = viewModel::handleCloudSignOut
+                onSignedOut = viewModel::handleCloudSignOut,
+                onSkipLocalOnly = viewModel::skipCloudVerificationForLocalOnly
             )
             SnackbarHost(
                 hostState = deepLinkSnackbarHostState,

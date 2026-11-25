@@ -1108,15 +1108,14 @@
     <string name="chat_local_only_notice_tx">Local chat only — this record is not linked to the other person on Cloud yet. Messages stay on this device and are not delivered remotely.</string>
     <string name="chat_local_only_notice_party">Local chat only — connect this party via a verified Cloud record to enable real-time message delivery.</string>
     <string name="chat_status_local_only">Saved locally</string>
-    <string name="cloud_gate_title">Cloud Verification Required</string>
+    <string name="cloud_gate_title">Cloud Verification</string>
     <string name="cloud_gate_subtitle">Verify your account to access two-party Udhaar records, real-time messaging, and tamper-evident confirmations.</string>
-    <string name="cloud_gate_beta_cap_badge">Early Access • Temporary 100-User Cap</string>
-    <string name="cloud_gate_beta_cap_body">Access is temporarily capped at 100 verified users during rollout. Sign in with Google or a verified email address to continue.</string>
     <string name="cloud_gate_signed_in_unverified_title">Verify Your Email to Continue</string>
     <string name="cloud_gate_signed_in_unverified_body">Signed in as %1$s. Please click the verification link in your inbox, then tap Check Verification Status.</string>
     <string name="cloud_gate_check_status_btn">Check Verification Status</string>
     <string name="cloud_gate_resend_email_btn">Resend Verification Email</string>
     <string name="cloud_gate_sign_out_switch_btn">Use a Different Account</string>
+    <string name="cloud_gate_skip_local_btn">Skip for now • Use Local Only</string>
     <string name="cloud_gate_firebase_unconfigured_msg">Cloud verification service is not configured in this build.</string>
     <string name="cloud_gate_footer_note">Your local Khata stays protected on-device with AES-256 encrypted storage.</string>
     <string name="cloud_gate_verify_consent_note">Sign-in activates Two-Party Cloud Verification and Real-Time Messaging.</string>

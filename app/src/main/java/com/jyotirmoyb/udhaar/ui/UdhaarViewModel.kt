@@ -236,10 +236,21 @@ class UdhaarViewModel(
             appStateHolder.deepLinkStatusMessage,
             combine(
                 appStateHolder.externalBrowserFallbackUrl,
-                cloudAuthSessionFlow
-            ) { browserUrl, cloudSession -> browserUrl to cloudSession }
-        ) { lockReq, encState, sqlErr, deepLinkMsg, extraPair ->
-            NavExtraState(lockReq, encState, sqlErr, deepLinkMsg, extraPair.first, extraPair.second)
+                cloudAuthSessionFlow,
+                appStateHolder.cloudGateSkipped
+            ) { browserUrl, cloudSession, cloudGateSkipped ->
+                Triple(browserUrl, cloudSession, cloudGateSkipped)
+            }
+        ) { lockReq, encState, sqlErr, deepLinkMsg, extraTriple ->
+            NavExtraState(
+                lockReq,
+                encState,
+                sqlErr,
+                deepLinkMsg,
+                extraTriple.first,
+                extraTriple.second,
+                extraTriple.third
+            )
         }
     ) { amountsHidden, undoMsg, animEvent, unlocked, extra ->
         NavSecondHalf(
@@ -252,7 +263,8 @@ class UdhaarViewModel(
             blockingSqlCipherError = extra.blockingSqlCipherError,
             deepLinkStatusMessage = extra.deepLinkStatusMessage,
             externalBrowserFallbackUrl = extra.externalBrowserFallbackUrl,
-            cloudAuthSession = extra.cloudAuthSession
+            cloudAuthSession = extra.cloudAuthSession,
+            cloudGateSkipped = extra.cloudGateSkipped
         )
     }
 
@@ -262,7 +274,8 @@ class UdhaarViewModel(
         val blockingSqlCipherError: String?,
         val deepLinkStatusMessage: String?,
         val externalBrowserFallbackUrl: String?,
-        val cloudAuthSession: SparkAuthSession?
+        val cloudAuthSession: SparkAuthSession?,
+        val cloudGateSkipped: Boolean
     )
 
     private data class NavFirstHalf(
@@ -283,7 +296,8 @@ class UdhaarViewModel(
         val blockingSqlCipherError: String?,
         val deepLinkStatusMessage: String?,
         val externalBrowserFallbackUrl: String?,
-        val cloudAuthSession: SparkAuthSession?
+        val cloudAuthSession: SparkAuthSession?,
+        val cloudGateSkipped: Boolean
     )
 
     private data class CoreDomainBundle(
@@ -337,11 +351,12 @@ class UdhaarViewModel(
         val cloudSession = nav2.cloudAuthSession
         val hasVerifiedFirebaseSession = cloudSession != null && cloudSession.isEmailVerified
         val isUnverifiedFirebaseSession = cloudSession != null && !cloudSession.isEmailVerified
-        val requiresGate = if (isFirebaseConfiguredFlag) {
+        val needsVerification = if (isFirebaseConfiguredFlag) {
             !hasVerifiedFirebaseSession
         } else {
             !sState.userSettings.cloudVerificationConsent || sState.userSettings.cloudUserId.isBlank()
         }
+        val requiresGate = needsVerification && !nav2.cloudGateSkipped
 
         UdhaarUiState(
             isAuthenticated = unlocked,
@@ -474,6 +489,7 @@ class UdhaarViewModel(
             val err = EncryptedStorageManager.blockingStartupErrorFlow.value
             appStateHolder.setDbEncryptionState(newState)
             appStateHolder.setBlockingSqlCipherError(err)
+            appStateHolder.setCloudGateSkipped(false, ctx)
             onComplete?.invoke(ok)
         }
     }
@@ -697,6 +713,10 @@ class UdhaarViewModel(
         viewModelScope.launch {
             repository.settingsRepository.setCloudAccountState(false, "", "", "")
         }
+    }
+
+    fun skipCloudVerificationForLocalOnly() {
+        appStateHolder.setCloudGateSkipped(true, appContext)
     }
 
     fun saveParty(party: PartyEntity) = peopleViewModel.saveParty(party)
