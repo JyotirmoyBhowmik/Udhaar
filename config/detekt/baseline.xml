@@ -7,7 +7,6 @@
     <ID>ComplexCondition:ContactPickerHelper.kt$ContactPickerHelper$name.isBlank() &amp;&amp; (col.contains("display_name") || col == "name") &amp;&amp; valStr.isNotBlank() &amp;&amp; !valStr.contains("@")</ID>
     <ID>ComplexCondition:ContactPickerHelper.kt$ContactPickerHelper$phone.isBlank() &amp;&amp; (col.contains("data1") || col.contains("number") || col.contains("phone")) &amp;&amp; valStr.any { it.isDigit() }</ID>
     <ID>ComplexCondition:DashboardScreen.kt$!uiState.isNeedsAttentionDismissed &amp;&amp; (overdueCount &gt; 0 || dueTodayCount &gt; 0 || waitingConfirmationCount &gt; 0)</ID>
-    <ID>ComplexCondition:EncryptedStorageManager.kt$EncryptedStorageManager$(!dbFile.exists() || dbFile.length() == 0L) &amp;&amp; plainCopyFile.exists() &amp;&amp; plainCopyFile.length() &gt; 0L</ID>
     <ID>ComplexCondition:GuestWebCloudRepository.kt$GuestWebCloudRepository$!snapshot.exists() || snapshot.getString("ownerUid") != currentUser.uid || snapshot.getString("recordId") != recordId || snapshot.getString("status") != "ACTIVE"</ID>
     <ID>ComplexCondition:InputValidator.kt$InputValidator$startDateMillis != null &amp;&amp; startDateMillis &gt; 0L &amp;&amp; expiryDateMillis != null &amp;&amp; expiryDateMillis &gt; 0L</ID>
     <ID>ComplexCondition:InstallmentPlanBuilderSheet.kt$!initializedFromExisting &amp;&amp; existingPlan != null &amp;&amp; existingInstallments.isNotEmpty() &amp;&amp; count == existingPlan.installmentCount &amp;&amp; frequency == existingPlan.frequency &amp;&amp; totalExpectedPaise == existingPlan.totalAmountDue &amp;&amp; startDateMillis == existingPlan.startDate</ID>
@@ -17,22 +16,25 @@
     <ID>ComplexCondition:UpdatesScreen.kt$tx.lastGuestAction.isNotBlank() &amp;&amp; claim == null &amp;&amp; dateProposal == null &amp;&amp; tx.lastGuestAction != "CONFIRM_PENDING" &amp;&amp; tx.lastGuestAction != "DISPUTE" &amp;&amp; tx.verificationStatus != com.jyotirmoyb.udhaar.data.VerificationStatus.DISPUTED</ID>
     <ID>ComplexCondition:VerificationRepository.kt$VerificationRepository$settings.cloudVerificationConsent &amp;&amp; settings.cloudUserId.isNotBlank() &amp;&amp; payload.remoteId.isNotBlank() &amp;&amp; payload.creatorUserId.isNotBlank() &amp;&amp; payload.creatorUserId != settings.cloudUserId</ID>
     <ID>CyclomaticComplexMethod:BackupRepository.kt$BackupRepository$suspend fun importLedgerData( parties: List&lt;PartyEntity&gt;, transactions: List&lt;UdhaarTransaction&gt;, partialPayments: List&lt;PartialPayment&gt;, attachments: List&lt;Attachment&gt; = emptyList(), installmentPlans: List&lt;com.jyotirmoyb.udhaar.data.InstallmentPlan&gt; = emptyList(), installments: List&lt;com.jyotirmoyb.udhaar.data.Installment&gt; = emptyList() ): Int</ID>
+    <ID>CyclomaticComplexMethod:ChatExtensionHelper.kt$ChatExtensionHelper$suspend fun respondToExtensionRequest( dao: UdhaarDao, settingsRepository: SettingsRepository, cloudRepository: VerificationCloudRepository?, chatRepository: ChatRepository, transaction: UdhaarTransaction? = null, message: ChatMessageEntity, accept: Boolean, responderName: String = "" ): UdhaarTransaction</ID>
+    <ID>CyclomaticComplexMethod:ChatRepository.kt$ChatRepository$fun observeAndSyncCloudThread( threadKey: String, scope: ChatThreadScope, transactionId: Long?, remoteId: String, partyId: Long?, partyName: String ): Flow&lt;Unit&gt;</ID>
+    <ID>CyclomaticComplexMethod:ChatRepository.kt$ChatRepository$suspend fun resolveCounterpartyUid( transaction: UdhaarTransaction? = null, partyId: Long? = null, partyName: String = "" ): String</ID>
     <ID>CyclomaticComplexMethod:ChatRepository.kt$ChatRepository$suspend fun sendChatMessage( threadKey: String, scope: ChatThreadScope, transaction: UdhaarTransaction? = null, transactionId: Long? = null, partyId: Long? = null, partyName: String, messageType: ChatMessageType = ChatMessageType.TEXT, textContent: String, attachmentUri: String = "", attachmentMimeType: String = "", proofAttachmentUri: String = "", proofMimeType: String = "", proofFileName: String = "", fromCounterparty: Boolean = false ): ChatMessageEntity?</ID>
     <ID>CyclomaticComplexMethod:CleanExpiredGuestLinksWorker.kt$CleanExpiredGuestLinksWorker$override suspend fun doWork(): Result</ID>
     <ID>CyclomaticComplexMethod:ContactPickerHelper.kt$ContactPickerHelper$fun extractContactInfo(context: Context, contactUri: Uri): Pair&lt;String, String&gt;?</ID>
     <ID>CyclomaticComplexMethod:DeviceContactHelper.kt$DeviceContactHelper$fun parseVCardContacts( vcfContent: String, currency: CurrencyType = CurrencyType.INR ): List&lt;DeviceContact&gt;</ID>
     <ID>CyclomaticComplexMethod:DriveBackupWorker.kt$DriveBackupWorker.Companion$suspend fun executeBackupWork( repository: UdhaarRepository, driveHelper: DriveServiceHelper, onConsecutiveFailureNotification: (DriveBackupErrorCode, Int) -&gt; Unit = { _, _ -&gt; } ): Result</ID>
     <ID>CyclomaticComplexMethod:DriveConnectionErrorMapper.kt$DriveConnectionErrorMapper$fun diagnose( statusCode: Int? = null, rawMessage: String? = null, httpCode: Int? = null, apiReason: String? = null, packageName: String = "com.jyotirmoyb.udhaar" ): DriveErrorDiagnosis</ID>
-    <ID>CyclomaticComplexMethod:EncryptedStorageManager.kt$EncryptedStorageManager$@Synchronized fun migratePlainDatabaseToEncrypted( context: Context, dbFile: File ): Boolean</ID>
     <ID>CyclomaticComplexMethod:ForegroundGuestActionListener.kt$ForegroundGuestActionListener$fun start(context: Context)</ID>
     <ID>CyclomaticComplexMethod:GuestActionPollingWorker.kt$GuestActionPollingWorker$override suspend fun doWork(): Result</ID>
     <ID>CyclomaticComplexMethod:GuestActionV1.kt$GuestActionV1.Companion$fun fromMap(data: Map&lt;String, Any?&gt;, actionId: String, linkId: String = ""): GuestActionV1?</ID>
     <ID>CyclomaticComplexMethod:GuestWebCloudRepository.kt$GuestWebCloudRepository$open suspend fun createGuestWebLink( recordId: String, counterpartyRole: String = "BORROWER", intendedPhone: String = "", expiryDays: Int = 30, trustLevelRequired: String = "LINK_ONLY", allowedActions: List&lt;String&gt; = listOf("CONFIRM", "DISPUTE", "PROPOSE_DATE", "CLAIM_PAYMENT"), allowNote: Boolean = true, allowAttachments: Boolean = true, showUpiQr: Boolean = true, lenderName: String = "", borrowerName: String = "", principalAmountPaise: Long = 0L, amountPaidPaise: Long = 0L, currency: String = "INR", startDateMillis: Long = System.currentTimeMillis(), expiryDateMillis: Long? = null, note: String = "", contentHash: String = "", lenderUpiId: String = "", creatorPhone: String = "", expectedGuestEmail: String = "" ): GuestWebLinkCreateResult</ID>
+    <ID>CyclomaticComplexMethod:GuestWebCloudRepository.kt$GuestWebCloudRepository$open suspend fun fetchGuestLinkBySecret( secret: String, fallbackRecordId: String = "" ): GuestLinkFetchResult</ID>
     <ID>CyclomaticComplexMethod:GuestWebCloudRepository.kt$GuestWebCloudRepository$open suspend fun revokeGuestWebLink(recordIdOrSecretOrLinkId: String): Boolean</ID>
     <ID>CyclomaticComplexMethod:GuestWebRepository.kt$GuestWebRepository$suspend fun acceptPaymentClaim(transactionId: Long): Boolean</ID>
     <ID>CyclomaticComplexMethod:LedgerBackupManager.kt$LedgerBackupManager$fun buildBackupJson( parties: List&lt;PartyEntity&gt;, transactions: List&lt;UdhaarTransaction&gt;, partialPayments: List&lt;PartialPayment&gt;, chatThreads: List&lt;ChatThreadMetadata&gt; = emptyList(), chatMessages: List&lt;ChatMessageEntity&gt; = emptyList(), settings: Map&lt;String, Any?&gt; = emptyMap(), attachments: Map&lt;String, String&gt; = emptyMap(), attachmentRecords: List&lt;Attachment&gt; = emptyList(), installmentPlans: List&lt;com.jyotirmoyb.udhaar.data.InstallmentPlan&gt; = emptyList(), installments: List&lt;com.jyotirmoyb.udhaar.data.Installment&gt; = emptyList(), exportType: String = "FULL_LEDGER", statementPartyName: String? = null ): String</ID>
     <ID>CyclomaticComplexMethod:LedgerBackupManager.kt$LedgerBackupManager$fun parseBackupJson(jsonString: String): ParsedLedgerBackup</ID>
-    <ID>CyclomaticComplexMethod:LedgerRepository.kt$LedgerRepository$suspend fun saveTransaction( transaction: UdhaarTransaction, myProfileName: String = "You" ): Long</ID>
+    <ID>CyclomaticComplexMethod:LedgerRepository.kt$LedgerRepository$suspend fun saveTransaction( transaction: UdhaarTransaction, myProfileName: String = "" ): Long</ID>
     <ID>CyclomaticComplexMethod:MainActivity.kt$MainActivity$private fun extractIntentPayloads(intent: Intent?)</ID>
     <ID>CyclomaticComplexMethod:PdfStatementGenerator.kt$PdfStatementGenerator$private fun drawFullLedgerOnCanvas( canvas: Canvas, parties: List&lt;PartyEntity&gt;, khataList: List&lt;PartyKhataSummary&gt;, userSettings: UserSettings, enabledCurrencies: List&lt;CurrencyType&gt;, context: Context? = null )</ID>
     <ID>CyclomaticComplexMethod:PdfStatementGenerator.kt$PdfStatementGenerator$private fun drawInstallmentStatementOnCanvas( canvas: Canvas, tx: com.jyotirmoyb.udhaar.data.UdhaarTransaction, plan: com.jyotirmoyb.udhaar.data.InstallmentPlan, installments: List&lt;com.jyotirmoyb.udhaar.data.Installment&gt;, userSettings: UserSettings, context: Context? = null )</ID>
@@ -51,7 +53,7 @@
     <ID>CyclomaticComplexMethod:VerificationCloudRepository.kt$VerificationCloudRepository$@Suppress("UNCHECKED_CAST") private fun mapToChatMessage(d: Map&lt;String, Any&gt;, fallbackId: String, fallbackThreadId: String): CloudChatMessage</ID>
     <ID>CyclomaticComplexMethod:VerificationCloudRepository.kt$VerificationCloudRepository$@Suppress("UNCHECKED_CAST") private fun mapToChatThread(d: Map&lt;String, Any&gt;, fallbackId: String): CloudChatThread</ID>
     <ID>CyclomaticComplexMethod:VerificationCloudRepository.kt$VerificationCloudRepository$@Suppress("UNCHECKED_CAST") private fun mapToRecord(d: Map&lt;String, Any&gt;, fallbackId: String): CloudSharedRecord</ID>
-    <ID>CyclomaticComplexMethod:VerificationRepository.kt$VerificationRepository$suspend fun processIncomingVerificationResponse( payload: VerificationCryptoHelper.SharedVerificationPayload, confirm: Boolean, disputeReason: String = "" ): UdhaarTransaction</ID>
+    <ID>CyclomaticComplexMethod:VerificationRepository.kt$VerificationRepository$suspend fun processIncomingVerificationResponse( payload: VerificationCryptoHelper.SharedVerificationPayload, confirm: Boolean, disputeReason: String = "", counterpartyNameOverride: String = "" ): UdhaarTransaction</ID>
     <ID>DestructuringDeclarationWithTooManyEntries:UxEnhancementComponents.kt$val (headline, subtitle, targetFilter, accentColor, containerColor) = when { overdueCount &gt; 0 -&gt; AttentionConfig( headline = if (overdueCount == 1) { stringResource(R.string.attention_overdue_one) } else { stringResource(R.string.attention_overdue_many_fmt, overdueCount) }, subtitle = stringResource(R.string.attention_overdue_subtitle), filter = LedgerFilter.OVERDUE, accent = Color(0xFF991B1B), container = Color(0xFFFEF2F2) ) dueTodayCount &gt; 0 -&gt; AttentionConfig( headline = if (dueTodayCount == 1) { stringResource(R.string.attention_due_today_one) } else { stringResource(R.string.attention_due_today_many_fmt, dueTodayCount) }, subtitle = stringResource(R.string.attention_due_today_subtitle), filter = LedgerFilter.OVERDUE, accent = Color(0xFF92400E), container = Color(0xFFFFFBEB) ) else -&gt; AttentionConfig( headline = if (waitingConfirmationCount == 1) { stringResource(R.string.attention_waiting_one) } else { stringResource(R.string.attention_waiting_many_fmt, waitingConfirmationCount) }, subtitle = stringResource(R.string.attention_waiting_subtitle), filter = LedgerFilter.NEEDS_CONFIRMATION, accent = Color(0xFF1E40AF), container = Color(0xFFEFF6FF) ) }</ID>
     <ID>EmptyFunctionBlock:UdhaarDatabase.kt$UdhaarDatabase.Companion.&lt;no name provided&gt;${}</ID>
     <ID>ForEachOnRange:OnboardingModal.kt$1..4</ID>
@@ -70,15 +72,18 @@
     <ID>InvalidPackageDeclaration:ThermalReceiptSheet.kt$package com.jyotirmoyb.udhaar.ui.components</ID>
     <ID>InvalidPackageDeclaration:UpiQrCodeSheet.kt$package com.jyotirmoyb.udhaar.ui.components</ID>
     <ID>LargeClass:BackupViewModel.kt$BackupViewModel : ViewModel</ID>
-    <ID>LargeClass:EncryptedStorageManager.kt$EncryptedStorageManager</ID>
+    <ID>LargeClass:ChatRepository.kt$ChatRepository</ID>
     <ID>LargeClass:GuestWebRepository.kt$GuestWebRepository</ID>
     <ID>LargeClass:UdhaarViewModel.kt$UdhaarViewModel : ViewModel</ID>
     <ID>LargeClass:VerificationCloudRepository.kt$VerificationCloudRepository</ID>
+    <ID>LargeClass:VerificationCryptoHelper.kt$VerificationCryptoHelper</ID>
+    <ID>LongMethod:ChatRepository.kt$ChatRepository$fun observeAndSyncCloudThread( threadKey: String, scope: ChatThreadScope, transactionId: Long?, remoteId: String, partyId: Long?, partyName: String ): Flow&lt;Unit&gt;</ID>
     <ID>LongMethod:CloudSyncHelper.kt$CloudSyncHelper$suspend fun syncProfileAndRecordsToCloud( dao: UdhaarDao, settingsRepository: SettingsRepository, cloudRepository: VerificationCloudRepository?, context: Context?, userIdOverride: String? = null ): Result&lt;Long&gt;</ID>
     <ID>LongMethod:DriveBackupWorker.kt$DriveBackupWorker.Companion$suspend fun executeBackupWork( repository: UdhaarRepository, driveHelper: DriveServiceHelper, onConsecutiveFailureNotification: (DriveBackupErrorCode, Int) -&gt; Unit = { _, _ -&gt; } ): Result</ID>
     <ID>LongMethod:DriveServiceHelper.kt$DriveServiceHelper$open suspend fun runConnectionTest(): DriveConnectionTestReport</ID>
     <ID>LongMethod:FirestoreSyncTransport.kt$FirestoreSyncTransport$override suspend fun pushMutations(request: SyncPushRequest): SyncPushResponse</ID>
     <ID>LongMethod:GuestWebCloudRepository.kt$GuestWebCloudRepository$open suspend fun createGuestWebLink( recordId: String, counterpartyRole: String = "BORROWER", intendedPhone: String = "", expiryDays: Int = 30, trustLevelRequired: String = "LINK_ONLY", allowedActions: List&lt;String&gt; = listOf("CONFIRM", "DISPUTE", "PROPOSE_DATE", "CLAIM_PAYMENT"), allowNote: Boolean = true, allowAttachments: Boolean = true, showUpiQr: Boolean = true, lenderName: String = "", borrowerName: String = "", principalAmountPaise: Long = 0L, amountPaidPaise: Long = 0L, currency: String = "INR", startDateMillis: Long = System.currentTimeMillis(), expiryDateMillis: Long? = null, note: String = "", contentHash: String = "", lenderUpiId: String = "", creatorPhone: String = "", expectedGuestEmail: String = "" ): GuestWebLinkCreateResult</ID>
+    <ID>LongMethod:GuestWebCloudRepository.kt$GuestWebCloudRepository$open suspend fun fetchGuestLinkBySecret( secret: String, fallbackRecordId: String = "" ): GuestLinkFetchResult</ID>
     <ID>LongMethod:GuestWebRepository.kt$GuestWebRepository$suspend fun acceptPaymentClaim(transactionId: Long): Boolean</ID>
     <ID>LongMethod:LedgerBackupManager.kt$LedgerBackupManager$fun buildBackupJson( parties: List&lt;PartyEntity&gt;, transactions: List&lt;UdhaarTransaction&gt;, partialPayments: List&lt;PartialPayment&gt;, chatThreads: List&lt;ChatThreadMetadata&gt; = emptyList(), chatMessages: List&lt;ChatMessageEntity&gt; = emptyList(), settings: Map&lt;String, Any?&gt; = emptyMap(), attachments: Map&lt;String, String&gt; = emptyMap(), attachmentRecords: List&lt;Attachment&gt; = emptyList(), installmentPlans: List&lt;com.jyotirmoyb.udhaar.data.InstallmentPlan&gt; = emptyList(), installments: List&lt;com.jyotirmoyb.udhaar.data.Installment&gt; = emptyList(), exportType: String = "FULL_LEDGER", statementPartyName: String? = null ): String</ID>
     <ID>LongMethod:LedgerBackupManager.kt$LedgerBackupManager$fun parseBackupJson(jsonString: String): ParsedLedgerBackup</ID>
@@ -90,13 +95,14 @@
     <ID>LongMethod:ThermalReceiptGenerator.kt$ThermalReceiptGenerator$fun createTransactionReceiptBitmap( summary: CalculatedUdhaarSummary, partialPayments: List&lt;PartialPayment&gt;, userSettings: UserSettings, partyUpiId: String? = null, auditTrail: List&lt;com.jyotirmoyb.udhaar.data.AuditTrailEntry&gt; = emptyList(), hideAmounts: Boolean = false, strings: ThermalReceiptStrings = ThermalReceiptStrings(), installmentPlan: com.jyotirmoyb.udhaar.data.InstallmentPlan? = null, installments: List&lt;com.jyotirmoyb.udhaar.data.Installment&gt; = emptyList() ): Bitmap</ID>
     <ID>LongMethod:UdhaarDatabase.kt$UdhaarDatabase.Companion$private fun migrateToPaiseOnlyAndVerifyTotals(db: SupportSQLiteDatabase)</ID>
     <ID>LongMethod:VerificationRepository.kt$VerificationRepository$suspend fun prepareVerificationShare(transaction: UdhaarTransaction): Pair&lt;UdhaarTransaction, String&gt;</ID>
-    <ID>LongMethod:VerificationRepository.kt$VerificationRepository$suspend fun processIncomingVerificationResponse( payload: VerificationCryptoHelper.SharedVerificationPayload, confirm: Boolean, disputeReason: String = "" ): UdhaarTransaction</ID>
+    <ID>LongMethod:VerificationRepository.kt$VerificationRepository$suspend fun processIncomingVerificationResponse( payload: VerificationCryptoHelper.SharedVerificationPayload, confirm: Boolean, disputeReason: String = "", counterpartyNameOverride: String = "" ): UdhaarTransaction</ID>
     <ID>LoopWithTooManyJumpStatements:ForegroundGuestActionListener.kt$ForegroundGuestActionListener$for</ID>
     <ID>LoopWithTooManyJumpStatements:InstallmentCalculator.kt$InstallmentCalculator$for</ID>
     <ID>LoopWithTooManyJumpStatements:ReminderWorker.kt$ReminderWorker$for</ID>
     <ID>MatchingDeclarationName:AccountSignedOutPanel.kt$SparkAuthUiMode</ID>
     <ID>MatchingDeclarationName:DashboardDetailPane.kt$LedgerGroupSection</ID>
     <ID>MatchingDeclarationName:DashboardHeaderAndSummary.kt$HomePillTab</ID>
+    <ID>MatchingDeclarationName:DashboardPagedHistorySection.kt$DashboardLedgerCardCallbacks</ID>
     <ID>MatchingDeclarationName:MotionComponents.kt$SuccessAnimationEvent</ID>
     <ID>MatchingDeclarationName:Spacing.kt$UdhaarSpacing</ID>
     <ID>MatchingDeclarationName:Theme.kt$UdhaarShapeTokens</ID>
@@ -104,11 +110,10 @@
     <ID>NestedBlockDepth:CleanExpiredGuestLinksWorker.kt$CleanExpiredGuestLinksWorker$override suspend fun doWork(): Result</ID>
     <ID>NestedBlockDepth:VerificationCloudRepository.kt$VerificationCloudRepository$suspend fun deleteAllMyCloudData( userId: String, createdRemoteIds: List&lt;String&gt;, createdThreadIds: List&lt;String&gt; = emptyList() )</ID>
     <ID>ReturnCount:CleanExpiredGuestLinksWorker.kt$CleanExpiredGuestLinksWorker$override suspend fun doWork(): Result</ID>
-    <ID>ReturnCount:EncryptedStorageManager.kt$EncryptedStorageManager$private fun verifyEncryptedDatabaseJvm( encryptedCandidateFile: File, expected: ExportMetadata ): Boolean</ID>
-    <ID>ReturnCount:EncryptedStorageManager.kt$EncryptedStorageManager$private fun verifyEncryptedDatabaseNative( encryptedCandidateFile: File, passphrase: ByteArray, expected: ExportMetadata ): Boolean</ID>
     <ID>ReturnCount:GuestActionPollingWorker.kt$GuestActionPollingWorker$override suspend fun doWork(): Result</ID>
     <ID>ReturnCount:GuestActionV1.kt$GuestActionV1.Companion$fun fromMap(data: Map&lt;String, Any?&gt;, actionId: String, linkId: String = ""): GuestActionV1?</ID>
     <ID>ReturnCount:InputValidator.kt$InputValidator$fun validateTransaction(transaction: UdhaarTransaction): ValidationResult</ID>
+    <ID>ReturnCount:VerificationCryptoHelper.kt$VerificationCryptoHelper$fun parseVerificationLink(input: String): SharedVerificationPayload?</ID>
     <ID>SpreadOperator:UdhaarDatabase.kt$UdhaarDatabase.Companion$(*ALL_MIGRATIONS)</ID>
     <ID>SwallowedException:DriveBackupCrypto.kt$DriveBackupCrypto$e: Exception</ID>
     <ID>SwallowedException:GuestActionPollingWorker.kt$GuestActionPollingWorker.Companion$e: Exception</ID>
@@ -116,12 +121,10 @@
     <ID>SwallowedException:WhatsAppReminderSheet.kt$e: Exception</ID>
     <ID>ThrowsCount:BackupRepository.kt$BackupRepository$suspend fun restoreFullLedgerBackup( backup: ParsedLedgerBackup, replaceExisting: Boolean ): Int</ID>
     <ID>ThrowsCount:DriveBackupCrypto.kt$DriveBackupCrypto$fun decrypt(encryptedBytes: ByteArray, passphrase: String): ByteArray</ID>
-    <ID>ThrowsCount:EncryptedStorageManager.kt$EncryptedStorageManager$@Synchronized fun migratePlainDatabaseToEncrypted( context: Context, dbFile: File ): Boolean</ID>
     <ID>UnusedParameter:AboutSection.kt$modifier: Modifier = Modifier</ID>
     <ID>UnusedParameter:AddEditUdhaarScreen.kt$onEnableCurrency: (CurrencyType) -&gt; Unit = {}</ID>
     <ID>UnusedParameter:BackupRepository.kt$BackupRepository.Companion$ctx: Context?</ID>
     <ID>UnusedParameter:BackupSection.kt$modifier: Modifier = Modifier</ID>
-    <ID>UnusedParameter:ChatViewModel.kt$ChatViewModel$remoteRecordId: String = ""</ID>
     <ID>UnusedParameter:CommunicationSheets.kt$partyId: Long?</ID>
     <ID>UnusedParameter:CurrencyThemeSection.kt$modifier: Modifier = Modifier</ID>
     <ID>UnusedParameter:DashboardDetailPane.kt$installments: List&lt;Installment&gt; = emptyList()</ID>
@@ -134,7 +137,6 @@
     <ID>UnusedParameter:DashboardScreen.kt$onLockAppClick: () -&gt; Unit</ID>
     <ID>UnusedParameter:DashboardScreen.kt$onShareAppClick: () -&gt; Unit</ID>
     <ID>UnusedParameter:DashboardScreen.kt$onToggleCurrencyEnabled: (CurrencyType, Boolean) -&gt; Unit</ID>
-    <ID>UnusedParameter:FirebaseModule.kt$FirebaseModule$@ApplicationContext context: Context</ID>
     <ID>UnusedParameter:GuestActionPollingWorker.kt$GuestActionPollingWorker.Companion$ownerUid: String</ID>
     <ID>UnusedParameter:InstallmentTimelineCard.kt$plan: InstallmentPlan</ID>
     <ID>UnusedParameter:LedgerRepository.kt$LedgerRepository$totalAccruedAmount: Double</ID>
@@ -146,10 +148,12 @@
     <ID>UnusedParameter:RecordViewModel.kt$RecordViewModel$attachments: List&lt;Attachment&gt; = emptyList()</ID>
     <ID>UnusedParameter:RemindersSettingsSection.kt$modifier: Modifier = Modifier</ID>
     <ID>UnusedParameter:SecuritySection.kt$modifier: Modifier = Modifier</ID>
+    <ID>UnusedParameter:TransactionActionsSection.kt$confirmDelete: Boolean</ID>
+    <ID>UnusedParameter:TransactionActionsSection.kt$onDeleteClicked: () -&gt; Unit</ID>
+    <ID>UnusedParameter:TransactionActionsSection.kt$onEdit: () -&gt; Unit</ID>
     <ID>UnusedParameter:UdhaarScreenRouter.kt$isPlanProposalMode: Boolean</ID>
     <ID>UnusedParameter:VerificationCloudRepository.kt$VerificationCloudRepository$typingUserName: String</ID>
     <ID>UnusedParameter:VerificationViewModel.kt$VerificationViewModel$counterDateMillis: Long</ID>
-    <ID>UnusedPrivateClass:UdhaarViewModel.kt$UdhaarViewModel$SharedNavBundle</ID>
     <ID>UnusedPrivateMember:VerificationCryptoHelper.kt$VerificationCryptoHelper$private fun urlEncode(value: String): String</ID>
     <ID>UnusedPrivateProperty:BackupViewModel.kt$BackupViewModel$private val appStateHolder: AppStateHolder</ID>
     <ID>UnusedPrivateProperty:ChatViewModel.kt$ChatViewModel$private val ledgerRepository: LedgerRepository</ID>
@@ -157,13 +161,7 @@
     <ID>UnusedPrivateProperty:GuestWebRepository.kt$GuestWebRepository$private val installmentRepository: InstallmentRepository</ID>
     <ID>UnusedPrivateProperty:GuestWebRepository.kt$GuestWebRepository$private val paymentRepository: PaymentRepository</ID>
     <ID>UnusedPrivateProperty:InstallmentRepository.kt$InstallmentRepository$private val cloudRepository: VerificationCloudRepository? = null</ID>
-    <ID>UnusedPrivateProperty:InstallmentRepository.kt$InstallmentRepository$private val settingsRepository: SettingsRepository</ID>
-    <ID>UnusedPrivateProperty:VerificationSheets.kt$val dateFormat = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }</ID>
     <ID>UseCheckOrError:CloudSyncHelper.kt$CloudSyncHelper$throw IllegalStateException("Cloud backup service is unavailable.")</ID>
-    <ID>UseCheckOrError:EncryptedStorageManager.kt$EncryptedStorageManager$throw IllegalStateException("Encrypted database verification failed (row count or PRAGMA integrity_check mismatch).")</ID>
-    <ID>UseCheckOrError:EncryptedStorageManager.kt$EncryptedStorageManager$throw IllegalStateException("Plain database file does not exist for migration: ${dbFile.absolutePath}")</ID>
-    <ID>UseCheckOrError:EncryptedStorageManager.kt$EncryptedStorageManager$throw IllegalStateException("Simulated SQLCipher initialization failure on fresh install")</ID>
-    <ID>UseCheckOrError:EncryptedStorageManager.kt$EncryptedStorageManager$throw IllegalStateException("Simulated sqlcipher_export failure")</ID>
     <ID>UseCheckOrError:FirestoreSyncTransport.kt$FirestoreSyncTransport$throw IllegalStateException("Authentication required for sync push.")</ID>
     <ID>UseCheckOrError:FirestoreSyncTransport.kt$FirestoreSyncTransport$throw IllegalStateException("Email verification required before cloud sync can be performed.")</ID>
     <ID>UseCheckOrError:FirestoreSyncTransport.kt$FirestoreSyncTransport$throw IllegalStateException("FirebaseAuth unavailable")</ID>

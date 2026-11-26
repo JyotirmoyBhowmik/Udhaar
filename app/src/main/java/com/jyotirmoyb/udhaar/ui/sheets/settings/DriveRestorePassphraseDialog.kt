@@ -71,7 +71,9 @@ fun DriveRestorePassphraseDialog(
                         IconButton(onClick = { restorePassphraseVisible = !restorePassphraseVisible }) {
                             Icon(
                                 imageVector = if (restorePassphraseVisible) UdhaarIcons.VisibilityOff else UdhaarIcons.Visibility,
-                                contentDescription = null
+                                contentDescription = stringResource(
+                                    if (restorePassphraseVisible) R.string.cd_hide_passphrase else R.string.cd_show_passphrase
+                                )
                             )
                         }
                     },

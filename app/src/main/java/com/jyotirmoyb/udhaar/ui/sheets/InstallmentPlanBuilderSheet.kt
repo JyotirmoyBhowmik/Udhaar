@@ -194,7 +194,7 @@ fun InstallmentPlanBuilderSheet(
                 modifier = Modifier.weight(1f, fill = false),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                item {
+                item(key = "installment_count_and_start") {
                     // Installment Count & Frequency row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -229,7 +229,7 @@ fun InstallmentPlanBuilderSheet(
                     }
                 }
 
-                item {
+                item(key = "installment_frequency") {
                     // Frequency chips
                     Text(
                         text = stringResource(R.string.installment_frequency_label),
@@ -257,7 +257,7 @@ fun InstallmentPlanBuilderSheet(
                     }
                 }
 
-                item {
+                item(key = "installment_interest_mode") {
                     // Interest mode toggle
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -293,7 +293,7 @@ fun InstallmentPlanBuilderSheet(
                     }
                 }
 
-                item {
+                item(key = "installment_total_summary") {
                     val totalFormatted = "${tx.currency.symbol}${InterestCalculator.formatAmount(InstallmentCalculator.paiseToDouble(totalExpectedPaise))}"
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -309,7 +309,7 @@ fun InstallmentPlanBuilderSheet(
                     )
                 }
 
-                item {
+                item(key = "installment_preview_header") {
                     Text(
                         stringResource(R.string.manual_edit_preview),
                         style = MaterialTheme.typography.titleSmall,
@@ -335,7 +335,7 @@ fun InstallmentPlanBuilderSheet(
                         Box(
                             modifier = Modifier
                                 .weight(1.2f)
-                                .clickable { showDatePickerForIndex = idx }
+                                .clickable(role = androidx.compose.ui.semantics.Role.Button) { showDatePickerForIndex = idx }
                                 .padding(vertical = 4.dp)
                         ) {
                             Text(sdf.format(Date(draft.dueDateMillis)), style = MaterialTheme.typography.bodySmall)
@@ -366,7 +366,7 @@ fun InstallmentPlanBuilderSheet(
                 val sumPaise = drafts.sumOf { it.amountDuePaise }
                 val isMismatch = sumPaise != totalExpectedPaise
                 if (isMismatch) {
-                    item {
+                    item(key = "installment_mismatch_warning") {
                         val sumFormatted = "${tx.currency.symbol}${InterestCalculator.formatAmount(InstallmentCalculator.paiseToDouble(sumPaise))}"
                         val expectedFormatted = "${tx.currency.symbol}${InterestCalculator.formatAmount(InstallmentCalculator.paiseToDouble(totalExpectedPaise))}"
                         Surface(

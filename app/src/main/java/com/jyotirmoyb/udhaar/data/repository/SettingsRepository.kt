@@ -131,12 +131,9 @@ open class SettingsRepository(
 
         val currentSettings = userSettings.first()
         val authUser = runCatching { com.google.firebase.auth.FirebaseAuth.getInstance().currentUser }.getOrNull()
-        if (currentSettings.cloudVerificationConsent &&
-            currentSettings.cloudUserId.isNotBlank() &&
-            authUser != null &&
-            !authUser.isAnonymous &&
-            authUser.uid == currentSettings.cloudUserId
-        ) {
+        val cloudEnabled = currentSettings.cloudVerificationConsent && currentSettings.cloudUserId.isNotBlank()
+        val matchesAuthUser = authUser != null && !authUser.isAnonymous && authUser.uid == currentSettings.cloudUserId
+        if (cloudEnabled && matchesAuthUser) {
             runCatching {
                 val fcmToken = resolveCurrentFcmToken()
                 cloudRepository?.upsertUserProfile(

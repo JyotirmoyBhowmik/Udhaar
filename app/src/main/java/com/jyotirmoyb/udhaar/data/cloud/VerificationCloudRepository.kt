@@ -598,10 +598,10 @@ open class VerificationCloudRepository(
             val docRef = db.collection("chat_threads").document(thread.threadId)
             val existingResult = try {
                 docRef.get().await() to false
-            } catch (e: Exception) {
-                val permDenied = e is com.google.firebase.firestore.FirebaseFirestoreException &&
-                    e.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED
-                null to permDenied
+            } catch (e: com.google.firebase.firestore.FirebaseFirestoreException) {
+                null to (e.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED)
+            } catch (_: Exception) {
+                null to false
             }
             val existing = existingResult.first
             val likelyExistsUnjoined = existingResult.second
@@ -718,7 +718,7 @@ open class VerificationCloudRepository(
         }
     }
 
-    suspend fun updateThreadMuteBlockReport(
+    open suspend fun updateThreadMuteBlockReport(
         threadId: String,
         mutedByUids: List<String>,
         blockedByUids: List<String>,
@@ -730,6 +730,7 @@ open class VerificationCloudRepository(
             val updates = mapOf(
                 "mutedByUids" to mutedByUids,
                 "blockedByUid" to blockedByUids.firstOrNull().orEmpty(),
+                "blockedByUids" to blockedByUids,
                 "reportedByUid" to reportedByUids.firstOrNull().orEmpty(),
                 "reportReason" to reportReason,
                 "updatedAt" to FieldValue.serverTimestamp()
@@ -737,6 +738,54 @@ open class VerificationCloudRepository(
             db.collection("chat_threads").document(threadId).update(updates).await()
         } catch (e: Exception) {
             handleFirestoreError(e, OperationType.UPDATE, path)
+        }
+    }
+
+    open suspend fun upsertUserSafetyControl(
+        ownerUid: String,
+        targetUid: String,
+        isMuted: Boolean,
+        isBlocked: Boolean,
+        isReported: Boolean,
+        reportReason: String
+    ) {
+        if (!isAvailable || ownerUid.isBlank() || targetUid.isBlank()) return
+        val path = "users/$ownerUid/blocked_users/$targetUid"
+        try {
+            val data = mapOf(
+                "targetUid" to targetUid,
+                "isMuted" to isMuted,
+                "isBlocked" to isBlocked,
+                "isReported" to isReported,
+                "reportReason" to reportReason.take(250),
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+            db.collection("users")
+                .document(ownerUid)
+                .collection("blocked_users")
+                .document(targetUid)
+                .set(data)
+                .await()
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.WRITE, path)
+        }
+    }
+
+    open suspend fun deleteUserSafetyControl(
+        ownerUid: String,
+        targetUid: String
+    ) {
+        if (!isAvailable || ownerUid.isBlank() || targetUid.isBlank()) return
+        val path = "users/$ownerUid/blocked_users/$targetUid"
+        try {
+            db.collection("users")
+                .document(ownerUid)
+                .collection("blocked_users")
+                .document(targetUid)
+                .delete()
+                .await()
+        } catch (e: Exception) {
+            handleFirestoreError(e, OperationType.DELETE, path)
         }
     }
 

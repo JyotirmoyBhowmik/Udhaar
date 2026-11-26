@@ -195,7 +195,7 @@ internal fun AddEditAttachmentsSection(
                     modifier = udhaarAnimateItem(reducedMotion)
                         .size(96.dp)
                         .pressScaleFeedback()
-                        .clickable { onOpenAttachmentViewer(att) }
+                        .clickable(role = androidx.compose.ui.semantics.Role.Button) { onOpenAttachmentViewer(att) }
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         if (isImg) {

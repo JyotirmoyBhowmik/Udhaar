@@ -45,13 +45,21 @@ object ChatSyncHelper {
     suspend fun syncModerationFlagsToCloud(
         meta: ChatThreadMetadata,
         settingsRepository: SettingsRepository,
-        cloudRepository: VerificationCloudRepository?
+        cloudRepository: VerificationCloudRepository?,
+        counterpartyUid: String = ""
     ) {
         val settings = settingsRepository.userSettings.first()
         if (!settings.cloudVerificationConsent || settings.cloudUserId.isBlank()) return
         runCatching {
             val uid = settings.cloudUserId
-            val cloudThreadId = cloudThreadIdFor(meta.threadScope, meta.remoteThreadId, meta.partyName, meta.threadKey)
+            val cloudThreadId = cloudThreadIdFor(
+                scope = meta.threadScope,
+                remoteId = meta.remoteThreadId,
+                partyName = meta.partyName,
+                fallbackThreadKey = meta.threadKey,
+                myUid = uid,
+                counterpartyUid = counterpartyUid
+            )
             cloudRepository?.updateThreadMuteBlockReport(
                 threadId = cloudThreadId,
                 mutedByUids = if (meta.isMuted) listOf(uid) else emptyList(),
@@ -59,6 +67,31 @@ object ChatSyncHelper {
                 reportedByUids = if (meta.isReported) listOf(uid) else emptyList(),
                 reportReason = meta.reportReason
             )
+        }
+    }
+
+    suspend fun syncUserSafetyToCloud(
+        safety: com.jyotirmoyb.udhaar.data.UserChatSafetyEntity,
+        settingsRepository: SettingsRepository,
+        cloudRepository: VerificationCloudRepository?
+    ) {
+        val settings = settingsRepository.userSettings.first()
+        val myUid = settings.cloudUserId.trim()
+        val targetUid = safety.counterpartyUid.trim()
+        if (!settings.cloudVerificationConsent || myUid.isBlank() || targetUid.isBlank()) return
+        runCatching {
+            if (!safety.isMuted && !safety.isBlocked && !safety.isReported) {
+                cloudRepository?.deleteUserSafetyControl(myUid, targetUid)
+            } else {
+                cloudRepository?.upsertUserSafetyControl(
+                    ownerUid = myUid,
+                    targetUid = targetUid,
+                    isMuted = safety.isMuted,
+                    isBlocked = safety.isBlocked,
+                    isReported = safety.isReported,
+                    reportReason = safety.reportReason
+                )
+            }
         }
     }
 

@@ -89,7 +89,9 @@ internal fun UdhaarScreenRouter(
             },
             onTryAgain = {
                 viewModel.retryDatabaseEncryption { ok ->
-                    val msg = if (ok) "Encrypted storage initialized." else "SQLCipher initialization failed."
+                    val msg = context.getString(
+                        if (ok) R.string.toast_encrypted_storage_ready else R.string.toast_encrypted_storage_failed
+                    )
                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                 }
             },
@@ -98,7 +100,9 @@ internal fun UdhaarScreenRouter(
             },
             onResetAppData = {
                 viewModel.resetAppDataAfterKeystoreInvalidation { ok ->
-                    val msg = if (ok) "App data reset. Ready for initial setup." else "Failed to reset app data."
+                    val msg = context.getString(
+                        if (ok) R.string.toast_app_data_reset_ok else R.string.toast_app_data_reset_failed
+                    )
                     Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                 }
             }
@@ -141,7 +145,8 @@ internal fun UdhaarScreenRouter(
                     )
                 },
                 onSignedOut = viewModel::handleCloudSignOut,
-                onSkipLocalOnly = viewModel::skipCloudVerificationForLocalOnly
+                onSkipLocalOnly = viewModel::skipCloudVerificationForLocalOnly,
+                allowLocalSkip = !BuildConfig.REQUIRE_CLOUD_VERIFICATION
             )
             SnackbarHost(
                 hostState = deepLinkSnackbarHostState,
@@ -252,18 +257,22 @@ internal fun UdhaarScreenRouter(
                                     onSelectSummaryCurrency = viewModel::setSummaryCurrency,
                                     onToggleCurrencyEnabled = { currency, enabled ->
                                         viewModel.toggleCurrencyEnabled(currency, enabled)
-                                        Toast.makeText(
-                                            context,
-                                            "${currency.displayName} ${if (enabled) "enabled" else "disabled"}",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
+                                        val msg = context.getString(
+                                            if (enabled) R.string.toast_currency_enabled_fmt else R.string.toast_currency_disabled_fmt,
+                                            currency.displayName
+                                        )
+                                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                     },
                                     onCycleTheme = {
                                         val themes = AppThemeMode.entries
                                         val nextIndex = (themes.indexOf(uiState.userSettings.themeMode) + 1) % themes.size
                                         val nextTheme = themes[nextIndex]
                                         viewModel.cycleOrSelectTheme(nextTheme)
-                                        Toast.makeText(context, "Theme: ${nextTheme.label}", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(R.string.toast_theme_changed_fmt, nextTheme.label),
+                                            Toast.LENGTH_SHORT
+                                        ).show()
                                     },
                                     onSelectFilter = viewModel::setFilter,
                                     onSearchQueryChange = viewModel::setSearchQuery,
@@ -300,7 +309,8 @@ internal fun UdhaarScreenRouter(
                                     onUndoAction = viewModel::performUndoAction,
                                     onDismissUndo = viewModel::dismissUndoSnackbar,
                                     onOpenUpdatesScreen = viewModel::openUpdatesScreen,
-                                    onCreateGroupSplitTransactions = viewModel::saveGroupSplitTransactions
+                                    onCreateGroupSplitTransactions = viewModel::saveGroupSplitTransactions,
+                                    historyAndSearchPagingFlow = viewModel.historyAndSearchPagingFlow
                                 )
                             }
                             is UdhaarNavDestination.PartyDetail -> {
@@ -335,7 +345,11 @@ internal fun UdhaarScreenRouter(
                                             if (firstTx != null) {
                                                 viewModel.requestVerificationForTransaction(firstTx)
                                             } else {
-                                                Toast.makeText(context, "No transactions to verify for this party yet.", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(
+                                                    context,
+                                                    context.getString(R.string.toast_no_records_to_verify_party),
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
                                             }
                                         },
                                         onShareThermalReceipt = { viewModel.openPartyStatementReceiptModal(selectedKhata.party.partyId) },
@@ -517,14 +531,22 @@ internal fun UdhaarScreenRouter(
                                     onShareMyPaymentDetails = { viewModel.openShareMyPaymentDetailsModal(null) },
                                     onOpenReceivedVerificationLink = { link ->
                                         if (!viewModel.handleIncomingDeepLinkOrToken(link)) {
-                                            Toast.makeText(context, "Invalid verification or payment link.", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(
+                                                context,
+                                                context.getString(R.string.toast_invalid_verification_or_payment_link),
+                                                Toast.LENGTH_SHORT
+                                            ).show()
                                         }
                                     },
                                     onSignInWithGoogleForVerification = signInWithGoogleForVerification,
                                     onRetryCloudBackup = viewModel::retryCloudBackup,
                                     onDeleteMyCloudData = {
                                         viewModel.deleteMyCloudData {
-                                            Toast.makeText(context, "Cloud verification data cleared. Local ledger preserved.", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(
+                                                context,
+                                                context.getString(R.string.toast_cloud_data_cleared_local_kept),
+                                                Toast.LENGTH_LONG
+                                            ).show()
                                         }
                                     },
                                     onLockAppNow = viewModel::lockApplicationNow,
@@ -563,7 +585,9 @@ internal fun UdhaarScreenRouter(
                                     dbEncryptionState = uiState.dbEncryptionState,
                                     onRetryDatabaseEncryption = {
                                         viewModel.retryDatabaseEncryption { ok ->
-                                            val msg = if (ok) "Database encrypted successfully." else "Database encryption failed. Tap to retry."
+                                            val msg = context.getString(
+                                                if (ok) R.string.toast_db_encrypted_ok else R.string.toast_db_encrypted_retry
+                                            )
                                             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                                         }
                                     },
@@ -573,7 +597,11 @@ internal fun UdhaarScreenRouter(
                                                 val dateStr = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(java.util.Date())
                                                 onLaunchSaveJsonDocument("udhaar_backup_${dateStr}.udhaar", String(encryptedBytes, Charsets.UTF_8))
                                             }.onFailure {
-                                                Toast.makeText(context, "Failed to encrypt .udhaar backup.", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(
+                                                    context,
+                                                    context.getString(R.string.toast_backup_encrypt_failed),
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
                                             }
                                         }
                                     },

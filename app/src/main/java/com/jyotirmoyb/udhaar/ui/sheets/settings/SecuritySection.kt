@@ -120,7 +120,7 @@ fun SecuritySection(
                     },
                     RoundedCornerShape(12.dp)
                 )
-                .clickable(enabled = isEncryptionFailed) {
+                .clickable(enabled = isEncryptionFailed, role = androidx.compose.ui.semantics.Role.Button) {
                     onRetryDatabaseEncryption()
                 }
                 .padding(horizontal = 12.dp, vertical = 10.dp)
@@ -142,14 +142,14 @@ fun SecuritySection(
                 Column {
                     Text(
                         text = statusTitle,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
                         color = if (isEncryptionFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.testTag("database_encryption_status_text")
                     )
                     Text(
                         text = statusSubtitle,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -183,12 +183,13 @@ fun SecuritySection(
                 Column {
                     Text(
                         text = stringResource(R.string.ui_str_biometric_pin_app_lock_1d820f),
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = stringResource(R.string.ui_str_require_fingerprint_phone_pin_or_ea5359),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -270,25 +271,16 @@ fun SecuritySection(
                 }
             },
             isError = pinValidationError != null,
-            supportingText = {
-                val currentPinError = pinValidationError
-                if (currentPinError != null) {
+            supportingText = if (pinValidationError != null) {
+                {
                     Text(
-                        text = currentPinError,
+                        text = pinValidationError,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.labelSmall
                     )
-                } else {
-                    Text(
-                        text = if (currentSettings.hasPinConfigured) {
-                            stringResource(R.string.ui_str_pin_is_stored_as_a_a204da)
-                        } else {
-                            stringResource(R.string.ui_str_no_default_pin_exists_you_7470c3)
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
+            } else {
+                null
             },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
             modifier = Modifier
@@ -336,12 +328,13 @@ fun SecuritySection(
                 Column {
                     Text(
                         text = stringResource(R.string.settings_screen_security_title),
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = stringResource(R.string.settings_screen_security_subtitle),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -383,12 +376,13 @@ fun SecuritySection(
                 Column {
                     Text(
                         text = stringResource(R.string.settings_analytics_crash_title),
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = stringResource(R.string.settings_analytics_crash_subtitle),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }

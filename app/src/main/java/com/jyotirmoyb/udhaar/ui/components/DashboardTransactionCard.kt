@@ -247,7 +247,7 @@ internal fun TransactionCardItem(
                         stiffness = Spring.StiffnessLow
                     )
                 )
-                .clickable {
+                .clickable(role = androidx.compose.ui.semantics.Role.Button) {
                     if (!isCardExpanded) {
                         isCardExpanded = true
                     } else {
@@ -412,7 +412,7 @@ internal fun TransactionCardItem(
                         maxLines = 1,
                         softWrap = false,
                         modifier = Modifier
-                            .clickable { isCardExpanded = true }
+                            .clickable(role = androidx.compose.ui.semantics.Role.Button) { isCardExpanded = true }
                             .padding(vertical = 2.dp)
                             .testTag("tx_card_expand_toggle_${tx.id}")
                     )

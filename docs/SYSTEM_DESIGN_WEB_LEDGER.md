@@ -1,3 +1,6 @@
+> [!WARNING]
+> **OBSOLETE / HISTORICAL REFERENCE (Pre-v32):** Any sections below referencing legacy Cloud Functions, Cloud KMS, Blaze-only server endpoints, or "Platform v2" are **superseded and archived** under `archive/`. For the canonical Udhaar v32.0 Spark Mode architecture, security rules, and data safety declarations, see [`docs/REALITY_CHECK.md`](REALITY_CHECK.md), [`docs/PLAY_DATA_SAFETY.md`](PLAY_DATA_SAFETY.md), and [`README.md`](../README.md).
+
 # Udhaar Web Platform & Full-System Architecture Design
 
 This document details the production architecture, cloud ledger synchronization, new user onboarding with email OTP, WhatsApp-based capability verification, and root-cause resolution for Firebase Hosting warnings and amount confirmation anomalies.

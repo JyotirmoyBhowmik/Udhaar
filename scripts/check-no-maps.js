@@ -11,8 +11,8 @@
 const fs = require("fs");
 const path = require("path");
 
-const defaultSrc = path.resolve(__dirname, "../functions/src");
-const disabledSrc = path.resolve(__dirname, "../blaze_disabled/functions/src");
+const defaultSrc = path.resolve(__dirname, "../archive/functions/src");
+const disabledSrc = path.resolve(__dirname, "../archive/blaze_disabled/functions/src");
 const SRC_DIR = fs.existsSync(defaultSrc) ? defaultSrc : (fs.existsSync(disabledSrc) ? disabledSrc : null);
 
 function getJsFiles(dir) {
@@ -56,7 +56,7 @@ for (const file of jsFiles) {
 }
 
 console.log("======================================================");
-console.log("  Udhaar Platform v2 — Real Persistence Audit (R1)   ");
+console.log("  Udhaar Spark Mode — Persistence Audit (R1)          ");
 console.log("======================================================");
 
 if (violations.length > 0) {

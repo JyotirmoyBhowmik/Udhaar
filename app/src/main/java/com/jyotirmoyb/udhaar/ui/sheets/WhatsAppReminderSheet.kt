@@ -425,7 +425,7 @@ fun WhatsAppReminderModal(
                                     color = MaterialTheme.colorScheme.surfaceVariant,
                                     shape = RoundedCornerShape(6.dp),
                                     modifier = Modifier
-                                        .clickable {
+                                        .clickable(role = androidx.compose.ui.semantics.Role.RadioButton) {
                                             editableMessage = "$editableMessage $tag"
                                         }
                                         .testTag("placeholder_chip_$tag")

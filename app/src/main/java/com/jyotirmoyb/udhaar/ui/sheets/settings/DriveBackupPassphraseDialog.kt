@@ -83,7 +83,9 @@ fun DriveBackupPassphraseDialog(
                         IconButton(onClick = { backupPassphraseVisible = !backupPassphraseVisible }) {
                             Icon(
                                 imageVector = if (backupPassphraseVisible) UdhaarIcons.VisibilityOff else UdhaarIcons.Visibility,
-                                contentDescription = null
+                                contentDescription = stringResource(
+                                    if (backupPassphraseVisible) R.string.cd_hide_passphrase else R.string.cd_show_passphrase
+                                )
                             )
                         }
                     },

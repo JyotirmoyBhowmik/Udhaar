@@ -96,24 +96,30 @@ internal fun UdhaarOverlaysHost(
 
         val isCloudSessionActive = uiState.userSettings.cloudVerificationConsent &&
             uiState.userSettings.cloudUserId.isNotBlank()
+        val resolvedCounterpartyUid = activeTxSummary?.transaction?.counterpartyUserId
+            ?.takeIf { it.isNotBlank() }
+            ?: activeParty?.linkedUserId?.takeIf { it.isNotBlank() }
+            ?: uiState.allCalculatedItems.firstOrNull {
+                it.transaction.counterpartyUserId.isNotBlank() &&
+                    ((resolvedPartyId != null && it.transaction.partyId == resolvedPartyId) ||
+                        it.transaction.partyName.trim().equals(resolvedPartyName.trim(), ignoreCase = true))
+            }?.transaction?.counterpartyUserId.orEmpty()
         val hasLinkedCounterparty = if (uiState.activeChatScope == ChatThreadScope.TRANSACTION) {
             val tx = activeTxSummary?.transaction
             tx != null && tx.remoteId.isNotBlank() && tx.counterpartyUserId.isNotBlank()
         } else {
-            val linkedUid = activeParty?.linkedUserId?.ifBlank {
-                uiState.allCalculatedItems.firstOrNull {
-                    it.transaction.counterpartyUserId.isNotBlank() &&
-                        ((resolvedPartyId != null && it.transaction.partyId == resolvedPartyId) ||
-                            it.transaction.partyName.trim().equals(resolvedPartyName.trim(), ignoreCase = true))
-                }?.transaction?.counterpartyUserId.orEmpty()
-            }.orEmpty()
-            linkedUid.isNotBlank()
+            resolvedCounterpartyUid.isNotBlank()
         }
         val isChatCloudLinked = isCloudSessionActive && hasLinkedCounterparty
-        val resolvedMyName = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.resolveUserProfileName(
-            payeeName = uiState.userSettings.payeeName,
-            email = uiState.userSettings.cloudUserEmail
+        val activeUserSafetyKey = com.jyotirmoyb.udhaar.data.repository.ChatRepository.userSafetyKey(
+            counterpartyUid = resolvedCounterpartyUid,
+            partyId = resolvedPartyId,
+            partyName = resolvedPartyName
         )
+        val activeUserSafety = uiState.userChatSafetyByKey[activeUserSafetyKey]
+            ?: resolvedCounterpartyUid.takeIf { it.isNotBlank() }?.let { uid ->
+                uiState.userChatSafetyByKey.values.firstOrNull { it.counterpartyUid == uid }
+            }
 
         ChatThreadBottomSheet(
             threadKey = activeThreadKey,
@@ -126,9 +132,9 @@ internal fun UdhaarOverlaysHost(
             threadMetadata = uiState.chatThreadsByKey[activeThreadKey],
             messages = uiState.chatMessagesByThreadKey[activeThreadKey].orEmpty(),
             auditEntries = activeTxId?.let { uiState.auditTrailByTx[it].orEmpty() }.orEmpty(),
-            myProfileName = resolvedMyName,
             myUpiId = uiState.userSettings.upiId,
             isCloudLinked = isChatCloudLinked,
+            userSafety = activeUserSafety,
             onDismiss = viewModel::closeChatSheet,
             onSendMessage = { messageType, textContent, attachmentUri, attachmentMimeType, fromCounterparty ->
                 viewModel.sendChatMessage(
@@ -147,21 +153,21 @@ internal fun UdhaarOverlaysHost(
             onRequestExtension = { proposedMillis, note, requestedByCounterparty ->
                 if (activeTxSummary != null) {
                     viewModel.requestDueDateExtension(activeTxSummary.transaction, proposedMillis, note, requestedByCounterparty)
-                    Toast.makeText(context, "Due-date extension proposed in chat.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.toast_chat_extension_proposed),
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             },
             onRespondToExtension = { message, accept ->
                 if (activeTxSummary != null) {
                     viewModel.respondToExtensionRequest(activeTxSummary.transaction, message, accept)
-                    val msg = if (accept) "Extension accepted! Due date updated." else "Extension request declined."
+                    val msg = context.getString(
+                        if (accept) R.string.toast_chat_extension_accepted else R.string.toast_chat_extension_declined
+                    )
                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                 }
-            },
-            onSetTypingIndicator = { isTyping ->
-                viewModel.setTypingIndicator(
-                    activeThreadKey, uiState.activeChatScope, activeTxSummary?.transaction?.id,
-                    activeTxSummary?.transaction?.remoteId.orEmpty(), resolvedPartyId, resolvedPartyName, isTyping
-                )
             },
             onToggleMute = {
                 viewModel.toggleThreadMute(
@@ -180,7 +186,37 @@ internal fun UdhaarOverlaysHost(
                     activeThreadKey, uiState.activeChatScope, activeTxSummary?.transaction?.id,
                     activeTxSummary?.transaction?.remoteId.orEmpty(), resolvedPartyId, resolvedPartyName, reason
                 )
-                Toast.makeText(context, "Abusive user reported and blocked.", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, context.getString(R.string.toast_chat_user_reported_blocked), Toast.LENGTH_LONG).show()
+            },
+            onReportThread = { reason ->
+                viewModel.reportThread(
+                    activeThreadKey, uiState.activeChatScope, activeTxSummary?.transaction?.id,
+                    activeTxSummary?.transaction?.remoteId.orEmpty(), resolvedPartyId, resolvedPartyName, reason
+                )
+                Toast.makeText(context, context.getString(R.string.toast_chat_thread_reported_blocked), Toast.LENGTH_LONG).show()
+            },
+            onToggleUserMute = {
+                viewModel.toggleUserMute(
+                    counterpartyUid = resolvedCounterpartyUid,
+                    partyId = resolvedPartyId,
+                    partyName = resolvedPartyName
+                )
+            },
+            onToggleUserBlock = {
+                viewModel.toggleUserBlock(
+                    counterpartyUid = resolvedCounterpartyUid,
+                    partyId = resolvedPartyId,
+                    partyName = resolvedPartyName
+                )
+            },
+            onReportUser = { reason ->
+                viewModel.reportUser(
+                    counterpartyUid = resolvedCounterpartyUid,
+                    partyId = resolvedPartyId,
+                    partyName = resolvedPartyName,
+                    reason = reason
+                )
+                Toast.makeText(context, context.getString(R.string.toast_chat_user_reported_blocked), Toast.LENGTH_LONG).show()
             },
             onOpenWhatsAppFallback = { txId ->
                 viewModel.closeChatSheet()
@@ -203,7 +239,11 @@ internal fun UdhaarOverlaysHost(
                 onOpenVerificationLink = { link ->
                     viewModel.closeVerificationShareModal()
                     if (!viewModel.handleIncomingDeepLinkOrToken(link)) {
-                        Toast.makeText(context, "Invalid verification link.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.toast_invalid_verification_link),
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
             )
@@ -255,7 +295,11 @@ internal fun UdhaarOverlaysHost(
                     confirm = true,
                     counterpartyNameOverride = counterpartyOverride
                 )
-                Toast.makeText(context, "Confirmed! Mirrored record saved to your Khata.", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.toast_confirmed_mirrored_saved),
+                    Toast.LENGTH_LONG
+                ).show()
             },
             onDisputeRecord = { reason, counterpartyOverride ->
                 viewModel.confirmOrDisputeIncomingVerification(
@@ -263,7 +307,11 @@ internal fun UdhaarOverlaysHost(
                     disputeReason = reason,
                     counterpartyNameOverride = counterpartyOverride
                 )
-                Toast.makeText(context, "Dispute recorded on entry.", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.toast_dispute_recorded),
+                    Toast.LENGTH_LONG
+                ).show()
             }
         )
     }
@@ -284,7 +332,11 @@ internal fun UdhaarOverlaysHost(
             onDismiss = viewModel::closeRequestPartyPaymentDetailsModal,
             onOpenReceivedProfileLink = { link ->
                 if (!viewModel.handleIncomingDeepLinkOrToken(urlOrToken = link, targetPartyId = requestParty.partyId)) {
-                    Toast.makeText(context, "Invalid payment profile link.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.toast_invalid_payment_profile_link),
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
         )
@@ -299,7 +351,11 @@ internal fun UdhaarOverlaysHost(
                 viewModel.acceptIncomingPaymentProfile()
                 Toast.makeText(
                     context,
-                    "Saved ${incomingProfile.displayName}'s UPI ID (${InterestCalculator.maskUpiId(incomingProfile.upiId)})",
+                    context.getString(
+                        R.string.toast_saved_upi_profile_fmt,
+                        incomingProfile.displayName,
+                        InterestCalculator.maskUpiId(incomingProfile.upiId)
+                    ),
                     Toast.LENGTH_LONG
                 ).show()
             }
@@ -476,7 +532,15 @@ internal fun UdhaarOverlaysHost(
             duplicatePairs = uiState.duplicatePartyPairs,
             onMergePair = { pair ->
                 viewModel.mergeDuplicatePair(pair)
-                Toast.makeText(context, "Merged ${pair.duplicateParty.name} into ${pair.primaryParty.name}.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    context.getString(
+                        R.string.toast_merged_duplicate_party_fmt,
+                        pair.duplicateParty.name,
+                        pair.primaryParty.name
+                    ),
+                    Toast.LENGTH_SHORT
+                ).show()
             },
             onDismiss = viewModel::closeMergeDuplicatesModal
         )
@@ -486,7 +550,11 @@ internal fun UdhaarOverlaysHost(
         OnboardingModal(
             onFinish = { pin, upiId, payeeName ->
                 viewModel.completeOnboarding(pin, upiId, payeeName)
-                Toast.makeText(context, "Welcome to Udhaar!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.toast_welcome_udhaar),
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         )
     }

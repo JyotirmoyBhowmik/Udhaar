@@ -1,3 +1,6 @@
+> [!WARNING]
+> **OBSOLETE / HISTORICAL REFERENCE (Pre-v32):** Any sections below referencing legacy Cloud Functions, Cloud KMS, Blaze-only server endpoints, or "Platform v2" are **superseded and archived** under `archive/`. For the canonical Udhaar v32.0 Spark Mode architecture, security rules, and data safety declarations, see [`docs/REALITY_CHECK.md`](REALITY_CHECK.md), [`docs/PLAY_DATA_SAFETY.md`](PLAY_DATA_SAFETY.md), and [`README.md`](../README.md).
+
 # Firebase Deployment Runbook — Udhaar Production (v21.0)
 
 This document provides complete, production-grade deployment instructions for the **Udhaar** web platform and backend infrastructure: Single-source static Firebase Hosting (`web/`), Cloud Firestore Security Rules, Cloud Functions (v2), and Enterprise Security Headers.

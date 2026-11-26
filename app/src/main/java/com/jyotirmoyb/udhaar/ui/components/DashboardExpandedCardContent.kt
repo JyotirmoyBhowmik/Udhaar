@@ -471,7 +471,7 @@ internal fun ExpandedTransactionCardContent(
                 .heightIn(min = 48.dp)
                 .pressScaleFeedback()
                 .clip(UdhaarShapeTokens.Corner8)
-                .clickable(onClick = onChatClick)
+                .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onChatClick)
                 .padding(horizontal = 10.dp, vertical = 6.dp)
                 .testTag("card_chat_button_${tx.id}"),
             verticalAlignment = Alignment.CenterVertically,

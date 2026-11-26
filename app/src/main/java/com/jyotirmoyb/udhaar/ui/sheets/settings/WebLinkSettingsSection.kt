@@ -54,12 +54,13 @@ fun WebLinkSettingsSection(
     var showRevokeConfirmDialog by rememberSaveable { mutableStateOf(false) }
 
     SettingsSectionCard(
-        sectionNumber = "6",
+        sectionNumber = "",
         title = stringResource(R.string.web_share_sheet_title),
         subtitle = stringResource(R.string.settings_web_link_upi_subtitle),
-        testTag = "settings_web_links_section"
+        testTag = "settings_web_links_section",
+        initiallyExpanded = false
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // Expiry Days
             Text(
                 text = stringResource(R.string.settings_default_link_expiry),

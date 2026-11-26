@@ -43,6 +43,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.jyotirmoyb.udhaar.BuildConfig
 import com.jyotirmoyb.udhaar.R
 import com.jyotirmoyb.udhaar.security.EncryptedTokenStore
 import com.jyotirmoyb.udhaar.security.SecureScreenEffect
@@ -55,8 +56,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Initial Cloud Verification screen shown before accessing ledger screens.
- * Users can verify their account for two-party cloud verification and messaging,
- * or skip for now to continue in local-only encrypted mode.
+ * Controlled by [BuildConfig.REQUIRE_CLOUD_VERIFICATION] (default false):
+ * when [allowLocalSkip] is true, users may continue in local-only encrypted mode.
  */
 @Composable
 fun CloudVerificationGateScreen(
@@ -66,6 +67,7 @@ fun CloudVerificationGateScreen(
     onVerifiedSession: (uid: String, email: String, displayName: String) -> Unit,
     onSignedOut: () -> Unit,
     onSkipLocalOnly: () -> Unit = {},
+    allowLocalSkip: Boolean = !BuildConfig.REQUIRE_CLOUD_VERIFICATION,
     authControllerOverride: SparkAuthController? = null
 ) {
     SecureScreenEffect(enabled = true)
@@ -152,7 +154,9 @@ fun CloudVerificationGateScreen(
                 }
 
                 Text(
-                    text = stringResource(R.string.cloud_gate_title),
+                    text = stringResource(
+                        if (allowLocalSkip) R.string.cloud_gate_optional_title else R.string.cloud_gate_title
+                    ),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Black,
                     color = MaterialTheme.colorScheme.onBackground,
@@ -160,7 +164,9 @@ fun CloudVerificationGateScreen(
                 )
 
                 Text(
-                    text = stringResource(R.string.cloud_gate_subtitle),
+                    text = stringResource(
+                        if (allowLocalSkip) R.string.cloud_gate_optional_subtitle else R.string.cloud_gate_subtitle
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -173,7 +179,13 @@ fun CloudVerificationGateScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = stringResource(R.string.cloud_gate_verify_consent_note),
+                        text = stringResource(
+                            if (allowLocalSkip) {
+                                R.string.cloud_gate_optional_consent_note
+                            } else {
+                                R.string.cloud_gate_verify_consent_note
+                            }
+                        ),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary,
@@ -224,7 +236,7 @@ fun CloudVerificationGateScreen(
                             )
                             Button(
                                 onClick = {
-                                    runAction("Failed to refresh verification status") {
+                                    runAction(context.getString(R.string.cloud_gate_err_refresh_status)) {
                                         val refreshed = authController.reloadSession()
                                         if (refreshed != null && refreshed.isEmailVerified) {
                                             handleSession(refreshed)
@@ -247,7 +259,7 @@ fun CloudVerificationGateScreen(
                             }
                             OutlinedButton(
                                 onClick = {
-                                    runAction("Could not resend verification email") {
+                                    runAction(context.getString(R.string.cloud_gate_err_resend_email)) {
                                         authController.sendEmailVerification()
                                         statusMessage = context.getString(R.string.account_resend_verification_btn)
                                     }
@@ -262,7 +274,7 @@ fun CloudVerificationGateScreen(
                             }
                             OutlinedButton(
                                 onClick = {
-                                    runAction("Sign-out failed") {
+                                    runAction(context.getString(R.string.cloud_gate_err_sign_out)) {
                                         authController.signOut()
                                         tokenStore.clearSession()
                                         onSignedOut()
@@ -301,7 +313,7 @@ fun CloudVerificationGateScreen(
                                 onPasswordChange = { passwordInput = it },
                                 onContactPhoneChange = { contactPhoneInput = it },
                                 onGoogleSignIn = {
-                                    runAction("Google Sign-In failed") {
+                                    runAction(context.getString(R.string.cloud_gate_err_google_signin)) {
                                         val session = authController.signInWithGoogle(context)
                                         handleSession(session)
                                     }
@@ -309,29 +321,29 @@ fun CloudVerificationGateScreen(
                                 onSendPasswordReset = {
                                     val clean = emailInput.trim()
                                     if (!clean.contains("@")) {
-                                        errorMessage = "Please enter a valid email address."
+                                        errorMessage = context.getString(R.string.cloud_gate_err_invalid_email)
                                         return@AccountSignedOutPanel
                                     }
-                                    runAction("Failed to send password reset email") {
+                                    runAction(context.getString(R.string.cloud_gate_err_password_reset)) {
                                         authController.sendPasswordResetEmail(clean)
-                                        statusMessage = "Password reset link sent to $clean"
+                                        statusMessage = context.getString(R.string.cloud_gate_status_reset_sent_fmt, clean)
                                     }
                                 },
                                 onSubmitEmailAuth = {
                                     val clean = emailInput.trim()
                                     if (!clean.contains("@")) {
-                                        errorMessage = "Please enter a valid email address."
+                                        errorMessage = context.getString(R.string.cloud_gate_err_invalid_email)
                                         return@AccountSignedOutPanel
                                     }
                                     if (authMode == SparkAuthUiMode.SIGNUP && passwordInput.length < 10) {
-                                        errorMessage = "Password must be at least 10 characters."
+                                        errorMessage = context.getString(R.string.cloud_gate_err_password_length)
                                         return@AccountSignedOutPanel
                                     }
                                     if (passwordInput.isEmpty()) {
-                                        errorMessage = "Please enter your password."
+                                        errorMessage = context.getString(R.string.cloud_gate_err_password_empty)
                                         return@AccountSignedOutPanel
                                     }
-                                    runAction("Authentication failed") {
+                                    runAction(context.getString(R.string.cloud_gate_err_auth_failed)) {
                                         val session = if (authMode == SparkAuthUiMode.SIGNUP) {
                                             authController.signUpWithEmailPassword(clean, passwordInput, contactPhoneInput)
                                         } else {
@@ -367,22 +379,24 @@ fun CloudVerificationGateScreen(
                     )
                 }
 
-                OutlinedButton(
-                    onClick = onSkipLocalOnly,
-                    enabled = !isLoading,
-                    shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp)
-                        .testTag("cloud_gate_skip_local_btn")
-                ) {
-                    Text(
-                        text = stringResource(R.string.cloud_gate_skip_local_btn),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                if (allowLocalSkip) {
+                    OutlinedButton(
+                        onClick = onSkipLocalOnly,
+                        enabled = !isLoading,
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .testTag("cloud_gate_skip_local_btn")
+                    ) {
+                        Text(
+                            text = stringResource(R.string.cloud_gate_skip_local_btn),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(2.dp))

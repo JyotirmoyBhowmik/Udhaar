@@ -245,7 +245,7 @@ test("Web App Axe: Automated axe-core accessibility audit when Playwright is ava
   const http = require("node:http");
   const candidateAxePaths = [
     path.resolve(ROOT_DIR, "node_modules/axe-core/axe.min.js"),
-    path.resolve(ROOT_DIR, "blaze_disabled/functions/node_modules/axe-core/axe.min.js")
+    path.resolve(ROOT_DIR, "archive/blaze_disabled/functions/node_modules/axe-core/axe.min.js")
   ];
   const axePath = candidateAxePaths.find((p) => fs.existsSync(p));
   if (!axePath) return;

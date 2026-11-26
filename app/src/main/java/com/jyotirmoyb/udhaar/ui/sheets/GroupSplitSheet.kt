@@ -759,7 +759,7 @@ private fun ActiveGroupsSummaryBox(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onSelectGroup(group) }
+                    .clickable(role = androidx.compose.ui.semantics.Role.Button) { onSelectGroup(group) }
                     .testTag("active_group_card_${group.groupName}")
             ) {
                 Column(

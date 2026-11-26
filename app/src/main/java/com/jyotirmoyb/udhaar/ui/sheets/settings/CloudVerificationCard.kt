@@ -170,7 +170,7 @@ fun CloudVerificationCard(
                     .testTag("cloud_backup_status_row")
                     .then(
                         if (backupState != CloudBackupState.BACKING_UP) {
-                            Modifier.clickable { onRetryCloudBackup() }
+                            Modifier.clickable(role = androidx.compose.ui.semantics.Role.Button) { onRetryCloudBackup() }
                         } else {
                             Modifier
                         }

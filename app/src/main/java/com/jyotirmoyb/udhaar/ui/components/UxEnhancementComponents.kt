@@ -326,7 +326,7 @@ fun NeedsAttentionStrip(
             .fillMaxWidth()
             .pressScaleFeedback()
             .testTag("needs_attention_strip")
-            .clickable { onFilterSelect(targetFilter) },
+            .clickable(role = androidx.compose.ui.semantics.Role.Button) { onFilterSelect(targetFilter) },
         shape = UdhaarShapeTokens.ShapeMedium,
         colors = CardDefaults.cardColors(containerColor = containerColor),
         border = BorderStroke(1.dp, accentColor.copy(alpha = 0.3f))

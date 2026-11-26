@@ -1,3 +1,6 @@
+> [!WARNING]
+> **OBSOLETE / HISTORICAL REFERENCE (Pre-v32):** Any sections below referencing legacy Cloud Functions, Cloud KMS, Blaze-only server endpoints, or "Platform v2" are **superseded and archived** under `archive/`. For the canonical Udhaar v32.0 Spark Mode architecture, security rules, and data safety declarations, see [`docs/REALITY_CHECK.md`](REALITY_CHECK.md), [`docs/PLAY_DATA_SAFETY.md`](PLAY_DATA_SAFETY.md), and [`README.md`](../README.md).
+
 # Udhaar Operations & Free-Tier Monitoring Guide (Spark Mode)
 
 This document provides operational instructions for monitoring and managing Udhaar running under the **Google Firebase Spark (free) plan**. It covers real-time usage observation in the Firebase Console, the system's fail-safe behavior when daily quotas are reached, non-fatal telemetry diagnostics, and a step-by-step runbook for graduating to the pay-as-you-go **Blaze** plan if organic growth demands it.
@@ -17,7 +20,7 @@ The Udhaar architecture runs with **zero cloud infrastructure costs** on the Fir
 | **Firebase Hosting Bandwidth** | **10 GB / month (~360 MB / day)** | Monthly billing cycle | Hosting returns HTTP 509 Bandwidth Exceeded |
 | **Firebase Authentication** | **Unlimited (Email/Google/Anon)** | N/A | Free tier covers unlimited verified accounts |
 | **Cloud Storage for Firebase** | **0 bytes (Spark Disabled)** | N/A | Photo uploads disabled; receipts rendered locally |
-| **Cloud Functions for Firebase** | **0 invocations (Spark Disabled)** | N/A | Code preserved in `/blaze_disabled/functions` |
+| **Cloud Functions for Firebase** | **0 invocations (Spark Disabled)** | N/A | Code preserved in `/archive/blaze_disabled/functions` |
 
 ---
 
@@ -96,17 +99,17 @@ If community adoption grows beyond 50,000 daily reads or if photo attachments / 
 
 ### Step 4.3: Restore Blaze-Disabled Components
 1. **Cloud Functions**:
-   Move preserved files from `blaze_disabled/functions/` back to root `functions/`:
+   Move preserved files from `archive/blaze_disabled/functions/` back to root `functions/`:
    ```bash
-   git mv blaze_disabled/functions functions
+   git mv archive/blaze_disabled/functions functions
    ```
 2. **Cloud Storage Rules**:
-   Move preserved rules from `blaze_disabled/storage.rules` back to root:
+   Move preserved rules from `archive/blaze_disabled/storage.rules` back to root:
    ```bash
-   git mv blaze_disabled/storage.rules storage.rules
+   git mv archive/blaze_disabled/storage.rules storage.rules
    ```
 3. **Legacy Tests**:
-   Move `blaze_disabled/tests/firestore.legacy.test.js` back to `functions/test/`.
+   Move `archive/blaze_disabled/tests/firestore.legacy.test.js` back to `functions/test/`.
 
 ### Step 4.4: Deploy Cloud Functions and Storage Rules
 Run full deployment with the Firebase CLI:

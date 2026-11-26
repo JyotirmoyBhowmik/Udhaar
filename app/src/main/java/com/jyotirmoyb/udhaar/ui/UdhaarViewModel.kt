@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
+import com.jyotirmoyb.udhaar.BuildConfig
 import com.jyotirmoyb.udhaar.backup.DriveConnectionTestReport
 import com.jyotirmoyb.udhaar.backup.DriveRemoteBackup
 import com.jyotirmoyb.udhaar.backup.DriveResult
@@ -199,21 +200,6 @@ class UdhaarViewModel(
         super.onCleared()
     }
 
-    private data class SharedNavBundle(
-        val activeScreen: ActiveScreen,
-        val summaryCurrency: CurrencyType?,
-        val selectedPartyIdForSheet: Long?,
-        val editingTransaction: UdhaarTransaction?,
-        val preselectedPartyDraft: PreselectedPartyDraft?,
-        val isAmountsHidden: Boolean,
-        val undoSnackbarMessage: String?,
-        val successAnimationEvent: com.jyotirmoyb.udhaar.ui.components.SuccessAnimationEvent?,
-        val hasUnlockedThisSession: Boolean,
-        val manualLockRequested: Boolean,
-        val dbEncryptionState: EncryptedStorageManager.DbEncryptionState,
-        val blockingSqlCipherError: String?
-    )
-
     private val sharedNavFlow = combine(
         appStateHolder.activeScreen,
         appStateHolder.summaryCurrency,
@@ -356,7 +342,11 @@ class UdhaarViewModel(
         } else {
             !sState.userSettings.cloudVerificationConsent || sState.userSettings.cloudUserId.isBlank()
         }
-        val requiresGate = needsVerification && !nav2.cloudGateSkipped
+        val requiresGate = if (BuildConfig.REQUIRE_CLOUD_VERIFICATION) {
+            needsVerification
+        } else {
+            needsVerification && !nav2.cloudGateSkipped
+        }
 
         UdhaarUiState(
             isAuthenticated = unlocked,
@@ -403,6 +393,7 @@ class UdhaarViewModel(
             isGeneratingWebLink = vState.isGeneratingWebLink,
             showUpdatesScreen = vState.showUpdatesScreen,
             chatThreadsByKey = cState.chatThreadsByKey,
+            userChatSafetyByKey = cState.userChatSafetyByKey,
             chatMessagesByThreadKey = cState.chatMessagesByThreadKey,
             unreadCountByTx = cState.unreadCountByTx,
             unreadCountByPartyName = cState.unreadCountByPartyName,
@@ -456,6 +447,9 @@ class UdhaarViewModel(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = UdhaarUiState(isInitialLoading = true)
     )
+
+    val historyAndSearchPagingFlow: kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<com.jyotirmoyb.udhaar.data.TransactionHistoryProjection>>
+        get() = dashboardViewModel.historyAndSearchPagingFlow
 
     fun retryDatabaseEncryption(onComplete: ((Boolean) -> Unit)? = null) {
         val ctx = appContext
@@ -871,6 +865,35 @@ class UdhaarViewModel(
         partyId: Long? = null,
         partyName: String
     ) = chatViewModel.toggleThreadBlock(threadKey, scope, transactionId, remoteId, partyId, partyName)
+
+    fun reportThread(
+        threadKey: String,
+        scope: ChatThreadScope,
+        transactionId: Long? = null,
+        remoteId: String = "",
+        partyId: Long? = null,
+        partyName: String,
+        reason: String
+    ) = chatViewModel.reportThread(threadKey, scope, transactionId, remoteId, partyId, partyName, reason)
+
+    fun toggleUserMute(
+        counterpartyUid: String = "",
+        partyId: Long? = null,
+        partyName: String
+    ) = chatViewModel.toggleUserMute(counterpartyUid, partyId, partyName)
+
+    fun toggleUserBlock(
+        counterpartyUid: String = "",
+        partyId: Long? = null,
+        partyName: String
+    ) = chatViewModel.toggleUserBlock(counterpartyUid, partyId, partyName)
+
+    fun reportUser(
+        counterpartyUid: String = "",
+        partyId: Long? = null,
+        partyName: String,
+        reason: String
+    ) = chatViewModel.reportUser(counterpartyUid, partyId, partyName, reason)
 
     fun reportAbusiveUserInThread(
         threadKey: String,

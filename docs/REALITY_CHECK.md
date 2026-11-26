@@ -1,56 +1,38 @@
-# Udhaar — Reality Check & Architectural Audit (v29.0 Spark Mode)
+# Udhaar — Reality Check & Architectural Audit (v32.0 Spark Mode)
 
-**Document Version**: 29.0.0-AUDIT  
-**Audit Date**: 2026-11-21  
-**Scope**: Full-stack verification of `app/`, `web/`, `webapp/`, `firestore.rules`, `firestore.indexes.json`, `rules-tests/`, `web-tests/`, `version.properties`, `.github/workflows/`, `README.md`, and `docs/launch-checklist.md`.
+**Document Version:** `32.0.0-AUDIT`  
+**Version Audited:** `versionName = "32.0"`, `versionCode = 32` (`app/build.gradle.kts`, `version.properties`, `package.json`)  
+**Scope:** End-to-end audit of `app/`, `baselineprofile/`, `firestore.rules`, `rules-tests/`, `web/`, `webapp/`, `.github/`, `docs/`, and `archive/`.
 
 ---
 
 ## 1. Executive Summary
 
-Udhaar v29.0 operates in **Spark Mode (`UDHAAR_TIER = "spark"`)** by default, running 100% on the free Firebase Spark tier without requiring a Google Cloud billing account, Cloud Functions (`functions:api`), Cloud Storage buckets, Cloud KMS, or Secret Manager at runtime.
-
-Key architectural truths verified in code and automated tests:
-- **Android Local-First Core**: Records, parties, partial payments, installment schedules, and audit trails are stored locally on the device in a 256-bit **SQLCipher (`net.zetetic:android-database-sqlcipher`)** Room database (`UdhaarDatabase.kt`, schema v13).
-- **Spark Cloud Features Enabled by Default (`BuildConfig.CLOUD_FEATURES = true`, `BLAZE_FEATURES_ENABLED = false`)**: Spark-tier cloud sync, verification links, and in-app cloud data deletion are enabled by default in `app/build.gradle.kts` (disable with `-Pudhaar.cloudFeatures=false`), while Blaze-only server features remain strictly disabled (`BLAZE_FEATURES_ENABLED = false`).
-- **Firebase Auth & Email Verification Gate**: When cloud account access is used, authentication uses **Firebase Auth** directly (Google Sign-In via Jetpack Credential Manager / Web popup, and Email/Password with mandatory email verification, password reset, and re-authentication). Cloud sync stays strictly disabled until `email_verified == true`.
-- **Guest Capability Links without Cloud Functions**: The lender app writes capability-protected snapshots to `/guestLinks/{linkId}` (where `linkId = SHA256(secret)`). The guest web portal (`web/u/guest.js`) signs in anonymously via the locally bundled Firebase JS SDK, reads `/guestLinks/{linkId}`, and creates immutable proposal documents in `/guestLinks/{linkId}/actions/{actionId}` (`confirm`, `dispute`, `claim_1..5`, `date_1..3`). The lender app polls actions via a Firestore collection-group query on `ownerUid` (`GuestActionPollingWorker.kt`).
-- **Real Adaptive Layouts & 48 dp Touch Targets**: At widths `>= 600.dp`, `DashboardScreen` and `PeopleDirectoryContent` render side-by-side list-detail panes. `AddEditUdhaarScreen` caps form width at `560.dp` and supports landscape scrolling. All 43 previously undersized touch targets have been upgraded to `>= 48.dp` (`heightIn(min = 48.dp)` / `sizeIn(minWidth = 48.dp, minHeight = 48.dp)`) and verified at `fontScale = 2.0`.
-- **In-App Help & Contact + Spark Cloud Data Deletion**: Users have an in-app Help & Contact screen (`HelpAndContactSheet.kt`) with Support (`admin@jyotirmoyb.com`), Grievance Officer (`grievance@jyotirmoyb.com`), Privacy Policy, and Terms of Service links, plus a working **"Delete my cloud data"** button that deletes the user's Firestore documents across all Spark collections and resets local records to `LOCAL_ONLY`.
+Udhaar v32.0 runs strictly on **local-first encrypted SQLCipher Room storage (v15)** plus the **Firebase Spark (Free) Tier** (Authentication, Firestore Security Rules & Indexes, and Firebase Hosting). All obsolete staging reports, duplicate Data Safety files, and legacy pre-Spark directories (`functions/`, `blaze_disabled/`, `admin/`) have been removed or consolidated under `archive/`.
 
 ---
 
-## 2. Launch Checklist Reality Check Matrix (`docs/launch-checklist.md`)
+## 2. v31 → v32 Fix Verification Matrix
 
-| Category | Feature / Claim | Proving File | Proving Test | Status | Notes |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **1. Infra** | Spark-Safe CI/CD Deployments (`hosting`, `firestore:rules`, `firestore:indexes` only) | `.github/workflows/deploy-prod.yml`, `.github/workflows/deploy-staging.yml` | `web-tests/web_client.test.js` | **Proven** | `functions:api` and `storage` rules removed from Spark deploy workflows; production project cutover documented in `docs/PRODUCTION_FIREBASE_PROJECT.md`. |
-| **1. Infra** | Dual Origin Isolation & Strict CSP | `infra/firebase.prod.json`, `firebase.json` | `web-tests/web_client.test.js` | **Proven** | `connect-src` restricted to Firebase Auth, Firestore, and App Check endpoints; zero inline code. |
-| **1. Infra** | Optional Blaze Enterprise Modules (`blaze_disabled/functions/`) | `blaze_disabled/functions/src/crypto/envelopeCrypto.js` | `blaze_disabled/functions/test/stage_r2_cryptography.test.js` | **Optional (Blaze Only)** | Archived under `blaze_disabled/`; never deployed or required in Spark Mode. |
-| **2. Auth** | Firebase Auth (Google Credential Manager + Email/Password + Reset + Re-auth) | `app/src/main/java/com/jyotirmoyb/udhaar/ui/sheets/settings/AccountAndWebAccessSection.kt` | `app/src/test/java/com/jyotirmoyb/udhaar/ui/sheets/AccountAndWebAccessSectionTest.kt` | **Proven** | Split into 4 modular files `< 600` lines; zero `/api/v1` calls in Spark Mode; Cloud Sync switch disabled until email is verified. |
-| **2. Auth** | App Check Debug Provider Isolation | `app/build.gradle.kts`, `app/src/release/java/com/jyotirmoyb/udhaar/di/AppCheckProviderInstaller.kt` | `app/src/test/java/com/jyotirmoyb/udhaar/sync/SparkQuotaAndAppCheckTest.kt` | **Proven** | `firebase-appcheck-debug` is `debugImplementation` only; guarded by `:app:verifyReleaseNoDebugAppCheck`. |
-| **3. Data** | Strict Spark Firestore Rules (`users`, `records`, `people`, `events`, `plans`, `attachments`, `meta/syncSignal`) | `firestore.rules` | `rules-tests/firestore-rules.test.js` | **Proven** | Real `withinSize`, field allow-lists/types/lengths, monotonic `rev == resource.data.rev + 1`, create-only schema-checked `events` — 13/13 emulator suites pass. |
-| **3. Data** | Guest Links & Fixed 10-Slot Action Rules (`guestLinks/{linkId}/actions/{actionId}`) | `firestore.rules`, `web/u/guest.js` | `rules-tests/firestore-rules.test.js` | **Proven** | Tested for expired link, revoked link, action ID caps (`confirm`, `dispute`, `claim_1..5`, `date_1..3`), and no updates/deletes. |
-| **3. Data** | Collection-Group Polling on `ownerUid` | `app/src/main/java/com/jyotirmoyb/udhaar/sync/GuestActionPollingWorker.kt` | `rules-tests/firestore-rules.test.js` | **Proven** | Composite index in `firestore.indexes.json` + collection-group rule verified. |
-| **4. Web** | Locally Bundled Firebase JS SDK + Re-enabled Web Test Suites | `webapp/src/api/firebaseSdk.js`, `scripts/build-webapp.js` | `web-tests/*.test.js` | **Proven** | Official `firebase` npm package bundled locally; 76/76 web tests pass in CI. |
-| **4. Web** | 5-Language Terms of Service & Privacy Policy (`en`, `hi`, `bn`, `as`, `ne`) | `web/terms.html`, `web/privacy.html` | `web-tests/landing_privacy_page.test.js` | **Proven** | Linked from landing page, privacy page, and Android app with zero inline styles/scripts or unresolved placeholders. |
-| **5. Android** | Explicit Versioning, Detekt, Clean `UdhaarIcons` & Smoke Suite | `version.properties`, `config/detekt/detekt.yml`, `ReleaseSmokeInstrumentedTest.kt` | `app/src/test/java/com/jyotirmoyb/udhaar/ReleaseSmokeTest.kt` | **Proven** | Monotonic `versionCode >= 28`, Detekt enabled in CI, `androidx` icon package removed, 6-journey instrumented smoke test + `docs/RELEASE_SMOKE_TEST_RESULTS.md`. |
-| **5. Android** | Real Adaptive Layouts (`>= 600.dp` List-Detail, `560.dp` Form Width Cap, Landscape) & `>= 48 dp` Touch Targets | `DashboardScreen.kt`, `PeopleDirectoryScreen.kt`, `AddEditUdhaarScreen.kt` | `app/src/test/java/com/jyotirmoyb/udhaar/ExampleRobolectricTest.kt` | **Proven** | Verified with Robolectric Compose tests on `w800dp` tablet, `w640dp-h360dp` landscape, and `fontScale = 2.0f`. |
-| **6. Privacy** | In-App Help & Contact + Spark Mode "Delete My Cloud Data" | `HelpAndContactSheet.kt`, `AccountAndWebAccessSection.kt` | `app/src/test/java/com/jyotirmoyb/udhaar/ui/sheets/AccountAndWebAccessSectionTest.kt` | **Proven** | Deletes user's Firestore documents across all Spark collections and resets local records to `LOCAL_ONLY`. |
+| # | Requirement | Proving Code / Config | Proving Automated Test | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **1** | **Cloud Verification Gate (`BuildConfig.REQUIRE_CLOUD_VERIFICATION`, default `false`)** with 5-language wording & updated docs | `app/build.gradle.kts`, `CloudVerificationGateScreen.kt`, `UdhaarScreenRouter.kt`, `UdhaarViewModel.kt`, `docs/PLAY_DATA_SAFETY.md`, `docs/STORE_LISTING.md`, `README.md` | `VerificationAndMessagingV31Test.kt`, `ExampleUnitTest.kt` | **Verified** |
+| **2** | **Chat Safety (Report, Block & Mute for User and Thread)** stored locally + in Firestore & enforced in `firestore.rules` | `UdhaarEntities.kt` (`UserChatSafetyEntity`), `ChatRepository.kt`, `VerificationCloudRepository.kt`, `ChatSafetyDialogs.kt`, `CommunicationSheets.kt`, `firestore.rules` (`isUserBlockedBy`, `parentThreadAllowsMessage`) | `rules-tests/firestore-rules.test.js` (`A8`, `C8`), `VerificationAndMessagingV31Test.kt` | **Verified** |
+| **3** | **Docs Cleanup & Single Source of Truth** (`docs/STAGING_REPORT.md` & duplicate `docs/play-data-safety.md` deleted; `functions/`, `blaze_disabled/`, `admin/` archived under `archive/`) | `archive/README.md`, `docs/REALITY_CHECK.md`, `docs/PLAY_DATA_SAFETY.md`, `docs/STORE_LISTING.md`, `docs/launch-checklist.md` | `scripts/verify-launch-checklist.js`, `web-tests/stage_s10_release.test.js` | **Verified** |
+| **4** | **Firestore Rules: Verified Email Everywhere + Fuzz Tests + Per-Rule Coverage** | `firestore.rules` (`isVerifiedSignedIn()` across `/users/**`, `/guestLinks/**`, `/user_profiles/**`, `/shared_records/**`, `/chat_threads/**`) | `rules-tests/firestore-rules.test.js` (`A1–A8`, `B1–B6`, `C1–C8`, `D1` fuzz matrix) | **Verified** |
+| **5** | **Performance: LazyColumn Keys, Paging 3 Projections, Baseline Profile, Startup Benchmark, Native Symbols** | `UdhaarDao.kt`, `UdhaarProjections.kt`, `LedgerRepository.kt`, `DashboardViewModel.kt`, `DashboardScreen.kt`, `baselineprofile/src/main/java/.../BaselineProfileGenerator.kt`, `StartupBenchmarks.kt`, `app/build.gradle.kts` (`ndk { debugSymbolLevel = "SYMBOL_TABLE" }`) | `ColdStartPerformanceAndStrictModeTest.kt`, `LedgerRepositoryTest.kt` | **Verified** |
+| **6** | **Accessibility: Audited `contentDescription`, Clickable `Role`s, TalkBack & `fontScale = 2.0f` UI Tests** | `DashboardScreen.kt`, `AddEditUdhaarScreen.kt`, `PeopleDirectoryScreen.kt`, `CommunicationSheets.kt`, `DriveBackupPassphraseDialog.kt`, `DriveRestorePassphraseDialog.kt` | `AccessibilityTalkBackFontScaleTest.kt`, `ExampleRobolectricTest.kt` | **Verified** |
+| **7** | **Translations (5 Languages: `en`, `hi`, `bn`, `as`, `ne`) + CI Untranslated/Missing Key Test** | `app/src/main/res/values*/strings.xml`, `MainActivity.kt`, `AddEditPartyAndAmountSection.kt`, `AddEditTermsAndInterestSection.kt` | `ExampleUnitTest.kt` (`plainLanguageStyleGuide_andNoBannedWordsOrAllCapsRemain`) | **Verified** |
+| **8** | **Modular Files `< 600` Lines + Zero Raw `Log` Calls** (`VerificationSheets`, `CommunicationSheets`, `EncryptedStorageManager` split; `SafeLogger` used everywhere) | `VerificationSheets.kt` (546), `VerificationIncomingDialogs.kt` (478), `PaymentProfileShareSheets.kt` (523), `CommunicationSheets.kt` (576), `ChatMessageComponents.kt` (544), `ChatSafetyDialogs.kt` (559), `EncryptedStorageManager.kt` (408), `SqlCipherMigrationEngine.kt` (442), `KeystoreCryptoAndFileHelper.kt` (188) | `AppLoggerAndSecurityHardeningTest.kt` | **Verified** |
+| **9** | **CI Hardening: Gradle Managed Device (`ReleaseSmokeInstrumentedTest`), Dependabot, Fail on Detekt Warnings** | `.github/workflows/ci.yml` (`managed-device-smoke-test`), `.github/dependabot.yml`, `app/build.gradle.kts` (`--max-issues 0`), `config/detekt/detekt.yml` (`maxIssues: 0`) | `web-tests/stage_s10_release.test.js`, `gradle :app:detekt` | **Verified** |
+| **10** | **Version Bump to `32.0`** | `app/build.gradle.kts` (`versionCode = 32`, `versionName = "32.0"`), `version.properties`, `package.json` | `ReleaseSmokeTest.kt` | **Verified** |
 
 ---
 
-## 3. Trust Center Claims Reality Check (`docs/TRUST_CLAIMS.md`)
+## 3. Security & Privacy Invariants
 
-1. **Claim 1: "Your records stay locked on your phone"**:
-   - **Status**: **PROVEN**. Verified in `UdhaarDatabase.kt` and `EncryptedStorageManager.kt`. The Android app operates 100% locally with 256-bit SQLCipher encryption and Android Keystore key wrapping.
-2. **Claim 2: "Your backup password never leaves your phone"**:
-   - **Status**: **PROVEN**. Verified in `DriveBackupCrypto.kt` (PBKDF2-HMAC-SHA256 with 600,000 iterations + AES-256-GCM authenticated encryption).
-3. **Claim 3: "What the web page stores for a guest"**:
-   - **Status**: **PROVEN**. Verified in `GuestWebCloudRepository.kt`, `web/u/guest.js`, and `firestore.rules` (capability secret stays in URL `#fragment`, `linkId = SHA256(secret)`, and guest actions are immutable proposals in fixed action slots).
-4. **Claim 4: "How long data is kept"**:
-   - **Status**: **PROVEN**. Guest links enforce `expiresAt` in `firestore.rules` (`request.time < link.expiresAt`) and can be revoked (`status == "revoked"`) at any time from the lender app.
-5. **Claim 5: "How to delete your data"**:
-   - **Status**: **PROVEN**. Users can delete individual records or wipe local data anytime, use the in-app **"Delete my cloud data"** button in Settings to erase all synced Firestore documents and guest links in Spark Mode, or submit a web deletion request via `privacy.html`.
-6. **Claim 6: "What Udhaar does NOT do"**:
-   - **Status**: **PROVEN**. The codebase contains zero payment execution APIs, zero third-party ad SDKs, zero background contact book uploads, and zero phone-number authentication in Spark Mode.
+1. **Local Storage Encryption:** 256-bit SQLCipher Room database (`UdhaarDatabase` v15) with fail-closed Android Keystore key wrapping (`EncryptedStorageManager.kt`).
+2. **Zero-Knowledge Backups:** PBKDF2-HMAC-SHA256 (600,000 iterations) + AES-256-GCM (`DriveBackupCrypto.kt`) for local `.udhaar` and Google Drive `appDataFolder` backups.
+3. **Zero Unverified Cloud Access:** Every Firestore match rule in `firestore.rules` requires `request.auth != null && request.auth.token.email_verified == true`.
+4. **Zero-PII Logging:** All application log statements use `SafeLogger`, which scrubs phone numbers, emails, UPI IDs, amounts, and secrets before forwarding to `AppLogger`.
+5. **No Server-Side Cloud Functions or Cloud KMS in Production:** Production deployments exclusively deploy `hosting`, `firestore:rules`, and `firestore:indexes` on Firebase Spark.

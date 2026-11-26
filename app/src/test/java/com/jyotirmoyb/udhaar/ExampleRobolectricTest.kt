@@ -37,8 +37,8 @@ class ExampleRobolectricTest {
         val appName = context.getString(R.string.app_name)
         assertEquals("Udhaar", appName)
         assertEquals("com.jyotirmoyb.udhaar", BuildConfig.APPLICATION_ID)
-        assertTrue(BuildConfig.VERSION_CODE >= 28)
-        assertEquals("31.0", BuildConfig.VERSION_NAME)
+        assertTrue(BuildConfig.VERSION_CODE >= 32)
+        assertEquals("32.0", BuildConfig.VERSION_NAME)
     }
 
     @get:org.junit.Rule
@@ -1181,8 +1181,8 @@ class ExampleRobolectricTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
 
         // 1. Version >= 28 (explicit version.properties) and Settings > About string format
-        assertTrue(BuildConfig.VERSION_CODE >= 28)
-        assertEquals("31.0", BuildConfig.VERSION_NAME)
+        assertTrue(BuildConfig.VERSION_CODE >= 32)
+        assertEquals("32.0", BuildConfig.VERSION_NAME)
         val aboutVersionText = context.getString(
             R.string.settings_about_version_format,
             BuildConfig.VERSION_NAME,
@@ -1417,7 +1417,16 @@ class ExampleRobolectricTest {
             "src/main/java/com/jyotirmoyb/udhaar/MainActivity.kt" to "app/src/main/java/com/jyotirmoyb/udhaar/MainActivity.kt",
             "src/main/java/com/jyotirmoyb/udhaar/ui/components/DashboardScreen.kt" to "app/src/main/java/com/jyotirmoyb/udhaar/ui/components/DashboardScreen.kt",
             "src/main/java/com/jyotirmoyb/udhaar/ui/components/PeopleDirectoryScreen.kt" to "app/src/main/java/com/jyotirmoyb/udhaar/ui/components/PeopleDirectoryScreen.kt",
-            "src/main/java/com/jyotirmoyb/udhaar/ui/components/AddEditUdhaarScreen.kt" to "app/src/main/java/com/jyotirmoyb/udhaar/ui/components/AddEditUdhaarScreen.kt"
+            "src/main/java/com/jyotirmoyb/udhaar/ui/components/AddEditUdhaarScreen.kt" to "app/src/main/java/com/jyotirmoyb/udhaar/ui/components/AddEditUdhaarScreen.kt",
+            "src/main/java/com/jyotirmoyb/udhaar/ui/components/VerificationSheets.kt" to "app/src/main/java/com/jyotirmoyb/udhaar/ui/components/VerificationSheets.kt",
+            "src/main/java/com/jyotirmoyb/udhaar/ui/components/VerificationIncomingDialogs.kt" to "app/src/main/java/com/jyotirmoyb/udhaar/ui/components/VerificationIncomingDialogs.kt",
+            "src/main/java/com/jyotirmoyb/udhaar/ui/components/PaymentProfileShareSheets.kt" to "app/src/main/java/com/jyotirmoyb/udhaar/ui/components/PaymentProfileShareSheets.kt",
+            "src/main/java/com/jyotirmoyb/udhaar/ui/components/CommunicationSheets.kt" to "app/src/main/java/com/jyotirmoyb/udhaar/ui/components/CommunicationSheets.kt",
+            "src/main/java/com/jyotirmoyb/udhaar/ui/components/ChatMessageComponents.kt" to "app/src/main/java/com/jyotirmoyb/udhaar/ui/components/ChatMessageComponents.kt",
+            "src/main/java/com/jyotirmoyb/udhaar/ui/components/ChatSafetyDialogs.kt" to "app/src/main/java/com/jyotirmoyb/udhaar/ui/components/ChatSafetyDialogs.kt",
+            "src/main/java/com/jyotirmoyb/udhaar/security/EncryptedStorageManager.kt" to "app/src/main/java/com/jyotirmoyb/udhaar/security/EncryptedStorageManager.kt",
+            "src/main/java/com/jyotirmoyb/udhaar/security/SqlCipherMigrationEngine.kt" to "app/src/main/java/com/jyotirmoyb/udhaar/security/SqlCipherMigrationEngine.kt",
+            "src/main/java/com/jyotirmoyb/udhaar/security/KeystoreCryptoAndFileHelper.kt" to "app/src/main/java/com/jyotirmoyb/udhaar/security/KeystoreCryptoAndFileHelper.kt"
         )
         for ((relA, relB) in targetFiles) {
             val file = listOf(java.io.File(relA), java.io.File(relB)).firstOrNull { it.exists() }

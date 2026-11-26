@@ -209,8 +209,15 @@ fun AddEditUdhaarScreen(
     var showExpiryDatePicker by remember { mutableStateOf(false) }
     var showReminderDatePicker by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by rememberSaveable { mutableStateOf(false) }
-    var showMoreDetails by rememberSaveable { mutableStateOf(true) }
     val isEditingExisting = initialTransaction != null && initialTransaction.id > 0L
+    val hasOptionalDetailsFilled = isEditingExisting && (
+        initialTransaction.isInterestEnabled ||
+            initialTransaction.reminderDateMillis != null ||
+            initialTransaction.notes.isNotBlank() ||
+            initialTransaction.paymentMode != PaymentMode.CASH ||
+            existingAttachments.isNotEmpty()
+        )
+    var showMoreDetails by rememberSaveable { mutableStateOf(hasOptionalDetailsFilled) }
 
     if (showDeleteConfirmDialog && initialTransaction != null) {
         DeleteTransactionConfirmDialog(
@@ -325,20 +332,18 @@ fun AddEditUdhaarScreen(
                             )
                         }
                         Spacer(modifier = Modifier.width(4.dp))
-                        Column {
-                            Text(
-                                text = if (initialTransaction == null) stringResource(R.string.ui_str_new_udhaar_record_8b7ed4) else stringResource(R.string.ui_str_edit_udhaar_record_68199f),
-                                style = MaterialTheme.typography.titleLarge,
-                                color = PureBlack,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = stringResource(R.string.ui_str_monochrome_ledger_entry_795f44),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = SecondaryInkGrey
-                            )
-                        }
+                        Text(
+                            text = if (initialTransaction == null) {
+                                stringResource(R.string.ui_str_new_udhaar_record_8b7ed4)
+                            } else {
+                                stringResource(R.string.ui_str_edit_udhaar_record_68199f)
+                            },
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = PureBlack,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                     if (isEditingExisting && onDeleteTransaction != null) {
                         AppIconButton(
@@ -471,9 +476,9 @@ fun AddEditUdhaarScreen(
                     .widthIn(max = 560.dp)
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 44.dp)
+                    .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 36.dp)
                     .testTag("adaptive_centered_form_container"),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 val currentValidationError = validationError
                 if (currentValidationError != null) {
@@ -492,10 +497,6 @@ fun AddEditUdhaarScreen(
                         )
                     }
                 }
-
-                val step1Done = partyName.trim().isNotEmpty()
-                val step2Done = (InterestCalculator.rupeesStringToPaise(principalText) ?: 0L) > 0L
-                val step3Done = expiryDateMillis != null
 
                 AddEditPartyAndAmountSection(
                     context = context,
@@ -526,9 +527,6 @@ fun AddEditUdhaarScreen(
                         validationError = null
                     },
                     plainAmountLabel = plainAmountLabel,
-                    step1Done = step1Done,
-                    step2Done = step2Done,
-                    step3Done = step3Done,
                     textFieldColors = textFieldColors,
                     contactPickerLauncher = contactPickerLauncher,
                     onOpenInAppContactPicker = onOpenInAppContactPicker

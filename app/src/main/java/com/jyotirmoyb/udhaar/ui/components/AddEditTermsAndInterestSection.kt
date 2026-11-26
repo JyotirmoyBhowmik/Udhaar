@@ -36,6 +36,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -103,9 +105,9 @@ fun AddEditTermsAndInterestSection(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        AddEditSectionHeader("STEP 3 · WHEN IS IT DUE? (OPTIONAL)")
+        AddEditSectionHeader(stringResource(R.string.add_edit_step3_due_header))
         val nowMs = remember { System.currentTimeMillis() }
         val oneWeekMs = remember(nowMs) { nowMs + 7L * 86_400_000L }
         val oneMonthMs = remember(nowMs) { nowMs + 30L * 86_400_000L }
@@ -116,7 +118,7 @@ fun AddEditTermsAndInterestSection(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             MonochromeTogglePill(
-                text = "In 1 week",
+                text = stringResource(R.string.add_edit_due_in_1_week),
                 selected = expDaysFromNow in 6..8,
                 onClick = { onExpiryDateMillisChange(oneWeekMs) },
                 modifier = Modifier
@@ -124,7 +126,7 @@ fun AddEditTermsAndInterestSection(
                     .testTag("due_chip_1_week")
             )
             MonochromeTogglePill(
-                text = "In 1 month",
+                text = stringResource(R.string.add_edit_due_in_1_month),
                 selected = expDaysFromNow in 28..31,
                 onClick = { onExpiryDateMillisChange(oneMonthMs) },
                 modifier = Modifier
@@ -132,7 +134,7 @@ fun AddEditTermsAndInterestSection(
                     .testTag("due_chip_1_month")
             )
             MonochromeTogglePill(
-                text = "Custom",
+                text = stringResource(R.string.add_edit_custom_chip),
                 selected = expiryDateMillis != null && expDaysFromNow !in 6..8 && expDaysFromNow !in 28..31,
                 onClick = { onShowExpiryDatePickerChange(true) },
                 modifier = Modifier
@@ -142,8 +144,9 @@ fun AddEditTermsAndInterestSection(
         }
 
         DateSelectorRow(
-            label = "Due date",
-            valueText = expiryDateMillis?.let { InterestCalculator.formatDate(it) } ?: "No due date (Open-ended)",
+            label = stringResource(R.string.verification_label_due_date),
+            valueText = expiryDateMillis?.let { InterestCalculator.formatDate(it) }
+                ?: stringResource(R.string.add_edit_no_due_date_open_ended),
             onSelectClick = { onShowExpiryDatePickerChange(true) },
             onClearClick = expiryDateMillis?.let { { onExpiryDateMillisChange(null) } },
             testTag = "expiry_date_selector"
@@ -158,8 +161,8 @@ fun AddEditTermsAndInterestSection(
                 .heightIn(min = 48.dp)
                 .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
                 .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
-                .clickable(onClick = onToggleMoreDetails)
-                .padding(horizontal = 14.dp, vertical = 12.dp)
+                .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onToggleMoreDetails)
+                .padding(horizontal = 12.dp, vertical = 10.dp)
                 .testTag("toggle_more_details_button"),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -167,13 +170,13 @@ fun AddEditTermsAndInterestSection(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = stringResource(R.string.ui_str_more_details_optional_ae1cdb),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
                     color = PureBlack
                 )
                 Text(
                     text = stringResource(R.string.ui_str_payment_mode_interest_reminder_note_2fcbd3),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.labelSmall,
                     color = SecondaryInkGrey
                 )
             }
@@ -187,7 +190,7 @@ fun AddEditTermsAndInterestSection(
         AnimatedVisibility(visible = showMoreDetails) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
                     text = stringResource(R.string.ui_str_payment_mode_8fbf2e),
@@ -217,15 +220,17 @@ fun AddEditTermsAndInterestSection(
                         .heightIn(min = 48.dp)
                         .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
                         .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
-                        .clickable { onInterestEnabledChange(!isInterestEnabled) }
+                        .clickable(role = androidx.compose.ui.semantics.Role.Switch) { onInterestEnabledChange(!isInterestEnabled) }
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
+                    val interestToggleLabel = stringResource(R.string.ui_str_charge_or_pay_interest_2e2435)
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = stringResource(R.string.ui_str_charge_or_pay_interest_2e2435),
-                            style = MaterialTheme.typography.titleSmall,
+                            text = interestToggleLabel,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
                             color = PureBlack
                         )
                         Text(
@@ -234,7 +239,7 @@ fun AddEditTermsAndInterestSection(
                             } else {
                                 stringResource(R.string.ui_fmt_interest_free_only_the_original_05c577, plainAmountLabel.lowercase())
                             },
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.labelSmall,
                             color = SecondaryInkGrey
                         )
                     }
@@ -248,7 +253,9 @@ fun AddEditTermsAndInterestSection(
                             uncheckedTrackColor = PureWhite,
                             uncheckedBorderColor = PureBlack
                         ),
-                        modifier = Modifier.testTag("interest_applicable_switch")
+                        modifier = Modifier
+                            .semantics { contentDescription = interestToggleLabel }
+                            .testTag("interest_applicable_switch")
                     )
                 }
 
@@ -360,7 +367,7 @@ fun AddEditTermsAndInterestSection(
                         }
 
                         DateSelectorRow(
-                            label = "Start date (when interest begins)",
+                            label = stringResource(R.string.add_edit_start_date_interest_label),
                             valueText = InterestCalculator.formatDate(startDateMillis),
                             onSelectClick = { onShowStartDatePickerChange(true) },
                             onClearClick = null,
@@ -391,8 +398,9 @@ fun AddEditTermsAndInterestSection(
                 }
 
                 DateSelectorRow(
-                    label = "Scheduled reminder (Optional)",
-                    valueText = reminderDateMillis?.let { InterestCalculator.formatDateTime(it) } ?: "No reminder scheduled",
+                    label = stringResource(R.string.add_edit_scheduled_reminder_label),
+                    valueText = reminderDateMillis?.let { InterestCalculator.formatDateTime(it) }
+                        ?: stringResource(R.string.add_edit_no_reminder_scheduled),
                     icon = UdhaarIcons.NotificationsActive,
                     onSelectClick = {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&

@@ -332,7 +332,7 @@ fun PartyDetailScreen(
                                     shape = RoundedCornerShape(12.dp)
                                 )
                                 .background(if (tx.isSettled) SubtleSurfaceGrey else PureWhite, RoundedCornerShape(12.dp))
-                                .clickable { onTransactionClick(summary) }
+                                .clickable(role = androidx.compose.ui.semantics.Role.Button) { onTransactionClick(summary) }
                                 .padding(14.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {

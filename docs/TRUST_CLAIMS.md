@@ -1,3 +1,6 @@
+> [!WARNING]
+> **OBSOLETE / HISTORICAL REFERENCE (Pre-v32):** Any sections below referencing legacy Cloud Functions, Cloud KMS, Blaze-only server endpoints, or "Platform v2" are **superseded and archived** under `archive/`. For the canonical Udhaar v32.0 Spark Mode architecture, security rules, and data safety declarations, see [`docs/REALITY_CHECK.md`](REALITY_CHECK.md), [`docs/PLAY_DATA_SAFETY.md`](PLAY_DATA_SAFETY.md), and [`README.md`](../README.md).
+
 # Udhaar Trust Center Claims & Technical Verification Proofs
 
 Every public statement published on the Udhaar Trust Center (`/trust/`), Landing Page, and Documentation is mathematically and technically verified against the open codebase. Below is the comprehensive proof mapping across both Spark Mode (`UDHAAR_TIER="spark"`, zero-cost free plan) and Blaze Mode (`UDHAAR_TIER="blaze"`, enterprise cloud).

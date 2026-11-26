@@ -87,47 +87,15 @@ fun AddEditPartyAndAmountSection(
     principalText: String,
     onPrincipalTextChange: (String) -> Unit,
     plainAmountLabel: String,
-    step1Done: Boolean,
-    step2Done: Boolean,
-    step3Done: Boolean,
     textFieldColors: TextFieldColors,
     contactPickerLauncher: ActivityResultLauncher<Intent>,
     onOpenInAppContactPicker: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-                .testTag("add_udhaar_steps_indicator"),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = if (step1Done) stringResource(R.string.ui_str_1_who_96d2da) else stringResource(R.string.ui_str_1_who_c9da2a),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = if (!step1Done) FontWeight.Bold else FontWeight.SemiBold,
-                color = PureBlack
-            )
-            Text(
-                text = if (step2Done) stringResource(R.string.ui_str_2_how_much_5f25dd) else stringResource(R.string.ui_str_2_how_much_820ed7),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = if (step1Done && !step2Done) FontWeight.Bold else FontWeight.SemiBold,
-                color = if (step1Done || step2Done) PureBlack else SecondaryInkGrey
-            )
-            Text(
-                text = if (step3Done) stringResource(R.string.ui_str_3_when_a2bdd6) else stringResource(R.string.ui_str_3_when_optional_5232a6),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = if (step1Done && step2Done) FontWeight.Bold else FontWeight.Normal,
-                color = if (step1Done && step2Done) PureBlack else SecondaryInkGrey
-            )
-        }
-
-        AddEditSectionHeader("STEP 1 · WHO IS THIS UDHAAR WITH?")
+        AddEditSectionHeader(stringResource(R.string.add_edit_step1_who_header))
         val topRecentAndFavorites = remember(savedParties) {
             savedParties.sortedWith(
                 compareByDescending<PartyEntity> { it.isFavorite }
@@ -161,7 +129,7 @@ fun AddEditPartyAndAmountSection(
                                 color = if (isChosen) PureBlack else BorderGrey,
                                 shape = RoundedCornerShape(24.dp)
                             )
-                            .clickable { onSelectSavedParty(savedParty) }
+                            .clickable(role = androidx.compose.ui.semantics.Role.Button) { onSelectSavedParty(savedParty) }
                             .padding(start = 8.dp, end = 14.dp, top = 6.dp, bottom = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -173,7 +141,7 @@ fun AddEditPartyAndAmountSection(
                         )
                         Text(
                             text = if (savedParty.isFavorite) stringResource(R.string.ui_fmt_symbol_992757, savedParty.name) else savedParty.name,
-                            style = MaterialTheme.typography.labelLarge,
+                            style = MaterialTheme.typography.labelMedium,
                             color = if (isChosen) PureWhite else PureBlack,
                             maxLines = 1
                         )
@@ -272,7 +240,7 @@ fun AddEditPartyAndAmountSection(
 
         HorizontalDivider(color = BorderGrey, thickness = 1.dp)
 
-        AddEditSectionHeader("STEP 2 · HOW MUCH?")
+        AddEditSectionHeader(stringResource(R.string.add_edit_step2_amount_header))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -326,7 +294,7 @@ fun AddEditPartyAndAmountSection(
             }
             val isCustomSelected = principalText.isNotBlank() && principalText.trim() !in setOf("500", "1000", "5000")
             MonochromeTogglePill(
-                text = "Custom",
+                text = stringResource(R.string.add_edit_custom_chip),
                 selected = isCustomSelected,
                 onClick = {
                     if (principalText.trim() in setOf("500", "1000", "5000")) {
@@ -350,7 +318,8 @@ fun AddEditPartyAndAmountSection(
             prefix = {
                 Text(
                     text = stringResource(R.string.ui_fmt_symbol_67ce5f, currency.symbol),
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
                     color = PureBlack
                 )
             },
@@ -362,18 +331,9 @@ fun AddEditPartyAndAmountSection(
             colors = textFieldColors,
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 56.dp)
+                .heightIn(min = 52.dp)
                 .testTag("principal_amount_input")
         )
-
-        if (step1Done && step2Done) {
-            Text(
-                text = stringResource(R.string.ui_str_ready_to_save_now_or_b4c76e),
-                style = MaterialTheme.typography.bodySmall,
-                color = SecondaryInkGrey,
-                fontWeight = FontWeight.Medium
-            )
-        }
     }
 }
 
@@ -417,13 +377,14 @@ fun MonochromeTogglePill(
                 color = bgColor,
                 shape = RoundedCornerShape(12.dp)
             )
-            .clickable(onClick = onClick)
+            .clickable(role = androidx.compose.ui.semantics.Role.RadioButton, onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.labelLarge,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
             color = textColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -447,8 +408,8 @@ fun DateSelectorRow(
             .heightIn(min = 48.dp)
             .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
             .background(SubtleSurfaceGrey, RoundedCornerShape(12.dp))
-            .clickable(onClick = onSelectClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp)
+            .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onSelectClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp)
             .testTag(testTag),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
@@ -461,9 +422,9 @@ fun DateSelectorRow(
                 imageVector = icon,
                 contentDescription = label,
                 tint = PureBlack,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(18.dp)
             )
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
             Column {
                 Text(
                     text = label,
@@ -472,7 +433,8 @@ fun DateSelectorRow(
                 )
                 Text(
                     text = valueText,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
                     color = PureBlack
                 )
             }

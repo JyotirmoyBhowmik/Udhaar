@@ -346,7 +346,7 @@ fun RecordDetailSheet(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(min = 48.dp)
-                                .clickable { showMoreOptions = !showMoreOptions }
+                                .clickable(role = androidx.compose.ui.semantics.Role.Button) { showMoreOptions = !showMoreOptions }
                                 .testTag("detail_more_options_toggle"),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically

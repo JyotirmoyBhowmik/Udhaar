@@ -2,9 +2,12 @@ package com.jyotirmoyb.udhaar.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
 import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.DateRangeFilter
 import com.jyotirmoyb.udhaar.data.LedgerFilter
+import com.jyotirmoyb.udhaar.data.TransactionHistoryProjection
 import com.jyotirmoyb.udhaar.data.TransactionSortOption
 import com.jyotirmoyb.udhaar.data.TransactionType
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
@@ -16,12 +19,15 @@ import com.jyotirmoyb.udhaar.ui.state.AppStateHolder
 import com.jyotirmoyb.udhaar.util.CalculatedUdhaarSummary
 import com.jyotirmoyb.udhaar.util.InterestCalculator
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -66,6 +72,19 @@ class DashboardViewModel @Inject constructor(
 
     private val _isNeedsAttentionDismissed = MutableStateFlow(false)
     val isNeedsAttentionDismissed: StateFlow<Boolean> = _isNeedsAttentionDismissed.asStateFlow()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val historyAndSearchPagingFlow: Flow<PagingData<TransactionHistoryProjection>> =
+        combine(_selectedFilter, _searchQuery) { filter, query -> filter to query }
+            .flatMapLatest { (filter, query) ->
+                val settledOnly = filter == LedgerFilter.SETTLED
+                if (query.isBlank() && settledOnly) {
+                    ledgerRepository.getSettledHistoryPagingFlow()
+                } else {
+                    ledgerRepository.searchTransactionsPagingFlow(query = query, settledOnly = settledOnly)
+                }
+            }
+            .cachedIn(viewModelScope)
 
     val uiState: StateFlow<DashboardUiState> = combine(
         ledgerRepository.allTransactions,

@@ -48,15 +48,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.paging.PagingData
+import androidx.paging.compose.collectAsLazyPagingItems
 import com.jyotirmoyb.udhaar.R
 import com.jyotirmoyb.udhaar.data.CurrencyType
 import com.jyotirmoyb.udhaar.data.DateRangeFilter
 import com.jyotirmoyb.udhaar.data.LedgerFilter
 import com.jyotirmoyb.udhaar.data.PartyEntity
+import com.jyotirmoyb.udhaar.data.TransactionHistoryProjection
 import com.jyotirmoyb.udhaar.data.TransactionSortOption
 import com.jyotirmoyb.udhaar.data.TransactionType
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
 import com.jyotirmoyb.udhaar.data.VerificationStatus
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import com.jyotirmoyb.udhaar.ui.ActiveScreen
 import com.jyotirmoyb.udhaar.ui.PartyKhataSummary
 import com.jyotirmoyb.udhaar.ui.PartySortOption
@@ -112,7 +117,8 @@ fun DashboardScreen(
     onStopTransactionReminders: (recordId: Long) -> Unit = {},
     onEnableTransactionReminders: (recordId: Long) -> Unit = {},
     onOpenUpdatesScreen: () -> Unit = {},
-    onCreateGroupSplitTransactions: (List<UdhaarTransaction>) -> Unit = {}
+    onCreateGroupSplitTransactions: (List<UdhaarTransaction>) -> Unit = {},
+    historyAndSearchPagingFlow: Flow<PagingData<TransactionHistoryProjection>>? = null
 ) {
     val context = LocalContext.current
     var pendingExtensionSummary by remember { mutableStateOf<CalculatedUdhaarSummary?>(null) }
@@ -179,6 +185,16 @@ fun DashboardScreen(
 
     val groupedFilteredItems = remember(uiState.filteredItems, uiState.selectedFilter, uiState.userSettings.groupRecordsByPerson, nowMillis) {
         buildGroupedFilteredItems(uiState.filteredItems, uiState.selectedFilter, endOfWeekMillis, groupByPerson = uiState.userSettings.groupRecordsByPerson)
+    }
+    val emptyPagingFlow = remember { flowOf(PagingData.empty<TransactionHistoryProjection>()) }
+    val pagedHistoryAndSearchItems = (historyAndSearchPagingFlow ?: emptyPagingFlow).collectAsLazyPagingItems()
+    val usePagedHistoryOrSearch = historyAndSearchPagingFlow != null &&
+        (uiState.selectedFilter == LedgerFilter.SETTLED || uiState.searchQuery.isNotBlank()) &&
+        uiState.dateRangeFilter == DateRangeFilter.ALL_TIME &&
+        uiState.transactionSortOption == TransactionSortOption.RECENT_FIRST &&
+        !uiState.userSettings.groupRecordsByPerson
+    val summaryById = remember(uiState.allCalculatedItems) {
+        uiState.allCalculatedItems.associateBy { it.transaction.id }
     }
 
     val ledgerListState = rememberLazyListState()
@@ -422,6 +438,17 @@ fun DashboardScreen(
                                 }
                             }
 
+                            val cardCallbacks = DashboardLedgerCardCallbacks(
+                                onSelectAdaptiveTx = { selectedAdaptiveTxId = it },
+                                onTransactionClick = onTransactionClick,
+                                onOpenTransactionChat = onOpenTransactionChat,
+                                onWhatsAppClick = onWhatsAppClick,
+                                onTransactionQrClick = onTransactionQrClick,
+                                onSnoozeTransaction = onSnoozeTransaction,
+                                onStopTransactionReminders = onStopTransactionReminders,
+                                onEnableTransactionReminders = onEnableTransactionReminders,
+                                onRequestExtension = { pendingExtensionSummary = it }
+                            )
                             if (uiState.isInitialLoading || uiState.filteredItems.isEmpty()) {
                                 item(key = "empty_or_shimmer_ledger_state_item") {
                                     Box(modifier = udhaarAnimateItem(reducedMotion)) {
@@ -447,6 +474,16 @@ fun DashboardScreen(
                                         }
                                     }
                                 }
+                            } else if (usePagedHistoryOrSearch && pagedHistoryAndSearchItems.itemCount > 0) {
+                                dashboardPagedHistoryItems(
+                                    pagedItems = pagedHistoryAndSearchItems,
+                                    summaryById = summaryById,
+                                    partyPhotoByName = partyPhotoByName,
+                                    uiState = uiState,
+                                    reducedMotion = reducedMotion,
+                                    context = context,
+                                    callbacks = cardCallbacks
+                                )
                             } else {
                                 val showGroupStickyHeaders = groupedFilteredItems.size > 1 ||
                                     (groupedFilteredItems.size == 1 && (groupedFilteredItems.first().isOverdueGroup || uiState.userSettings.groupRecordsByPerson))
@@ -478,47 +515,14 @@ fun DashboardScreen(
                                         items = groupSection.items,
                                         key = { it.transaction.id }
                                     ) { summary ->
-                                        val partyPhotoUri = partyPhotoByName[summary.transaction.partyName.trim().lowercase()].orEmpty()
-                                        Box(modifier = udhaarAnimateItem(reducedMotion)) {
-                                            SwipeableTransactionCardItem(
-                                                summary = summary,
-                                                partyPhotoUri = partyPhotoUri,
-                                                isAmountsHidden = uiState.isAmountsHidden,
-                                                unreadCount = uiState.unreadCountByTx[summary.transaction.id] ?: 0,
-                                                attachmentsCount = uiState.attachmentsByTx[summary.transaction.id]?.size ?: 0,
-                                                installments = uiState.installmentPlansByTx[summary.transaction.id]?.let { uiState.installmentsByPlan[it.id] }.orEmpty(),
-                                                defaultExpanded = false,
-                                                onCardClick = {
-                                                    selectedAdaptiveTxId = summary.transaction.id
-                                                    onTransactionClick(summary)
-                                                },
-                                                onChatClick = { onOpenTransactionChat(summary) },
-                                                onWhatsAppClick = { onWhatsAppClick(summary) },
-                                                onQrClick = {
-                                                    val tx = summary.transaction
-                                                    if (tx.currency == CurrencyType.INR &&
-                                                        tx.transactionType == TransactionType.GIVEN &&
-                                                        !tx.isSettled
-                                                    ) {
-                                                        onTransactionQrClick(summary)
-                                                    } else {
-                                                        onTransactionClick(summary)
-                                                    }
-                                                },
-                                                onSnoozeClick = onSnoozeTransaction,
-                                                onStopRemindersClick = onStopTransactionReminders,
-                                                onEnableRemindersClick = onEnableTransactionReminders,
-                                                onBorrowerAction = { s, actionType ->
-                                                    dispatchBorrowerAction(
-                                                        context = context,
-                                                        userSettings = uiState.userSettings,
-                                                        summary = s,
-                                                        actionType = actionType,
-                                                        onRequestExtension = { pendingExtensionSummary = it }
-                                                    )
-                                                }
-                                            )
-                                        }
+                                        DashboardLedgerCardItem(
+                                            summary = summary,
+                                            partyPhotoByName = partyPhotoByName,
+                                            uiState = uiState,
+                                            reducedMotion = reducedMotion,
+                                            context = context,
+                                            callbacks = cardCallbacks
+                                        )
                                     }
                                 }
                             }
@@ -533,14 +537,10 @@ fun DashboardScreen(
                         }
 
                         if (isWideScreen) {
-                            val detailPhotoUri = selectedDetailSummary?.let {
-                                partyPhotoByName[it.transaction.partyName.trim().lowercase()].orEmpty()
-                            }.orEmpty()
-                            val detailPayments = selectedDetailSummary?.let {
-                                uiState.partialPaymentsByTx[it.transaction.id].orEmpty()
-                            }.orEmpty()
+                            val detailPhotoUri = selectedDetailSummary?.let { partyPhotoByName[it.transaction.partyName.trim().lowercase()] }.orEmpty()
+                            val detailPayments = selectedDetailSummary?.let { uiState.partialPaymentsByTx[it.transaction.id] }.orEmpty()
                             val detailInstallments = selectedDetailSummary?.let { s ->
-                                uiState.installmentPlansByTx[s.transaction.id]?.let { uiState.installmentsByPlan[it.id] }.orEmpty()
+                                uiState.installmentPlansByTx[s.transaction.id]?.let { uiState.installmentsByPlan[it.id] }
                             }.orEmpty()
 
                             DashboardAdaptiveDetailPane(
@@ -553,14 +553,8 @@ fun DashboardScreen(
                                 onWhatsAppClick = onWhatsAppClick,
                                 onQrClick = { s ->
                                     val tx = s.transaction
-                                    if (tx.currency == CurrencyType.INR &&
-                                        tx.transactionType == TransactionType.GIVEN &&
-                                        !tx.isSettled
-                                    ) {
-                                        onTransactionQrClick(s)
-                                    } else {
-                                        onTransactionClick(s)
-                                    }
+                                    val canShowQr = tx.currency == CurrencyType.INR && tx.transactionType == TransactionType.GIVEN && !tx.isSettled
+                                    if (canShowQr) onTransactionQrClick(s) else onTransactionClick(s)
                                 },
                                 onChatClick = onOpenTransactionChat,
                                 modifier = Modifier

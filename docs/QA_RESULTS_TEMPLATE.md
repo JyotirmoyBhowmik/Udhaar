@@ -1,3 +1,6 @@
+> [!WARNING]
+> **OBSOLETE / HISTORICAL REFERENCE (Pre-v32):** Any sections below referencing legacy Cloud Functions, Cloud KMS, Blaze-only server endpoints, or "Platform v2" are **superseded and archived** under `archive/`. For the canonical Udhaar v32.0 Spark Mode architecture, security rules, and data safety declarations, see [`docs/REALITY_CHECK.md`](REALITY_CHECK.md), [`docs/PLAY_DATA_SAFETY.md`](PLAY_DATA_SAFETY.md), and [`README.md`](../README.md).
+
 # Udhaar — Pre-Release Manual QA Execution Results Template
 
 This document serves as the standardized test execution record for validating pre-release builds of **Udhaar** (`com.jyotirmoyb.udhaar`). Every manual test run conducted on physical devices prior to Google Play production rollout must complete and record results using this template.

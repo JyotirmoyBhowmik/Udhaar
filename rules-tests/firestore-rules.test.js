@@ -115,6 +115,26 @@ function getBorrowerDb() {
     .firestore();
 }
 
+function getUnverifiedBorrowerDb() {
+  return testEnv
+    .authenticatedContext(BORROWER_UID, {
+      email: "bob@udhaar.test",
+      email_verified: false,
+      firebase: { sign_in_provider: "password" },
+    })
+    .firestore();
+}
+
+function getVerifiedGuestDb() {
+  return testEnv
+    .authenticatedContext(GUEST_GOOGLE_UID, {
+      email: BORROWER_EMAIL,
+      email_verified: true,
+      firebase: { sign_in_provider: "google.com" },
+    })
+    .firestore();
+}
+
 // =========================================================================
 // PART A: Per-User Spark Collections
 // (users, records, people, events, plans, attachments, meta/syncSignal)
@@ -563,6 +583,50 @@ test("A7. /users/{uid}/meta/syncSignal & catch-all denied collections", async ()
   await assertFails(ownerDb.collection("shared_records").doc("sr_1").set({ ownerUid: OWNER_UID }));
 });
 
+test("A8. /users/{uid}/blocked_users/{targetUid}: CRUD, self-block deny, unverified deny & fuzz checks", async () => {
+  const ownerDb = getOwnerDb();
+  const unverifiedDb = getUnverifiedOwnerDb();
+  const attackerDb = getAttackerDb();
+  const strangerDb = getStrangerDb();
+
+  const ref = (db, target = BORROWER_UID) =>
+    db.collection("users").doc(OWNER_UID).collection("blocked_users").doc(target);
+  const validBlock = {
+    targetUid: BORROWER_UID,
+    isMuted: true,
+    isBlocked: true,
+    isReported: false,
+    reportReason: "Repeated spam messages",
+    updatedAt: new Date(),
+  };
+
+  // Stranger, attacker, unverified -> DENIED
+  await assertFails(ref(strangerDb).set(validBlock));
+  await assertFails(ref(attackerDb).set(validBlock));
+  await assertFails(ref(unverifiedDb).set(validBlock));
+
+  // Self-block -> DENIED
+  await assertFails(ref(ownerDb, OWNER_UID).set({ ...validBlock, targetUid: OWNER_UID }));
+
+  // Fuzz: extra field, oversized reason, wrong types, mismatched targetUid -> DENIED
+  await assertFails(ref(ownerDb).set({ ...validBlock, extraField: true }));
+  await assertFails(ref(ownerDb).set({ ...validBlock, reportReason: "R".repeat(301) }));
+  await assertFails(ref(ownerDb).set({ ...validBlock, isBlocked: "yes" }));
+  await assertFails(ref(ownerDb).set({ ...validBlock, isMuted: 1 }));
+  await assertFails(ref(ownerDb).set({ ...validBlock, targetUid: ATTACKER_UID }));
+  await assertFails(ref(ownerDb).set({ ...validBlock, updatedAt: Date.now() }));
+
+  // Valid create, get, list, update, delete -> OK
+  await assertSucceeds(ref(ownerDb).set(validBlock));
+  await assertSucceeds(ref(ownerDb).get());
+  await assertSucceeds(ownerDb.collection("users").doc(OWNER_UID).collection("blocked_users").get());
+  await assertFails(ref(attackerDb).get());
+  await assertFails(ref(unverifiedDb).get());
+  await assertSucceeds(ref(ownerDb).update({ isBlocked: false, isReported: true, updatedAt: new Date() }));
+  await assertFails(ref(attackerDb).delete());
+  await assertSucceeds(ref(ownerDb).delete());
+});
+
 // =========================================================================
 // PART B: Guest Capability Links, Actions & Payment Proofs (Spark Mode)
 // =========================================================================
@@ -613,9 +677,11 @@ test("B2. GuestLinks: whatsappOtp or otp field -> DENIED", async () => {
   await assertFails(ownerDb.collection("guestLinks").doc("l_otp").set({ ...base, otp: "654321" }));
 });
 
-test("B3. GuestLinks: guest get active OK, list DENIED, expired/revoked DENIED, stranger DENIED", async () => {
+test("B3. GuestLinks: verified guest get OK, anon/unverified DENIED, list own OK, expired/revoked DENIED", async () => {
   const ownerDb = getOwnerDb();
-  const guestDb = getAnonGuestDb();
+  const anonGuestDb = getAnonGuestDb();
+  const unverifiedGuestDb = getGoogleGuestDb(BORROWER_EMAIL, false);
+  const verifiedGuestDb = getVerifiedGuestDb();
   const strangerDb = getStrangerDb();
   const now = Date.now();
 
@@ -627,7 +693,7 @@ test("B3. GuestLinks: guest get active OK, list DENIED, expired/revoked DENIED, 
     payableAmountPaise: 20000,
     expiresAtMs: now + 3600000,
     verificationLevel: "PRIVATE_LINK",
-    allowedActions: ["CONFIRM"],
+    allowedActions: ["CONFIRM", "DISPUTE", "PROPOSE_DATE"],
   });
 
   await ownerDb.collection("guestLinks").doc("link_expired").set({
@@ -659,10 +725,18 @@ test("B3. GuestLinks: guest get active OK, list DENIED, expired/revoked DENIED, 
   );
 
   await assertFails(strangerDb.collection("guestLinks").doc("link_active").get());
-  await assertSucceeds(guestDb.collection("guestLinks").doc("link_active").get());
-  await assertFails(guestDb.collection("guestLinks").get());
-  await assertFails(guestDb.collection("guestLinks").doc("link_expired").get());
-  await assertFails(guestDb.collection("guestLinks").doc("link_revoked").get());
+  await assertFails(anonGuestDb.collection("guestLinks").doc("link_active").get());
+  await assertFails(unverifiedGuestDb.collection("guestLinks").doc("link_active").get());
+  await assertSucceeds(verifiedGuestDb.collection("guestLinks").doc("link_active").get());
+  await assertFails(verifiedGuestDb.collection("guestLinks").get());
+  await assertFails(verifiedGuestDb.collection("guestLinks").doc("link_expired").get());
+  await assertFails(verifiedGuestDb.collection("guestLinks").doc("link_revoked").get());
+
+  await assertSucceeds(
+    ownerDb.collection("guestLinks").where("ownerUid", "==", OWNER_UID).limit(50).get()
+  );
+  await assertFails(getUnverifiedOwnerDb().collection("guestLinks").doc("link_revoked").delete());
+  await assertSucceeds(ownerDb.collection("guestLinks").doc("link_revoked").delete());
 });
 
 test("B4. GuestLinks GOOGLE_VERIFIED: anonymous DENIED, wrong email DENIED, right email OK", async () => {
@@ -687,9 +761,12 @@ test("B4. GuestLinks GOOGLE_VERIFIED: anonymous DENIED, wrong email DENIED, righ
   await assertSucceeds(getGoogleGuestDb(BORROWER_EMAIL, true).collection("guestLinks").doc("link_google_verified").get());
 });
 
-test("B5. GuestActions CLAIM_PAYMENT: bounds, mode, extra field & duplicate overwrite", async () => {
+test("B5. GuestActions CONFIRM/DISPUTE/PROPOSE_DATE/CLAIM_PAYMENT: verified email, bounds, modes & review", async () => {
   const ownerDb = getOwnerDb();
-  const guestDb = getAnonGuestDb();
+  const anonGuestDb = getAnonGuestDb();
+  const unverifiedGuestDb = getGoogleGuestDb(BORROWER_EMAIL, false);
+  const guestDb = getVerifiedGuestDb();
+  const now = Date.now();
 
   await ownerDb.collection("guestLinks").doc("link_claim_test").set({
     ownerUid: OWNER_UID,
@@ -697,18 +774,18 @@ test("B5. GuestActions CLAIM_PAYMENT: bounds, mode, extra field & duplicate over
     status: "ACTIVE",
     recordId: "rec_claim",
     payableAmountPaise: 10000,
-    expiresAtMs: Date.now() + 3600000,
+    expiresAtMs: now + 3600000,
     verificationLevel: "PRIVATE_LINK",
-    allowedActions: ["CLAIM_PAYMENT", "CONFIRM"],
+    allowedActions: ["CLAIM_PAYMENT", "CONFIRM", "DISPUTE", "PROPOSE_DATE"],
   });
 
-  const actionsRef = guestDb.collection("guestLinks").doc("link_claim_test").collection("actions");
+  const actionsRef = (db) => db.collection("guestLinks").doc("link_claim_test").collection("actions");
   const baseValid = {
     schemaVersion: 1,
     actionType: "CLAIM_PAYMENT",
-    guestUid: GUEST_ANON_UID,
+    guestUid: GUEST_GOOGLE_UID,
     status: "PENDING",
-    createdAtMs: Date.now(),
+    createdAtMs: now,
     amountPaise: 5000,
     paymentMode: "UPI",
     referenceNumber: "UPI123456789",
@@ -716,30 +793,69 @@ test("B5. GuestActions CLAIM_PAYMENT: bounds, mode, extra field & duplicate over
     hasProof: false,
   };
 
-  await assertFails(actionsRef.doc("CLAIM_PAYMENT").set({ ...baseValid, amountPaise: 0 }));
-  await assertFails(actionsRef.doc("CLAIM_PAYMENT").set({ ...baseValid, amountPaise: -500 }));
-  await assertFails(actionsRef.doc("CLAIM_PAYMENT").set({ ...baseValid, amountPaise: 50.5 }));
-  await assertFails(actionsRef.doc("CLAIM_PAYMENT").set({ ...baseValid, amountPaise: 15000 }));
-  await assertFails(actionsRef.doc("CLAIM_PAYMENT").set({ ...baseValid, paymentMode: "BITCOIN" }));
-  await assertFails(actionsRef.doc("CLAIM_PAYMENT").set({ ...baseValid, injectedField: "malicious" }));
-  await assertSucceeds(actionsRef.doc("CLAIM_PAYMENT").set(baseValid));
+  await assertFails(actionsRef(anonGuestDb).doc("CLAIM_PAYMENT").set({ ...baseValid, guestUid: GUEST_ANON_UID }));
+  await assertFails(actionsRef(unverifiedGuestDb).doc("CLAIM_PAYMENT").set(baseValid));
+  await assertFails(actionsRef(guestDb).doc("CLAIM_PAYMENT").set({ ...baseValid, amountPaise: 0 }));
+  await assertFails(actionsRef(guestDb).doc("CLAIM_PAYMENT").set({ ...baseValid, amountPaise: -500 }));
+  await assertFails(actionsRef(guestDb).doc("CLAIM_PAYMENT").set({ ...baseValid, amountPaise: 50.5 }));
+  await assertFails(actionsRef(guestDb).doc("CLAIM_PAYMENT").set({ ...baseValid, amountPaise: 15000 }));
+  await assertFails(actionsRef(guestDb).doc("CLAIM_PAYMENT").set({ ...baseValid, paymentMode: "BITCOIN" }));
+  await assertFails(actionsRef(guestDb).doc("CLAIM_PAYMENT").set({ ...baseValid, injectedField: "malicious" }));
+  await assertFails(actionsRef(guestDb).doc("CLAIM_PAYMENT").set({ ...baseValid, referenceNumber: "R".repeat(65) }));
+  await assertFails(actionsRef(guestDb).doc("CLAIM_PAYMENT").set({ ...baseValid, hasProof: "true" }));
 
-  // Second overwrite by guest -> DENIED
-  await assertFails(actionsRef.doc("CLAIM_PAYMENT").set({ ...baseValid, createdAtMs: Date.now() + 100 }));
-  // Guest setting status ACCEPTED -> DENIED
-  await assertFails(actionsRef.doc("CLAIM_PAYMENT").update({ status: "ACCEPTED", reviewedAtMs: Date.now() }));
-  // Owner Accept -> OK
+  await assertSucceeds(actionsRef(guestDb).doc("CLAIM_PAYMENT").set(baseValid));
   await assertSucceeds(
-    ownerDb.collection("guestLinks").doc("link_claim_test").collection("actions").doc("CLAIM_PAYMENT").update({
-      status: "ACCEPTED",
-      reviewedAtMs: Date.now(),
+    actionsRef(guestDb).doc("CONFIRM").set({
+      schemaVersion: 1,
+      actionType: "CONFIRM",
+      guestUid: GUEST_GOOGLE_UID,
+      status: "PENDING",
+      createdAtMs: now,
     })
   );
+  await assertSucceeds(
+    actionsRef(guestDb).doc("DISPUTE").set({
+      schemaVersion: 1,
+      actionType: "DISPUTE",
+      guestUid: GUEST_GOOGLE_UID,
+      status: "PENDING",
+      createdAtMs: now,
+      reason: "Amount differs from cash receipt",
+    })
+  );
+  await assertSucceeds(
+    actionsRef(guestDb).doc("PROPOSE_DATE").set({
+      schemaVersion: 1,
+      actionType: "PROPOSE_DATE",
+      guestUid: GUEST_GOOGLE_UID,
+      status: "PENDING",
+      createdAtMs: now,
+      proposedDateMs: now + 86400000,
+      reason: "Payday is Friday",
+    })
+  );
+
+  await assertSucceeds(actionsRef(guestDb).doc("CLAIM_PAYMENT").get());
+  await assertFails(actionsRef(guestDb).get());
+  await assertFails(actionsRef(guestDb).doc("CLAIM_PAYMENT").set({ ...baseValid, createdAtMs: now + 100 }));
+  await assertFails(actionsRef(guestDb).doc("CLAIM_PAYMENT").update({ status: "ACCEPTED", reviewedAtMs: now }));
+  await assertFails(actionsRef(guestDb).doc("CLAIM_PAYMENT").delete());
+
+  await assertSucceeds(actionsRef(ownerDb).get());
+  await assertSucceeds(
+    actionsRef(ownerDb).doc("CLAIM_PAYMENT").update({
+      status: "ACCEPTED",
+      reviewedAtMs: now,
+    })
+  );
+  await assertSucceeds(actionsRef(ownerDb).doc("CONFIRM").delete());
 });
 
-test("B6. GuestAction Proof: other user read DENIED, oversized base64 DENIED, update DENIED", async () => {
+test("B6. GuestAction Proof: verified email required, extra fields & oversized base64 DENIED, owner read/delete OK", async () => {
   const ownerDb = getOwnerDb();
-  const guestDb = getAnonGuestDb();
+  const guestDb = getVerifiedGuestDb();
+  const unverifiedGuestDb = getGoogleGuestDb(BORROWER_EMAIL, false);
   const attackerDb = getAttackerDb();
 
   await ownerDb.collection("guestLinks").doc("link_proof_test").set({
@@ -761,7 +877,7 @@ test("B6. GuestAction Proof: other user read DENIED, oversized base64 DENIED, up
     .set({
       schemaVersion: 1,
       actionType: "CLAIM_PAYMENT",
-      guestUid: GUEST_ANON_UID,
+      guestUid: GUEST_GOOGLE_UID,
       status: "PENDING",
       createdAtMs: Date.now(),
       amountPaise: 5000,
@@ -780,11 +896,17 @@ test("B6. GuestAction Proof: other user read DENIED, oversized base64 DENIED, up
       .collection("proof")
       .doc("image");
 
+  await assertFails(proofRef(unverifiedGuestDb).set({ mime: "image/webp", dataB64: "A".repeat(100) }));
   await assertFails(proofRef(guestDb).set({ mime: "image/webp", dataB64: "A".repeat(700001) }));
+  await assertFails(proofRef(guestDb).set({ mime: "image/webp", dataB64: "A".repeat(100), extra: 1 }));
+  await assertFails(proofRef(guestDb).set({ mime: "application/pdf", dataB64: "A".repeat(100) }));
   await assertSucceeds(proofRef(guestDb).set({ mime: "image/webp", dataB64: "A".repeat(1000) }));
   await assertFails(proofRef(guestDb).update({ dataB64: "B".repeat(100) }));
   await assertFails(proofRef(attackerDb).get());
+  await assertSucceeds(proofRef(guestDb).get());
   await assertSucceeds(proofRef(ownerDb).get());
+  await assertFails(proofRef(guestDb).delete());
+  await assertSucceeds(proofRef(ownerDb).delete());
 });
 
 // =========================================================================
@@ -1223,4 +1345,421 @@ test("C6. /chat_threads/{id}/messages/{id}: send, read receipt, extension reques
       updatedAt: new Date(),
     })
   );
+
+  // Sender can delete own message, non-sender cannot
+  await assertFails(msgRef(ownerDb).delete());
+  await assertSucceeds(msgRef(borrowerDb).delete());
+});
+
+test("C7. Verified email required on EVERY profile, ledger, chat, and guest path", async () => {
+  const ownerDb = getOwnerDb();
+  const borrowerDb = getBorrowerDb();
+  const unverifiedOwnerDb = getUnverifiedOwnerDb();
+  const unverifiedBorrowerDb = getUnverifiedBorrowerDb();
+
+  // Seed valid documents with verified users
+  await assertSucceeds(
+    ownerDb.collection("user_profiles").doc(OWNER_UID).set({
+      userId: OWNER_UID,
+      displayName: "Alice",
+      phoneNumber: "+919876543210",
+      upiId: "alice@upi",
+      photoUri: "",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+  );
+  await assertSucceeds(
+    ownerDb.collection("shared_records").doc("rec_v1").set(
+      buildValidSharedRecord({
+        remoteId: "rec_v1",
+        counterpartyUid: BORROWER_UID,
+        participantUids: [OWNER_UID, BORROWER_UID],
+      })
+    )
+  );
+  await assertSucceeds(
+    borrowerDb.collection("shared_records").doc("rec_v1").collection("partial_payments").doc("pay_v1").set({
+      paymentId: "pay_v1",
+      remoteId: "rec_v1",
+      recordedByUid: BORROWER_UID,
+      recordedByName: "Bob",
+      participantUids: [OWNER_UID, BORROWER_UID],
+      amount: 100.0,
+      paymentMode: "UPI",
+      paidAtMillis: 1730001000000,
+      encryptedNote: "",
+      isAcknowledged: false,
+      acknowledgedByUid: "",
+      acknowledgedAtMillis: -1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+  );
+  await assertSucceeds(
+    ownerDb.collection("shared_records").doc("rec_v1").collection("audit_trail").doc("aud_v1").set({
+      eventId: "aud_v1",
+      remoteId: "rec_v1",
+      eventType: "CREATED",
+      actorUid: OWNER_UID,
+      actorName: "Alice",
+      participantUids: [OWNER_UID, BORROWER_UID],
+      summaryText: "Created",
+      contentHashSnapshot: "a".repeat(64),
+      acknowledged: false,
+      eventTimeMillis: 1730001000000,
+      createdAt: new Date(),
+    })
+  );
+  await assertSucceeds(
+    ownerDb.collection("chat_threads").doc("tx_rec_v1").set(
+      buildValidChatThread({
+        threadId: "tx_rec_v1",
+        remoteRecordId: "rec_v1",
+        counterpartyUid: BORROWER_UID,
+        participantUids: [OWNER_UID, BORROWER_UID],
+      })
+    )
+  );
+  await assertSucceeds(
+    ownerDb.collection("chat_threads").doc("tx_rec_v1").collection("messages").doc("msg_v1").set({
+      messageId: "msg_v1",
+      threadId: "tx_rec_v1",
+      senderUid: OWNER_UID,
+      senderName: "Alice",
+      participantUids: [OWNER_UID, BORROWER_UID],
+      messageType: "TEXT",
+      bodyText: "Hello",
+      attachmentUri: "",
+      attachmentMimeType: "",
+      attachmentName: "",
+      deliveryStatus: "SENT",
+      proposedDueDateMillis: -1,
+      extensionStatus: "NONE",
+      sentAtMillis: 1730003000000,
+      deliveredAtMillis: -1,
+      readAtMillis: -1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+  );
+
+  // Unverified owner / borrower DENIED on every read, create, update, delete
+  await assertFails(unverifiedOwnerDb.collection("user_profiles").doc(OWNER_UID).get());
+  await assertFails(unverifiedOwnerDb.collection("user_profiles").doc(OWNER_UID).update({ displayName: "No", updatedAt: new Date() }));
+  await assertFails(unverifiedOwnerDb.collection("user_profiles").doc(OWNER_UID).delete());
+
+  await assertFails(unverifiedOwnerDb.collection("shared_records").doc("rec_v1").get());
+  await assertFails(unverifiedOwnerDb.collection("shared_records").doc("rec_v2").set(buildValidSharedRecord({ remoteId: "rec_v2" })));
+  await assertFails(unverifiedOwnerDb.collection("shared_records").doc("rec_v1").update({ disputeReason: "x", updatedAt: new Date() }));
+  await assertFails(unverifiedOwnerDb.collection("shared_records").doc("rec_v1").delete());
+
+  await assertFails(unverifiedBorrowerDb.collection("shared_records").doc("rec_v1").collection("partial_payments").doc("pay_v1").get());
+  await assertFails(unverifiedBorrowerDb.collection("shared_records").doc("rec_v1").collection("partial_payments").doc("pay_v1").delete());
+  await assertFails(unverifiedOwnerDb.collection("shared_records").doc("rec_v1").collection("audit_trail").doc("aud_v1").get());
+  await assertFails(unverifiedOwnerDb.collection("shared_records").doc("rec_v1").collection("audit_trail").doc("aud_v1").delete());
+
+  await assertFails(unverifiedOwnerDb.collection("chat_threads").doc("tx_rec_v1").get());
+  await assertFails(unverifiedOwnerDb.collection("chat_threads").doc("tx_rec_v2").set(buildValidChatThread({ threadId: "tx_rec_v2" })));
+  await assertFails(unverifiedOwnerDb.collection("chat_threads").doc("tx_rec_v1").update({ typingUid: OWNER_UID, updatedAt: new Date() }));
+  await assertFails(unverifiedOwnerDb.collection("chat_threads").doc("tx_rec_v1").delete());
+
+  await assertFails(unverifiedOwnerDb.collection("chat_threads").doc("tx_rec_v1").collection("messages").doc("msg_v1").get());
+  await assertFails(
+    unverifiedBorrowerDb.collection("chat_threads").doc("tx_rec_v1").collection("messages").doc("msg_v2").set({
+      messageId: "msg_v2",
+      threadId: "tx_rec_v1",
+      senderUid: BORROWER_UID,
+      senderName: "Bob",
+      participantUids: [OWNER_UID, BORROWER_UID],
+      messageType: "TEXT",
+      bodyText: "Unverified attempt",
+      attachmentUri: "",
+      attachmentMimeType: "",
+      attachmentName: "",
+      deliveryStatus: "SENT",
+      proposedDueDateMillis: -1,
+      extensionStatus: "NONE",
+      sentAtMillis: 1730003500000,
+      deliveredAtMillis: -1,
+      readAtMillis: -1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+  );
+  await assertFails(unverifiedOwnerDb.collection("chat_threads").doc("tx_rec_v1").collection("messages").doc("msg_v1").delete());
+});
+
+test("C8. Chat Safety Enforcement: thread block and user block prevent message creation, unblock restores it", async () => {
+  const ownerDb = getOwnerDb();
+  const borrowerDb = getBorrowerDb();
+
+  const threadId = "tx_rec_safety";
+  const threadRef = (db) => db.collection("chat_threads").doc(threadId);
+  const msgRef = (db, id) => db.collection("chat_threads").doc(threadId).collection("messages").doc(id);
+
+  await assertSucceeds(
+    threadRef(ownerDb).set(
+      buildValidChatThread({
+        threadId,
+        remoteRecordId: "rec_safety",
+        counterpartyUid: BORROWER_UID,
+        participantUids: [OWNER_UID, BORROWER_UID],
+        blockedByUids: [],
+      })
+    )
+  );
+
+  const buildMsg = (id, senderUid) => ({
+    messageId: id,
+    threadId,
+    senderUid,
+    senderName: senderUid === OWNER_UID ? "Alice" : "Bob",
+    participantUids: [OWNER_UID, BORROWER_UID],
+    messageType: "TEXT",
+    bodyText: "Checking balance",
+    attachmentUri: "",
+    attachmentMimeType: "",
+    attachmentName: "",
+    deliveryStatus: "SENT",
+    proposedDueDateMillis: -1,
+    extensionStatus: "NONE",
+    sentAtMillis: Date.now(),
+    deliveredAtMillis: -1,
+    readAtMillis: -1,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  // 1. Before any block, Bob can send a message -> OK
+  await assertSucceeds(msgRef(borrowerDb, "m1").set(buildMsg("m1", BORROWER_UID)));
+
+  // 2. Thread-level block (blockedByUid + blockedByUids) -> Bob CANNOT create message
+  await assertSucceeds(
+    threadRef(ownerDb).update({
+      blockedByUid: OWNER_UID,
+      blockedByUids: [OWNER_UID],
+      updatedAt: new Date(),
+    })
+  );
+  await assertFails(msgRef(borrowerDb, "m2").set(buildMsg("m2", BORROWER_UID)));
+
+  // 3. Unblock thread -> Bob CAN send again
+  await assertSucceeds(
+    threadRef(ownerDb).update({
+      blockedByUid: "",
+      blockedByUids: [],
+      updatedAt: new Date(),
+    })
+  );
+  await assertSucceeds(msgRef(borrowerDb, "m3").set(buildMsg("m3", BORROWER_UID)));
+
+  // 4. User-level block (/users/{OWNER_UID}/blocked_users/{BORROWER_UID}) -> Bob CANNOT create message
+  await assertSucceeds(
+    ownerDb.collection("users").doc(OWNER_UID).collection("blocked_users").doc(BORROWER_UID).set({
+      targetUid: BORROWER_UID,
+      isMuted: true,
+      isBlocked: true,
+      isReported: true,
+      reportReason: "Abusive messages",
+      updatedAt: new Date(),
+    })
+  );
+  await assertFails(msgRef(borrowerDb, "m4").set(buildMsg("m4", BORROWER_UID)));
+
+  // 5. Also blocked in a separate DM thread between Alice & Bob
+  const dmId = `dm_${OWNER_UID}_${BORROWER_UID}`;
+  await assertSucceeds(
+    ownerDb.collection("chat_threads").doc(dmId).set(
+      buildValidChatThread({
+        threadId: dmId,
+        threadScope: "PARTY",
+        remoteRecordId: "",
+        counterpartyUid: BORROWER_UID,
+        participantUids: [OWNER_UID, BORROWER_UID],
+        blockedByUids: [],
+      })
+    )
+  );
+  await assertFails(
+    borrowerDb.collection("chat_threads").doc(dmId).collection("messages").doc("dm_m1").set({
+      ...buildMsg("dm_m1", BORROWER_UID),
+      threadId: dmId,
+    })
+  );
+
+  // 6. Unblock user (isBlocked = false) -> Bob CAN send again in both threads
+  await assertSucceeds(
+    ownerDb.collection("users").doc(OWNER_UID).collection("blocked_users").doc(BORROWER_UID).update({
+      isBlocked: false,
+      updatedAt: new Date(),
+    })
+  );
+  await assertSucceeds(msgRef(borrowerDb, "m5").set(buildMsg("m5", BORROWER_UID)));
+  await assertSucceeds(
+    borrowerDb.collection("chat_threads").doc(dmId).collection("messages").doc("dm_m2").set({
+      ...buildMsg("dm_m2", BORROWER_UID),
+      threadId: dmId,
+    })
+  );
+});
+
+// =========================================================================
+// PART D: Fuzz Tests (Extra Fields, Oversized Strings, Wrong Types, Invalid Enums)
+// =========================================================================
+
+test("D1. Fuzz matrix: extra fields, oversized strings & wrong types denied across guest, profile, shared & chat paths", async () => {
+  const ownerDb = getOwnerDb();
+  const borrowerDb = getBorrowerDb();
+  const now = Date.now();
+
+  // 1. guestLinks fuzzing
+  const validGuestLink = {
+    ownerUid: OWNER_UID,
+    schemaVersion: 1,
+    status: "ACTIVE",
+    recordId: "rec_fuzz",
+    payableAmountPaise: 5000,
+    expiresAtMs: now + 3600000,
+    verificationLevel: "PRIVATE_LINK",
+    allowedActions: ["CONFIRM"],
+  };
+  await assertFails(ownerDb.collection("guestLinks").doc("gl_extra").set({ ...validGuestLink, unknownKey: "x" }));
+  await assertFails(ownerDb.collection("guestLinks").doc("gl_big").set({ ...validGuestLink, note: "Z".repeat(501) }));
+  await assertFails(ownerDb.collection("guestLinks").doc("gl_type").set({ ...validGuestLink, payableAmountPaise: "5000" }));
+  await assertFails(ownerDb.collection("guestLinks").doc("gl_neg").set({ ...validGuestLink, payableAmountPaise: -1 }));
+  await assertFails(ownerDb.collection("guestLinks").doc("gl_enum").set({ ...validGuestLink, verificationLevel: "ADMIN" }));
+
+  // 2. user_profiles fuzzing
+  const validProfile = {
+    userId: OWNER_UID,
+    displayName: "Alice",
+    phoneNumber: "+919876543210",
+    upiId: "alice@upi",
+    photoUri: "",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  await assertFails(ownerDb.collection("user_profiles").doc(OWNER_UID).set({ ...validProfile, role: "admin" }));
+  await assertFails(ownerDb.collection("user_profiles").doc(OWNER_UID).set({ ...validProfile, displayName: "A".repeat(101) }));
+  await assertFails(ownerDb.collection("user_profiles").doc(OWNER_UID).set({ ...validProfile, upiId: 12345 }));
+
+  // 3. shared_records fuzzing
+  await assertFails(
+    ownerDb.collection("shared_records").doc("sr_extra").set({
+      ...buildValidSharedRecord({ remoteId: "sr_extra" }),
+      injectedFlag: true,
+    })
+  );
+  await assertFails(
+    ownerDb.collection("shared_records").doc("sr_big").set({
+      ...buildValidSharedRecord({ remoteId: "sr_big", encryptedNotes: "E".repeat(2001) }),
+    })
+  );
+  await assertFails(
+    ownerDb.collection("shared_records").doc("sr_type").set({
+      ...buildValidSharedRecord({ remoteId: "sr_type", principalAmount: "5000" }),
+    })
+  );
+  await assertFails(
+    ownerDb.collection("shared_records").doc("sr_neg").set({
+      ...buildValidSharedRecord({ remoteId: "sr_neg", principalAmount: -50 }),
+    })
+  );
+  await assertFails(
+    ownerDb.collection("shared_records").doc("sr_enum").set({
+      ...buildValidSharedRecord({ remoteId: "sr_enum", currency: "BTC" }),
+    })
+  );
+
+  // Seed valid shared record & thread for subcollection fuzzing
+  await assertSucceeds(
+    ownerDb.collection("shared_records").doc("sr_ok").set(
+      buildValidSharedRecord({
+        remoteId: "sr_ok",
+        counterpartyUid: BORROWER_UID,
+        participantUids: [OWNER_UID, BORROWER_UID],
+      })
+    )
+  );
+  await assertSucceeds(
+    ownerDb.collection("chat_threads").doc("tx_sr_ok").set(
+      buildValidChatThread({
+        threadId: "tx_sr_ok",
+        remoteRecordId: "sr_ok",
+        counterpartyUid: BORROWER_UID,
+        participantUids: [OWNER_UID, BORROWER_UID],
+      })
+    )
+  );
+
+  // 4. partial_payments fuzzing
+  const validPay = {
+    paymentId: "pay_fuzz",
+    remoteId: "sr_ok",
+    recordedByUid: BORROWER_UID,
+    recordedByName: "Bob",
+    participantUids: [OWNER_UID, BORROWER_UID],
+    amount: 250.0,
+    paymentMode: "UPI",
+    paidAtMillis: now,
+    encryptedNote: "",
+    isAcknowledged: false,
+    acknowledgedByUid: "",
+    acknowledgedAtMillis: -1,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  await assertFails(borrowerDb.collection("shared_records").doc("sr_ok").collection("partial_payments").doc("pay_fuzz").set({ ...validPay, extra: "x" }));
+  await assertFails(borrowerDb.collection("shared_records").doc("sr_ok").collection("partial_payments").doc("pay_fuzz").set({ ...validPay, encryptedNote: "N".repeat(1025) }));
+  await assertFails(borrowerDb.collection("shared_records").doc("sr_ok").collection("partial_payments").doc("pay_fuzz").set({ ...validPay, amount: "250" }));
+
+  // 5. audit_trail fuzzing
+  const validAud = {
+    eventId: "aud_fuzz",
+    remoteId: "sr_ok",
+    eventType: "CREATED",
+    actorUid: OWNER_UID,
+    actorName: "Alice",
+    participantUids: [OWNER_UID, BORROWER_UID],
+    summaryText: "Created",
+    contentHashSnapshot: "a".repeat(64),
+    acknowledged: false,
+    eventTimeMillis: now,
+    createdAt: new Date(),
+  };
+  await assertFails(ownerDb.collection("shared_records").doc("sr_ok").collection("audit_trail").doc("aud_fuzz").set({ ...validAud, extra: 1 }));
+  await assertFails(ownerDb.collection("shared_records").doc("sr_ok").collection("audit_trail").doc("aud_fuzz").set({ ...validAud, summaryText: "S".repeat(501) }));
+  await assertFails(ownerDb.collection("shared_records").doc("sr_ok").collection("audit_trail").doc("aud_fuzz").set({ ...validAud, eventType: "INVALID" }));
+
+  // 6. chat_threads fuzzing
+  await assertFails(ownerDb.collection("chat_threads").doc("tx_fuzz").set({ ...buildValidChatThread({ threadId: "tx_fuzz" }), extraField: 1 }));
+  await assertFails(ownerDb.collection("chat_threads").doc("tx_fuzz").set(buildValidChatThread({ threadId: "tx_fuzz", reportReason: "R".repeat(301) })));
+  await assertFails(ownerDb.collection("chat_threads").doc("tx_fuzz").set(buildValidChatThread({ threadId: "tx_fuzz", threadScope: "GROUP" })));
+
+  // 7. chat messages fuzzing
+  const validMsg = {
+    messageId: "msg_fuzz",
+    threadId: "tx_sr_ok",
+    senderUid: OWNER_UID,
+    senderName: "Alice",
+    participantUids: [OWNER_UID, BORROWER_UID],
+    messageType: "TEXT",
+    bodyText: "Hello",
+    attachmentUri: "",
+    attachmentMimeType: "",
+    attachmentName: "",
+    deliveryStatus: "SENT",
+    proposedDueDateMillis: -1,
+    extensionStatus: "NONE",
+    sentAtMillis: now,
+    deliveredAtMillis: -1,
+    readAtMillis: -1,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  await assertFails(ownerDb.collection("chat_threads").doc("tx_sr_ok").collection("messages").doc("msg_fuzz").set({ ...validMsg, unknownKey: 1 }));
+  await assertFails(ownerDb.collection("chat_threads").doc("tx_sr_ok").collection("messages").doc("msg_fuzz").set({ ...validMsg, bodyText: "B".repeat(1001) }));
+  await assertFails(ownerDb.collection("chat_threads").doc("tx_sr_ok").collection("messages").doc("msg_fuzz").set({ ...validMsg, sentAtMillis: "now" }));
+  await assertFails(ownerDb.collection("chat_threads").doc("tx_sr_ok").collection("messages").doc("msg_fuzz").set({ ...validMsg, messageType: "EXECUTABLE" }));
 });

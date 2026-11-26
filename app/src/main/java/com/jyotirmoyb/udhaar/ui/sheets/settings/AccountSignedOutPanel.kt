@@ -60,7 +60,7 @@ internal fun AccountSignedOutPanel(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
@@ -73,8 +73,8 @@ internal fun AccountSignedOutPanel(
                     SparkAuthUiMode.SIGNIN -> stringResource(R.string.account_sign_in_heading)
                     SparkAuthUiMode.PASSWORD_RESET -> stringResource(R.string.account_reset_password_heading)
                 },
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(end = 8.dp)
             )
             if (authMode != SparkAuthUiMode.PASSWORD_RESET) {

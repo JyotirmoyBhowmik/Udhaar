@@ -3,6 +3,7 @@ package com.jyotirmoyb.udhaar.ui.common
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -109,6 +110,8 @@ fun SettingsSectionCard(
     initiallyExpanded: Boolean = true,
     content: @Composable () -> Unit
 ) {
+    @Suppress("UNUSED_VARIABLE")
+    val ignoredSectionNumber = sectionNumber
     var isExpanded by androidx.compose.runtime.saveable.rememberSaveable {
         androidx.compose.runtime.mutableStateOf(initiallyExpanded)
     }
@@ -117,42 +120,34 @@ fun SettingsSectionCard(
             .fillMaxWidth()
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner16)
             .background(MaterialTheme.colorScheme.surface, com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner16)
-            .padding(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Large)
+            .padding(12.dp)
             .testTag(testTag),
-        verticalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .clickable(role = androidx.compose.ui.semantics.Role.Button) { isExpanded = !isExpanded }
                 .testTag("${testTag}_header"),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(com.jyotirmoyb.udhaar.ui.theme.UdhaarSpacing.Small)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(26.dp)
-                    .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(8.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = sectionNumber,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (subtitle.isNotBlank()) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                }
             }
             IconButton(
                 onClick = { isExpanded = !isExpanded },
@@ -160,13 +155,12 @@ fun SettingsSectionCard(
                     .size(48.dp)
                     .testTag("${testTag}_toggle")
             ) {
-                Text(
-                    text = stringResource(
-                        if (isExpanded) R.string.card_collapse_details else R.string.card_expand_details
+                Icon(
+                    imageVector = if (isExpanded) UdhaarIcons.ExpandLess else UdhaarIcons.ExpandMore,
+                    contentDescription = stringResource(
+                        if (isExpanded) R.string.cd_collapse_details else R.string.cd_expand_details
                     ),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    maxLines = 1
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

@@ -1,3 +1,6 @@
+> [!WARNING]
+> **OBSOLETE / HISTORICAL REFERENCE (Pre-v32):** Any sections below referencing legacy Cloud Functions, Cloud KMS, Blaze-only server endpoints, or "Platform v2" are **superseded and archived** under `archive/`. For the canonical Udhaar v32.0 Spark Mode architecture, security rules, and data safety declarations, see [`docs/REALITY_CHECK.md`](REALITY_CHECK.md), [`docs/PLAY_DATA_SAFETY.md`](PLAY_DATA_SAFETY.md), and [`README.md`](../README.md).
+
 # Udhaar — Guest Web Flow Setup & Deployment Guide
 
 This guide provides end-to-end instructions for deploying, configuring, testing, and maintaining the **Udhaar Guest Web Flow** across Firebase Cloud Functions (v2), Cloud Firestore (named database), Firebase Hosting, and the Android client application.

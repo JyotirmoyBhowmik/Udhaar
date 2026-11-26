@@ -23,7 +23,7 @@ class UdhaarApplication : Application(), Configuration.Provider {
         if (BuildConfig.DEBUG) {
             setupStrictMode()
         }
-        com.jyotirmoyb.udhaar.util.AppLogger.initCrashlyticsUser(this)
+        com.jyotirmoyb.udhaar.util.SafeLogger.initCrashlyticsUser(this)
     }
 
     private fun setupStrictMode() {

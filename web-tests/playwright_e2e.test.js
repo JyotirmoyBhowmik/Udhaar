@@ -27,7 +27,7 @@ const ROOT_DIR = path.resolve(__dirname, "..");
 const WEB_DIR = path.join(ROOT_DIR, "web");
 const CANDIDATE_AXE_PATHS = [
   path.join(ROOT_DIR, "node_modules/axe-core/axe.min.js"),
-  path.join(ROOT_DIR, "blaze_disabled/functions/node_modules/axe-core/axe.min.js")
+  path.join(ROOT_DIR, "archive/blaze_disabled/functions/node_modules/axe-core/axe.min.js")
 ];
 const AXE_PATH = CANDIDATE_AXE_PATHS.find((p) => fs.existsSync(p));
 const SCREENSHOTS_DIR = path.join(ROOT_DIR, "web/test-results/screenshots");

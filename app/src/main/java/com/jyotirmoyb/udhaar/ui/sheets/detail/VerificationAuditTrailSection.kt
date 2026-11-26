@@ -50,7 +50,7 @@ fun VerificationAuditTrailSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { showVerificationDetails = !showVerificationDetails }
+                .clickable(role = androidx.compose.ui.semantics.Role.Button) { showVerificationDetails = !showVerificationDetails }
                 .padding(vertical = 4.dp)
                 .testTag("toggle_verification_details_button"),
             horizontalArrangement = Arrangement.SpaceBetween,

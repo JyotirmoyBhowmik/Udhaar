@@ -1,3 +1,6 @@
+> [!WARNING]
+> **OBSOLETE / HISTORICAL REFERENCE (Pre-v32):** Any sections below referencing legacy Cloud Functions, Cloud KMS, Blaze-only server endpoints, or "Platform v2" are **superseded and archived** under `archive/`. For the canonical Udhaar v32.0 Spark Mode architecture and operational truth, see [`docs/REALITY_CHECK.md`](../REALITY_CHECK.md) and [`README.md`](../../README.md).
+
 # Runbook: WhatsApp Outage & Failover Protocol
 
 - **ID**: RB-COMM-001

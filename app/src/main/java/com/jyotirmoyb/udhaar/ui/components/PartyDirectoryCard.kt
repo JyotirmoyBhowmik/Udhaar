@@ -69,7 +69,7 @@ internal fun PartyDirectoryCard(
             .pressScaleFeedback(pressedScale = 0.98f)
             .border(1.dp, BorderGrey, RoundedCornerShape(12.dp))
             .background(PureWhite, RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
+            .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
             .padding(12.dp)
             .testTag("party_card_${party.name}"),
         verticalArrangement = Arrangement.spacedBy(6.dp)

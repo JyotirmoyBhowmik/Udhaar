@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -297,21 +298,13 @@ fun SettingsScreen(
                                 )
                             }
                             Spacer(modifier = Modifier.width(4.dp))
-                            Column {
-                                Text(
-                                    text = stringResource(R.string.ui_str_settings_preferences_1f2ee4),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1
-                                )
-                                Text(
-                                    text = stringResource(R.string.ui_str_profile_security_currency_backup_ab_1c71e9),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1
-                                )
-                            }
+                            Text(
+                                text = stringResource(R.string.ui_str_settings_preferences_1f2ee4),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1
+                            )
                         }
                     }
 
@@ -324,8 +317,7 @@ fun SettingsScreen(
                         contentPadding = PaddingValues(horizontal = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(categories.size) { idx ->
-                            val (catKey, labelRes) = categories[idx]
+                        items(categories, key = { it.first }) { (catKey, labelRes) ->
                             val isSelected = selectedCategory == catKey
                             androidx.compose.material3.FilterChip(
                                 selected = isSelected,
@@ -403,8 +395,8 @@ fun SettingsScreen(
                     .padding(innerPadding)
                     .imePadding()
                     .testTag("settings_lazy_column"),
-                contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 36.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 // 1. PROFILE AND UPI
                 if (selectedCategory == "ALL" || selectedCategory == "PROFILE") {

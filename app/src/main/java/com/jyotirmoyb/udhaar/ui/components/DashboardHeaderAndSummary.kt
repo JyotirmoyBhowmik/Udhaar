@@ -47,6 +47,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.TextUnit
@@ -248,7 +249,7 @@ internal fun PillTabItem(
         modifier = modifier
             .heightIn(min = 48.dp)
             .pressScaleFeedback()
-            .clickable(onClick = onClick),
+            .clickable(role = androidx.compose.ui.semantics.Role.Tab, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Box(
@@ -315,7 +316,7 @@ internal fun TopLedgerSummaryCard(
                         modifier = Modifier
                             .heightIn(min = 48.dp)
                             .pressScaleFeedback()
-                            .clickable { onSelectCurrency(curr) }
+                            .clickable(role = androidx.compose.ui.semantics.Role.Tab) { onSelectCurrency(curr) }
                             .testTag("summary_currency_tab_${curr.name.lowercase()}"),
                         contentAlignment = Alignment.Center
                     ) {
@@ -365,9 +366,9 @@ internal fun TopLedgerSummaryCard(
         val isPayableSelected = selectedFilter == LedgerFilter.TAKEN
 
         val receivableRecordLabel = if (totals.activeGivenCount == 1) {
-            stringResource(R.string.summary_one_active_record)
+            stringResource(R.string.summary_one_record)
         } else {
-            stringResource(R.string.summary_many_active_records_fmt, totals.activeGivenCount)
+            stringResource(R.string.summary_many_records_fmt, totals.activeGivenCount)
         }
         val payableRecordLabel = if (totals.activeTakenCount == 1) {
             stringResource(R.string.summary_one_record)
@@ -543,8 +544,8 @@ private fun SummaryMetricCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 9.dp, vertical = 9.dp),
-            verticalArrangement = Arrangement.spacedBy(3.dp)
+                .padding(horizontal = 10.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -563,9 +564,10 @@ private fun SummaryMetricCard(
                     text = title,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontSize = 11.5.sp,
-                        lineHeight = 14.sp,
-                        letterSpacing = (-0.25).sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold
+                        lineHeight = 13.sp,
+                        letterSpacing = (-0.2).sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                        platformStyle = PlatformTextStyle(includeFontPadding = false)
                     ),
                     color = inkColor,
                     maxLines = 1,
@@ -580,15 +582,16 @@ private fun SummaryMetricCard(
                     fontFamily = IbmPlexMonoFamily,
                     fontWeight = FontWeight.Bold,
                     lineHeight = TextUnit.Unspecified,
-                    letterSpacing = (-0.85).sp
+                    letterSpacing = (-0.6).sp,
+                    platformStyle = PlatformTextStyle(includeFontPadding = false)
                 ),
                 color = { inkColor },
                 maxLines = 1,
                 softWrap = false,
                 overflow = TextOverflow.Clip,
                 autoSize = TextAutoSize.StepBased(
-                    minFontSize = 8.5.sp,
-                    maxFontSize = 15.sp,
+                    minFontSize = 9.5.sp,
+                    maxFontSize = 18.sp,
                     stepSize = 0.5.sp
                 ),
                 modifier = Modifier
@@ -600,8 +603,10 @@ private fun SummaryMetricCard(
                 text = recordCountLabel,
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontSize = 10.5.sp,
+                    lineHeight = 13.sp,
                     letterSpacing = (-0.2).sp,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    platformStyle = PlatformTextStyle(includeFontPadding = false)
                 ),
                 color = inkColor,
                 maxLines = 1,
@@ -616,7 +621,7 @@ private fun SummaryMetricCard(
                 .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                 .clip(UdhaarShapeTokens.Corner8)
                 .pressScaleFeedback()
-                .clickable(onClick = onToggleHideAmounts)
+                .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onToggleHideAmounts)
                 .padding(top = 8.dp, end = 8.dp)
                 .testTag(privacyToggleTestTag),
             contentAlignment = Alignment.TopEnd
@@ -659,7 +664,7 @@ internal fun DashboardFooterVpaLine(
             .fillMaxWidth()
             .heightIn(min = 48.dp)
             .pressScaleFeedback()
-            .clickable { onSettingsClick() }
+            .clickable(role = androidx.compose.ui.semantics.Role.Button) { onSettingsClick() }
             .padding(horizontal = 4.dp, vertical = 10.dp)
             .testTag("footer_vpa_line")
     )

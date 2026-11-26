@@ -1,5 +1,6 @@
 package com.jyotirmoyb.udhaar.data
 
+import androidx.paging.PagingSource
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
@@ -94,6 +95,52 @@ interface UdhaarDao {
     @Query("DELETE FROM udhaar_transactions WHERE id = :id")
     suspend fun deleteTransactionById(id: Long)
 
+    // --- Paging 3 Projection Queries (No SELECT *) ---
+    @Query(
+        """
+        SELECT id, partyId, transactionType, partyName, phoneNumber, currency,
+               principalAmountPaise, amountPaidPaise, paymentMode, startDateMillis,
+               expiryDateMillis, isSettled, settledAtMillis, verificationStatus, createdAtMillis
+        FROM udhaar_transactions
+        WHERE isSettled = 1
+        ORDER BY COALESCE(settledAtMillis, createdAtMillis) DESC, id DESC
+        """
+    )
+    fun getSettledHistoryPaged(): PagingSource<Int, TransactionHistoryProjection>
+
+    @Query(
+        """
+        SELECT id, partyId, transactionType, partyName, phoneNumber, currency,
+               principalAmountPaise, amountPaidPaise, paymentMode, startDateMillis,
+               expiryDateMillis, isSettled, settledAtMillis, verificationStatus, createdAtMillis
+        FROM udhaar_transactions
+        WHERE (:settledOnly = 0 OR isSettled = 1)
+          AND (
+              :query = ''
+              OR LOWER(partyName) LIKE '%' || LOWER(:query) || '%'
+              OR LOWER(phoneNumber) LIKE '%' || LOWER(:query) || '%'
+              OR LOWER(notes) LIKE '%' || LOWER(:query) || '%'
+              OR LOWER(paymentMode) LIKE '%' || LOWER(:query) || '%'
+              OR LOWER(verificationStatus) LIKE '%' || LOWER(:query) || '%'
+          )
+        ORDER BY isSettled ASC, createdAtMillis DESC, id DESC
+        """
+    )
+    fun searchTransactionsPaged(query: String, settledOnly: Int = 0): PagingSource<Int, TransactionHistoryProjection>
+
+    @Query(
+        """
+        SELECT partyId, name, phoneNumber, preferredCurrency, isFavorite, lastInteractionMillis
+        FROM parties
+        WHERE :query = ''
+           OR LOWER(name) LIKE '%' || LOWER(:query) || '%'
+           OR LOWER(phoneNumber) LIKE '%' || LOWER(:query) || '%'
+           OR LOWER(upiId) LIKE '%' || LOWER(:query) || '%'
+        ORDER BY isFavorite DESC, name COLLATE NOCASE ASC
+        """
+    )
+    fun searchPartiesPaged(query: String): PagingSource<Int, PartySearchProjection>
+
     // --- Partial Payment Queries ---
     @Query("SELECT * FROM partial_payments WHERE transactionId = :transactionId ORDER BY paidAtMillis DESC")
     fun getPartialPaymentsForTransaction(transactionId: Long): Flow<List<PartialPayment>>
@@ -181,6 +228,25 @@ interface UdhaarDao {
 
     @Query("SELECT * FROM chat_messages ORDER BY sentAtMillis ASC")
     suspend fun getAllChatMessagesSnapshot(): List<ChatMessageEntity>
+
+    // --- User-Level Chat Safety (Mute / Block / Report) ---
+    @Query("SELECT * FROM user_chat_safety ORDER BY updatedAtMillis DESC")
+    fun getAllUserChatSafety(): Flow<List<UserChatSafetyEntity>>
+
+    @Query("SELECT * FROM user_chat_safety ORDER BY updatedAtMillis DESC")
+    suspend fun getAllUserChatSafetySnapshot(): List<UserChatSafetyEntity>
+
+    @Query("SELECT * FROM user_chat_safety WHERE userKey = :userKey LIMIT 1")
+    suspend fun getUserChatSafety(userKey: String): UserChatSafetyEntity?
+
+    @Query("SELECT * FROM user_chat_safety WHERE counterpartyUid = :uid AND counterpartyUid != '' LIMIT 1")
+    suspend fun getUserChatSafetyByUid(uid: String): UserChatSafetyEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertUserChatSafety(safety: UserChatSafetyEntity)
+
+    @Query("DELETE FROM user_chat_safety")
+    suspend fun deleteAllUserChatSafety()
 
     // --- Phase 6: Documents & Attachments ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -357,6 +423,7 @@ interface UdhaarDao {
         deleteAllAuditTrail()
         deleteAllChatMessages()
         deleteAllChatThreads()
+        deleteAllUserChatSafety()
         deleteAllReminderEvents()
         deleteAllInstallments()
         deleteAllInstallmentPlans()

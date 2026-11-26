@@ -10,6 +10,7 @@ import com.jyotirmoyb.udhaar.data.ExtensionRequestStatus
 import com.jyotirmoyb.udhaar.data.MessageDeliveryStatus
 import com.jyotirmoyb.udhaar.data.UdhaarDao
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
+import com.jyotirmoyb.udhaar.data.UserChatSafetyEntity
 import com.jyotirmoyb.udhaar.data.UserSettings
 import com.jyotirmoyb.udhaar.data.VerificationStatus
 import com.jyotirmoyb.udhaar.data.cloud.CloudAuditEvent
@@ -52,12 +53,24 @@ open class ChatRepository(
         emit(emptyList())
     }
 
+    val allUserChatSafety: Flow<List<UserChatSafetyEntity>> = dao.getAllUserChatSafety().catch { e ->
+        SafeLogger.e("ChatRepository", "Failed reading user chat safety flow", e)
+        emit(emptyList())
+    }
+
     companion object {
         fun transactionThreadKey(transactionId: Long): String =
             ChatSyncHelper.transactionThreadKey(transactionId)
 
         fun partyGeneralThreadKey(partyName: String): String =
             ChatSyncHelper.partyGeneralThreadKey(partyName)
+
+        fun userSafetyKey(counterpartyUid: String = "", partyId: Long? = null, partyName: String = ""): String {
+            val cleanUid = counterpartyUid.trim()
+            if (cleanUid.isNotBlank()) return "uid_$cleanUid"
+            if (partyId != null && partyId > 0L) return "partyid_$partyId"
+            return "party_${partyName.trim().lowercase().ifBlank { "unknown" }}"
+        }
 
         fun cloudThreadIdFor(
             scope: ChatThreadScope,
@@ -190,12 +203,13 @@ open class ChatRepository(
         )
         if (meta.isBlocked) return null
 
+        val resolvedCounterpartyUid = resolveCounterpartyUid(resolvedTx, partyId, partyName)
+        if (isUserBlocked(resolvedCounterpartyUid, partyId ?: resolvedTx?.partyId, partyName)) return null
+
         val settings = settingsRepository.userSettings.first()
         val myName = settingsRepository.resolveSelfDisplayName(settings)
         val nowMillis = System.currentTimeMillis()
         val remoteMsgId = "msg_${UUID.randomUUID().toString().replace("-", "").take(16)}"
-
-        val resolvedCounterpartyUid = resolveCounterpartyUid(resolvedTx, partyId, partyName)
         val senderName = if (fromCounterparty) partyName.trim().ifBlank { "Party" } else myName
         val senderUid = if (fromCounterparty) {
             resolvedCounterpartyUid.ifBlank { "party_remote" }
@@ -246,7 +260,9 @@ open class ChatRepository(
         )
         dao.upsertChatThreadMetadata(updatedMeta)
 
-        if (fromCounterparty && context != null) {
+        val isUserMuted = isUserMuted(resolvedCounterpartyUid, partyId ?: resolvedTx?.partyId, partyName)
+        val shouldNotify = fromCounterparty && context != null && !(updatedMeta.isMuted || isUserMuted)
+        if (shouldNotify) {
             ChatNotificationHelper.showIncomingChatNotification(
                 context = context,
                 threadMetadata = updatedMeta,
@@ -363,6 +379,120 @@ open class ChatRepository(
         }
     }
 
+    suspend fun isUserBlocked(
+        counterpartyUid: String = "",
+        partyId: Long? = null,
+        partyName: String = ""
+    ): Boolean {
+        val byUid = counterpartyUid.trim().takeIf { it.isNotBlank() }?.let { dao.getUserChatSafetyByUid(it) }
+        if (byUid?.isBlocked == true) return true
+        val key = userSafetyKey(counterpartyUid, partyId, partyName)
+        val byKey = dao.getUserChatSafety(key)
+        if (byKey?.isBlocked == true) return true
+        if (partyId != null && partyId > 0L) {
+            val byPartyId = dao.getUserChatSafety("partyid_$partyId")
+            if (byPartyId?.isBlocked == true) return true
+        }
+        if (partyName.isNotBlank()) {
+            val byName = dao.getUserChatSafety("party_${partyName.trim().lowercase()}")
+            if (byName?.isBlocked == true) return true
+        }
+        return false
+    }
+
+    suspend fun isUserMuted(
+        counterpartyUid: String = "",
+        partyId: Long? = null,
+        partyName: String = ""
+    ): Boolean {
+        val byUid = counterpartyUid.trim().takeIf { it.isNotBlank() }?.let { dao.getUserChatSafetyByUid(it) }
+        if (byUid?.isMuted == true) return true
+        val key = userSafetyKey(counterpartyUid, partyId, partyName)
+        val byKey = dao.getUserChatSafety(key)
+        if (byKey?.isMuted == true) return true
+        if (partyName.isNotBlank()) {
+            val byName = dao.getUserChatSafety("party_${partyName.trim().lowercase()}")
+            if (byName?.isMuted == true) return true
+        }
+        return false
+    }
+
+    private suspend fun getOrCreateUserSafety(
+        counterpartyUid: String = "",
+        partyId: Long? = null,
+        partyName: String = ""
+    ): UserChatSafetyEntity {
+        val resolvedUid = counterpartyUid.trim().ifBlank { resolveCounterpartyUid(null, partyId, partyName) }
+        val existingByUid = resolvedUid.takeIf { it.isNotBlank() }?.let { dao.getUserChatSafetyByUid(it) }
+        val key = existingByUid?.userKey ?: userSafetyKey(resolvedUid, partyId, partyName)
+        val existing = existingByUid ?: dao.getUserChatSafety(key)
+        if (existing != null) {
+            return existing.copy(
+                counterpartyUid = existing.counterpartyUid.ifBlank { resolvedUid },
+                partyId = existing.partyId ?: partyId,
+                partyName = existing.partyName.ifBlank { partyName.trim() }
+            )
+        }
+        return UserChatSafetyEntity(
+            userKey = key,
+            counterpartyUid = resolvedUid,
+            partyId = partyId,
+            partyName = partyName.trim()
+        )
+    }
+
+    suspend fun toggleUserMute(
+        counterpartyUid: String = "",
+        partyId: Long? = null,
+        partyName: String = "",
+        isMuted: Boolean? = null
+    ): UserChatSafetyEntity {
+        val existing = getOrCreateUserSafety(counterpartyUid, partyId, partyName)
+        val updated = existing.copy(
+            isMuted = isMuted ?: !existing.isMuted,
+            updatedAtMillis = System.currentTimeMillis()
+        )
+        dao.upsertUserChatSafety(updated)
+        ChatSyncHelper.syncUserSafetyToCloud(updated, settingsRepository, cloudRepository)
+        return updated
+    }
+
+    suspend fun toggleUserBlock(
+        counterpartyUid: String = "",
+        partyId: Long? = null,
+        partyName: String = "",
+        isBlocked: Boolean? = null
+    ): UserChatSafetyEntity {
+        val existing = getOrCreateUserSafety(counterpartyUid, partyId, partyName)
+        val nextBlocked = isBlocked ?: !existing.isBlocked
+        val updated = existing.copy(
+            isBlocked = nextBlocked,
+            updatedAtMillis = System.currentTimeMillis()
+        )
+        dao.upsertUserChatSafety(updated)
+        ChatSyncHelper.syncUserSafetyToCloud(updated, settingsRepository, cloudRepository)
+        return updated
+    }
+
+    suspend fun reportUser(
+        counterpartyUid: String = "",
+        partyId: Long? = null,
+        partyName: String = "",
+        reason: String,
+        alsoBlock: Boolean = true
+    ): UserChatSafetyEntity {
+        val existing = getOrCreateUserSafety(counterpartyUid, partyId, partyName)
+        val updated = existing.copy(
+            isReported = true,
+            isBlocked = if (alsoBlock) true else existing.isBlocked,
+            reportReason = reason.trim().ifBlank { "Abusive or spam behavior" },
+            updatedAtMillis = System.currentTimeMillis()
+        )
+        dao.upsertUserChatSafety(updated)
+        ChatSyncHelper.syncUserSafetyToCloud(updated, settingsRepository, cloudRepository)
+        return updated
+    }
+
     suspend fun toggleThreadMute(
         threadKey: String,
         isMuted: Boolean? = null,
@@ -388,8 +518,39 @@ open class ChatRepository(
         partyId: Long? = null,
         partyName: String = ""
     ): ChatThreadMetadata {
+        val settings = settingsRepository.userSettings.first()
         val meta = getOrCreateThreadMetadata(threadKey, scope, transactionId, remoteId, partyId, partyName)
-        val updated = meta.copy(isBlocked = isBlocked ?: !meta.isBlocked, updatedAtMillis = System.currentTimeMillis())
+        val nextBlocked = isBlocked ?: !meta.isBlocked
+        val updated = meta.copy(
+            isBlocked = nextBlocked,
+            blockedByUid = if (nextBlocked) settings.cloudUserId.ifBlank { "local_me" } else "",
+            updatedAtMillis = System.currentTimeMillis()
+        )
+        dao.upsertChatThreadMetadata(updated)
+        syncModerationFlagsToCloud(updated)
+        return updated
+    }
+
+    suspend fun reportThread(
+        threadKey: String,
+        reason: String,
+        scope: ChatThreadScope = ChatThreadScope.TRANSACTION,
+        transactionId: Long? = null,
+        remoteId: String = "",
+        partyId: Long? = null,
+        partyName: String = "",
+        alsoBlockThread: Boolean = true
+    ): ChatThreadMetadata {
+        val settings = settingsRepository.userSettings.first()
+        val meta = getOrCreateThreadMetadata(threadKey, scope, transactionId, remoteId, partyId, partyName)
+        val nextBlocked = if (alsoBlockThread) true else meta.isBlocked
+        val updated = meta.copy(
+            isReported = true,
+            isBlocked = nextBlocked,
+            blockedByUid = if (nextBlocked) settings.cloudUserId.ifBlank { "local_me" } else meta.blockedByUid,
+            reportReason = reason.trim().ifBlank { "Abusive or spam behavior" },
+            updatedAtMillis = System.currentTimeMillis()
+        )
         dao.upsertChatThreadMetadata(updated)
         syncModerationFlagsToCloud(updated)
         return updated
@@ -404,16 +565,24 @@ open class ChatRepository(
         partyId: Long? = null,
         partyName: String = ""
     ): ChatThreadMetadata {
-        val meta = getOrCreateThreadMetadata(threadKey, scope, transactionId, remoteId, partyId, partyName)
-        val updated = meta.copy(
-            isReported = true,
-            isBlocked = true,
-            reportReason = reason.trim().ifBlank { "Abusive or spam behavior" },
-            updatedAtMillis = System.currentTimeMillis()
+        val updatedThread = reportThread(
+            threadKey = threadKey,
+            reason = reason,
+            scope = scope,
+            transactionId = transactionId,
+            remoteId = remoteId,
+            partyId = partyId,
+            partyName = partyName,
+            alsoBlockThread = true
         )
-        dao.upsertChatThreadMetadata(updated)
-        syncModerationFlagsToCloud(updated)
-        return updated
+        reportUser(
+            counterpartyUid = "",
+            partyId = partyId,
+            partyName = partyName,
+            reason = reason,
+            alsoBlock = true
+        )
+        return updatedThread
     }
 
     private suspend fun syncModerationFlagsToCloud(meta: ChatThreadMetadata) {
@@ -423,7 +592,7 @@ open class ChatRepository(
             val dmId = cloudThreadIdFor(meta.threadScope, meta.remoteThreadId, meta.partyName, meta.threadKey, settings.cloudUserId, counterpartyUid)
             meta.copy(remoteThreadId = dmId)
         } else meta
-        ChatSyncHelper.syncModerationFlagsToCloud(effectiveMeta, settingsRepository, cloudRepository)
+        ChatSyncHelper.syncModerationFlagsToCloud(effectiveMeta, settingsRepository, cloudRepository, counterpartyUid)
     }
 
     private suspend fun syncChatThreadAndMessageToCloudIfEnabled(

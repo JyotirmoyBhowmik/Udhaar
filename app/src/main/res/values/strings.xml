@@ -24,7 +24,7 @@
     <string name="onboarding_title_2">Two-Party Verification &amp; Chat</string>
     <string name="onboarding_desc_2">Tamper-proof history of changes with record fingerprints. Share verification links and chat in-app with receipt proofs and due-date extensions.</string>
     <string name="onboarding_title_3">Backup password-Encrypted Cloud Backups</string>
-    <string name="onboarding_desc_3">Back up your complete Records and document attachments to your private Google Drive app folder with zero-knowledge AES-256-GCM encryption.</string>
+    <string name="onboarding_desc_3">Back up your records and attachments safely to your private Google Drive space.</string>
     <string name="onboarding_get_started">Get Started</string>
     <string name="onboarding_setup_pin_title">Set Up Security PIN &amp; UPI</string>
     <string name="onboarding_setup_pin_desc">Protect your financial records with a 4-digit PIN and configure your UPI ID for instant settlement QR codes.</string>
@@ -47,7 +47,7 @@
     <string name="ui_fmt_chat_d40839">Chat (%1$s)</string>
     <string name="ui_fmt_cloud_id_b63185">Cloud ID: %1$s</string>
     <string name="ui_fmt_contacts_tap_for_individual_ledger_ccac4b">%1$s Contacts • Tap for individual Records</string>
-    <string name="ui_fmt_created_aes_256_gcm_encrypted_b1c8fd">Created: %1$s • AES-256-GCM Encrypted</string>
+    <string name="ui_fmt_created_aes_256_gcm_encrypted_b1c8fd">Created: %1$s • Encrypted</string>
     <string name="ui_fmt_days_3773dd">%1$s days</string>
     <string name="ui_fmt_days_75db18">%1$s days</string>
     <string name="ui_fmt_device_contacts_e_164_normalized_51abb6">%1$s Device contacts • standard phone number Normalized</string>
@@ -112,28 +112,28 @@
     <string name="ui_fmt_status_ae447c">Status: %1$s</string>
     <string name="ui_fmt_step_of_4_2ca96f">Step %1$s of 4</string>
     <string name="ui_fmt_stop_is_typing_cd1e76">Stop \'%1$s is typing…\'</string>
-    <string name="ui_fmt_symbol_00ae54">%1$s • %2$s</string>
-    <string name="ui_fmt_symbol_099c95">%1$s • %2$s%3$s</string>
-    <string name="ui_fmt_symbol_219ec1">%1$s • %2$s</string>
-    <string name="ui_fmt_symbol_301919">💬 %1$s</string>
-    <string name="ui_fmt_symbol_30a1de">%1$s (%2$s)</string>
-    <string name="ui_fmt_symbol_3d2c34">%1$s%2$s</string>
-    <string name="ui_fmt_symbol_41590b">%1$s • %2$s • %3$s</string>
-    <string name="ui_fmt_symbol_5f451a">%1$s (%2$s) *</string>
-    <string name="ui_fmt_symbol_67ce5f">%1$s </string>
-    <string name="ui_fmt_symbol_7ff20b">%1$s • %2$s</string>
-    <string name="ui_fmt_symbol_808375">%1$s%2$s</string>
-    <string name="ui_fmt_symbol_969885">%1$s • %2$s</string>
-    <string name="ui_fmt_symbol_992757">★ %1$s</string>
-    <string name="ui_fmt_symbol_9c4f32">%1$s: %2$s (%3$s)</string>
-    <string name="ui_fmt_symbol_a32425">%1$s • %2$s</string>
-    <string name="ui_fmt_symbol_a68a33">%1$s%2$s</string>
-    <string name="ui_fmt_symbol_c3451e">%1$s (%2$s)</string>
-    <string name="ui_fmt_symbol_c8354b">“%1$s”</string>
-    <string name="ui_fmt_symbol_df7ffb">★ %1$s%% %2$s</string>
-    <string name="ui_fmt_symbol_e20cea">📎 %1$s</string>
-    <string name="ui_fmt_symbol_e770b0">%1$s (%2$s%%)</string>
-    <string name="ui_fmt_symbol_feee0d">%1$s • %2$s</string>
+    <string name="ui_fmt_symbol_00ae54" translatable="false">%1$s • %2$s</string>
+    <string name="ui_fmt_symbol_099c95" translatable="false">%1$s • %2$s%3$s</string>
+    <string name="ui_fmt_symbol_219ec1" translatable="false">%1$s • %2$s</string>
+    <string name="ui_fmt_symbol_301919" translatable="false">💬 %1$s</string>
+    <string name="ui_fmt_symbol_30a1de" translatable="false">%1$s (%2$s)</string>
+    <string name="ui_fmt_symbol_3d2c34" translatable="false">%1$s%2$s</string>
+    <string name="ui_fmt_symbol_41590b" translatable="false">%1$s • %2$s • %3$s</string>
+    <string name="ui_fmt_symbol_5f451a" translatable="false">%1$s (%2$s) *</string>
+    <string name="ui_fmt_symbol_67ce5f" translatable="false">%1$s </string>
+    <string name="ui_fmt_symbol_7ff20b" translatable="false">%1$s • %2$s</string>
+    <string name="ui_fmt_symbol_808375" translatable="false">%1$s%2$s</string>
+    <string name="ui_fmt_symbol_969885" translatable="false">%1$s • %2$s</string>
+    <string name="ui_fmt_symbol_992757" translatable="false">★ %1$s</string>
+    <string name="ui_fmt_symbol_9c4f32" translatable="false">%1$s: %2$s (%3$s)</string>
+    <string name="ui_fmt_symbol_a32425" translatable="false">%1$s • %2$s</string>
+    <string name="ui_fmt_symbol_a68a33" translatable="false">%1$s%2$s</string>
+    <string name="ui_fmt_symbol_c3451e" translatable="false">%1$s (%2$s)</string>
+    <string name="ui_fmt_symbol_c8354b" translatable="false">“%1$s”</string>
+    <string name="ui_fmt_symbol_df7ffb" translatable="false">★ %1$s%% %2$s</string>
+    <string name="ui_fmt_symbol_e20cea" translatable="false">📎 %1$s</string>
+    <string name="ui_fmt_symbol_e770b0" translatable="false">%1$s (%2$s%%)</string>
+    <string name="ui_fmt_symbol_feee0d" translatable="false">%1$s • %2$s</string>
     <string name="ui_fmt_tap_to_view_sha_256_e79662">Tap to view Record fingerprint, cloud ID, and History of changes (%1$s)</string>
     <string name="ui_fmt_terms_were_edited_after_confirmatio_ef3a45">Terms were edited after confirmation. Ask %1$s to confirm the updated record.</string>
     <string name="ui_fmt_to_40e0b0">To: %1$s %2$s</string>
@@ -167,18 +167,18 @@
     <string name="ui_str_add_party_to_directory_b2e803">Add party to directory</string>
     <string name="ui_str_all_parties_in_your_ledger_ffd57f">All parties in your Records have unique phone numbers and names.</string>
     <string name="ui_str_allow_access_87d6b1">Allow access</string>
-    <string name="ui_str_allow_shared_records_e2ee_notes_2689cf">Allow shared records &amp; E2EE notes to sync with Cloud Firestore</string>
+    <string name="ui_str_allow_shared_records_e2ee_notes_2689cf">Allow shared records and private notes to sync across devices</string>
     <string name="ui_str_alternate_phone_optional_cab788">Alternate Phone (Optional)</string>
     <string name="ui_str_amount_4ecd3f">Amount (₹)</string>
     <string name="ui_str_app_permissions_notification_settin_8e5f3d">APP Permissions &amp; notification settings</string>
     <string name="ui_str_app_security_pin_ac6e6d">APP Security PIN</string>
     <string name="ui_str_auto_backup_is_scheduled_but_40f61e">⚠️ Auto-backup is scheduled, but no backup backup password is saved in Phone secure storage yet. Tap \'Back Up Now\' and check \'Save backup password\' to enable unattended background uploads.</string>
-    <string name="ui_str_automatic_backup_workmanager_961df8">Automatic backup (workmanager)</string>
+    <string name="ui_str_automatic_backup_workmanager_961df8">Automatic backup</string>
     <string name="ui_str_avg_repayment_time_433a7d">Avg repayment time</string>
     <string name="ui_str_back_587eac">Back</string>
     <string name="ui_str_back_up_now_e11395">Back up now</string>
     <string name="ui_str_backup_passphrase_2a9696">Backup Backup password</string>
-    <string name="ui_str_backups_are_client_side_encrypted_450b36">Backups are client-side encrypted with AES-256-GCM before upload and saved strictly in your hidden Google Drive AppData folder (Udhaar cannot access any of your other files).</string>
+    <string name="ui_str_backups_are_client_side_encrypted_450b36">Backups are encrypted on your phone before upload and saved in your private Google Drive space. Udhaar cannot access any of your other files.</string>
     <string name="ui_str_biometric_pin_app_lock_1d820f">Biometric &amp; PIN APP lock</string>
     <string name="ui_str_call_1b3cb4">Call</string>
     <string name="ui_str_camera_4da9c9">Camera</string>
@@ -224,7 +224,7 @@
     <string name="ui_str_doc_pdf_7135c0">Doc/PDF</string>
     <string name="ui_str_doc_pdf_c5e19f">Doc/PDF</string>
     <string name="ui_str_duplicate_merged_removed_4359cc">Duplicate (merged &amp; removed)</string>
-    <string name="ui_str_e2ee_protection_notes_attachments_a_7b2e75">E2EE Protection: Notes &amp; attachments are encrypted with AES-256-GCM before sharing.</string>
+    <string name="ui_str_e2ee_protection_notes_attachments_a_7b2e75">Privacy protection: Notes and attachments are encrypted before sharing.</string>
     <string name="ui_str_e_g_91_9876543210_46e6ed">e.g. +91 9876543210</string>
     <string name="ui_str_e_g_98_10_okaxis_1930b4">e.g. 98*** ***10@okaxis</string>
     <string name="ui_str_e_g_merchant_okicici_a9d993">e.g. merchant@okicici</string>
@@ -260,7 +260,7 @@
     <string name="ui_str_get_qr_receipt_2aa81f">Get QR/Receipt</string>
     <string name="ui_str_given_567b49">Given</string>
     <string name="ui_str_global_merchant_personal_qr_7d572f">Merchant or personal QR</string>
-    <string name="ui_str_google_drive_app_data_cloud_f609d0">Google drive APP data cloud backup</string>
+    <string name="ui_str_google_drive_app_data_cloud_f609d0">Google Drive cloud backup</string>
     <string name="ui_str_google_drive_notice_fb05e0">Google Drive notice</string>
     <string name="ui_str_google_drive_operation_in_progress_97811d">Google Drive operation in progress...</string>
     <string name="ui_str_got_it_5b8027">Got it</string>
@@ -283,7 +283,7 @@
     <string name="ui_str_leave_blank_to_keep_current_b44066">Leave blank to keep current PIN</string>
     <string name="ui_str_live_summary_preview_e49ab4">Live summary preview</string>
     <string name="ui_str_loading_device_contacts_952650">Loading device contacts…</string>
-    <string name="ui_str_local_offline_json_backup_restore_01188e">Local offline JSON backup &amp; restore</string>
+    <string name="ui_str_local_offline_json_backup_restore_01188e">Local offline backup &amp; restore</string>
     <string name="ui_str_lock_app_now_5b5570">Lock APP now</string>
     <string name="ui_str_manual_entry_skip_e5e8d0">Manual entry / Skip</string>
     <string name="ui_str_mark_as_fully_settled_c262a2">Mark as fully Paid back</string>
@@ -306,7 +306,7 @@
     <string name="ui_str_next_pick_time_d07be0">Next: Pick time</string>
     <string name="ui_str_next_tip_3b752c">Next tip</string>
     <string name="ui_str_no_audit_events_recorded_yet_68b5a2">No History of changes events recorded yet.</string>
-    <string name="ui_str_no_backups_found_in_google_dbb9f5">No backups found in Google Drive AppData folder yet. Tap \'Back Up Now\' above to create your first encrypted backup.</string>
+    <string name="ui_str_no_backups_found_in_google_dbb9f5">No Google Drive backups found yet. Tap \'Back Up Now\' above to create your first encrypted backup.</string>
     <string name="ui_str_no_contacts_found_on_device_4c032e">No contacts found on device</string>
     <string name="ui_str_no_default_pin_exists_you_7470c3">No default PIN exists. You must set a 4–8 digit PIN to enable App Lock.</string>
     <string name="ui_str_no_documents_attached_attach_promis_e527cb">No documents attached. Attach promissory notes, bills, or photo receipts.</string>
@@ -419,7 +419,7 @@
     <string name="ui_str_send_via_whatsapp_c707e5">Send via whatsapp</string>
     <string name="ui_str_sent_35f49d">Sent</string>
     <string name="ui_str_set_4_8_digit_security_400df1">Set 4–8 Digit Security PIN (Required for App Lock)</string>
-    <string name="ui_str_set_a_passphrase_to_encrypt_4bdc01">Set a backup password to encrypt your backup on-device before uploading to Google Drive AppData.\n\n⚠️ important: If you forget or lose this backup password, your encrypted backup cannot be recovered.</string>
+    <string name="ui_str_set_a_passphrase_to_encrypt_4bdc01">Set a backup password to encrypt your backup on your phone before uploading to Google Drive.\n\nImportant: If you forget or lose this password, your backup cannot be recovered.</string>
     <string name="ui_str_set_party_upi_id_to_58d127">Set party UPI ID to pay directly</string>
     <string name="ui_str_settings_preferences_1f2ee4">Settings &amp; preferences</string>
     <string name="ui_str_settled_record_2977ef">Paid back record</string>
@@ -452,9 +452,9 @@
     <string name="ui_str_support_email_jyotirmoybhowmik_gmai_803452">Support Email: admin@jyotirmoyb.com</string>
     <string name="ui_str_supports_offline_upi_qr_inr_73075a">Supports offline UPI QR &amp; INR khata</string>
     <string name="ui_str_switch_to_you_3af7a0">Switch to You</string>
-    <string name="ui_str_symbol_4345cb">%</string>
-    <string name="ui_str_symbol_5bab61">?</string>
-    <string name="ui_str_symbol_c9299e">••••</string>
+    <string name="ui_str_symbol_4345cb" translatable="false">%</string>
+    <string name="ui_str_symbol_5bab61" translatable="false">?</string>
+    <string name="ui_str_symbol_c9299e" translatable="false">••••</string>
     <string name="ui_str_tag_e_g_friend_supplier_914be3">Tag (e.g. Friend, Supplier, Client)</string>
     <string name="ui_str_taken_7abbf5">Taken</string>
     <string name="ui_str_tap_a_quick_reply_below_e95e6d">Tap a quick reply below, attach a payment proof image/PDF, or propose a due-date extension.</string>
@@ -475,7 +475,7 @@
     <string name="ui_str_udhaar_ffc4fd">Udhaar</string>
     <string name="ui_str_udhaar_is_locked_0d7e16">Udhaar is locked</string>
     <string name="ui_str_udhaar_ledger_v8_0_c73358">udhaar Records v9.0</string>
-    <string name="ui_str_udhaar_schedules_periodic_backgroun_accdee">Udhaar schedules periodic background backups using WorkManager. Backup password must be saved in Android Phone secure storage.</string>
+    <string name="ui_str_udhaar_schedules_periodic_backgroun_accdee">Udhaar runs automatic background backups. Save your backup password on this phone to keep them running.</string>
     <string name="ui_str_udhaar_uses_contacts_permission_to_909064">Udhaar uses contacts permission to let you select borrowers and lenders without typing their phone numbers manually.</string>
     <string name="ui_str_udhaar_works_100_offline_by_5362e5">Udhaar works 100% offline by default. Nothing leaves your device unless you explicitly consent below or share a verification link.</string>
     <string name="ui_str_unblock_ffe934">Unblock</string>
@@ -508,7 +508,7 @@
     <string name="db_encryption_status_yes">Database encrypted: Yes</string>
     <string name="db_encryption_status_migrating">Database encrypted: Migrating</string>
     <string name="db_encryption_status_failed_retry">Database encrypted: Failed (tap to retry)</string>
-    <string name="db_encryption_subtitle_yes">256-bit Secure storage AES database encryption active with Android Phone secure storage key</string>
+    <string name="db_encryption_subtitle_yes">Encrypted storage is active on this device</string>
     <string name="db_encryption_subtitle_migrating">Encrypting local database and verifying table integrity…</string>
     <string name="db_encryption_subtitle_failed">Local database is not encrypted yet. Tap here to retry encryption.</string>
     <string name="sqlcipher_error_title">Secure storage unavailable</string>
@@ -528,7 +528,7 @@
     <string name="cloud_backup_status_just_now">Backed up • Just now</string>
     <string name="cloud_backup_status_timestamp">Backed up • %1$s</string>
     <string name="cloud_backup_status_failed_retry">Backup failed — Tap to retry</string>
-    <string name="cloud_backup_subtitle_syncing">Syncing your profile and records to Cloud Firestore…</string>
+    <string name="cloud_backup_subtitle_syncing">Syncing your profile and records to the cloud…</string>
     <string name="cloud_backup_subtitle_synced">Profile and shared records backed up with your Google account</string>
     <string name="contact_error_no_app">No contacts app found on this device. You can type the name and phone number manually.</string>
     <string name="contact_error_read_failed">Couldn\'t read that contact. Please try again or enter the details manually.</string>
@@ -663,10 +663,10 @@
     <string name="drive_show_technical_details">Show technical details</string>
     <string name="drive_hide_technical_details">Hide technical details</string>
     <string name="drive_privacy_policy_button">Privacy Policy &amp; Data Safety</string>
-    <string name="drive_privacy_policy_desc">Only your encrypted backup is stored in your private Google Drive AppData folder. Zero data is sent to the developer.</string>
+    <string name="drive_privacy_policy_desc">Only your encrypted backup is saved in your private Google Drive space. Your records stay private.</string>
     <string name="drive_delete_backups_button">Delete my Drive backups</string>
     <string name="drive_delete_backups_dialog_title">Delete all Google Drive backups?</string>
-    <string name="drive_delete_backups_dialog_msg">This will permanently remove all encrypted Records backup files from your private Google Drive AppData folder. This action cannot be undone.</string>
+    <string name="drive_delete_backups_dialog_msg">This will permanently remove all Udhaar backup files from your private Google Drive space. This action cannot be undone.</string>
     <string name="drive_delete_backups_confirm">Delete Permanently</string>
     <string name="reminder_level_1_title">Level 1: Gentle</string>
     <string name="reminder_level_2_title">Level 2: Friendly Follow-up</string>
@@ -813,7 +813,7 @@
     <string name="proof_saved_to_ledger">Proof saved to records and cloud quota freed.</string>
     <string name="proof_loading">Fetching proof from cloud...</string>
     <string name="proof_not_found">Proof image not found or already saved to records.</string>
-    <string name="proof_encryption_notice">Saving to records stores the image encrypted on this phone (256-bit AES) and deletes the cloud copy.</string>
+    <string name="proof_encryption_notice">Saving to records stores the image encrypted on this phone and removes the cloud copy.</string>
     <string name="proof_saving_encrypted">Saving encrypted...</string>
     <string name="proof_saved_status">Saved to records ✓</string>
     <string name="btn_close">Close</string>
@@ -1049,8 +1049,8 @@
     <string name="account_reauth_google_btn">Re-auth with Google</string>
     <string name="account_delete_cloud_data_btn">Delete my cloud data</string>
     <string name="account_delete_cloud_data_confirm_btn">Confirm: Permanently delete my cloud data</string>
-    <string name="account_delete_cloud_data_desc">Deletes your synced records, people, plans, attachments, and active guest web links from Firebase Firestore while keeping your local phone records intact.</string>
-    <string name="account_delete_cloud_data_done">Cloud data deleted from Firestore. Local records remain safe on this phone.</string>
+    <string name="account_delete_cloud_data_desc">Deletes your synced records, people, plans, attachments, and active web links from the cloud while keeping your local phone records safe.</string>
+    <string name="account_delete_cloud_data_done">Cloud data deleted. Your local records remain safe on this phone.</string>
     <string name="about_privacy_policy_btn">Privacy Policy</string>
     <string name="about_terms_of_service_btn">Terms of Service</string>
     <string name="about_check_update_btn">Check Update</string>
@@ -1066,13 +1066,13 @@
     <string name="help_contact_grievance_officer_name">Grievance Officer: Jyotirmoy Bhowmik</string>
     <string name="help_contact_grievance_email">Email: grievance@jyotirmoyb.com</string>
     <string name="help_contact_email_grievance_btn">Email Grievance Officer</string>
-    <string name="help_contact_faq_section_title">Quick Answers (Spark Mode)</string>
+    <string name="help_contact_faq_section_title">Quick Answers</string>
     <string name="help_contact_faq_1_q">1. Where are my records stored by default?</string>
-    <string name="help_contact_faq_1_a">100% on your phone inside an AES-256 encrypted database. Cloud sync is optional and off by default.</string>
+    <string name="help_contact_faq_1_a">100% on your phone inside encrypted storage. Cloud sync is optional and off by default.</string>
     <string name="help_contact_faq_2_q">2. How do I turn on Cloud Sync?</string>
     <string name="help_contact_faq_2_a">Go to Settings → Account and web access, sign in with Google or a verified email address, and switch on Cloud Sync.</string>
     <string name="help_contact_faq_3_q">3. How do I delete my cloud data?</string>
-    <string name="help_contact_faq_3_a">Open Settings → Account and web access (or Backup &amp; Cloud) and tap \"Delete my cloud data\". Your cloud records and guest links are deleted from Firestore while your local phone records stay safe.</string>
+    <string name="help_contact_faq_3_a">Open Settings → Account and web access (or Backup &amp; Cloud) and tap \"Delete my cloud data\". Your cloud records and web links are deleted while your local phone records stay safe.</string>
     <string name="help_contact_legal_links_title">Legal &amp; Documentation</string>
     <string name="default_web_client_id" translatable="false">20250928576-udhaar-web-client.apps.googleusercontent.com</string>
 
@@ -1083,8 +1083,8 @@
     <!-- Account and Data Deletion (Play User Data Policy) -->
     <string name="account_delete_all_data_btn">Delete my account and data</string>
     <string name="account_delete_all_data_title">Delete Account &amp; All Data</string>
-    <string name="account_delete_all_data_desc">Permanently deletes your account, local encrypted database, encryption keys, Google Drive backups, and all Firestore records.</string>
-    <string name="account_delete_all_data_warning">This will permanently delete your account, your local encrypted transaction records, device encryption keys, all cloud records in Firestore, and your shared web links. This cannot be undone.</string>
+    <string name="account_delete_all_data_desc">Permanently deletes your account, local records, Google Drive backups, and all cloud records.</string>
+    <string name="account_delete_all_data_warning">This will permanently delete your account, your local transaction records, all cloud records, and your shared web links. This cannot be undone.</string>
     <string name="account_delete_drive_backup_checkbox">Also delete encrypted backups from Google Drive</string>
     <string name="account_delete_confirm_btn">Permanently Delete Everything</string>
     <string name="account_delete_cancel_btn">Cancel</string>
@@ -1093,7 +1093,7 @@
     <string name="account_delete_success_title">Account Deleted</string>
     <string name="account_delete_success_msg">Your account, all local and cloud records, encryption keys, and shared links have been permanently deleted.</string>
     <string name="delete_account_progress_drive">Deleting Google Drive backups…</string>
-    <string name="delete_account_progress_firestore">Deleting Cloud Firestore records…</string>
+    <string name="delete_account_progress_firestore">Deleting cloud records…</string>
     <string name="delete_account_progress_guest_links">Deleting shared guest links &amp; proposals…</string>
     <string name="delete_account_progress_cleanup">Cancelling background services…</string>
     <string name="delete_account_progress_auth">Deleting authentication account…</string>
@@ -1108,17 +1108,20 @@
     <string name="chat_local_only_notice_tx">Local chat only — this record is not linked to the other person on Cloud yet. Messages stay on this device and are not delivered remotely.</string>
     <string name="chat_local_only_notice_party">Local chat only — connect this party via a verified Cloud record to enable real-time message delivery.</string>
     <string name="chat_status_local_only">Saved locally</string>
-    <string name="cloud_gate_title">Cloud Verification</string>
-    <string name="cloud_gate_subtitle">Verify your account to access two-party Udhaar records, real-time messaging, and tamper-evident confirmations.</string>
+    <string name="cloud_gate_title">Cloud Verification Required</string>
+    <string name="cloud_gate_subtitle">Verify your account to access two-party Udhaar records, real-time messaging, and shared confirmations.</string>
+    <string name="cloud_gate_optional_title">Optional Cloud Verification</string>
+    <string name="cloud_gate_optional_subtitle">Sign in to turn on two-party confirmations and real-time chat, or continue locally on this device.</string>
+    <string name="cloud_gate_optional_consent_note">Cloud sign-in is optional. You can continue locally now and verify later in Settings.</string>
     <string name="cloud_gate_signed_in_unverified_title">Verify Your Email to Continue</string>
     <string name="cloud_gate_signed_in_unverified_body">Signed in as %1$s. Please click the verification link in your inbox, then tap Check Verification Status.</string>
     <string name="cloud_gate_check_status_btn">Check Verification Status</string>
     <string name="cloud_gate_resend_email_btn">Resend Verification Email</string>
     <string name="cloud_gate_sign_out_switch_btn">Use a Different Account</string>
-    <string name="cloud_gate_skip_local_btn">Skip for now • Use Local Only</string>
+    <string name="cloud_gate_skip_local_btn">Continue locally</string>
     <string name="cloud_gate_firebase_unconfigured_msg">Cloud verification service is not configured in this build.</string>
-    <string name="cloud_gate_footer_note">Your local Khata stays protected on-device with AES-256 encrypted storage.</string>
-    <string name="cloud_gate_verify_consent_note">Sign-in activates Two-Party Cloud Verification and Real-Time Messaging.</string>
+    <string name="cloud_gate_footer_note">Your local Khata stays safely encrypted on this device.</string>
+    <string name="cloud_gate_verify_consent_note">Sign-in activates two-party cloud verification and real-time messaging.</string>
     <string name="deeplink_error_no_browser">No web browser app available to open this verification link.</string>
     <string name="detail_more_actions_title">More options</string>
     <string name="detail_more_options_subtitle">Installments, documents (%1$d), history &amp; delete</string>
@@ -1137,5 +1140,129 @@
     <string name="detail_trust_google">Google verified ✓</string>
     <string name="detail_trust_private">Private link ✓</string>
     <string name="detail_trust_app">App verified ✓</string>
+
+    <!-- v32.0 Cloud Gate Errors, Chat Safety, Verification & Accessibility -->
+    <string name="add_edit_no_due_date_open_ended">No due date (Open-ended)</string>
+    <string name="cd_attach_payment_proof_image">Attach payment proof image</string>
+    <string name="cd_attach_payment_proof_pdf">Attach payment proof PDF</string>
+    <string name="cd_close_chat">Close chat</string>
+    <string name="cd_hide_passphrase">Hide passphrase</string>
+    <string name="cd_mute_thread">Mute thread</string>
+    <string name="cd_payment_profile_qr">Payment profile QR code</string>
+    <string name="cd_payment_proof_attachment">Payment proof attachment</string>
+    <string name="cd_pick_custom_extension_date">Pick custom extension date</string>
+    <string name="cd_request_payment_qr">Payment details request QR code</string>
+    <string name="cd_send_message">Send message</string>
+    <string name="cd_show_passphrase">Show passphrase</string>
+    <string name="cd_thread_options">Thread options</string>
+    <string name="cd_unmute_thread">Unmute thread</string>
+    <string name="cd_verification_qr">Verification QR code</string>
+    <string name="chat_default_party_name">Person</string>
+    <string name="chat_ext_plus_7d">+7 days</string>
+    <string name="chat_ext_plus_15d">+15 days</string>
+    <string name="chat_ext_plus_30d">+30 days</string>
+    <string name="chat_new_date_fallback">new date</string>
+    <string name="chat_proof_image_attached">Payment proof image attached</string>
+    <string name="chat_proof_pdf_attached">Payment proof PDF attached</string>
+    <string name="chat_quick_reply_paid_upi">Paid via UPI</string>
+    <string name="chat_quick_reply_pay_friday">Will pay by Friday</string>
+    <string name="chat_quick_reply_received">Received, thanks</string>
+    <string name="chat_quick_reply_send_proof">Please send payment proof</string>
+    <string name="chat_report_reason_fake_proof">Fake proof</string>
+    <string name="chat_report_reason_harassment">Harassment</string>
+    <string name="chat_report_reason_spam">Spam</string>
+    <string name="chat_safety_block_thread">Block this thread</string>
+    <string name="chat_safety_unblock_thread">Unblock this thread</string>
+    <string name="chat_safety_report_thread">Report this thread</string>
+    <string name="chat_safety_mute_user_fmt">Mute %1$s (all chats)</string>
+    <string name="chat_safety_unmute_user_fmt">Unmute %1$s (all chats)</string>
+    <string name="chat_safety_report_thread_title_fmt">Report thread with %1$s</string>
+    <string name="chat_safety_report_user_desc">Reporting blocks this person across all chats and records the safety report.</string>
+    <string name="chat_safety_user_blocked_banner_fmt">%1$s is blocked across all chats</string>
+    <string name="chat_safety_unblock_user_short">Unblock user</string>
+    <string name="chat_whatsapp_fallback_greeting_fmt">Hi %1$s, messaging from Udhaar regarding our Khata.</string>
+    <string name="chooser_request_payment_details">Request Payment Details</string>
+    <string name="chooser_share_payment_details">Share Payment Details</string>
+    <string name="chooser_share_payment_profile">Share Payment Profile</string>
+    <string name="chooser_share_sms_or_app">Share via SMS or App</string>
+    <string name="chooser_share_verification_attachments">Share Verification &amp; Attachments</string>
+    <string name="chooser_share_verification_link">Share Verification Link</string>
+    <string name="share_subject_verify_entry">Verify Udhaar Entry</string>
+    <string name="udhaar_default_user_name">Udhaar User</string>
+    <string name="cloud_gate_err_auth_failed">Sign-in failed. Please try again.</string>
+    <string name="cloud_gate_err_google_signin">Google Sign-In failed.</string>
+    <string name="cloud_gate_err_invalid_email">Please enter a valid email address.</string>
+    <string name="cloud_gate_err_password_empty">Please enter your password.</string>
+    <string name="cloud_gate_err_password_length">Password must be at least 10 characters.</string>
+    <string name="cloud_gate_err_password_reset">Failed to send password reset email.</string>
+    <string name="cloud_gate_err_refresh_status">Failed to refresh verification status.</string>
+    <string name="cloud_gate_err_resend_email">Could not resend verification email.</string>
+    <string name="cloud_gate_err_sign_out">Sign-out failed.</string>
+    <string name="cloud_gate_status_reset_sent_fmt">Password reset link sent to %1$s</string>
+    <string name="toast_app_data_reset_failed">Failed to reset app data.</string>
+    <string name="toast_app_data_reset_ok">App data reset. Ready for initial setup.</string>
+    <string name="toast_backup_encrypt_failed">Failed to encrypt backup file.</string>
+    <string name="toast_chat_extension_accepted">Extension accepted! Due date updated.</string>
+    <string name="toast_chat_extension_declined">Extension request declined.</string>
+    <string name="toast_chat_extension_proposed">Due-date extension proposed in chat.</string>
+    <string name="toast_chat_thread_reported_blocked">Thread reported and blocked.</string>
+    <string name="toast_chat_user_reported_blocked">User reported and blocked across all chats.</string>
+    <string name="toast_cloud_data_cleared_local_kept">Cloud verification data cleared. Local records preserved.</string>
+    <string name="toast_confirmed_mirrored_saved">Confirmed! Mirrored record saved to your Khata.</string>
+    <string name="toast_currency_disabled_fmt">%1$s disabled</string>
+    <string name="toast_currency_enabled_fmt">%1$s enabled</string>
+    <string name="toast_db_encrypted_ok">Database encrypted successfully.</string>
+    <string name="toast_db_encrypted_retry">Database encryption failed. Tap to retry.</string>
+    <string name="toast_dispute_recorded">Dispute recorded on entry.</string>
+    <string name="toast_encrypted_storage_failed">Encrypted storage setup failed.</string>
+    <string name="toast_encrypted_storage_ready">Encrypted storage initialized.</string>
+    <string name="toast_invalid_payment_profile_link">Invalid payment profile link.</string>
+    <string name="toast_invalid_verification_link">Invalid verification link.</string>
+    <string name="toast_invalid_verification_or_payment_link">Invalid verification or payment link.</string>
+    <string name="toast_merged_duplicate_party_fmt">Merged %1$s into %2$s.</string>
+    <string name="toast_no_records_to_verify_party">No records to verify for this person yet.</string>
+    <string name="toast_saved_upi_profile_fmt">Saved %1$s\'s UPI ID (%2$s)</string>
+    <string name="toast_theme_changed_fmt">Theme: %1$s</string>
+    <string name="toast_welcome_udhaar">Welcome to Udhaar!</string>
+    <string name="verification_default_dispute_reason">Details do not match</string>
+    <string name="verification_label_borrower">Borrower</string>
+    <string name="verification_label_decrypted_note">Shared note</string>
+    <string name="verification_label_due_date">Due date</string>
+    <string name="verification_label_interest_terms">Interest terms</string>
+    <string name="verification_label_lender">Lender</string>
+    <string name="verification_label_party_name">Person name</string>
+    <string name="verification_label_phone_number">Phone number</string>
+    <string name="verification_label_start_date">Start date</string>
+    <string name="verification_label_upi_id">UPI ID</string>
+    <string name="verification_mirrored_borrowed_fmt">Will be saved in your Khata as: You Borrowed from %1$s</string>
+    <string name="verification_mirrored_lent_fmt">Will be saved in your Khata as: You Lent to %1$s</string>
+    <string name="verification_value_interest_fmt">%1$s%% %2$s (%3$s)</string>
+    <string name="verification_value_interest_free">Interest-free</string>
+    <string name="verification_value_no_due_date">No due date</string>
+    <string name="verification_value_none">None</string>
+    <string name="add_edit_step1_who_header">Step 1 · Who is this Udhaar with?</string>
+    <string name="add_edit_step2_amount_header">Step 2 · How much?</string>
+    <string name="add_edit_step3_due_header">Step 3 · When is it due? (Optional)</string>
+    <string name="add_edit_custom_chip">Custom</string>
+    <string name="add_edit_due_in_1_week">In 1 week</string>
+    <string name="add_edit_due_in_1_month">In 1 month</string>
+    <string name="add_edit_start_date_interest_label">Start date (when interest begins)</string>
+    <string name="add_edit_scheduled_reminder_label">Scheduled reminder (Optional)</string>
+    <string name="add_edit_no_reminder_scheduled">No reminder scheduled</string>
+    <string name="toast_backup_exported_success">Khata backup exported successfully.</string>
+    <string name="toast_backup_write_failed">Failed to write JSON backup.</string>
+    <string name="toast_backup_imported_count_fmt">Imported %1$d records successfully.</string>
+    <string name="toast_backup_invalid_json">Invalid Udhaar JSON backup file.</string>
+    <string name="toast_backup_read_failed">Could not read backup file.</string>
+    <string name="toast_firebase_not_configured">Cloud sync is currently unavailable: verification and chat are off.</string>
+    <string name="toast_signed_in_verification_fmt">Signed in as %1$s for Two-Party Verification.</string>
+    <string name="toast_offline_verification_active">Offline verification links &amp; QR codes remain active on this device.</string>
+    <string name="toast_drive_connected">Connected to Google Drive</string>
+    <string name="toast_drive_auth_failed_fmt">Google Drive authorization failed: %1$s</string>
+    <string name="toast_drive_auth_canceled">Google Drive authorization was canceled. Tap Reconnect to try again.</string>
+    <string name="toast_drive_consent_launch_failed_fmt">Could not launch Google Drive consent: %1$s</string>
+    <string name="toast_drive_sign_in_failed_fmt">Google Drive sign in failed: %1$s</string>
+    <string name="toast_drive_signed_out">Signed out from Google Drive</string>
+    <string name="common_unknown_error">Unknown error</string>
 </resources>
 

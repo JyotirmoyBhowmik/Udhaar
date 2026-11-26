@@ -10,10 +10,23 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isVerifiedOwner(uid) {
+    function isVerifiedSignedIn() {
       return isSignedIn()
-        && request.auth.uid == uid
         && request.auth.token.email_verified == true;
+    }
+
+    function isVerifiedOwner(uid) {
+      return isVerifiedSignedIn()
+        && request.auth.uid == uid;
+    }
+
+    function isUserBlockedBy(ownerUid, candidateUid) {
+      return ownerUid is string
+        && ownerUid.size() >= 1
+        && candidateUid is string
+        && candidateUid.size() >= 1
+        && exists(/databases/$(database)/documents/users/$(ownerUid)/blocked_users/$(candidateUid))
+        && get(/databases/$(database)/documents/users/$(ownerUid)/blocked_users/$(candidateUid)).data.isBlocked == true;
     }
 
     function incoming() {
@@ -412,6 +425,27 @@ service cloud.firestore {
         && withinSize(estBytes, 512);
     }
 
+    function validBlockedUser(targetUid) {
+      let d = request.resource.data;
+      let estBytes = d.keys().size() * 16
+        + strBytes(d, 'targetUid')
+        + strBytes(d, 'reportReason');
+      return d.keys().hasOnly([
+          'targetUid', 'isMuted', 'isBlocked', 'isReported', 'reportReason', 'updatedAt'
+        ])
+        && d.targetUid is string
+        && d.targetUid == targetUid
+        && isValidId(targetUid)
+        && d.isMuted is bool
+        && d.isBlocked is bool
+        && d.isReported is bool
+        && d.reportReason is string
+        && d.reportReason.toUtf8().size() <= 300
+        && d.updatedAt is timestamp
+        && d.updatedAt <= request.time
+        && withinSize(estBytes, 512);
+    }
+
     // -------------------------------------------------------------------------
     // Per-User Spark Collections
     // -------------------------------------------------------------------------
@@ -485,14 +519,79 @@ service cloud.firestore {
           && validRevOnUpdate(request.resource.data)
           && request.resource.data.ownerUid == resource.data.ownerUid;
       }
+
+      match /blocked_users/{targetUid} {
+        allow get, delete: if isVerifiedOwner(uid) && isValidId(targetUid);
+        allow list: if isVerifiedOwner(uid);
+        allow create, update: if isVerifiedOwner(uid)
+          && isValidId(targetUid)
+          && targetUid != uid
+          && validBlockedUser(targetUid);
+      }
     }
 
     // -------------------------------------------------------------------------
     // Guest Capability Links, Actions & Payment Proof (Spark Mode)
+    // Every guest path requires a verified email identity.
     // -------------------------------------------------------------------------
+    function optNullableStr(d, k, maxBytes) {
+      return !(k in d)
+        || d[k] == null
+        || (d[k] is string && d[k].toUtf8().size() <= maxBytes);
+    }
+
+    function validGuestLinkCreate(d, ownerUid) {
+      let estBytes = d.keys().size() * 16
+        + strBytes(d, 'ownerUid')
+        + strBytes(d, 'recordId')
+        + strBytes(d, 'status')
+        + strBytes(d, 'borrowerDisplayName')
+        + strBytes(d, 'lenderDisplayName')
+        + strBytes(d, 'lenderUpiId')
+        + strBytes(d, 'verificationLevel')
+        + strBytes(d, 'expectedGuestEmailHash')
+        + strBytes(d, 'counterpartyRole')
+        + strBytes(d, 'currency')
+        + strBytes(d, 'note');
+      return d.keys().hasOnly([
+          'schemaVersion', 'ownerUid', 'recordId', 'status',
+          'createdAtMs', 'updatedAtMs', 'expiresAtMs', 'revokedAtMs',
+          'allowedActions', 'borrowerDisplayName', 'lenderDisplayName',
+          'principalPaise', 'paidPaise', 'payableAmountPaise', 'dueDateMs',
+          'lenderUpiId', 'verificationLevel', 'expectedGuestEmailHash',
+          'allowScreenshotProof', 'counterpartyRole', 'currency', 'note'
+        ])
+        && d.ownerUid == ownerUid
+        && d.schemaVersion is int && d.schemaVersion == 1
+        && d.status == 'ACTIVE'
+        && reqStr(d, 'recordId', 1, 128)
+        && ('payableAmountPaise' in d) && d.payableAmountPaise is int
+        && d.payableAmountPaise >= 0 && d.payableAmountPaise <= 100000000000
+        && optInt(d, 'principalPaise', 0, 100000000000)
+        && optInt(d, 'paidPaise', 0, 100000000000)
+        && optNullableInt(d, 'dueDateMs', 0, 4102444800000)
+        && optInt(d, 'createdAtMs', 1, 4102444800000)
+        && optInt(d, 'updatedAtMs', 1, 4102444800000)
+        && ('expiresAtMs' in d) && d.expiresAtMs is int && d.expiresAtMs > 0 && d.expiresAtMs <= 4102444800000
+        && optNullableInt(d, 'revokedAtMs', 0, 4102444800000)
+        && (!('allowedActions' in d) || (d.allowedActions is list && d.allowedActions.size() <= 4))
+        && optNullableStr(d, 'borrowerDisplayName', 120)
+        && optNullableStr(d, 'lenderDisplayName', 120)
+        && optNullableStr(d, 'lenderUpiId', 128)
+        && (!('verificationLevel' in d) || d.verificationLevel in ['PRIVATE_LINK', 'GOOGLE_VERIFIED'])
+        && optNullableStr(d, 'expectedGuestEmailHash', 64)
+        && optBool(d, 'allowScreenshotProof')
+        && (!('counterpartyRole' in d) || d.counterpartyRole in ['BORROWER', 'LENDER'])
+        && (!('currency' in d) || d.currency in ['INR', 'NPR'])
+        && optNullableStr(d, 'note', 500)
+        && !('whatsappOtp' in d)
+        && !('otp' in d)
+        && withinSize(estBytes, 2048);
+    }
+
     match /guestLinks/{linkId} {
       function isOwner() {
-        return request.auth != null && resource.data.ownerUid == request.auth.uid;
+        return isVerifiedSignedIn() && resource.data.ownerUid == request.auth.uid;
       }
 
       function googleOk(l) {
@@ -502,36 +601,40 @@ service cloud.firestore {
           && hashing.sha256(request.auth.token.email.lower()).toHexString().lower() == l.expectedGuestEmailHash);
       }
 
-      allow get: if request.auth != null && (
+      allow get: if isVerifiedSignedIn() && isValidId(linkId) && (
           isOwner() || (resource.data.status == 'ACTIVE'
                         && resource.data.expiresAtMs > request.time.toMillis()
                         && googleOk(resource.data)));
 
-      allow list: if request.auth != null && request.query.limit <= 50
-                  && resource.data.ownerUid == request.auth.uid; // lender's own links only
+      allow list: if isVerifiedSignedIn() && request.query.limit <= 50
+                  && resource.data.ownerUid == request.auth.uid;
 
-      allow create: if isVerifiedOwner(request.auth.uid)
-        && request.resource.data.ownerUid == request.auth.uid
-        && request.resource.data.schemaVersion == 1
-        && request.resource.data.status == 'ACTIVE'
-        && request.resource.data.payableAmountPaise is int
-        && !('whatsappOtp' in request.resource.data)
-        && !('otp' in request.resource.data);
+      allow create: if isVerifiedSignedIn()
+        && isValidId(linkId)
+        && validGuestLinkCreate(request.resource.data, request.auth.uid);
 
-      allow update: if isVerifiedOwner(request.auth.uid)
-        && resource.data.ownerUid == request.auth.uid
+      allow update: if isVerifiedOwner(resource.data.ownerUid)
+        && isValidId(linkId)
         && request.resource.data.ownerUid == resource.data.ownerUid
         && request.resource.data.recordId == resource.data.recordId
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['status','paidPaise','payableAmountPaise','dueDateMs','updatedAtMs','revokedAtMs','expiresAtMs']);
+             .hasOnly(['status','paidPaise','payableAmountPaise','dueDateMs','updatedAtMs','revokedAtMs','expiresAtMs'])
+        && request.resource.data.status in ['ACTIVE', 'REVOKED', 'EXPIRED', 'SETTLED']
+        && optInt(request.resource.data, 'paidPaise', 0, 100000000000)
+        && optInt(request.resource.data, 'payableAmountPaise', 0, 100000000000)
+        && optNullableInt(request.resource.data, 'dueDateMs', 0, 4102444800000)
+        && optInt(request.resource.data, 'updatedAtMs', 1, 4102444800000)
+        && optNullableInt(request.resource.data, 'revokedAtMs', 0, 4102444800000)
+        && optInt(request.resource.data, 'expiresAtMs', 1, 4102444800000);
 
-      allow delete: if isOwner();
+      allow delete: if isOwner() && isValidId(linkId);
 
       match /actions/{actionType} {
         function link() { return get(/databases/$(database)/documents/guestLinks/$(linkId)).data; }
         function d() { return request.resource.data; }
         function common() {
-          return request.auth != null
+          return isVerifiedSignedIn()
+            && isValidId(linkId)
             && link().status == 'ACTIVE'
             && link().expiresAtMs > request.time.toMillis()
             && googleOk(link())
@@ -540,15 +643,16 @@ service cloud.firestore {
             && d().actionType == actionType
             && d().guestUid == request.auth.uid
             && d().status == 'PENDING'
-            && d().createdAtMs is int;
+            && d().createdAtMs is int && d().createdAtMs > 0 && d().createdAtMs <= 4102444800000;
         }
 
         allow create: if common() && (
           (actionType == 'CONFIRM' && d().keys().hasOnly(['schemaVersion','actionType','guestUid','status','createdAtMs']))
-          || (actionType == 'DISPUTE' && d().reason is string && d().reason.size() <= 500
+          || (actionType == 'DISPUTE' && d().reason is string && d().reason.size() >= 1 && d().reason.size() <= 500
               && d().keys().hasOnly(['schemaVersion','actionType','guestUid','status','createdAtMs','reason']))
           || (actionType == 'PROPOSE_DATE' && d().proposedDateMs is int
               && d().proposedDateMs > request.time.toMillis()
+              && d().proposedDateMs <= 4102444800000
               && (!('reason' in d()) || (d().reason is string && d().reason.size() <= 500))
               && d().keys().hasOnly(['schemaVersion','actionType','guestUid','status','createdAtMs','proposedDateMs','reason']))
           || (actionType == 'CLAIM_PAYMENT' && d().amountPaise is int && d().amountPaise > 0
@@ -556,34 +660,40 @@ service cloud.firestore {
               && d().paymentMode in ['UPI','CASH','BANK_TRANSFER']
               && d().referenceNumber is string && d().referenceNumber.size() <= 64
               && (!('note' in d()) || (d().note is string && d().note.size() <= 300))
+              && (!('hasProof' in d()) || d().hasProof is bool)
               && d().keys().hasOnly(['schemaVersion','actionType','guestUid','status','createdAtMs',
                                      'amountPaise','paymentMode','referenceNumber','note','hasProof']))
         );
 
-        allow get: if request.auth != null
+        allow get: if isVerifiedSignedIn()
           && (resource.data.guestUid == request.auth.uid || link().ownerUid == request.auth.uid);
 
-        allow list: if request.auth != null && link().ownerUid == request.auth.uid;
+        allow list: if isVerifiedSignedIn() && link().ownerUid == request.auth.uid;
 
-        allow update: if request.auth != null && link().ownerUid == request.auth.uid
+        allow update: if isVerifiedSignedIn() && link().ownerUid == request.auth.uid
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','reviewedAtMs','rejectReason'])
-          && request.resource.data.status in ['ACCEPTED','REJECTED'];
+          && request.resource.data.status in ['ACCEPTED','REJECTED']
+          && optInt(request.resource.data, 'reviewedAtMs', 1, 4102444800000)
+          && optStr(request.resource.data, 'rejectReason', 300);
 
-        allow delete: if request.auth != null && link().ownerUid == request.auth.uid;
+        allow delete: if isVerifiedSignedIn() && link().ownerUid == request.auth.uid;
 
         match /proof/{docId} {
-          allow create: if request.auth != null && docId == 'image'
+          allow create: if isVerifiedSignedIn() && docId == 'image'
             && get(/databases/$(database)/documents/guestLinks/$(linkId)/actions/$(actionType)).data.guestUid == request.auth.uid
-            && request.resource.data.dataB64 is string && request.resource.data.dataB64.size() <= 700000
+            && request.resource.data.keys().hasOnly(['mime', 'dataB64'])
+            && request.resource.data.dataB64 is string
+            && request.resource.data.dataB64.size() >= 1
+            && request.resource.data.dataB64.size() <= 700000
             && request.resource.data.mime in ['image/webp','image/jpeg'];
 
-          allow read: if request.auth != null && (
+          allow read: if isVerifiedSignedIn() && (
             get(/databases/$(database)/documents/guestLinks/$(linkId)/actions/$(actionType)).data.guestUid == request.auth.uid
             || link().ownerUid == request.auth.uid);
 
           allow update: if false;
 
-          allow delete: if request.auth != null && link().ownerUid == request.auth.uid;
+          allow delete: if isVerifiedSignedIn() && link().ownerUid == request.auth.uid;
         }
       }
     }
@@ -610,10 +720,10 @@ service cloud.firestore {
     }
 
     match /user_profiles/{userId} {
-      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isVerifiedSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if isVerifiedSignedIn() && resource.data.userId == request.auth.uid;
 
-      allow create: if isSignedIn() &&
+      allow create: if isVerifiedSignedIn() &&
                        isValidId(userId) &&
                        request.auth.uid == userId &&
                        incoming().userId == request.auth.uid &&
@@ -622,7 +732,7 @@ service cloud.firestore {
                        ]) &&
                        isValidUserProfile(incoming());
 
-      allow update: if isSignedIn() &&
+      allow update: if isVerifiedSignedIn() &&
                        isValidId(userId) &&
                        request.auth.uid == userId &&
                        incoming().userId == existing().userId &&
@@ -632,7 +742,7 @@ service cloud.firestore {
                        ]) &&
                        isValidUserProfile(incoming());
 
-      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow delete: if isVerifiedSignedIn() && isValidId(userId) && request.auth.uid == userId;
     }
 
     // -------------------------------------------------------------------------
@@ -680,10 +790,10 @@ service cloud.firestore {
     }
 
     match /shared_records/{remoteId} {
-      allow get: if isSignedIn() && isValidId(remoteId) && request.auth.uid in existing().participantUids;
-      allow list: if isSignedIn() && request.auth.uid in existing().participantUids;
+      allow get: if isVerifiedSignedIn() && isValidId(remoteId) && request.auth.uid in existing().participantUids;
+      allow list: if isVerifiedSignedIn() && request.auth.uid in existing().participantUids;
 
-      allow create: if isSignedIn() &&
+      allow create: if isVerifiedSignedIn() &&
                        isValidId(remoteId) &&
                        incoming().remoteId == remoteId &&
                        incoming().creatorUid == request.auth.uid &&
@@ -704,7 +814,7 @@ service cloud.firestore {
                        ]) &&
                        isValidSharedRecord(incoming());
 
-      allow update: if isSignedIn() &&
+      allow update: if isVerifiedSignedIn() &&
                        isValidId(remoteId) &&
                        isValidSharedRecord(incoming()) &&
                        incoming().remoteId == existing().remoteId &&
@@ -766,7 +876,7 @@ service cloud.firestore {
                          )
                        );
 
-      allow delete: if isSignedIn() && isValidId(remoteId) && existing().creatorUid == request.auth.uid;
+      allow delete: if isVerifiedSignedIn() && isValidId(remoteId) && existing().creatorUid == request.auth.uid;
 
       // -----------------------------------------------------------------------
       // /shared_records/{remoteId}/partial_payments/{paymentId}
@@ -790,10 +900,10 @@ service cloud.firestore {
       }
 
       match /partial_payments/{paymentId} {
-        allow get: if isSignedIn() && isValidId(remoteId) && isValidId(paymentId) && request.auth.uid in existing().participantUids;
-        allow list: if isSignedIn() && request.auth.uid in existing().participantUids;
+        allow get: if isVerifiedSignedIn() && isValidId(remoteId) && isValidId(paymentId) && request.auth.uid in existing().participantUids;
+        allow list: if isVerifiedSignedIn() && request.auth.uid in existing().participantUids;
 
-        allow create: if isSignedIn() &&
+        allow create: if isVerifiedSignedIn() &&
                          isValidId(remoteId) &&
                          isValidId(paymentId) &&
                          incoming().paymentId == paymentId &&
@@ -808,7 +918,7 @@ service cloud.firestore {
                          ]) &&
                          isValidPartialPayment(incoming());
 
-        allow update: if isSignedIn() &&
+        allow update: if isVerifiedSignedIn() &&
                          isValidId(remoteId) &&
                          isValidId(paymentId) &&
                          isValidPartialPayment(incoming()) &&
@@ -822,7 +932,7 @@ service cloud.firestore {
                            'isAcknowledged', 'acknowledgedByUid', 'acknowledgedAtMillis', 'participantUids', 'updatedAt'
                          ]);
 
-        allow delete: if isSignedIn() && isValidId(remoteId) && isValidId(paymentId) && existing().recordedByUid == request.auth.uid;
+        allow delete: if isVerifiedSignedIn() && isValidId(remoteId) && isValidId(paymentId) && existing().recordedByUid == request.auth.uid;
       }
 
       // -----------------------------------------------------------------------
@@ -849,10 +959,10 @@ service cloud.firestore {
       }
 
       match /audit_trail/{eventId} {
-        allow get: if isSignedIn() && isValidId(remoteId) && isValidId(eventId) && request.auth.uid in existing().participantUids;
-        allow list: if isSignedIn() && request.auth.uid in existing().participantUids;
+        allow get: if isVerifiedSignedIn() && isValidId(remoteId) && isValidId(eventId) && request.auth.uid in existing().participantUids;
+        allow list: if isVerifiedSignedIn() && request.auth.uid in existing().participantUids;
 
-        allow create: if isSignedIn() &&
+        allow create: if isVerifiedSignedIn() &&
                          isValidId(remoteId) &&
                          isValidId(eventId) &&
                          incoming().eventId == eventId &&
@@ -868,13 +978,14 @@ service cloud.firestore {
 
         allow update: if false; // Append-only audit log
 
-        allow delete: if isSignedIn() && isValidId(remoteId) && isValidId(eventId) && existing().actorUid == request.auth.uid;
+        allow delete: if isVerifiedSignedIn() && isValidId(remoteId) && isValidId(eventId) && existing().actorUid == request.auth.uid;
       }
     }
 
     // -------------------------------------------------------------------------
-    // 3. /chat_threads/{threadId} — Phase 4 In-App Communication Thread
-    //    Readable & writable ONLY by the two participants on the thread.
+    // 3. /chat_threads/{threadId} — In-App Communication Thread
+    //    Readable & writable ONLY by the two verified participants on the thread.
+    //    Blocked users (thread-level or user-level) cannot create messages.
     // -------------------------------------------------------------------------
     function isValidChatThread(data) {
       return data.threadId is string && data.threadId.size() >= 1 && data.threadId.size() <= 128 &&
@@ -889,6 +1000,7 @@ service cloud.firestore {
              optInt(data, 'typingUpdatedAtMillis', -1, 9999999999999) &&
              isValidOptionalUidList(data.mutedByUids) &&
              optStr(data, 'blockedByUid', 128) &&
+             (!('blockedByUids' in data) || isValidOptionalUidList(data.blockedByUids)) &&
              optStr(data, 'reportedByUid', 128) &&
              optStr(data, 'reportReason', 300) &&
              optStr(data, 'lastMessagePreview', 300) &&
@@ -898,16 +1010,15 @@ service cloud.firestore {
     }
 
     match /chat_threads/{threadId} {
-      allow get: if isSignedIn() && isValidId(threadId) && request.auth.uid in existing().participantUids;
-      allow list: if isSignedIn() && request.auth.uid in existing().participantUids;
+      allow get: if isVerifiedSignedIn() && isValidId(threadId) && request.auth.uid in existing().participantUids;
+      allow list: if isVerifiedSignedIn() && request.auth.uid in existing().participantUids;
 
-      allow create: if isSignedIn() &&
+      allow create: if isVerifiedSignedIn() &&
                        isValidId(threadId) &&
                        incoming().threadId == threadId &&
                        incoming().creatorUid == request.auth.uid &&
                        request.auth.uid in incoming().participantUids &&
                        (
-                         // If DM thread, must encode participants and have exactly 2 participants
                          (!threadId.matches('^dm_.*')) ||
                          (
                            incoming().threadScope == 'PARTY' &&
@@ -919,7 +1030,6 @@ service cloud.firestore {
                          )
                        ) &&
                        (
-                         // If TX thread, must be TRANSACTION scope
                          (!threadId.matches('^tx_.*')) ||
                          (
                            incoming().threadScope == 'TRANSACTION' &&
@@ -930,13 +1040,13 @@ service cloud.firestore {
                          'threadId', 'threadScope', 'remoteRecordId', 'partyName',
                          'creatorUid', 'counterpartyUid', 'participantUids',
                          'typingUid', 'typingUpdatedAtMillis', 'mutedByUids',
-                         'blockedByUid', 'reportedByUid', 'reportReason',
+                         'blockedByUid', 'blockedByUids', 'reportedByUid', 'reportReason',
                          'lastMessagePreview', 'lastMessageAtMillis',
                          'createdAt', 'updatedAt'
                        ]) &&
                        isValidChatThread(incoming());
 
-      allow update: if isSignedIn() &&
+      allow update: if isVerifiedSignedIn() &&
                        isValidId(threadId) &&
                        isValidChatThread(incoming()) &&
                        incoming().threadId == existing().threadId &&
@@ -955,8 +1065,9 @@ service cloud.firestore {
                            existing().creatorUid in incoming().participantUids &&
                            incoming().diff(existing()).affectedKeys().hasOnly([
                              'counterpartyUid', 'participantUids', 'partyName', 'typingUid',
-                             'typingUpdatedAtMillis', 'mutedByUids', 'blockedByUid', 'reportedByUid',
-                             'reportReason', 'lastMessagePreview', 'lastMessageAtMillis', 'updatedAt'
+                             'typingUpdatedAtMillis', 'mutedByUids', 'blockedByUid', 'blockedByUids',
+                             'reportedByUid', 'reportReason', 'lastMessagePreview',
+                             'lastMessageAtMillis', 'updatedAt'
                            ])
                          ) ||
                          // Action 2: Existing participant updates typing indicator, mute/block/report, or last message
@@ -966,14 +1077,14 @@ service cloud.firestore {
                            incoming().participantUids == existing().participantUids &&
                            incoming().diff(existing()).affectedKeys().hasOnly([
                              'partyName', 'typingUid', 'typingUpdatedAtMillis',
-                             'mutedByUids', 'blockedByUid', 'reportedByUid',
+                             'mutedByUids', 'blockedByUid', 'blockedByUids', 'reportedByUid',
                              'reportReason', 'lastMessagePreview',
                              'lastMessageAtMillis', 'updatedAt'
                            ])
                          )
                        );
 
-      allow delete: if isSignedIn() && isValidId(threadId) && existing().creatorUid == request.auth.uid;
+      allow delete: if isVerifiedSignedIn() && isValidId(threadId) && existing().creatorUid == request.auth.uid;
 
       // -----------------------------------------------------------------------
       // /chat_threads/{threadId}/messages/{messageId}
@@ -1002,17 +1113,32 @@ service cloud.firestore {
                data.updatedAt is timestamp && data.updatedAt <= request.time;
       }
 
-      match /messages/{messageId} {
-        allow get: if isSignedIn() && isValidId(threadId) && isValidId(messageId) && request.auth.uid in existing().participantUids;
-        allow list: if isSignedIn() && request.auth.uid in existing().participantUids;
+      function parentThreadAllowsMessage() {
+        let threadPath = /databases/$(database)/documents/chat_threads/$(threadId);
+        return exists(threadPath)
+          && request.auth.uid in get(threadPath).data.participantUids
+          && (!('blockedByUid' in get(threadPath).data) || get(threadPath).data.blockedByUid == '')
+          && (!('blockedByUids' in get(threadPath).data) || get(threadPath).data.blockedByUids.size() == 0)
+          && !isUserBlockedBy(get(threadPath).data.creatorUid, request.auth.uid)
+          && (
+            !('counterpartyUid' in get(threadPath).data)
+            || get(threadPath).data.counterpartyUid == ''
+            || !isUserBlockedBy(get(threadPath).data.counterpartyUid, request.auth.uid)
+          );
+      }
 
-        allow create: if isSignedIn() &&
+      match /messages/{messageId} {
+        allow get: if isVerifiedSignedIn() && isValidId(threadId) && isValidId(messageId) && request.auth.uid in existing().participantUids;
+        allow list: if isVerifiedSignedIn() && request.auth.uid in existing().participantUids;
+
+        allow create: if isVerifiedSignedIn() &&
                          isValidId(threadId) &&
                          isValidId(messageId) &&
                          incoming().messageId == messageId &&
                          incoming().threadId == threadId &&
                          incoming().senderUid == request.auth.uid &&
                          request.auth.uid in incoming().participantUids &&
+                         parentThreadAllowsMessage() &&
                          incoming().keys().hasOnly([
                            'messageId', 'threadId', 'senderUid', 'senderName',
                            'participantUids', 'messageType', 'bodyText',
@@ -1023,7 +1149,7 @@ service cloud.firestore {
                          ]) &&
                          isValidChatMessage(incoming());
 
-        allow update: if isSignedIn() &&
+        allow update: if isVerifiedSignedIn() &&
                          isValidId(threadId) &&
                          isValidId(messageId) &&
                          isValidChatMessage(incoming()) &&
@@ -1041,15 +1167,9 @@ service cloud.firestore {
                            'extensionStatus', 'participantUids', 'updatedAt'
                          ]);
 
-        allow delete: if isSignedIn() && isValidId(threadId) && isValidId(messageId) && existing().senderUid == request.auth.uid;
+        allow delete: if isVerifiedSignedIn() && isValidId(threadId) && isValidId(messageId) && existing().senderUid == request.auth.uid;
       }
     }
-
-    // [BLAZE-DISABLED START] reason: Cloud Functions and server-mediated collections not supported on Spark free plan | restore: uncomment when moving to Blaze plan with backend microservices
-    // Legacy Blaze-only collections denied by catch-all:
-    // - webLinks
-    // - chat (legacy ephemeral /chat collection; real-time in-app communication is enabled via participant-scoped /chat_threads)
-    // [BLAZE-DISABLED END]
 
     match /{document=**} {
       allow read, write: if false;

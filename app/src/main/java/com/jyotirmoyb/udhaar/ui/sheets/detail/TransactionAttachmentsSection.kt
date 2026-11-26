@@ -248,7 +248,7 @@ fun TransactionAttachmentsSection(
                         modifier = udhaarAnimateItem(reducedMotion)
                             .size(width = 110.dp, height = 110.dp)
                             .pressScaleFeedback()
-                            .clickable { onOpenAttachmentViewer(att) }
+                            .clickable(role = androidx.compose.ui.semantics.Role.Button) { onOpenAttachmentViewer(att) }
                             .testTag("attachment_thumb_${att.id}")
                     ) {
                         Box(modifier = Modifier.fillMaxSize()) {

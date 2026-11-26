@@ -15,6 +15,7 @@ import com.jyotirmoyb.udhaar.data.PartialPayment
 import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.TransactionSortOption
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
+import com.jyotirmoyb.udhaar.data.UserChatSafetyEntity
 import com.jyotirmoyb.udhaar.data.UserSettings
 import com.jyotirmoyb.udhaar.ui.components.SuccessAnimationEvent
 import com.jyotirmoyb.udhaar.util.CalculatedUdhaarSummary
@@ -218,6 +219,7 @@ data class UdhaarUiState(
     val showUpdatesScreen: Boolean = false,
     // --- Phase 4: In-App Communication State ---
     val chatThreadsByKey: Map<String, ChatThreadMetadata> = emptyMap(),
+    val userChatSafetyByKey: Map<String, UserChatSafetyEntity> = emptyMap(),
     val chatMessagesByThreadKey: Map<String, List<ChatMessageEntity>> = emptyMap(),
     val unreadCountByTx: Map<Long, Int> = emptyMap(),
     val unreadCountByPartyName: Map<String, Int> = emptyMap(),

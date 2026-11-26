@@ -465,10 +465,31 @@ data class ChatThreadMetadata(
     val partyName: String = "",
     val isMuted: Boolean = false,
     val isBlocked: Boolean = false,
+    val blockedByUid: String = "",
     val isReported: Boolean = false,
     val reportReason: String = "",
     val counterpartyTyping: Boolean = false,
     val typingUpdatedAtMillis: Long = 0L,
+    val updatedAtMillis: Long = System.currentTimeMillis()
+)
+
+@Entity(
+    tableName = "user_chat_safety",
+    indices = [
+        Index(value = ["counterpartyUid"]),
+        Index(value = ["partyId"])
+    ]
+)
+data class UserChatSafetyEntity(
+    @PrimaryKey
+    val userKey: String,
+    val counterpartyUid: String = "",
+    val partyId: Long? = null,
+    val partyName: String = "",
+    val isMuted: Boolean = false,
+    val isBlocked: Boolean = false,
+    val isReported: Boolean = false,
+    val reportReason: String = "",
     val updatedAtMillis: Long = System.currentTimeMillis()
 )
 

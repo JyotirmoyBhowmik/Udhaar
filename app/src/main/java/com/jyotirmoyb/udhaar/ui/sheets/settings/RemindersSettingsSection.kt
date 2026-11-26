@@ -40,32 +40,27 @@ fun RemindersSettingsSection(
     modifier: Modifier = Modifier
 ) {
     SettingsSectionCard(
-        sectionNumber = "4",
+        sectionNumber = "",
         title = stringResource(R.string.quiet_hours_settings_title),
         subtitle = stringResource(R.string.quiet_hours_settings_subtitle),
-        testTag = "section_reminders_and_quiet_hours"
+        testTag = "section_reminders_and_quiet_hours",
+        initiallyExpanded = false
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
+                .padding(horizontal = 12.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.quiet_hours_settings_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = stringResource(R.string.quiet_hours_settings_subtitle),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            Text(
+                text = stringResource(R.string.quiet_hours_settings_title),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
             UdhaarAnimatedSwitch(
                 checked = quietHoursEnabled,
                 onCheckedChange = onQuietHoursEnabledChange,
@@ -107,53 +102,58 @@ fun RemindersSettingsSection(
             }
         }
 
-        HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 1.dp)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
 
         Text(
             text = stringResource(R.string.escalation_ranges_title),
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.primary
         )
         Text(
             text = stringResource(R.string.escalation_ranges_subtitle),
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        OutlinedTextField(
-            value = reminderL1Days.toString(),
-            onValueChange = { str ->
-                str.filter { it.isDigit() }.toIntOrNull()?.let {
-                    onReminderL1DaysChange(it.coerceIn(1, 30))
-                }
-            },
-            label = { Text(stringResource(R.string.escalation_l1_days)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().testTag("escalation_l1_input")
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedTextField(
+                value = reminderL1Days.toString(),
+                onValueChange = { str ->
+                    str.filter { it.isDigit() }.toIntOrNull()?.let {
+                        onReminderL1DaysChange(it.coerceIn(1, 30))
+                    }
+                },
+                label = { Text(stringResource(R.string.escalation_l1_days), maxLines = 1) },
+                singleLine = true,
+                modifier = Modifier.weight(1f).testTag("escalation_l1_input")
+            )
 
-        OutlinedTextField(
-            value = reminderL2Days.toString(),
-            onValueChange = { str ->
-                str.filter { it.isDigit() }.toIntOrNull()?.let {
-                    onReminderL2DaysChange(it.coerceIn(1, 60))
-                }
-            },
-            label = { Text(stringResource(R.string.escalation_l2_days)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().testTag("escalation_l2_input")
-        )
+            OutlinedTextField(
+                value = reminderL2Days.toString(),
+                onValueChange = { str ->
+                    str.filter { it.isDigit() }.toIntOrNull()?.let {
+                        onReminderL2DaysChange(it.coerceIn(1, 60))
+                    }
+                },
+                label = { Text(stringResource(R.string.escalation_l2_days), maxLines = 1) },
+                singleLine = true,
+                modifier = Modifier.weight(1f).testTag("escalation_l2_input")
+            )
 
-        OutlinedTextField(
-            value = reminderL3Days.toString(),
-            onValueChange = { str ->
-                str.filter { it.isDigit() }.toIntOrNull()?.let {
-                    onReminderL3DaysChange(it.coerceIn(1, 180))
-                }
-            },
-            label = { Text(stringResource(R.string.escalation_l3_days)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().testTag("escalation_l3_input")
-        )
+            OutlinedTextField(
+                value = reminderL3Days.toString(),
+                onValueChange = { str ->
+                    str.filter { it.isDigit() }.toIntOrNull()?.let {
+                        onReminderL3DaysChange(it.coerceIn(1, 180))
+                    }
+                },
+                label = { Text(stringResource(R.string.escalation_l3_days), maxLines = 1) },
+                singleLine = true,
+                modifier = Modifier.weight(1f).testTag("escalation_l3_input")
+            )
+        }
     }
 }

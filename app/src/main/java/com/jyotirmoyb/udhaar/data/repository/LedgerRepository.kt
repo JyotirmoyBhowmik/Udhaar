@@ -1,13 +1,18 @@
 package com.jyotirmoyb.udhaar.data.repository
 
 import android.content.Context
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import com.jyotirmoyb.udhaar.data.Attachment
 import com.jyotirmoyb.udhaar.data.AuditEventType
 import com.jyotirmoyb.udhaar.data.AuditTrailEntry
 import com.jyotirmoyb.udhaar.data.PartialPayment
 import com.jyotirmoyb.udhaar.data.PartyEntity
+import com.jyotirmoyb.udhaar.data.PartySearchProjection
 import com.jyotirmoyb.udhaar.data.ReminderChannel
 import com.jyotirmoyb.udhaar.data.ReminderEvent
+import com.jyotirmoyb.udhaar.data.TransactionHistoryProjection
 import com.jyotirmoyb.udhaar.data.UdhaarDao
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
 import com.jyotirmoyb.udhaar.data.VerificationStatus
@@ -57,6 +62,33 @@ open class LedgerRepository(
         SafeLogger.e("LedgerRepository", "Failed reading audit trail flow", e)
         emit(emptyList())
     }
+
+    fun getSettledHistoryPagingFlow(pageSize: Int = 25): Flow<PagingData<TransactionHistoryProjection>> =
+        Pager(
+            config = PagingConfig(pageSize = pageSize, enablePlaceholders = false),
+            pagingSourceFactory = { dao.getSettledHistoryPaged() }
+        ).flow
+
+    fun searchTransactionsPagingFlow(
+        query: String,
+        settledOnly: Boolean = false,
+        pageSize: Int = 25
+    ): Flow<PagingData<TransactionHistoryProjection>> =
+        Pager(
+            config = PagingConfig(pageSize = pageSize, enablePlaceholders = false),
+            pagingSourceFactory = {
+                dao.searchTransactionsPaged(query = query.trim(), settledOnly = if (settledOnly) 1 else 0)
+            }
+        ).flow
+
+    fun searchPartiesPagingFlow(
+        query: String,
+        pageSize: Int = 25
+    ): Flow<PagingData<PartySearchProjection>> =
+        Pager(
+            config = PagingConfig(pageSize = pageSize, enablePlaceholders = false),
+            pagingSourceFactory = { dao.searchPartiesPaged(query = query.trim()) }
+        ).flow
 
     fun getAuditTrail(transactionId: Long): Flow<List<AuditTrailEntry>> =
         dao.getAuditTrailForTransaction(transactionId)

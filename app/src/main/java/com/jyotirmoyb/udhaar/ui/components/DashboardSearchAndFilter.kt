@@ -48,6 +48,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.LaunchedEffect
@@ -162,10 +164,11 @@ internal fun SearchAndFilterBar(
                     tint = SecondaryInkGrey,
                     modifier = Modifier.size(18.dp)
                 )
+                val searchPlaceholder = stringResource(R.string.search_placeholder)
                 Box(modifier = Modifier.weight(1f)) {
                     if (searchQuery.isEmpty()) {
                         Text(
-                            text = stringResource(R.string.search_placeholder),
+                            text = searchPlaceholder,
                             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
                             color = MutedInkGrey,
                             maxLines = 1,
@@ -183,6 +186,7 @@ internal fun SearchAndFilterBar(
                         cursorBrush = SolidColor(PureBlack),
                         modifier = Modifier
                             .fillMaxWidth()
+                            .semantics { contentDescription = searchPlaceholder }
                             .testTag("dashboard_search_input")
                     )
                 }
@@ -191,7 +195,7 @@ internal fun SearchAndFilterBar(
                         modifier = Modifier
                             .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
                             .clip(CircleShape)
-                            .clickable { onSearchQueryChange("") }
+                            .clickable(role = androidx.compose.ui.semantics.Role.Button) { onSearchQueryChange("") }
                             .testTag("clear_search_button"),
                         contentAlignment = Alignment.Center
                     ) {
@@ -269,7 +273,7 @@ internal fun SearchAndFilterBar(
                     modifier = udhaarAnimateItem(reducedMotion)
                         .heightIn(min = UdhaarSpacing.MinTouchTarget)
                         .pressScaleFeedback()
-                        .clickable { onSelectFilter(filter) }
+                        .clickable(role = androidx.compose.ui.semantics.Role.Tab) { onSelectFilter(filter) }
                         .testTag("filter_chip_${filter.name.lowercase()}"),
                     contentAlignment = Alignment.Center
                 ) {
@@ -360,7 +364,7 @@ internal fun LedgerSectionHeaderRow(
                 modifier = Modifier
                     .heightIn(min = 48.dp)
                     .pressScaleFeedback()
-                    .clickable { onOpenGroupSplit() }
+                    .clickable(role = androidx.compose.ui.semantics.Role.Button) { onOpenGroupSplit() }
                     .testTag("open_group_split_button"),
                 contentAlignment = Alignment.Center
             ) {
@@ -397,7 +401,7 @@ internal fun LedgerSectionHeaderRow(
                     modifier = Modifier
                         .heightIn(min = 48.dp)
                         .pressScaleFeedback()
-                        .clickable { sortMenuExpanded = true }
+                        .clickable(role = androidx.compose.ui.semantics.Role.Button) { sortMenuExpanded = true }
                         .testTag("sort_transactions_button"),
                     contentAlignment = Alignment.Center
                 ) {

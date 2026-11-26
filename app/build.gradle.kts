@@ -21,8 +21,8 @@ android {
     applicationId = "com.jyotirmoyb.udhaar"
     minSdk = 24
     targetSdk = 36
-    versionCode = 31
-    versionName = "31.0"
+    versionCode = 32
+    versionName = "32.0"
 
     val versionPropsFile = rootProject.file("version.properties")
     val versionProps = Properties().apply {
@@ -93,6 +93,10 @@ android {
       .map { it.equals("true", ignoreCase = true) }
       .getOrElse(false)
     buildConfigField("boolean", "BLAZE_FEATURES_ENABLED", blazeFeaturesEnabled.toString())
+    val requireCloudVerification = providers.gradleProperty("udhaar.requireCloudVerification")
+      .map { it.equals("true", ignoreCase = true) }
+      .getOrElse(false)
+    buildConfigField("boolean", "REQUIRE_CLOUD_VERIFICATION", requireCloudVerification.toString())
   androidResources {
     localeFilters += listOf("en", "hi", "bn", "as", "ne")
   }
@@ -153,6 +157,9 @@ android {
       isDebuggable = false
       isMinifyEnabled = enableR8Minify
       isShrinkResources = enableR8Minify
+      ndk {
+        debugSymbolLevel = "SYMBOL_TABLE"
+      }
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       // Do not remove or modify this signingConfig assignment. It is necessary for Android apps in
       // AI Studio.
@@ -299,12 +306,12 @@ tasks.register<JavaExec>("detekt") {
     "--input", inputDir.absolutePath,
     "--config", configFile.absolutePath,
     "--build-upon-default-config",
+    "--max-issues", "0",
     "--report", "xml:${File(reportDir, "detekt.xml").absolutePath}",
     "--report", "html:${File(reportDir, "detekt.html").absolutePath}"
   )
   if (baselineFile.exists()) {
-    cliArgs.add("--baseline")
-    cliArgs.add(baselineFile.absolutePath)
+    cliArgs.addAll(listOf("--baseline", baselineFile.absolutePath))
   }
   args(cliArgs)
 }
@@ -336,7 +343,6 @@ tasks.matching { it.name == "assembleRelease" }.configureEach {
 
 tasks.matching {
   it.name.contains("CrashlyticsMappingFile") ||
-    it.name == "extractReleaseNativeSymbolTables" ||
     it.name == "extractReleaseVersionControlInfo"
 }.configureEach {
   enabled = false
@@ -396,6 +402,10 @@ dependencies {
   // implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
+  implementation(libs.androidx.room.paging)
+  implementation(libs.androidx.paging.runtime)
+  implementation(libs.androidx.paging.compose)
+  implementation(libs.androidx.profileinstaller)
   implementation(libs.coil.compose)
   // implementation(libs.converter.moshi)
   // implementation(libs.firebase.ai)

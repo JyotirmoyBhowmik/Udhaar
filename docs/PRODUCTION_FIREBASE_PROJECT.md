@@ -1,3 +1,6 @@
+> [!WARNING]
+> **OBSOLETE / HISTORICAL REFERENCE (Pre-v32):** Any sections below referencing legacy Cloud Functions, Cloud KMS, Blaze-only server endpoints, or "Platform v2" are **superseded and archived** under `archive/`. For the canonical Udhaar v32.0 Spark Mode architecture, security rules, and data safety declarations, see [`docs/REALITY_CHECK.md`](REALITY_CHECK.md), [`docs/PLAY_DATA_SAFETY.md`](PLAY_DATA_SAFETY.md), and [`README.md`](../README.md).
+
 # Udhaar — API Key Restrictions & Dedicated Production Firebase Project Guide (v29.0 Spark Mode)
 
 This document audits the current Firebase configuration in `app/src/release/google-services.json`, specifies the **exact Google Cloud Console API key restrictions** required before public launch, and provides the step-by-step migration runbook to move off the shared AI Studio project onto a dedicated production Firebase Spark project.

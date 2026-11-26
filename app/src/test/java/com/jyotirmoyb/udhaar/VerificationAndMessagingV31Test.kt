@@ -443,14 +443,12 @@ class VerificationAndMessagingV31Test {
                     threadMetadata = null,
                     messages = listOf(outgoingLocal),
                     auditEntries = emptyList(),
-                    myProfileName = "Alice",
                     myUpiId = "",
                     isCloudLinked = false,
                     onDismiss = {},
                     onSendMessage = { _, _, _, _, _ -> },
                     onRequestExtension = { _, _, _ -> },
                     onRespondToExtension = { _, _ -> },
-                    onSetTypingIndicator = {},
                     onToggleMute = {},
                     onToggleBlock = {},
                     onReportAbusiveUser = {}
@@ -498,11 +496,55 @@ class VerificationAndMessagingV31Test {
         }
 
         composeRule.onNode(hasTestTag("cloud_verification_gate_screen")).assertExists()
-        composeRule.onNode(hasText(context.getString(R.string.cloud_gate_title))).assertExists()
+        assertFalse(
+            "Default BuildConfig.REQUIRE_CLOUD_VERIFICATION must be false",
+            BuildConfig.REQUIRE_CLOUD_VERIFICATION
+        )
+        composeRule.onNode(hasText(context.getString(R.string.cloud_gate_optional_title))).assertExists()
         composeRule.onNode(hasText("100", substring = true)).assertDoesNotExist()
         composeRule.onNode(hasTestTag("cloud_gate_skip_local_btn")).performScrollTo().performClick()
         composeRule.waitForIdle()
         assertTrue("Skip button should invoke onSkipLocalOnly", skipped)
+    }
+
+    @Test
+    fun cloudVerificationGateScreen_whenCloudVerificationRequired_hidesSkipAndShowsRequiredTitle() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dummyAuth = object : SparkAuthController {
+            override fun currentSession(): SparkAuthSession? = null
+            override suspend fun signInWithGoogle(context: Context): SparkAuthSession =
+                throw UnsupportedOperationException()
+            override suspend fun signInWithEmailPassword(email: String, password: String): SparkAuthSession =
+                throw UnsupportedOperationException()
+            override suspend fun signUpWithEmailPassword(email: String, password: String, contactPhone: String): SparkAuthSession =
+                throw UnsupportedOperationException()
+            override suspend fun sendEmailVerification() {}
+            override suspend fun reloadSession(): SparkAuthSession? = null
+            override suspend fun sendPasswordResetEmail(email: String) {}
+            override suspend fun reauthenticateWithPassword(email: String, password: String) {}
+            override suspend fun reauthenticateWithGoogle(context: Context) {}
+            override suspend fun deleteCloudData(uid: String, knownLinkIds: List<String>) {}
+            override suspend fun signOut() {}
+        }
+
+        composeRule.setContent {
+            UdhaarTheme {
+                CloudVerificationGateScreen(
+                    isFirebaseConfigured = true,
+                    isSignedInUnverified = false,
+                    pendingEmail = "",
+                    onVerifiedSession = { _, _, _ -> },
+                    onSignedOut = {},
+                    onSkipLocalOnly = {},
+                    allowLocalSkip = false,
+                    authControllerOverride = dummyAuth
+                )
+            }
+        }
+
+        composeRule.onNode(hasTestTag("cloud_verification_gate_screen")).assertExists()
+        composeRule.onNode(hasText(context.getString(R.string.cloud_gate_title))).assertExists()
+        composeRule.onNode(hasTestTag("cloud_gate_skip_local_btn")).assertDoesNotExist()
     }
 
     @Test

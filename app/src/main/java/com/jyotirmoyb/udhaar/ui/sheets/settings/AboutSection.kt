@@ -4,8 +4,6 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,6 +24,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -39,7 +38,6 @@ import com.jyotirmoyb.udhaar.BuildConfig
 import com.jyotirmoyb.udhaar.R
 import com.jyotirmoyb.udhaar.ui.common.SettingsSectionCard
 import com.jyotirmoyb.udhaar.ui.icons.UdhaarIcons
-import com.jyotirmoyb.udhaar.ui.theme.IbmPlexMonoFamily
 
 @Composable
 fun AboutSection(
@@ -50,145 +48,89 @@ fun AboutSection(
     val context = LocalContext.current
 
     SettingsSectionCard(
-        sectionNumber = "7",
+        sectionNumber = "",
         title = stringResource(R.string.settings_sec_about_title),
         subtitle = stringResource(R.string.settings_sec_about_sub),
         testTag = "section_about"
     ) {
-        // Regulatory Positioning & Non-Lending Disclaimer Card
-        androidx.compose.material3.Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("about_regulatory_disclaimer_card"),
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-        ) {
-            Row(
-                modifier = Modifier.padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Info,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
-                )
-                Text(
-                    text = stringResource(R.string.app_regulatory_disclaimer),
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        // Share & Give Access Card
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
-                .padding(12.dp)
-                .testTag("share_give_access_card"),
+            modifier = modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                text = stringResource(R.string.ui_str_share_udhaar_give_access_0b30b9),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = stringResource(R.string.ui_str_share_the_udhaar_app_via_d0183f),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            OutlinedButton(
-                onClick = onOpenShareAppModal,
+            // Regulatory Non-Lending Notice
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 48.dp)
-                    .testTag("open_share_app_modal_from_settings"),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                    .testTag("about_regulatory_disclaimer_card"),
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
-                Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.ui_str_share_udhaar_app_qr_invite_9e0ec0), style = MaterialTheme.typography.labelMedium)
-            }
-        }
-
-        // About & Developer Support Card
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
-                .padding(12.dp)
-                .testTag("about_and_support_card"),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = UdhaarIcons.SupportAgent,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Column {
-                    Text(
-                        text = stringResource(
-                            R.string.settings_about_version_format,
-                            BuildConfig.VERSION_NAME,
-                            BuildConfig.VERSION_CODE
-                        ),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.testTag("settings_about_version_text")
+                Row(
+                    modifier = Modifier.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
                     )
                     Text(
-                        text = stringResource(R.string.ui_str_developer_admin_jyotirmoy_bhowmik_436c7f),
-                        style = MaterialTheme.typography.bodySmall,
+                        text = stringResource(R.string.app_regulatory_disclaimer),
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    val planModeText = if (BuildConfig.BLAZE_FEATURES_ENABLED) {
-                        stringResource(R.string.settings_plan_mode_blaze)
-                    } else {
-                        stringResource(R.string.settings_plan_mode_spark)
-                    }
-                    Text(
-                        text = stringResource(R.string.settings_plan_mode_label, planModeText),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.testTag("settings_plan_mode_text")
                     )
                 }
             }
+
+            // App Version (user-facing only, no internal plan mode or developer labels)
             Text(
-                text = stringResource(R.string.ui_str_support_email_jyotirmoybhowmik_gmai_803452),
-                style = MaterialTheme.typography.bodySmall,
-                fontFamily = IbmPlexMonoFamily,
-                color = MaterialTheme.colorScheme.onSurface
+                text = stringResource(
+                    R.string.settings_about_version_format,
+                    BuildConfig.VERSION_NAME,
+                    BuildConfig.VERSION_CODE
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag("settings_about_version_text")
             )
-            Button(
-                onClick = onOpenHelpAndContact,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp)
-                    .testTag("open_help_contact_button"),
-                shape = RoundedCornerShape(12.dp)
+
+            // Share & Help Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.about_help_and_contact_btn), style = MaterialTheme.typography.labelMedium)
+                OutlinedButton(
+                    onClick = onOpenShareAppModal,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
+                        .testTag("open_share_app_modal_from_settings"),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(stringResource(R.string.ui_str_share_udhaar_app_qr_invite_9e0ec0), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                }
+
+                Button(
+                    onClick = onOpenHelpAndContact,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
+                        .testTag("open_help_contact_button"),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(stringResource(R.string.about_help_and_contact_btn), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                }
             }
+
             OutlinedButton(
                 onClick = {
                     val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
@@ -205,13 +147,14 @@ fun AboutSection(
                     .fillMaxWidth()
                     .heightIn(min = 48.dp)
                     .testTag("contact_admin_button"),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(10.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
             ) {
                 Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(stringResource(R.string.ui_str_contact_admin_email_support_ff5066), style = MaterialTheme.typography.labelMedium)
             }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -228,7 +171,7 @@ fun AboutSection(
                         .weight(1f)
                         .heightIn(min = 48.dp)
                         .testTag("open_privacy_policy_button"),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(10.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                 ) {
                     Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(15.dp))
@@ -247,7 +190,7 @@ fun AboutSection(
                         .weight(1f)
                         .heightIn(min = 48.dp)
                         .testTag("open_terms_of_service_button"),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(10.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                 ) {
                     Icon(UdhaarIcons.Description, contentDescription = null, modifier = Modifier.size(15.dp))
@@ -255,43 +198,49 @@ fun AboutSection(
                     Text(text = stringResource(R.string.about_terms_of_service_btn), style = MaterialTheme.typography.labelSmall)
                 }
             }
-            OutlinedButton(
-                onClick = {
-                    runCatching {
-                        context.startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse("https://udhaar.jyotirmoyb.com/delete-account"))
-                        )
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp)
-                    .testTag("open_delete_account_web_button"),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(UdhaarIcons.DeleteOutline, contentDescription = null, modifier = Modifier.size(15.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(text = stringResource(R.string.about_delete_account_web_btn), style = MaterialTheme.typography.labelSmall)
-            }
-            OutlinedButton(
-                onClick = {
-                    runCatching {
-                        context.startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar"))
-                        )
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp)
-                    .testTag("check_play_update_button"),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-            ) {
-                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(15.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(text = stringResource(R.string.about_check_update_btn), style = MaterialTheme.typography.labelSmall)
+                OutlinedButton(
+                    onClick = {
+                        runCatching {
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse("https://udhaar.jyotirmoyb.com/delete-account"))
+                            )
+                        }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
+                        .testTag("open_delete_account_web_button"),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                ) {
+                    Icon(UdhaarIcons.DeleteOutline, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = stringResource(R.string.about_delete_account_web_btn), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                }
+                OutlinedButton(
+                    onClick = {
+                        runCatching {
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.jyotirmoyb.udhaar"))
+                            )
+                        }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
+                        .testTag("check_play_update_button"),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(15.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = stringResource(R.string.about_check_update_btn), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                }
             }
         }
     }

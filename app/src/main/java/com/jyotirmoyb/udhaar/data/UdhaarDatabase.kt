@@ -149,9 +149,10 @@ class UdhaarTypeConverters {
         ReminderEvent::class,
         InstallmentPlan::class,
         Installment::class,
-        SyncOutboxEntity::class
+        SyncOutboxEntity::class,
+        UserChatSafetyEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = true
 )
 @TypeConverters(UdhaarTypeConverters::class)
@@ -842,6 +843,32 @@ abstract class UdhaarDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                if (!hasColumn(db, "chat_thread_metadata", "blockedByUid")) {
+                    db.execSQL("ALTER TABLE `chat_thread_metadata` ADD COLUMN `blockedByUid` TEXT NOT NULL DEFAULT ''")
+                }
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `user_chat_safety` (
+                        `userKey` TEXT NOT NULL,
+                        `counterpartyUid` TEXT NOT NULL,
+                        `partyId` INTEGER,
+                        `partyName` TEXT NOT NULL,
+                        `isMuted` INTEGER NOT NULL,
+                        `isBlocked` INTEGER NOT NULL,
+                        `isReported` INTEGER NOT NULL,
+                        `reportReason` TEXT NOT NULL,
+                        `updatedAtMillis` INTEGER NOT NULL,
+                        PRIMARY KEY(`userKey`)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_user_chat_safety_counterpartyUid` ON `user_chat_safety` (`counterpartyUid`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_user_chat_safety_partyId` ON `user_chat_safety` (`partyId`)")
+            }
+        }
+
         val ALL_MIGRATIONS: Array<Migration> = arrayOf(
             MIGRATION_1_2,
             MIGRATION_2_3,
@@ -854,7 +881,8 @@ abstract class UdhaarDatabase : RoomDatabase() {
             MIGRATION_9_10,
             MIGRATION_10_11,
             MIGRATION_11_12,
-            MIGRATION_12_13
+            MIGRATION_12_13,
+            MIGRATION_13_14
         )
 
         @Volatile

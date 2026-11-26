@@ -475,7 +475,7 @@ fun BiometricSecurityScreen(
                             color = SecondaryInkGrey,
                             modifier = Modifier
                                 .heightIn(min = 48.dp)
-                                .clickable { showManualPinField = true }
+                                .clickable(role = androidx.compose.ui.semantics.Role.Button) { showManualPinField = true }
                                 .padding(vertical = 12.dp, horizontal = 8.dp)
                                 .testTag("expand_manual_pin_button")
                         )

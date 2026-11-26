@@ -419,7 +419,7 @@ fun DriveBackupCard(
                                     color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
                                     shape = RoundedCornerShape(12.dp)
                                 )
-                                .clickable {
+                                .clickable(role = androidx.compose.ui.semantics.Role.Button) {
                                     onUpdateAutoBackupSettings(
                                         freq,
                                         currentSettings.driveAutoBackupWifiOnly,

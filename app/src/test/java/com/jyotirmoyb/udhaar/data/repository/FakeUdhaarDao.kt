@@ -1,5 +1,7 @@
 package com.jyotirmoyb.udhaar.data.repository
 
+import androidx.paging.PagingSource
+import androidx.paging.PagingState
 import com.jyotirmoyb.udhaar.data.Attachment
 import com.jyotirmoyb.udhaar.data.AuditTrailEntry
 import com.jyotirmoyb.udhaar.data.ChatMessageEntity
@@ -8,9 +10,12 @@ import com.jyotirmoyb.udhaar.data.Installment
 import com.jyotirmoyb.udhaar.data.InstallmentPlan
 import com.jyotirmoyb.udhaar.data.PartialPayment
 import com.jyotirmoyb.udhaar.data.PartyEntity
+import com.jyotirmoyb.udhaar.data.PartySearchProjection
 import com.jyotirmoyb.udhaar.data.ReminderEvent
+import com.jyotirmoyb.udhaar.data.TransactionHistoryProjection
 import com.jyotirmoyb.udhaar.data.UdhaarDao
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
+import com.jyotirmoyb.udhaar.data.UserChatSafetyEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,6 +43,7 @@ class FakeUdhaarDao : UdhaarDao {
     private val reminderEventsFlow = MutableStateFlow<List<ReminderEvent>>(emptyList())
     private val plansFlow = MutableStateFlow<List<InstallmentPlan>>(emptyList())
     private val installmentsFlow = MutableStateFlow<List<Installment>>(emptyList())
+    private val userChatSafetyFlow = MutableStateFlow<List<UserChatSafetyEntity>>(emptyList())
 
     // --- Parties ---
     override fun getAllParties(): Flow<List<PartyEntity>> = partiesFlow.asStateFlow()
@@ -552,5 +558,113 @@ class FakeUdhaarDao : UdhaarDao {
 
     override suspend fun deleteAllInstallments() {
         installmentsFlow.value = emptyList()
+    }
+
+    // --- Paging 3 Projection Queries ---
+    private fun <T : Any> listPagingSource(items: List<T>): PagingSource<Int, T> =
+        object : PagingSource<Int, T>() {
+            override fun getRefreshKey(state: PagingState<Int, T>): Int? = null
+            override suspend fun load(params: LoadParams<Int>): LoadResult<Int, T> {
+                val page = params.key ?: 0
+                val start = page * params.loadSize
+                if (start >= items.size) {
+                    return LoadResult.Page(emptyList(), prevKey = null, nextKey = null)
+                }
+                val end = minOf(start + params.loadSize, items.size)
+                return LoadResult.Page(
+                    data = items.subList(start, end),
+                    prevKey = if (page > 0) page - 1 else null,
+                    nextKey = if (end < items.size) page + 1 else null
+                )
+            }
+        }
+
+    private fun UdhaarTransaction.toHistoryProjection() = TransactionHistoryProjection(
+        id = id,
+        partyId = partyId,
+        transactionType = transactionType,
+        partyName = partyName,
+        phoneNumber = phoneNumber,
+        currency = currency,
+        principalAmountPaise = principalAmountPaise,
+        amountPaidPaise = amountPaidPaise,
+        paymentMode = paymentMode,
+        startDateMillis = startDateMillis,
+        expiryDateMillis = expiryDateMillis,
+        isSettled = isSettled,
+        settledAtMillis = settledAtMillis,
+        verificationStatus = verificationStatus,
+        createdAtMillis = createdAtMillis
+    )
+
+    override fun getSettledHistoryPaged(): PagingSource<Int, TransactionHistoryProjection> {
+        val settled = txFlow.value
+            .filter { it.isSettled }
+            .sortedWith(compareByDescending<UdhaarTransaction> { it.settledAtMillis ?: it.createdAtMillis }.thenByDescending { it.id })
+            .map { it.toHistoryProjection() }
+        return listPagingSource(settled)
+    }
+
+    override fun searchTransactionsPaged(query: String, settledOnly: Int): PagingSource<Int, TransactionHistoryProjection> {
+        val q = query.trim().lowercase()
+        val matched = txFlow.value
+            .filter { tx ->
+                (settledOnly == 0 || tx.isSettled) && (
+                    q.isEmpty() ||
+                        tx.partyName.lowercase().contains(q) ||
+                        tx.phoneNumber.lowercase().contains(q) ||
+                        tx.notes.lowercase().contains(q) ||
+                        tx.paymentMode.name.lowercase().contains(q) ||
+                        tx.verificationStatus.name.lowercase().contains(q)
+                    )
+            }
+            .sortedWith(compareBy<UdhaarTransaction> { it.isSettled }.thenByDescending { it.createdAtMillis }.thenByDescending { it.id })
+            .map { it.toHistoryProjection() }
+        return listPagingSource(matched)
+    }
+
+    override fun searchPartiesPaged(query: String): PagingSource<Int, PartySearchProjection> {
+        val q = query.trim().lowercase()
+        val matched = partiesFlow.value
+            .filter { p ->
+                q.isEmpty() ||
+                    p.name.lowercase().contains(q) ||
+                    p.phoneNumber.lowercase().contains(q) ||
+                    p.upiId.lowercase().contains(q)
+            }
+            .sortedWith(compareByDescending<PartyEntity> { it.isFavorite }.thenBy { it.name.lowercase() })
+            .map {
+                PartySearchProjection(
+                    partyId = it.partyId,
+                    name = it.name,
+                    phoneNumber = it.phoneNumber,
+                    preferredCurrency = it.preferredCurrency,
+                    isFavorite = it.isFavorite,
+                    lastInteractionMillis = it.lastInteractionMillis
+                )
+            }
+        return listPagingSource(matched)
+    }
+
+    // --- User-Level Chat Safety ---
+    override fun getAllUserChatSafety(): Flow<List<UserChatSafetyEntity>> = userChatSafetyFlow.asStateFlow()
+
+    override suspend fun getAllUserChatSafetySnapshot(): List<UserChatSafetyEntity> = userChatSafetyFlow.value
+
+    override suspend fun getUserChatSafety(userKey: String): UserChatSafetyEntity? =
+        userChatSafetyFlow.value.firstOrNull { it.userKey == userKey }
+
+    override suspend fun getUserChatSafetyByUid(uid: String): UserChatSafetyEntity? =
+        userChatSafetyFlow.value.firstOrNull { it.counterpartyUid == uid && uid.isNotBlank() }
+
+    override suspend fun upsertUserChatSafety(safety: UserChatSafetyEntity) {
+        val current = userChatSafetyFlow.value.toMutableList()
+        current.removeAll { it.userKey == safety.userKey }
+        current.add(safety)
+        userChatSafetyFlow.value = current
+    }
+
+    override suspend fun deleteAllUserChatSafety() {
+        userChatSafetyFlow.value = emptyList()
     }
 }

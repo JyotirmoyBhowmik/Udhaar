@@ -426,7 +426,7 @@ fun InAppContactPickerModal(
                                     modifier = Modifier
                                         .size(20.dp)
                                         .clip(CircleShape)
-                                        .clickable(enabled = hasItems) {
+                                        .clickable(enabled = hasItems, role = androidx.compose.ui.semantics.Role.Button) {
                                             if (targetIndex != null) {
                                                 coroutineScope.launch {
                                                     listState.scrollToItem(targetIndex)
@@ -511,7 +511,7 @@ private fun ContactRowItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onToggle)
+            .clickable(role = androidx.compose.ui.semantics.Role.Checkbox, onClick = onToggle)
             .background(if (isSelected) SubtleSurfaceGrey else PureWhite)
             .padding(horizontal = 14.dp, vertical = 10.dp)
             .testTag("contact_item_${contact.displayName}"),

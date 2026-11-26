@@ -243,7 +243,7 @@ open class MainActivity : FragmentActivity() {
                 }
                 pendingDeepLinkUrl = fullUrl
             } else {
-                com.jyotirmoyb.udhaar.util.AppLogger.w("MainActivity", "Rejected untrusted or malformed deep link: scheme=$scheme, host=$host, pathPrefix=${path.take(8)}")
+                com.jyotirmoyb.udhaar.util.SafeLogger.w("MainActivity", "Rejected untrusted or malformed deep link: scheme=$scheme, host=$host, pathPrefix=${path.take(8)}")
             }
         }
     }
@@ -294,9 +294,9 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                 context.contentResolver.openOutputStream(uri)?.use { out ->
                     out.write(jsonContent.toByteArray(Charsets.UTF_8))
                 }
-                Toast.makeText(context, "Ledger backup exported successfully.", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, context.getString(R.string.toast_backup_exported_success), Toast.LENGTH_LONG).show()
             }.onFailure {
-                Toast.makeText(context, "Failed to write JSON backup.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.toast_backup_write_failed), Toast.LENGTH_SHORT).show()
             }
         }
         pendingJsonToSave = null
@@ -333,13 +333,13 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                             result.onSuccess { count ->
                                 Toast.makeText(
                                     context,
-                                    "Imported $count ledger records successfully.",
+                                    context.getString(R.string.toast_backup_imported_count_fmt, count),
                                     Toast.LENGTH_LONG
                                 ).show()
                             }.onFailure {
                                 Toast.makeText(
                                     context,
-                                    "Invalid Udhaar JSON backup file.",
+                                    context.getString(R.string.toast_backup_invalid_json),
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }
@@ -347,7 +347,7 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                     }
                 }
             }.onFailure {
-                Toast.makeText(context, "Could not read backup file.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.toast_backup_read_failed), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -378,7 +378,7 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                     if (!isFirebaseConfigured) {
                         Toast.makeText(
                             context,
-                            "Firebase not configured: verification and chat are off",
+                            context.getString(R.string.toast_firebase_not_configured),
                             Toast.LENGTH_LONG
                         ).show()
                         return@launch
@@ -395,7 +395,7 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                         )
                         Toast.makeText(
                             context,
-                            "Signed in as ${user.email ?: user.uid} for Two-Party Verification",
+                            context.getString(R.string.toast_signed_in_verification_fmt, user.email ?: user.uid),
                             Toast.LENGTH_SHORT
                         ).show()
                     }
@@ -403,7 +403,7 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
             }.onFailure {
                 Toast.makeText(
                     context,
-                    "Offline verification links & QR codes remain active on this device.",
+                    context.getString(R.string.toast_offline_verification_active),
                     Toast.LENGTH_LONG
                 ).show()
             }
@@ -426,15 +426,19 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                         ?: FirebaseAuth.getInstance().currentUser?.email.orEmpty()
                         .ifBlank { uiState.userSettings.cloudUserEmail }
                     viewModel.setDriveAccountState(accountEmail)
-                    Toast.makeText(context, "Connected to Google Drive", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.toast_drive_connected), Toast.LENGTH_SHORT).show()
                 }
             }.onFailure { e ->
-                Toast.makeText(context, "Google Drive authorization failed: ${e.localizedMessage ?: "Unknown error"}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.toast_drive_auth_failed_fmt, e.localizedMessage ?: context.getString(R.string.common_unknown_error)),
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         } else {
             viewModel.handleDriveNeedsResolution(
                 pendingIntent = null,
-                message = "Google Drive authorization was canceled. Tap Reconnect to try again."
+                message = context.getString(R.string.toast_drive_auth_canceled)
             )
         }
     }
@@ -447,7 +451,11 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                     IntentSenderRequest.Builder(pendingResolution.intentSender).build()
                 )
             }.onFailure { err ->
-                Toast.makeText(context, "Could not launch Google Drive consent: ${err.localizedMessage ?: "Error"}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.toast_drive_consent_launch_failed_fmt, err.localizedMessage ?: context.getString(R.string.common_unknown_error)),
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         } else if (activity != null) {
             runCatching {
@@ -473,22 +481,30 @@ fun UdhaarApp(viewModel: UdhaarViewModel) {
                                     ?: FirebaseAuth.getInstance().currentUser?.email.orEmpty()
                                     .ifBlank { uiState.userSettings.cloudUserEmail }
                                 viewModel.setDriveAccountState(accountEmail)
-                                Toast.makeText(context, "Connected to Google Drive", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.toast_drive_connected), Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
                     .addOnFailureListener { e ->
-                        Toast.makeText(context, "Google Drive sign in: ${e.localizedMessage ?: "Failed"}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.toast_drive_sign_in_failed_fmt, e.localizedMessage ?: context.getString(R.string.common_unknown_error)),
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
             }.onFailure { err ->
-                Toast.makeText(context, "Drive sign in error: ${err.localizedMessage ?: "Error"}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.toast_drive_sign_in_failed_fmt, err.localizedMessage ?: context.getString(R.string.common_unknown_error)),
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
     }
 
     val signOutFromDrive: () -> Unit = {
         viewModel.clearDriveAccountState()
-        Toast.makeText(context, "Signed out from Google Drive", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.toast_drive_signed_out), Toast.LENGTH_SHORT).show()
     }
 
     UdhaarScreenRouter(

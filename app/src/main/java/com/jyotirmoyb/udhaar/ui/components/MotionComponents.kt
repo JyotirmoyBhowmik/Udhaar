@@ -191,10 +191,11 @@ fun Modifier.pressScaleFeedback(
 fun Modifier.pressScaleClickable(
     enabled: Boolean = true,
     pressedScale: Float = 0.96f,
+    role: Role? = Role.Button,
     onClick: () -> Unit
 ): Modifier = this
     .pressScaleFeedback(enabled = enabled, pressedScale = pressedScale)
-    .clickable(enabled = enabled, onClick = onClick)
+    .clickable(enabled = enabled, role = role, onClick = onClick)
 
 /**
  * List item placement, fade-in, and fade-out animation for LazyColumn and LazyRow items.

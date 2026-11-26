@@ -10,6 +10,7 @@ import com.jyotirmoyb.udhaar.data.ChatThreadScope
 import com.jyotirmoyb.udhaar.data.PartyEntity
 import com.jyotirmoyb.udhaar.data.UdhaarRepository
 import com.jyotirmoyb.udhaar.data.UdhaarTransaction
+import com.jyotirmoyb.udhaar.data.UserChatSafetyEntity
 import com.jyotirmoyb.udhaar.data.repository.ChatRepository
 import com.jyotirmoyb.udhaar.data.repository.LedgerRepository
 import com.jyotirmoyb.udhaar.notification.ReminderScheduler
@@ -30,6 +31,7 @@ import javax.inject.Inject
 
 data class ChatUiState(
     val chatThreadsByKey: Map<String, ChatThreadMetadata> = emptyMap(),
+    val userChatSafetyByKey: Map<String, UserChatSafetyEntity> = emptyMap(),
     val chatMessagesByThreadKey: Map<String, List<ChatMessageEntity>> = emptyMap(),
     val unreadCountByTx: Map<Long, Int> = emptyMap(),
     val unreadCountByPartyName: Map<String, Int> = emptyMap(),
@@ -65,6 +67,7 @@ class ChatViewModel @Inject constructor(
 
     val uiState: StateFlow<ChatUiState> = combine(
         chatRepository.allChatThreads,
+        chatRepository.allUserChatSafety,
         chatRepository.allChatMessages,
         combine(
             _activeChatThreadKey,
@@ -75,8 +78,22 @@ class ChatViewModel @Inject constructor(
         ) { threadKey, scope, txId, partyId, partyName ->
             ActiveChatParams(threadKey, scope, txId, partyId, partyName)
         }
-    ) { threads, messages, activeParams ->
+    ) { threads, userSafetyList, messages, activeParams ->
         val threadsByKey = threads.associateBy { it.threadKey }
+        val safetyByKey = buildMap<String, UserChatSafetyEntity> {
+            for (entry in userSafetyList) {
+                put(entry.userKey, entry)
+                if (entry.counterpartyUid.isNotBlank()) {
+                    put("uid_${entry.counterpartyUid}", entry)
+                }
+                if (entry.partyId != null && entry.partyId > 0L) {
+                    put("partyid_${entry.partyId}", entry)
+                }
+                if (entry.partyName.isNotBlank()) {
+                    put("party_${entry.partyName.trim().lowercase()}", entry)
+                }
+            }
+        }
         val messagesByThreadKey = messages.groupBy { it.threadKey }
 
         val unreadByTx = mutableMapOf<Long, Int>()
@@ -96,6 +113,7 @@ class ChatViewModel @Inject constructor(
 
         ChatUiState(
             chatThreadsByKey = threadsByKey,
+            userChatSafetyByKey = safetyByKey,
             chatMessagesByThreadKey = messagesByThreadKey,
             unreadCountByTx = unreadByTx,
             unreadCountByPartyName = unreadByPartyName,
@@ -378,6 +396,72 @@ class ChatViewModel @Inject constructor(
                 remoteId = remoteId,
                 partyId = partyId,
                 partyName = partyName
+            )
+        }
+    }
+
+    fun reportThread(
+        threadKey: String,
+        scope: ChatThreadScope,
+        transactionId: Long? = null,
+        remoteId: String = "",
+        partyId: Long? = null,
+        partyName: String,
+        reason: String
+    ) {
+        viewModelScope.launch {
+            chatRepository.reportThread(
+                threadKey = threadKey,
+                reason = reason,
+                scope = scope,
+                transactionId = transactionId,
+                remoteId = remoteId,
+                partyId = partyId,
+                partyName = partyName
+            )
+        }
+    }
+
+    fun toggleUserMute(
+        counterpartyUid: String = "",
+        partyId: Long? = null,
+        partyName: String
+    ) {
+        viewModelScope.launch {
+            chatRepository.toggleUserMute(
+                counterpartyUid = counterpartyUid,
+                partyId = partyId,
+                partyName = partyName
+            )
+        }
+    }
+
+    fun toggleUserBlock(
+        counterpartyUid: String = "",
+        partyId: Long? = null,
+        partyName: String
+    ) {
+        viewModelScope.launch {
+            chatRepository.toggleUserBlock(
+                counterpartyUid = counterpartyUid,
+                partyId = partyId,
+                partyName = partyName
+            )
+        }
+    }
+
+    fun reportUser(
+        counterpartyUid: String = "",
+        partyId: Long? = null,
+        partyName: String,
+        reason: String
+    ) {
+        viewModelScope.launch {
+            chatRepository.reportUser(
+                counterpartyUid = counterpartyUid,
+                partyId = partyId,
+                partyName = partyName,
+                reason = reason
             )
         }
     }

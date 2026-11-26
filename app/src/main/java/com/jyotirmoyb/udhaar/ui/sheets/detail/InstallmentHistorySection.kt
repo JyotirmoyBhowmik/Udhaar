@@ -142,7 +142,7 @@ fun InstallmentHistorySection(
                                         color = MaterialTheme.colorScheme.surface,
                                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                                         modifier = Modifier
-                                            .clickable { onOpenAttachmentViewer(proof) }
+                                            .clickable(role = androidx.compose.ui.semantics.Role.Button) { onOpenAttachmentViewer(proof) }
                                             .testTag("payment_proof_badge_${payment.id}_${proof.id}")
                                     ) {
                                         Row(

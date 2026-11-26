@@ -163,7 +163,7 @@ fun PartialPaymentSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 48.dp)
-                .clickable { isFormExpanded = !isFormExpanded }
+                .clickable(role = androidx.compose.ui.semantics.Role.Button) { isFormExpanded = !isFormExpanded }
                 .testTag("toggle_partial_payment_form_button"),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -222,7 +222,7 @@ fun PartialPaymentSection(
                         .weight(1f)
                         .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
-                        .clickable {
+                        .clickable(role = androidx.compose.ui.semantics.Role.Button) {
                             val computed = kotlin.math.round(summary.netBalanceDue * fraction * 100.0) / 100.0
                             partialAmountText = if (computed % 1.0 == 0.0) {
                                 computed.toLong().toString()
@@ -267,7 +267,7 @@ fun PartialPaymentSection(
                             color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
                             shape = RoundedCornerShape(8.dp)
                         )
-                        .clickable { partialPaymentMode = mode }
+                        .clickable(role = androidx.compose.ui.semantics.Role.RadioButton) { partialPaymentMode = mode }
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                         .testTag("partial_mode_${mode.name.lowercase()}"),
                     contentAlignment = Alignment.Center
@@ -406,7 +406,7 @@ fun PartialPaymentSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { reportedByCounterparty = !reportedByCounterparty }
+                .clickable(role = androidx.compose.ui.semantics.Role.Checkbox) { reportedByCounterparty = !reportedByCounterparty }
                 .padding(vertical = 1.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
