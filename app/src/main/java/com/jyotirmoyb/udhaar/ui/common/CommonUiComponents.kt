@@ -107,7 +107,7 @@ fun SettingsSectionCard(
     title: String,
     subtitle: String,
     testTag: String,
-    initiallyExpanded: Boolean = true,
+    initiallyExpanded: Boolean = false,
     content: @Composable () -> Unit
 ) {
     @Suppress("UNUSED_VARIABLE")
@@ -120,7 +120,7 @@ fun SettingsSectionCard(
             .fillMaxWidth()
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner16)
             .background(MaterialTheme.colorScheme.surface, com.jyotirmoyb.udhaar.ui.theme.UdhaarShapeTokens.Corner16)
-            .padding(12.dp)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
             .testTag(testTag),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
