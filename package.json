@@ -26,7 +26,7 @@
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.0",
     "eslint": "^9.0.0",
-    "stylelint": "^16.0.0",
+    "stylelint": "^18.1.0",
     "typescript": "^7.0.2"
   }
 }
