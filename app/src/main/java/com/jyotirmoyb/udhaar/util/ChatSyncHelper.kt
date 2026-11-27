@@ -100,28 +100,32 @@ object ChatSyncHelper {
         message: ChatMessageEntity,
         settings: UserSettings,
         counterpartyUserId: String,
-        cloudRepository: VerificationCloudRepository?
+        cloudRepository: VerificationCloudRepository?,
+        fallbackRemoteId: String = ""
     ): Boolean {
         if (!settings.cloudVerificationConsent || settings.cloudUserId.isBlank() || cloudRepository == null) {
             return false
         }
-        val uid = settings.cloudUserId
-        val safeRemoteId = meta.remoteThreadId.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
+        val uid = settings.cloudUserId.trim()
+        val effectiveRemoteId = meta.remoteThreadId.ifBlank { fallbackRemoteId }.trim()
+        val safeRemoteId = effectiveRemoteId.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
         val cloudThreadId = cloudThreadIdFor(
             scope = meta.threadScope,
-            remoteId = meta.remoteThreadId,
+            remoteId = effectiveRemoteId,
             partyName = meta.partyName,
             fallbackThreadKey = meta.threadKey,
             myUid = uid,
             counterpartyUid = counterpartyUserId
         )
-        val hasDeterministicCloudThread = cloudThreadId.startsWith("tx_") || cloudThreadId.startsWith("dm_")
+        val hasDeterministicCloudThread = (cloudThreadId.startsWith("tx_") && safeRemoteId.isNotBlank()) ||
+            cloudThreadId.startsWith("dm_")
         if (!hasDeterministicCloudThread) return false
 
         return runCatching {
+            val cleanCounterpartyUid = counterpartyUserId.trim().takeIf { it.isNotBlank() && it != uid }.orEmpty()
             val participants = listOfNotNull(
                 uid.takeIf { it.isNotBlank() },
-                counterpartyUserId.takeIf { it.isNotBlank() }
+                cleanCounterpartyUid.takeIf { it.isNotBlank() }
             ).distinct()
 
             cloudRepository.upsertChatThread(
@@ -131,7 +135,7 @@ object ChatSyncHelper {
                     remoteId = safeRemoteId,
                     partyName = meta.partyName,
                     creatorUid = uid,
-                    counterpartyUid = counterpartyUserId,
+                    counterpartyUid = cleanCounterpartyUid,
                     participantUids = participants,
                     mutedByUids = if (meta.isMuted) listOf(uid) else emptyList(),
                     blockedByUids = if (meta.isBlocked) listOf(uid) else emptyList(),
@@ -161,6 +165,8 @@ object ChatSyncHelper {
                 )
             )
             true
+        }.onFailure { err ->
+            SafeLogger.w("ChatSyncHelper", "Failed syncing chat message to cloud thread=$cloudThreadId", err)
         }.getOrDefault(false)
     }
 }

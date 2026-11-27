@@ -24,4 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Udhaar"
 
-include(":app", ":baselineprofile")
+include(":app")

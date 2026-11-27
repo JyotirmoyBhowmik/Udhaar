@@ -1763,3 +1763,107 @@ test("D1. Fuzz matrix: extra fields, oversized strings & wrong types denied acro
   await assertFails(ownerDb.collection("chat_threads").doc("tx_sr_ok").collection("messages").doc("msg_fuzz").set({ ...validMsg, sentAtMillis: "now" }));
   await assertFails(ownerDb.collection("chat_threads").doc("tx_sr_ok").collection("messages").doc("msg_fuzz").set({ ...validMsg, messageType: "EXECUTABLE" }));
 });
+
+test("D2. Regression: non-existent chat_threads/shared_records get() and creator Action 3 linking counterpartyUid", async () => {
+  const ownerDb = getOwnerDb();
+  const borrowerDb = getBorrowerDb();
+  const attackerDb = getAttackerDb();
+  const unverifiedDb = getUnverifiedOwnerDb();
+  const strangerDb = getStrangerDb();
+
+  // 1. Verified user get() on non-existent docs succeeds (prevents upsertChatThread PERMISSION_DENIED deadlock)
+  const missingThreadSnap = await assertSucceeds(
+    ownerDb.collection("chat_threads").doc("tx_nonexistent_123").get()
+  );
+  if (missingThreadSnap.exists) {
+    throw new Error("Expected non-existent chat_thread snapshot");
+  }
+  const missingSharedSnap = await assertSucceeds(
+    ownerDb.collection("shared_records").doc("rec_nonexistent_123").get()
+  );
+  if (missingSharedSnap.exists) {
+    throw new Error("Expected non-existent shared_record snapshot");
+  }
+
+  // 2. Unverified and unauthenticated users are still DENIED even on non-existent docs
+  await assertFails(unverifiedDb.collection("chat_threads").doc("tx_nonexistent_123").get());
+  await assertFails(strangerDb.collection("chat_threads").doc("tx_nonexistent_123").get());
+  await assertFails(unverifiedDb.collection("shared_records").doc("rec_nonexistent_123").get());
+  await assertFails(strangerDb.collection("shared_records").doc("rec_nonexistent_123").get());
+
+  // 3. Creator creates a 1-participant thread, then links counterpartyUid (Action 3)
+  const threadRef = (db) => db.collection("chat_threads").doc("tx_creator_link");
+  await assertSucceeds(
+    threadRef(ownerDb).set(
+      buildValidChatThread({
+        threadId: "tx_creator_link",
+        remoteRecordId: "rec_creator_link",
+        counterpartyUid: "",
+        participantUids: [OWNER_UID],
+      })
+    )
+  );
+
+  // Outsider still CANNOT read existing thread
+  await assertFails(threadRef(attackerDb).get());
+
+  // Creator CANNOT link themselves as counterpartyUid
+  await assertFails(
+    threadRef(ownerDb).update({
+      counterpartyUid: OWNER_UID,
+      participantUids: [OWNER_UID, OWNER_UID],
+      updatedAt: new Date(),
+    })
+  );
+
+  // Creator links Bob via Action 3 -> OK
+  await assertSucceeds(
+    threadRef(ownerDb).update({
+      counterpartyUid: BORROWER_UID,
+      participantUids: [OWNER_UID, BORROWER_UID],
+      updatedAt: new Date(),
+    })
+  );
+
+  // Once linked, creator CANNOT reassign counterpartyUid to someone else
+  await assertFails(
+    threadRef(ownerDb).update({
+      counterpartyUid: ATTACKER_UID,
+      participantUids: [OWNER_UID, ATTACKER_UID],
+      updatedAt: new Date(),
+    })
+  );
+
+  // Both Alice and Bob can now read the thread and exchange messages; attacker remains denied
+  await assertSucceeds(threadRef(ownerDb).get());
+  await assertSucceeds(threadRef(borrowerDb).get());
+  await assertFails(threadRef(attackerDb).get());
+
+  const now = Date.now();
+  const baseMsg = (id, senderUid) => ({
+    messageId: id,
+    threadId: "tx_creator_link",
+    senderUid,
+    senderName: senderUid === OWNER_UID ? "Alice" : "Bob",
+    participantUids: [OWNER_UID, BORROWER_UID],
+    messageType: "TEXT",
+    bodyText: "Hello after link",
+    attachmentUri: "",
+    attachmentMimeType: "",
+    attachmentName: "",
+    deliveryStatus: "SENT",
+    proposedDueDateMillis: -1,
+    extensionStatus: "NONE",
+    sentAtMillis: now,
+    deliveredAtMillis: -1,
+    readAtMillis: -1,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  await assertSucceeds(threadRef(ownerDb).collection("messages").doc("m_alice").set(baseMsg("m_alice", OWNER_UID)));
+  await assertSucceeds(threadRef(borrowerDb).collection("messages").doc("m_bob").set(baseMsg("m_bob", BORROWER_UID)));
+  await assertSucceeds(threadRef(borrowerDb).collection("messages").doc("m_alice").get());
+  await assertSucceeds(threadRef(ownerDb).collection("messages").doc("m_bob").get());
+  await assertFails(threadRef(attackerDb).collection("messages").doc("m_alice").get());
+});
+

@@ -13,12 +13,15 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
+import com.jyotirmoyb.udhaar.data.AuditEventType
 import com.jyotirmoyb.udhaar.data.GuestActionV1
 import com.jyotirmoyb.udhaar.data.PaymentMode
 import com.jyotirmoyb.udhaar.data.UdhaarDatabase
+import com.jyotirmoyb.udhaar.data.VerificationStatus
 import com.jyotirmoyb.udhaar.data.cloud.GuestWebCloudRepository
 import com.jyotirmoyb.udhaar.di.FirebaseModule
 import com.jyotirmoyb.udhaar.notification.GuestActionNotificationHelper
+import com.jyotirmoyb.udhaar.util.AuditTrailHelper
 import com.jyotirmoyb.udhaar.util.SafeLogger
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
@@ -120,6 +123,26 @@ open class GuestActionPollingWorker @JvmOverloads constructor(
                 }
             }
 
+            // 4. Also sync two-party shared_records status & counterparty UIDs back to local Room
+            val sharedSnap = runCatching {
+                withTimeoutOrNull(10000L) {
+                    firestore.collection("shared_records")
+                        .whereArrayContains("participantUids", ownerUid)
+                        .limit(50)
+                        .get()
+                        .await()
+                }
+            }.getOrNull()
+            if (sharedSnap != null) {
+                for (sharedDoc in sharedSnap.documents) {
+                    syncSharedRecordSnapshotToLocal(
+                        context = applicationContext,
+                        ownerUid = ownerUid,
+                        doc = sharedDoc
+                    )
+                }
+            }
+
             val prefs = applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             prefs.edit().putLong(KEY_LAST_POLL_MS, System.currentTimeMillis()).apply()
 
@@ -153,76 +176,27 @@ open class GuestActionPollingWorker @JvmOverloads constructor(
                 ?.toMutableSet() ?: mutableSetOf()
 
             val compositeKey = action.compositeKey
-            if (processedIds.contains(compositeKey)) return false
+            val alreadyProcessed = processedIds.contains(compositeKey)
+            if (alreadyProcessed && action !is GuestActionV1.Confirm) return false
 
-            val dao = runCatching {
-                UdhaarDatabase.getInstance(context).udhaarDao()
-            }.getOrNull() ?: return false
+            val dao = runCatching { UdhaarDatabase.getInstance(context).udhaarDao() }.getOrNull() ?: return false
+            val matchedTx = findMatchedTransactionForAction(context, dao, action.linkId, firestoreOverride) ?: return false
 
-            val allTransactions = dao.getAllTransactionsSnapshot()
+            val alreadyConfirmed = matchedTx.verificationStatus == VerificationStatus.CONFIRMED &&
+                matchedTx.lastGuestAction != "CONFIRM_PENDING"
+            if (alreadyProcessed && alreadyConfirmed) return false
 
-            val linkId = action.linkId
-            val matchedTx = allTransactions.firstOrNull { tx ->
-                (tx.shareToken.isNotBlank() && GuestWebCloudRepository.sha256Hex(tx.shareToken) == linkId)
-            } ?: run {
-                val firestore = firestoreOverride ?: FirebaseModule.getFirestore(context)
-                val linkDoc = runCatching {
-                    firestore?.collection("guestLinks")?.document(linkId)?.get()?.await()
-                }.getOrNull()
-                val resolvedRecordId = linkDoc?.getString("recordId")
-                allTransactions.firstOrNull { tx ->
-                    resolvedRecordId != null && (tx.remoteId == resolvedRecordId || tx.id.toString() == resolvedRecordId)
-                }
-            }
-
-            if (matchedTx == null) return false
-
-            val updatedTx = when (action) {
-                is GuestActionV1.Confirm -> {
-                    matchedTx.copy(
-                        lastGuestAction = "CONFIRM_PENDING"
-                    )
-                }
-                is GuestActionV1.Dispute -> {
-                    matchedTx.copy(
-                        disputeReason = action.reason.ifBlank { "Disputed via web link" },
-                        lastGuestAction = "DISPUTE"
-                    )
-                }
-                is GuestActionV1.ProposeDate -> {
-                    val proposalJson = JSONObject().apply {
-                        put("proposedDateMillis", action.proposedDateMs)
-                        put("message", action.reason.ifBlank { "Proposed new due date via web link" })
-                    }.toString()
-                    matchedTx.copy(
-                        pendingDateProposal = proposalJson,
-                        lastGuestAction = "DATE_PROPOSED"
-                    )
-                }
-                is GuestActionV1.ClaimPayment -> {
-                    val claimJson = JSONObject().apply {
-                        put("amountPaise", action.amountPaise)
-                        put("dateMillis", action.createdAtMs)
-                        // [LEGACY-DISABLED START] reason: hardcoded fallback obscured invalid guest action payloads | restore: remove marker if legacy un-typed fallback is ever needed
-                        // put("paymentMode", "UPI")
-                        // [LEGACY-DISABLED END]
-                        put("paymentMode", action.paymentMode.name)
-                        put("reference", action.referenceNumber)
-                        put("note", action.note)
-                        put("hasProof", action.hasProof)
-                        put("linkId", action.linkId)
-                        put("actionId", action.actionId)
-                    }.toString()
-                    matchedTx.copy(
-                        pendingPaymentClaim = claimJson,
-                        lastGuestAction = "PAYMENT_CLAIMED"
-                    )
-                }
-            }
-
+            val resolvedGuestUid = action.guestUid.trim().takeIf { it.isNotBlank() && it != ownerUid }
+            val updatedTx = applyGuestActionToTransaction(matchedTx, action, resolvedGuestUid)
             dao.updateTransaction(updatedTx)
 
-            // Local notification (no FCM server required)
+            if (resolvedGuestUid != null) {
+                linkPartyCounterpartyUid(dao, matchedTx, resolvedGuestUid)
+            }
+            if (action is GuestActionV1.Confirm) {
+                finalizeConfirmAction(context, dao, matchedTx, action, resolvedGuestUid, firestoreOverride)
+            }
+
             GuestActionNotificationHelper.showPendingActionNotification(
                 context = context,
                 action = action,
@@ -232,11 +206,218 @@ open class GuestActionPollingWorker @JvmOverloads constructor(
             )
 
             processedIds.add(compositeKey)
-            prefs.edit()
-                .putStringSet(KEY_PROCESSED_ACTION_IDS, processedIds)
-                .apply()
-
+            prefs.edit().putStringSet(KEY_PROCESSED_ACTION_IDS, processedIds).apply()
             return true
+        }
+
+        private suspend fun findMatchedTransactionForAction(
+            context: Context,
+            dao: com.jyotirmoyb.udhaar.data.UdhaarDao,
+            linkId: String,
+            firestoreOverride: FirebaseFirestore?
+        ): com.jyotirmoyb.udhaar.data.UdhaarTransaction? {
+            val allTransactions = dao.getAllTransactionsSnapshot()
+            allTransactions.firstOrNull { tx ->
+                tx.shareToken.isNotBlank() && GuestWebCloudRepository.sha256Hex(tx.shareToken) == linkId
+            }?.let { return it }
+
+            val firestore = firestoreOverride ?: FirebaseModule.getFirestore(context)
+            val linkDoc = runCatching {
+                firestore?.collection("guestLinks")?.document(linkId)?.get()?.await()
+            }.getOrNull()
+            val resolvedRecordId = linkDoc?.getString("recordId") ?: return null
+            return allTransactions.firstOrNull { tx ->
+                tx.remoteId == resolvedRecordId || tx.id.toString() == resolvedRecordId
+            }
+        }
+
+        private fun applyGuestActionToTransaction(
+            matchedTx: com.jyotirmoyb.udhaar.data.UdhaarTransaction,
+            action: GuestActionV1,
+            resolvedGuestUid: String?
+        ): com.jyotirmoyb.udhaar.data.UdhaarTransaction {
+            val effectiveCounterpartyUid = resolvedGuestUid ?: matchedTx.counterpartyUserId
+            return when (action) {
+                is GuestActionV1.Confirm -> matchedTx.copy(
+                    verificationStatus = VerificationStatus.CONFIRMED,
+                    verifiedAtMillis = action.createdAtMs.takeIf { it > 0L } ?: System.currentTimeMillis(),
+                    needsMyConfirmation = false,
+                    disputeReason = "",
+                    counterpartyUserId = effectiveCounterpartyUid,
+                    lastGuestAction = "CONFIRMED"
+                )
+                is GuestActionV1.Dispute -> matchedTx.copy(
+                    verificationStatus = VerificationStatus.DISPUTED,
+                    disputeReason = action.reason.ifBlank { "Disputed via web link" },
+                    counterpartyUserId = effectiveCounterpartyUid,
+                    lastGuestAction = "DISPUTE"
+                )
+                is GuestActionV1.ProposeDate -> {
+                    val proposalJson = JSONObject().apply {
+                        put("proposedDateMillis", action.proposedDateMs)
+                        put("message", action.reason.ifBlank { "Proposed new due date via web link" })
+                    }.toString()
+                    matchedTx.copy(
+                        pendingDateProposal = proposalJson,
+                        counterpartyUserId = effectiveCounterpartyUid,
+                        lastGuestAction = "DATE_PROPOSED"
+                    )
+                }
+                is GuestActionV1.ClaimPayment -> {
+                    val claimJson = JSONObject().apply {
+                        put("amountPaise", action.amountPaise)
+                        put("dateMillis", action.createdAtMs)
+                        put("paymentMode", action.paymentMode.name)
+                        put("reference", action.referenceNumber)
+                        put("note", action.note)
+                        put("hasProof", action.hasProof)
+                        put("linkId", action.linkId)
+                        put("actionId", action.actionId)
+                    }.toString()
+                    matchedTx.copy(
+                        pendingPaymentClaim = claimJson,
+                        counterpartyUserId = effectiveCounterpartyUid,
+                        lastGuestAction = "PAYMENT_CLAIMED"
+                    )
+                }
+            }
+        }
+
+        private suspend fun linkPartyCounterpartyUid(
+            dao: com.jyotirmoyb.udhaar.data.UdhaarDao,
+            matchedTx: com.jyotirmoyb.udhaar.data.UdhaarTransaction,
+            otherUid: String
+        ) {
+            val party = matchedTx.partyId?.takeIf { it > 0L }?.let { dao.getPartyById(it) }
+                ?: dao.getPartyByName(matchedTx.partyName.trim())
+            if (party != null && party.linkedUserId.isBlank()) {
+                dao.updateParty(party.copy(linkedUserId = otherUid))
+            }
+        }
+
+        private suspend fun finalizeConfirmAction(
+            context: Context,
+            dao: com.jyotirmoyb.udhaar.data.UdhaarDao,
+            matchedTx: com.jyotirmoyb.udhaar.data.UdhaarTransaction,
+            action: GuestActionV1.Confirm,
+            resolvedGuestUid: String?,
+            firestoreOverride: FirebaseFirestore?
+        ) {
+            appendConfirmedAuditIfMissing(
+                dao = dao,
+                matchedTx = matchedTx,
+                actorUid = resolvedGuestUid.orEmpty(),
+                viaGoogle = action.verificationLevel.equals("GOOGLE_VERIFIED", ignoreCase = true)
+            )
+            val firestore = firestoreOverride ?: FirebaseModule.getFirestore(context) ?: return
+            if (action.linkId.isBlank() || action.actionId.isBlank()) return
+            val actionRef = firestore.collection("guestLinks").document(action.linkId)
+                .collection("actions").document(action.actionId)
+            runCatching {
+                withTimeoutOrNull(3000L) {
+                    actionRef.update(mapOf("status" to "ACCEPTED", "reviewedAtMs" to System.currentTimeMillis())).await()
+                }
+            }
+            runCatching { withTimeoutOrNull(3000L) { actionRef.delete().await() } }
+        }
+
+        private suspend fun appendConfirmedAuditIfMissing(
+            dao: com.jyotirmoyb.udhaar.data.UdhaarDao,
+            matchedTx: com.jyotirmoyb.udhaar.data.UdhaarTransaction,
+            actorUid: String,
+            viaGoogle: Boolean
+        ) {
+            val existingAudits = dao.getAuditTrailForTransactionSnapshot(matchedTx.id)
+            if (existingAudits.any { it.eventType == AuditEventType.CONFIRMED && it.isAcknowledged }) return
+            val actorName = matchedTx.partyName.ifBlank { "Counterparty" }
+            val summary = if (viaGoogle) "$actorName confirmed via Google" else "$actorName confirmed the record"
+            AuditTrailHelper.appendLocalAuditEvent(
+                dao = dao,
+                transactionId = matchedTx.id,
+                eventType = AuditEventType.CONFIRMED,
+                actorUserId = actorUid,
+                actorName = actorName,
+                summaryText = summary,
+                contentHashSnapshot = matchedTx.contentHash,
+                isAcknowledged = true
+            )
+        }
+
+        suspend fun syncSharedRecordSnapshotToLocal(
+            context: Context,
+            ownerUid: String,
+            doc: DocumentSnapshot
+        ): Boolean {
+            if (!doc.exists()) return false
+            val remoteId = doc.getString("remoteId")?.trim().orEmpty().ifBlank { doc.id }
+            if (remoteId.isBlank()) return false
+
+            val dao = runCatching { UdhaarDatabase.getInstance(context).udhaarDao() }.getOrNull() ?: return false
+            val matchedTx = dao.getTransactionByRemoteId(remoteId)
+                ?: dao.getAllTransactionsSnapshot().firstOrNull { tx ->
+                    tx.remoteId.replace(Regex("[^a-zA-Z0-9_\\-]"), "_") == remoteId
+                }
+                ?: return false
+
+            val otherUid = extractOtherParticipantUid(doc, ownerUid)
+            val (updatedTx, upgradedToConfirmed) = mergeSharedRecordIntoTransaction(matchedTx, doc, otherUid)
+            val changed = updatedTx != matchedTx
+            if (changed) {
+                dao.updateTransaction(updatedTx)
+            }
+            if (otherUid.isNotBlank()) {
+                linkPartyCounterpartyUid(dao, matchedTx, otherUid)
+            }
+            if (upgradedToConfirmed) {
+                appendConfirmedAuditIfMissing(dao, matchedTx, otherUid, viaGoogle = false)
+            }
+            return changed
+        }
+
+        private fun extractOtherParticipantUid(doc: DocumentSnapshot, ownerUid: String): String {
+            val creatorUid = doc.getString("creatorUid").orEmpty().trim()
+            val counterpartyUid = doc.getString("counterpartyUid").orEmpty().trim()
+            val participants = (doc.get("participantUids") as? List<*>)
+                ?.mapNotNull { (it as? String)?.trim() }
+                .orEmpty()
+            return when {
+                counterpartyUid.isNotBlank() && counterpartyUid != ownerUid -> counterpartyUid
+                creatorUid.isNotBlank() && creatorUid != ownerUid -> creatorUid
+                else -> participants.firstOrNull { it.isNotBlank() && it != ownerUid }.orEmpty()
+            }
+        }
+
+        private fun mergeSharedRecordIntoTransaction(
+            matchedTx: com.jyotirmoyb.udhaar.data.UdhaarTransaction,
+            doc: DocumentSnapshot,
+            otherUid: String
+        ): Pair<com.jyotirmoyb.udhaar.data.UdhaarTransaction, Boolean> {
+            val remoteStatus = runCatching {
+                VerificationStatus.valueOf(doc.getString("verificationStatus").orEmpty().trim())
+            }.getOrNull()
+            val shouldUpgrade = remoteStatus != null &&
+                remoteStatus != matchedTx.verificationStatus &&
+                !(matchedTx.verificationStatus == VerificationStatus.CONFIRMED && remoteStatus == VerificationStatus.PENDING)
+            val nextStatus = if (shouldUpgrade) remoteStatus!! else matchedTx.verificationStatus
+            val remoteDispute = doc.getString("disputeReason").orEmpty().trim()
+            val nextDispute = when (nextStatus) {
+                VerificationStatus.DISPUTED -> remoteDispute.ifBlank { matchedTx.disputeReason }
+                VerificationStatus.CONFIRMED -> ""
+                else -> matchedTx.disputeReason
+            }
+            val updated = matchedTx.copy(
+                counterpartyUserId = otherUid.ifBlank { matchedTx.counterpartyUserId },
+                verificationStatus = nextStatus,
+                verifiedAtMillis = doc.getLong("verifiedAtMillis")?.takeIf { it > 0L } ?: matchedTx.verifiedAtMillis,
+                disputeReason = nextDispute,
+                lastGuestAction = if (nextStatus == VerificationStatus.CONFIRMED && matchedTx.lastGuestAction == "CONFIRM_PENDING") {
+                    "CONFIRMED"
+                } else {
+                    matchedTx.lastGuestAction
+                },
+                needsMyConfirmation = if (nextStatus == VerificationStatus.CONFIRMED) false else matchedTx.needsMyConfirmation
+            )
+            return updated to (shouldUpgrade && nextStatus == VerificationStatus.CONFIRMED)
         }
 
         suspend fun processPendingCloudSyncOutbox(

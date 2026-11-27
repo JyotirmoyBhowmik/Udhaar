@@ -7,8 +7,12 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# 1. Crash Diagnostics: Keep line numbers & source file attribute for ReTrace
+# 1. Crash Diagnostics & Fast Cloud Bundling
+# Keep line numbers & source file attribute for ReTrace. Skip heavy multi-pass
+# bytecode optimization so cloud bundleRelease finishes well within timeout
+# while preserving full class/method shrinking, dead-code removal & obfuscation.
 # -----------------------------------------------------------------------------
+-dontoptimize
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
 -keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod

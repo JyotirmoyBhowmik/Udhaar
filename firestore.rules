@@ -790,7 +790,7 @@ service cloud.firestore {
     }
 
     match /shared_records/{remoteId} {
-      allow get: if isVerifiedSignedIn() && isValidId(remoteId) && request.auth.uid in existing().participantUids;
+      allow get: if isVerifiedSignedIn() && isValidId(remoteId) && (resource == null || request.auth.uid in existing().participantUids);
       allow list: if isVerifiedSignedIn() && request.auth.uid in existing().participantUids;
 
       allow create: if isVerifiedSignedIn() &&
@@ -1010,7 +1010,7 @@ service cloud.firestore {
     }
 
     match /chat_threads/{threadId} {
-      allow get: if isVerifiedSignedIn() && isValidId(threadId) && request.auth.uid in existing().participantUids;
+      allow get: if isVerifiedSignedIn() && isValidId(threadId) && (resource == null || request.auth.uid in existing().participantUids);
       allow list: if isVerifiedSignedIn() && request.auth.uid in existing().participantUids;
 
       allow create: if isVerifiedSignedIn() &&
@@ -1079,6 +1079,24 @@ service cloud.firestore {
                              'partyName', 'typingUid', 'typingUpdatedAtMillis',
                              'mutedByUids', 'blockedByUid', 'blockedByUids', 'reportedByUid',
                              'reportReason', 'lastMessagePreview',
+                             'lastMessageAtMillis', 'updatedAt'
+                           ])
+                         ) ||
+                         // Action 3: Thread creator links counterparty UID onto an unclaimed 1-participant thread
+                         (
+                           existing().creatorUid == request.auth.uid &&
+                           existing().counterpartyUid == '' &&
+                           existing().participantUids.size() == 1 &&
+                           incoming().counterpartyUid is string &&
+                           incoming().counterpartyUid.size() >= 1 &&
+                           incoming().counterpartyUid != existing().creatorUid &&
+                           incoming().participantUids.size() == 2 &&
+                           existing().creatorUid in incoming().participantUids &&
+                           incoming().counterpartyUid in incoming().participantUids &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'counterpartyUid', 'participantUids', 'partyName', 'typingUid',
+                             'typingUpdatedAtMillis', 'mutedByUids', 'blockedByUid', 'blockedByUids',
+                             'reportedByUid', 'reportReason', 'lastMessagePreview',
                              'lastMessageAtMillis', 'updatedAt'
                            ])
                          )

@@ -301,31 +301,36 @@ open class VerificationCloudRepository(
     suspend fun createSharedRecord(record: CloudSharedRecord) {
         val path = "shared_records/${record.remoteId}"
         try {
+            val normalizedStatus = if (record.verificationStatus == "LOCAL_ONLY" || record.verificationStatus.isBlank()) {
+                "PENDING"
+            } else {
+                record.verificationStatus
+            }
             val data = mapOf(
                 "remoteId" to record.remoteId,
                 "creatorUid" to record.creatorUid,
-                "counterpartyUid" to record.counterpartyUid,
-                "participantUids" to record.participantUids.ifEmpty { listOf(record.creatorUid) },
-                "lenderName" to record.lenderName,
-                "borrowerName" to record.borrowerName,
+                "counterpartyUid" to record.counterpartyUid.take(128),
+                "participantUids" to record.participantUids.filter { it.isNotBlank() }.distinct().ifEmpty { listOf(record.creatorUid) },
+                "lenderName" to record.lenderName.ifBlank { "Lender" }.take(100),
+                "borrowerName" to record.borrowerName.ifBlank { "Borrower" }.take(100),
                 "creatorRole" to record.creatorRole,
                 "currency" to record.currency,
-                "principalAmount" to record.principalAmount,
-                "amountPaid" to record.amountPaid,
+                "principalAmount" to record.principalAmount.coerceAtLeast(0.01),
+                "amountPaid" to record.amountPaid.coerceAtLeast(0.0),
                 "paymentMode" to record.paymentMode,
                 "isInterestEnabled" to record.isInterestEnabled,
                 "interestType" to record.interestType,
-                "interestRate" to record.interestRate,
+                "interestRate" to record.interestRate.coerceAtLeast(0.0),
                 "interestRatePeriod" to record.interestRatePeriod,
                 "compoundFrequency" to record.compoundFrequency,
-                "startDateMillis" to record.startDateMillis,
-                "expiryDateMillis" to record.expiryDateMillis,
-                "contentHash" to record.contentHash,
-                "verificationStatus" to record.verificationStatus,
-                "verifiedAtMillis" to record.verifiedAtMillis,
-                "disputeReason" to record.disputeReason,
-                "encryptedNotes" to record.encryptedNotes,
-                "attachmentRefs" to record.attachmentRefs,
+                "startDateMillis" to record.startDateMillis.coerceAtLeast(0L),
+                "expiryDateMillis" to record.expiryDateMillis.coerceAtLeast(-1L),
+                "contentHash" to record.contentHash.take(128),
+                "verificationStatus" to normalizedStatus,
+                "verifiedAtMillis" to record.verifiedAtMillis.coerceAtLeast(-1L),
+                "disputeReason" to record.disputeReason.take(500),
+                "encryptedNotes" to record.encryptedNotes.take(2000),
+                "attachmentRefs" to record.attachmentRefs.take(10),
                 "isSettled" to record.isSettled,
                 "createdAt" to FieldValue.serverTimestamp(),
                 "updatedAt" to FieldValue.serverTimestamp()
@@ -340,14 +345,19 @@ open class VerificationCloudRepository(
         val path = "shared_records/${record.remoteId}"
         try {
             val docRef = db.collection("shared_records").document(record.remoteId)
-            val existing = docRef.get().await()
-            if (!existing.exists()) {
+            val existing = try {
+                docRef.get().await()
+            } catch (e: com.google.firebase.firestore.FirebaseFirestoreException) {
+                if (e.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) null
+                else throw e
+            }
+            if (existing == null || !existing.exists()) {
                 createSharedRecord(record)
             } else {
                 val updates = mapOf(
-                    "amountPaid" to record.amountPaid,
+                    "amountPaid" to record.amountPaid.coerceAtLeast(0.0),
                     "isSettled" to record.isSettled,
-                    "encryptedNotes" to record.encryptedNotes,
+                    "encryptedNotes" to record.encryptedNotes.take(2000),
                     "updatedAt" to FieldValue.serverTimestamp()
                 )
                 docRef.update(updates).await()
@@ -367,15 +377,29 @@ open class VerificationCloudRepository(
     ) {
         val path = "shared_records/$remoteId"
         try {
-            val updates = mapOf(
-                "counterpartyUid" to counterpartyUid,
-                "participantUids" to listOf(creatorUid, counterpartyUid),
-                "verificationStatus" to verificationStatus,
-                "verifiedAtMillis" to verifiedAtMillis,
-                "disputeReason" to disputeReason,
-                "updatedAt" to FieldValue.serverTimestamp()
-            )
-            db.collection("shared_records").document(remoteId).update(updates).await()
+            val docRef = db.collection("shared_records").document(remoteId)
+            val existing = runCatching { docRef.get().await() }.getOrNull()
+            val alreadyLinkedToMe = existing != null &&
+                existing.exists() &&
+                existing.getString("counterpartyUid") == counterpartyUid
+            val updates = if (alreadyLinkedToMe) {
+                mapOf(
+                    "verificationStatus" to verificationStatus,
+                    "verifiedAtMillis" to verifiedAtMillis.coerceAtLeast(-1L),
+                    "disputeReason" to disputeReason.take(500),
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            } else {
+                mapOf(
+                    "counterpartyUid" to counterpartyUid,
+                    "participantUids" to listOf(creatorUid, counterpartyUid).distinct(),
+                    "verificationStatus" to verificationStatus,
+                    "verifiedAtMillis" to verifiedAtMillis.coerceAtLeast(-1L),
+                    "disputeReason" to disputeReason.take(500),
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+            }
+            docRef.update(updates).await()
         } catch (e: Exception) {
             handleFirestoreError(e, OperationType.UPDATE, path)
         }
@@ -594,6 +618,25 @@ open class VerificationCloudRepository(
     open suspend fun upsertChatThread(thread: CloudChatThread) {
         val path = "chat_threads/${thread.threadId}"
         val normalizedScope = if (thread.scope == "PARTY_GENERAL" || thread.scope == "PARTY") "PARTY" else "TRANSACTION"
+        val createData = mapOf(
+            "threadId" to thread.threadId,
+            "threadScope" to normalizedScope,
+            "remoteRecordId" to thread.remoteId.take(128),
+            "partyName" to thread.partyName.ifBlank { "Party" }.take(100),
+            "creatorUid" to thread.creatorUid,
+            "counterpartyUid" to thread.counterpartyUid.take(128),
+            "participantUids" to thread.participantUids.filter { it.isNotBlank() }.distinct().ifEmpty { listOf(thread.creatorUid) },
+            "typingUid" to thread.typingUserId.take(128),
+            "typingUpdatedAtMillis" to thread.typingUpdatedAtMillis.coerceAtLeast(-1L),
+            "mutedByUids" to thread.mutedByUids.filter { it.isNotBlank() }.distinct().take(2),
+            "blockedByUid" to thread.blockedByUids.firstOrNull().orEmpty().take(128),
+            "reportedByUid" to thread.reportedByUids.firstOrNull().orEmpty().take(128),
+            "reportReason" to thread.reportReason.take(300),
+            "lastMessagePreview" to thread.lastMessagePreview.take(300),
+            "lastMessageAtMillis" to thread.lastMessageAtMillis.coerceAtLeast(-1L),
+            "createdAt" to FieldValue.serverTimestamp(),
+            "updatedAt" to FieldValue.serverTimestamp()
+        )
         try {
             val docRef = db.collection("chat_threads").document(thread.threadId)
             val existingResult = try {
@@ -607,59 +650,61 @@ open class VerificationCloudRepository(
             val likelyExistsUnjoined = existingResult.second
 
             if (!likelyExistsUnjoined && (existing == null || !existing.exists())) {
-                val data = mapOf(
-                    "threadId" to thread.threadId,
-                    "threadScope" to normalizedScope,
-                    "remoteRecordId" to thread.remoteId,
-                    "partyName" to thread.partyName.ifBlank { "Party" },
-                    "creatorUid" to thread.creatorUid,
-                    "counterpartyUid" to thread.counterpartyUid,
-                    "participantUids" to thread.participantUids.ifEmpty { listOf(thread.creatorUid) },
-                    "typingUid" to thread.typingUserId,
-                    "typingUpdatedAtMillis" to thread.typingUpdatedAtMillis.coerceAtLeast(-1L),
-                    "mutedByUids" to thread.mutedByUids,
-                    "blockedByUid" to thread.blockedByUids.firstOrNull().orEmpty(),
-                    "reportedByUid" to thread.reportedByUids.firstOrNull().orEmpty(),
-                    "reportReason" to thread.reportReason,
-                    "lastMessagePreview" to thread.lastMessagePreview,
-                    "lastMessageAtMillis" to thread.lastMessageAtMillis.coerceAtLeast(-1L),
-                    "createdAt" to FieldValue.serverTimestamp(),
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-                docRef.set(data).await()
-            } else {
-                val updates = mutableMapOf<String, Any>(
-                    "typingUid" to thread.typingUserId,
-                    "typingUpdatedAtMillis" to thread.typingUpdatedAtMillis.coerceAtLeast(-1L),
-                    "mutedByUids" to thread.mutedByUids,
-                    "blockedByUid" to thread.blockedByUids.firstOrNull().orEmpty(),
-                    "reportedByUid" to thread.reportedByUids.firstOrNull().orEmpty(),
-                    "reportReason" to thread.reportReason,
-                    "lastMessagePreview" to thread.lastMessagePreview,
-                    "lastMessageAtMillis" to thread.lastMessageAtMillis.coerceAtLeast(-1L),
-                    "updatedAt" to FieldValue.serverTimestamp()
-                )
-                if (likelyExistsUnjoined) {
-                    val myUid = thread.creatorUid
-                    val mergedParticipants = thread.participantUids.ifEmpty {
-                        listOfNotNull(
-                            thread.counterpartyUid.takeIf { it.isNotBlank() },
-                            myUid.takeIf { it.isNotBlank() }
-                        ).distinct()
+                docRef.set(createData).await()
+            } else if (likelyExistsUnjoined) {
+                val joinUpdates = buildChatThreadJoinUpdates(thread)
+                try {
+                    docRef.update(joinUpdates).await()
+                } catch (updateEx: com.google.firebase.firestore.FirebaseFirestoreException) {
+                    if (updateEx.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.NOT_FOUND) {
+                        docRef.set(createData).await()
+                    } else {
+                        throw updateEx
                     }
-                    if (myUid.isNotBlank()) {
-                        updates["counterpartyUid"] = myUid
-                    }
-                    updates["participantUids"] = mergedParticipants
-                } else if (thread.counterpartyUid.isNotBlank() && existing?.getString("counterpartyUid").isNullOrEmpty()) {
-                    updates["counterpartyUid"] = thread.counterpartyUid
-                    updates["participantUids"] = thread.participantUids
                 }
+            } else {
+                val updates = buildChatThreadExistingUpdates(existing, thread)
                 docRef.update(updates).await()
             }
         } catch (e: Exception) {
             handleFirestoreError(e, OperationType.WRITE, path)
         }
+    }
+
+    private fun buildChatThreadJoinUpdates(thread: CloudChatThread): Map<String, Any> {
+        val myUid = thread.creatorUid.trim()
+        val mergedParticipants = thread.participantUids.filter { it.isNotBlank() }.distinct().ifEmpty {
+            listOfNotNull(
+                thread.counterpartyUid.trim().takeIf { it.isNotBlank() },
+                myUid.takeIf { it.isNotBlank() }
+            ).distinct()
+        }
+        val joinUpdates = mutableMapOf<String, Any>("updatedAt" to FieldValue.serverTimestamp())
+        if (myUid.isNotBlank()) joinUpdates["counterpartyUid"] = myUid
+        if (mergedParticipants.isNotEmpty()) joinUpdates["participantUids"] = mergedParticipants
+        if (thread.lastMessagePreview.isNotBlank()) joinUpdates["lastMessagePreview"] = thread.lastMessagePreview.take(300)
+        if (thread.lastMessageAtMillis > 0L) joinUpdates["lastMessageAtMillis"] = thread.lastMessageAtMillis
+        return joinUpdates
+    }
+
+    private fun buildChatThreadExistingUpdates(
+        existing: com.google.firebase.firestore.DocumentSnapshot?,
+        thread: CloudChatThread
+    ): Map<String, Any> {
+        val updates = mutableMapOf<String, Any>("updatedAt" to FieldValue.serverTimestamp())
+        if (thread.lastMessagePreview.isNotBlank()) updates["lastMessagePreview"] = thread.lastMessagePreview.take(300)
+        if (thread.lastMessageAtMillis > 0L) updates["lastMessageAtMillis"] = thread.lastMessageAtMillis
+        val existingCreatorUid = existing?.getString("creatorUid").orEmpty().trim()
+        val existingCounterpartyUid = existing?.getString("counterpartyUid").orEmpty().trim()
+        val targetCounterpartyUid = thread.counterpartyUid.trim()
+        if (existingCounterpartyUid.isEmpty() && targetCounterpartyUid.isNotBlank() && targetCounterpartyUid != existingCreatorUid) {
+            updates["counterpartyUid"] = targetCounterpartyUid
+            updates["participantUids"] = listOfNotNull(
+                existingCreatorUid.takeIf { it.isNotBlank() },
+                targetCounterpartyUid
+            ).distinct()
+        }
+        return updates
     }
 
     suspend fun getChatThread(threadId: String): CloudChatThread? {
@@ -793,20 +838,20 @@ open class VerificationCloudRepository(
         val path = "chat_threads/${message.threadId}/messages/${message.messageId}"
         try {
             val data = mapOf(
-                "messageId" to message.messageId,
-                "threadId" to message.threadId,
-                "senderUid" to message.senderUid,
-                "senderName" to message.senderName.ifBlank { "Party" },
-                "participantUids" to message.participantUids.ifEmpty { listOf(message.senderUid) },
+                "messageId" to message.messageId.take(128),
+                "threadId" to message.threadId.take(128),
+                "senderUid" to message.senderUid.take(128),
+                "senderName" to message.senderName.ifBlank { "Party" }.take(100),
+                "participantUids" to message.participantUids.filter { it.isNotBlank() }.distinct().ifEmpty { listOf(message.senderUid) },
                 "messageType" to message.messageType,
-                "bodyText" to message.textContent,
-                "attachmentUri" to message.attachmentRef,
-                "attachmentMimeType" to message.attachmentMimeType,
+                "bodyText" to message.textContent.take(1000),
+                "attachmentUri" to message.attachmentRef.take(512),
+                "attachmentMimeType" to message.attachmentMimeType.take(100),
                 "attachmentName" to "",
                 "deliveryStatus" to message.deliveryStatus,
                 "proposedDueDateMillis" to message.proposedDueDateMillis.coerceAtLeast(-1L),
                 "extensionStatus" to message.extensionStatus,
-                "sentAtMillis" to message.sentAtMillis,
+                "sentAtMillis" to message.sentAtMillis.coerceAtLeast(0L),
                 "deliveredAtMillis" to message.deliveredAtMillis.coerceAtLeast(-1L),
                 "readAtMillis" to message.readAtMillis.coerceAtLeast(-1L),
                 "createdAt" to FieldValue.serverTimestamp(),

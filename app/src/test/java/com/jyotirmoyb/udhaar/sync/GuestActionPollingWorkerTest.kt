@@ -191,7 +191,10 @@ class GuestActionPollingWorkerTest {
             verificationLevel = "PRIVATE_LINK"
         )
         GuestActionPollingWorker.processSingleAction(context, confirm, "lender_uid")
-        assertEquals("CONFIRM_PENDING", dao.getTransactionById(txId)?.lastGuestAction)
+        val txAfterConfirm = dao.getTransactionById(txId)
+        assertEquals("CONFIRMED", txAfterConfirm?.lastGuestAction)
+        assertEquals(VerificationStatus.CONFIRMED, txAfterConfirm?.verificationStatus)
+        assertEquals("g1", txAfterConfirm?.counterpartyUserId)
 
         // 2. Dispute
         val dispute = GuestActionV1.Dispute(

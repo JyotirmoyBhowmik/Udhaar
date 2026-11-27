@@ -122,12 +122,28 @@ open class GuestWebRepository @Inject constructor(
         )
 
         if (result.success) {
+            val nextStatus = if (preparedTx.verificationStatus == com.jyotirmoyb.udhaar.data.VerificationStatus.LOCAL_ONLY) {
+                com.jyotirmoyb.udhaar.data.VerificationStatus.PENDING
+            } else {
+                preparedTx.verificationStatus
+            }
             val updatedTx = preparedTx.copy(
                 webLinkStatus = "ACTIVE",
                 trustLevel = result.trustLevel.ifBlank { trustLevelRequired },
-                shareToken = if (result.secret.isNotBlank()) result.secret else preparedTx.shareToken
+                shareToken = if (result.secret.isNotBlank()) result.secret else preparedTx.shareToken,
+                verificationStatus = nextStatus
             )
             dao.updateTransaction(updatedTx)
+
+            syncWebLinkSharedRecordBestEffort(
+                settings = settings,
+                updatedTx = updatedTx,
+                remoteId = remoteId,
+                lenderName = lenderName,
+                borrowerName = borrowerName,
+                computedHash = computedHash,
+                nextStatus = nextStatus
+            )
 
             AuditTrailHelper.appendLocalAuditEvent(
                 dao = dao,
@@ -739,4 +755,64 @@ open class GuestWebRepository @Inject constructor(
         }
         return true
     }
+
+    private suspend fun syncWebLinkSharedRecordBestEffort(
+        settings: com.jyotirmoyb.udhaar.data.UserSettings,
+        updatedTx: com.jyotirmoyb.udhaar.data.UdhaarTransaction,
+        remoteId: String,
+        lenderName: String,
+        borrowerName: String,
+        computedHash: String,
+        nextStatus: com.jyotirmoyb.udhaar.data.VerificationStatus
+    ) {
+        if (!settings.cloudVerificationConsent || settings.cloudUserId.isBlank()) return
+        val firestore = getFirestore() ?: return
+        runCatching {
+            val safeRemoteId = remoteId.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
+            val myUid = settings.cloudUserId.trim()
+            val counterpartyUid = updatedTx.counterpartyUserId.trim()
+            val participants = listOfNotNull(
+                myUid.takeIf { it.isNotBlank() },
+                counterpartyUid.takeIf { it.isNotBlank() && it != myUid }
+            ).distinct()
+            val encryptedNote = com.jyotirmoyb.udhaar.util.VerificationCryptoHelper.encryptE2eeField(
+                plainText = updatedTx.notes,
+                remoteId = remoteId,
+                shareToken = updatedTx.shareToken
+            ).take(2000)
+            val cloudRepo = com.jyotirmoyb.udhaar.data.cloud.VerificationCloudRepository(firestore)
+            cloudRepo.upsertSharedRecordForBackup(
+                com.jyotirmoyb.udhaar.data.cloud.CloudSharedRecord(
+                    remoteId = safeRemoteId,
+                    creatorUid = myUid,
+                    counterpartyUid = counterpartyUid,
+                    participantUids = participants,
+                    lenderName = lenderName.ifBlank { "Lender" }.take(100),
+                    borrowerName = borrowerName.ifBlank { "Borrower" }.take(100),
+                    creatorRole = updatedTx.transactionType.name,
+                    currency = updatedTx.currency.code,
+                    principalAmount = InterestCalculator.paiseToRupees(updatedTx.principalAmountPaise).coerceAtLeast(0.01),
+                    amountPaid = InterestCalculator.paiseToRupees(updatedTx.amountPaidPaise).coerceAtLeast(0.0),
+                    paymentMode = updatedTx.paymentMode.name,
+                    isInterestEnabled = updatedTx.isInterestEnabled,
+                    interestType = updatedTx.interestType.name,
+                    interestRate = updatedTx.interestRate.coerceAtLeast(0.0),
+                    interestRatePeriod = updatedTx.interestRatePeriod.name,
+                    compoundFrequency = updatedTx.compoundFrequency.name,
+                    startDateMillis = updatedTx.startDateMillis.coerceAtLeast(1L),
+                    expiryDateMillis = updatedTx.expiryDateMillis ?: -1L,
+                    contentHash = computedHash,
+                    verificationStatus = nextStatus.name,
+                    verifiedAtMillis = updatedTx.verifiedAtMillis ?: -1L,
+                    disputeReason = updatedTx.disputeReason.take(500),
+                    encryptedNotes = encryptedNote,
+                    attachmentRefs = emptyList(),
+                    isSettled = updatedTx.isSettled
+                )
+            )
+        }.onFailure { err ->
+            SafeLogger.w("GuestWebRepo", "Best-effort shared_records sync failed for web link", err)
+        }
+    }
 }
+

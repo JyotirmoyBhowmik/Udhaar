@@ -155,10 +155,22 @@ open class ChatRepository(
         partyName: String
     ): ChatThreadMetadata {
         val existing = dao.getChatThreadMetadata(threadKey)
-        if (existing != null) return existing
+        if (existing != null) {
+            val cleanRemoteId = remoteId.trim()
+            if (cleanRemoteId.isNotBlank() && existing.remoteThreadId != cleanRemoteId) {
+                val refreshed = existing.copy(
+                    remoteThreadId = cleanRemoteId,
+                    transactionId = existing.transactionId ?: transactionId,
+                    partyId = existing.partyId ?: partyId
+                )
+                dao.upsertChatThreadMetadata(refreshed)
+                return refreshed
+            }
+            return existing
+        }
         val created = ChatThreadMetadata(
             threadKey = threadKey,
-            remoteThreadId = remoteId,
+            remoteThreadId = remoteId.trim(),
             threadScope = scope,
             transactionId = transactionId,
             partyId = partyId,
@@ -203,10 +215,21 @@ open class ChatRepository(
         )
         if (meta.isBlocked) return null
 
-        val resolvedCounterpartyUid = resolveCounterpartyUid(resolvedTx, partyId, partyName)
+        var resolvedCounterpartyUid = resolveCounterpartyUid(resolvedTx, partyId, partyName)
         if (isUserBlocked(resolvedCounterpartyUid, partyId ?: resolvedTx?.partyId, partyName)) return null
 
         val settings = settingsRepository.userSettings.first()
+        val effectiveRemoteId = meta.remoteThreadId.ifBlank { resolvedTx?.remoteId.orEmpty() }.trim()
+        val safeRemoteId = effectiveRemoteId.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
+        if (resolvedCounterpartyUid.isBlank()) {
+            resolvedCounterpartyUid = resolveCounterpartyUidFromCloud(
+                settings = settings,
+                safeRemoteId = safeRemoteId,
+                txId = resolvedTx?.id ?: transactionId,
+                partyId = partyId,
+                partyName = partyName
+            )
+        }
         val myName = settingsRepository.resolveSelfDisplayName(settings)
         val nowMillis = System.currentTimeMillis()
         val remoteMsgId = "msg_${UUID.randomUUID().toString().replace("-", "").take(16)}"
@@ -254,6 +277,7 @@ open class ChatRepository(
         val savedMsg = msgEntity.copy(id = insertedId)
 
         val updatedMeta = meta.copy(
+            remoteThreadId = effectiveRemoteId,
             counterpartyTyping = false,
             typingUpdatedAtMillis = nowMillis,
             updatedAtMillis = nowMillis
@@ -274,7 +298,8 @@ open class ChatRepository(
             meta = updatedMeta,
             message = savedMsg,
             settings = settings,
-            counterpartyUserId = resolvedCounterpartyUid
+            counterpartyUserId = resolvedCounterpartyUid,
+            fallbackRemoteId = effectiveRemoteId
         )
 
         if (!fromCounterparty && cloudSynced && resolvedCounterpartyUid.isNotBlank()) {
@@ -599,15 +624,123 @@ open class ChatRepository(
         meta: ChatThreadMetadata,
         message: ChatMessageEntity,
         settings: UserSettings,
-        counterpartyUserId: String
+        counterpartyUserId: String,
+        fallbackRemoteId: String = ""
     ): Boolean {
         return ChatSyncHelper.syncChatThreadAndMessageToCloudIfEnabled(
             meta = meta,
             message = message,
             settings = settings,
             counterpartyUserId = counterpartyUserId,
-            cloudRepository = cloudRepository
+            cloudRepository = cloudRepository,
+            fallbackRemoteId = fallbackRemoteId
         )
+    }
+
+    private suspend fun syncSharedVerificationFieldsLocally(
+        transactionId: Long?,
+        remoteId: String,
+        shared: com.jyotirmoyb.udhaar.data.cloud.CloudSharedRecord
+    ) {
+        val currentTx = (transactionId?.let { dao.getTransactionById(it) })
+            ?: remoteId.takeIf { it.isNotBlank() }?.let { dao.getTransactionByRemoteId(it) }
+            ?: return
+        val remoteStatus = runCatching { VerificationStatus.valueOf(shared.verificationStatus) }.getOrNull() ?: return
+        val statusChanged = remoteStatus != currentTx.verificationStatus &&
+            !(currentTx.verificationStatus == VerificationStatus.CONFIRMED && remoteStatus == VerificationStatus.PENDING)
+        val nextVerifiedAt = shared.verifiedAtMillis.takeIf { it > 0L } ?: currentTx.verifiedAtMillis
+        val nextDispute = if (remoteStatus == VerificationStatus.DISPUTED) {
+            shared.disputeReason.ifBlank { currentTx.disputeReason }
+        } else {
+            ""
+        }
+        val nextGuestAction = if (remoteStatus == VerificationStatus.CONFIRMED &&
+            currentTx.lastGuestAction == "CONFIRM_PENDING"
+        ) {
+            "CONFIRMED"
+        } else {
+            currentTx.lastGuestAction
+        }
+        val updatedTx = currentTx.copy(
+            verificationStatus = if (statusChanged) remoteStatus else currentTx.verificationStatus,
+            verifiedAtMillis = nextVerifiedAt,
+            disputeReason = nextDispute,
+            needsMyConfirmation = if (remoteStatus == VerificationStatus.CONFIRMED) false else currentTx.needsMyConfirmation,
+            lastGuestAction = nextGuestAction
+        )
+        if (updatedTx != currentTx) {
+            dao.updateTransaction(updatedTx)
+        }
+    }
+
+    private suspend fun resolveCounterpartyUidFromCloud(
+        settings: UserSettings,
+        safeRemoteId: String,
+        txId: Long?,
+        partyId: Long?,
+        partyName: String
+    ): String {
+        val activeCloudRepo = cloudRepository?.takeIf { it.isAvailable } ?: return ""
+        val myUid = settings.cloudUserId.trim()
+        if (!settings.cloudVerificationConsent || myUid.isBlank() || safeRemoteId.isBlank()) {
+            return ""
+        }
+        val shared = runCatching { activeCloudRepo.getSharedRecord(safeRemoteId) }.getOrNull()
+        val fromShared = pickOtherUid(myUid, shared?.counterpartyUid, shared?.creatorUid, shared?.participantUids)
+        if (fromShared.isNotBlank()) {
+            linkCounterpartyUidLocally(txId, safeRemoteId, partyId, partyName, fromShared)
+            return fromShared
+        }
+        val cloudThread = runCatching { activeCloudRepo.getChatThread("tx_$safeRemoteId") }.getOrNull()
+        val fromThread = pickOtherUid(myUid, cloudThread?.counterpartyUid, cloudThread?.creatorUid, cloudThread?.participantUids)
+        if (fromThread.isNotBlank()) {
+            linkCounterpartyUidLocally(txId, safeRemoteId, partyId, partyName, fromThread)
+        }
+        return fromThread
+    }
+
+    private fun pickOtherUid(
+        myUid: String,
+        counterpartyUid: String?,
+        creatorUid: String?,
+        participantUids: List<String>?
+    ): String {
+        val cp = counterpartyUid.orEmpty().trim()
+        val creator = creatorUid.orEmpty().trim()
+        return when {
+            cp.isNotBlank() && cp != myUid -> cp
+            creator.isNotBlank() && creator != myUid -> creator
+            else -> participantUids.orEmpty().firstOrNull { it.isNotBlank() && it != myUid }.orEmpty()
+        }
+    }
+
+    private suspend fun retryPendingLocalMessagesToCloud(
+        threadKey: String,
+        meta: ChatThreadMetadata,
+        settings: UserSettings,
+        counterpartyUid: String,
+        fallbackRemoteId: String
+    ) {
+        if (counterpartyUid.isBlank()) return
+        val pendingMsgs = dao.getChatMessagesForThreadSnapshot(threadKey)
+            .filter { it.isFromMe && it.deliveryStatus == MessageDeliveryStatus.SENT }
+        for (pending in pendingMsgs) {
+            val synced = syncChatThreadAndMessageToCloudIfEnabled(
+                meta = meta,
+                message = pending,
+                settings = settings,
+                counterpartyUserId = counterpartyUid,
+                fallbackRemoteId = fallbackRemoteId
+            )
+            if (synced) {
+                dao.updateChatMessage(
+                    pending.copy(
+                        deliveryStatus = MessageDeliveryStatus.DELIVERED,
+                        deliveredAtMillis = pending.deliveredAtMillis ?: System.currentTimeMillis()
+                    )
+                )
+            }
+        }
     }
 
     /**
@@ -635,13 +768,14 @@ open class ChatRepository(
         val safeRemoteId = resolvedRemoteId.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
 
         var counterpartyUid = resolveCounterpartyUid(tx, partyId, partyName)
-        if (safeRemoteId.isNotBlank() && counterpartyUid.isBlank()) {
+        if (safeRemoteId.isNotBlank()) {
             val shared = runCatching { cloud.getSharedRecord(safeRemoteId) }.getOrNull()
             if (shared != null) {
+                syncSharedVerificationFieldsLocally(tx?.id ?: transactionId, safeRemoteId, shared)
                 val otherUid = when {
                     shared.counterpartyUid.isNotBlank() && shared.counterpartyUid != myUid -> shared.counterpartyUid
                     shared.creatorUid.isNotBlank() && shared.creatorUid != myUid -> shared.creatorUid
-                    else -> ""
+                    else -> shared.participantUids.firstOrNull { it.isNotBlank() && it != myUid }.orEmpty()
                 }
                 if (otherUid.isNotBlank()) {
                     counterpartyUid = otherUid
@@ -658,8 +792,42 @@ open class ChatRepository(
             myUid = myUid,
             counterpartyUid = counterpartyUid
         )
-        if (!cloudThreadId.startsWith("tx_") && !cloudThreadId.startsWith("dm_")) {
+        if ((!cloudThreadId.startsWith("tx_") || safeRemoteId.isBlank()) && !cloudThreadId.startsWith("dm_")) {
             return@flow
+        }
+
+        val localMeta = getOrCreateThreadMetadata(
+            threadKey = threadKey,
+            scope = scope,
+            transactionId = tx?.id ?: transactionId,
+            remoteId = safeRemoteId,
+            partyId = partyId,
+            partyName = partyName
+        )
+
+        if (counterpartyUid.isNotBlank()) {
+            runCatching {
+                cloud.upsertChatThread(
+                    CloudChatThread(
+                        threadId = cloudThreadId,
+                        scope = scope.name,
+                        remoteId = safeRemoteId,
+                        partyName = partyName.ifBlank { "Party" },
+                        creatorUid = myUid,
+                        counterpartyUid = counterpartyUid,
+                        participantUids = listOf(myUid, counterpartyUid).distinct(),
+                        lastMessagePreview = "",
+                        lastMessageAtMillis = -1L
+                    )
+                )
+            }
+            retryPendingLocalMessagesToCloud(
+                threadKey = threadKey,
+                meta = localMeta,
+                settings = settings,
+                counterpartyUid = counterpartyUid,
+                fallbackRemoteId = safeRemoteId
+            )
         }
 
         coroutineScope {
@@ -669,13 +837,21 @@ open class ChatRepository(
                         .catch { e -> SafeLogger.w("ChatRepository", "observeSharedRecord error", e) }
                         .collect { shared ->
                             if (shared != null) {
+                                syncSharedVerificationFieldsLocally(tx?.id ?: transactionId, safeRemoteId, shared)
                                 val otherUid = when {
                                     shared.counterpartyUid.isNotBlank() && shared.counterpartyUid != myUid -> shared.counterpartyUid
                                     shared.creatorUid.isNotBlank() && shared.creatorUid != myUid -> shared.creatorUid
-                                    else -> ""
+                                    else -> shared.participantUids.firstOrNull { it.isNotBlank() && it != myUid }.orEmpty()
                                 }
                                 if (otherUid.isNotBlank()) {
                                     linkCounterpartyUidLocally(tx?.id ?: transactionId, safeRemoteId, partyId, partyName, otherUid)
+                                    retryPendingLocalMessagesToCloud(
+                                        threadKey = threadKey,
+                                        meta = localMeta,
+                                        settings = settings,
+                                        counterpartyUid = otherUid,
+                                        fallbackRemoteId = safeRemoteId
+                                    )
                                 }
                             }
                         }
@@ -694,6 +870,13 @@ open class ChatRepository(
                             }
                             if (otherUid.isNotBlank()) {
                                 linkCounterpartyUidLocally(tx?.id ?: transactionId, safeRemoteId, partyId, partyName, otherUid)
+                                retryPendingLocalMessagesToCloud(
+                                    threadKey = threadKey,
+                                    meta = localMeta,
+                                    settings = settings,
+                                    counterpartyUid = otherUid,
+                                    fallbackRemoteId = safeRemoteId
+                                )
                             }
                             val existingMeta = getOrCreateThreadMetadata(
                                 threadKey = threadKey,

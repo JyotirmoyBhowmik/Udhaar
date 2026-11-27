@@ -155,7 +155,18 @@ fun TransactionVerificationCard(
                             )
                         }
                         if (tx.lastGuestAction.isNotBlank() && claim == null && dateProposal == null) {
-                            val actionSummary = tx.lastGuestAction
+                            val actionSummary = when (tx.lastGuestAction) {
+                                "CONFIRM_PENDING" -> "Counterparty confirmed"
+                                "CONFIRMED" -> "Verified"
+                                "DISPUTE" -> "Disputed"
+                                "PAYMENT_CLAIMED" -> "Payment claimed"
+                                "PAYMENT_CONFIRMED" -> "Payment confirmed"
+                                "PAYMENT_REJECTED" -> "Payment declined"
+                                "DATE_PROPOSED" -> "Date proposed"
+                                "DATE_ACCEPTED" -> "Date accepted"
+                                "DATE_DECLINED" -> "Date declined"
+                                else -> tx.lastGuestAction
+                            }
                             Text(
                                 text = actionSummary,
                                 style = MaterialTheme.typography.labelSmall,

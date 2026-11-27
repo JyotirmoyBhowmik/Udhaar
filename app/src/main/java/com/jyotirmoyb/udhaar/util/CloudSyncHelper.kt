@@ -97,7 +97,7 @@ object CloudSyncHelper {
                     plainText = tx.notes,
                     remoteId = remoteId,
                     shareToken = shareToken
-                ).take(8000)
+                ).take(2000)
 
                 val participants = listOfNotNull(
                     uid,

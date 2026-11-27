@@ -13,6 +13,17 @@ plugins {
   alias(libs.plugins.hilt.android)
 }
 
+val udhaarTier = providers.gradleProperty("udhaar.tier").getOrElse("spark")
+val udhaarCloudFeatures = providers.gradleProperty("udhaar.cloudFeatures")
+  .map { it.equals("true", ignoreCase = true) }
+  .getOrElse(true)
+val udhaarBlazeFeaturesEnabled = providers.gradleProperty("udhaar.blaze.enabled")
+  .map { it.equals("true", ignoreCase = true) }
+  .getOrElse(false)
+val udhaarRequireCloudVerification = providers.gradleProperty("udhaar.requireCloudVerification")
+  .map { it.equals("true", ignoreCase = true) }
+  .getOrElse(false)
+
 android {
   namespace = "com.jyotirmoyb.udhaar"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
@@ -24,82 +35,15 @@ android {
     versionCode = 32
     versionName = "32.0"
 
-    val versionPropsFile = rootProject.file("version.properties")
-    val versionProps = Properties().apply {
-      if (versionPropsFile.exists()) {
-        versionPropsFile.inputStream().use { load(it) }
-      }
-    }
-
-    val minVersionCode = versionProps.getProperty("minVersionCode")?.trim()?.toIntOrNull() ?: 28
-    val ciVersionCodeBase = versionProps.getProperty("ciVersionCodeBase")?.trim()?.toIntOrNull() ?: 100
-    val cliVersionCode = providers.gradleProperty("versionCode").orNull?.trim()?.toIntOrNull()
-    val propVersionCode = cliVersionCode
-      ?: versionProps.getProperty("versionCode")?.trim()?.toIntOrNull()
-    val rawCiRunNumber = providers.environmentVariable("BUILD_NUMBER")
-      .orElse(providers.environmentVariable("GITHUB_RUN_NUMBER"))
-      .orNull
-      ?.trim()
-      ?.toIntOrNull()
-
-    val resolvedVersionCode = when {
-      propVersionCode == null -> throw GradleException(
-        "Missing versionCode: define versionCode in root version.properties (must be >= $minVersionCode)."
-      )
-      rawCiRunNumber != null && rawCiRunNumber > 0 -> maxOf(propVersionCode, ciVersionCodeBase + rawCiRunNumber)
-      else -> propVersionCode
-    }
-    if (resolvedVersionCode < minVersionCode) {
-      throw GradleException(
-        "Invalid versionCode=$resolvedVersionCode: versionCode can never go below $minVersionCode."
-      )
-    }
-    if (cliVersionCode == null && (rawCiRunNumber == null || rawCiRunNumber <= 0) && propVersionCode != versionCode) {
-      throw GradleException(
-        "Version mismatch: app/build.gradle.kts versionCode ($versionCode) != version.properties versionCode ($propVersionCode)."
-      )
-    }
-    if (resolvedVersionCode != versionCode) {
-      this::versionCode.set(resolvedVersionCode)
-    }
-
-    val cliVersionName = providers.environmentVariable("VERSION_NAME")
-      .orElse(providers.gradleProperty("versionName"))
-      .orNull
-      ?.trim()
-      ?.takeIf { it.isNotBlank() }
-    val resolvedVersionName = cliVersionName
-      ?: versionProps.getProperty("versionName")?.trim()?.takeIf { it.isNotBlank() }
-      ?: throw GradleException(
-        "Missing versionName: define versionName in root version.properties."
-      )
-    if (cliVersionName == null && resolvedVersionName != versionName) {
-      throw GradleException(
-        "Version mismatch: app/build.gradle.kts versionName ($versionName) != version.properties versionName ($resolvedVersionName)."
-      )
-    }
-    if (resolvedVersionName != versionName) {
-      this::versionName.set(resolvedVersionName)
-    }
-
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    val udhaarTier = providers.gradleProperty("udhaar.tier").getOrElse("spark")
     buildConfigField("String", "UDHAAR_TIER", "\"$udhaarTier\"")
-    val cloudFeatures = providers.gradleProperty("udhaar.cloudFeatures")
-      .map { it.equals("true", ignoreCase = true) }
-      .getOrElse(true)
-    buildConfigField("boolean", "CLOUD_FEATURES", cloudFeatures.toString())
-    val blazeFeaturesEnabled = providers.gradleProperty("udhaar.blaze.enabled")
-      .map { it.equals("true", ignoreCase = true) }
-      .getOrElse(false)
-    buildConfigField("boolean", "BLAZE_FEATURES_ENABLED", blazeFeaturesEnabled.toString())
-    val requireCloudVerification = providers.gradleProperty("udhaar.requireCloudVerification")
-      .map { it.equals("true", ignoreCase = true) }
-      .getOrElse(false)
-    buildConfigField("boolean", "REQUIRE_CLOUD_VERIFICATION", requireCloudVerification.toString())
+    buildConfigField("boolean", "CLOUD_FEATURES", udhaarCloudFeatures.toString())
+    buildConfigField("boolean", "BLAZE_FEATURES_ENABLED", udhaarBlazeFeaturesEnabled.toString())
+    buildConfigField("boolean", "REQUIRE_CLOUD_VERIFICATION", udhaarRequireCloudVerification.toString())
+  }
+
   androidResources {
     localeFilters += listOf("en", "hi", "bn", "as", "ne")
-  }
   }
 
   // Do not remove or modify these signingConfigs. They are necessary for building, installing,
